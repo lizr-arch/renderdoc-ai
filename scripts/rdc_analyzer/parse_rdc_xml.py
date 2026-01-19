@@ -977,6 +977,152 @@ def parse_vulkan_vertex_buffers(params):
     return result
 
 
+# ============================================================
+# 新增解析函数：Shader Resources, Constant Buffers, Samplers, RT
+# ============================================================
+
+def parse_shader_resources_from_params(params):
+    """
+    解析 *SetShaderResources 调用的参数
+    返回: [{slot: int, resourceId: str}, ...]
+    """
+    start_slot = 0
+    resources = []
+    
+    for p in params:
+        name = p.get("name", "")
+        if name == "StartSlot":
+            start_slot = int(p.get("value", 0))
+        elif name == "ppShaderResourceViews" and "elements" in p:
+            for elem in p["elements"]:
+                resources.append(elem.get("value", ""))
+    
+    result = []
+    for i, res in enumerate(resources):
+        if res and res != "ResourceId::Null()":
+            result.append({
+                "slot": start_slot + i,
+                "resourceId": res
+            })
+    return result
+
+
+def parse_constant_buffers_from_params(params):
+    """
+    解析 *SetConstantBuffers 调用的参数
+    返回: [{slot: int, resourceId: str}, ...]
+    """
+    start_slot = 0
+    buffers = []
+    
+    for p in params:
+        name = p.get("name", "")
+        if name == "StartSlot":
+            start_slot = int(p.get("value", 0))
+        elif name == "ppConstantBuffers" and "elements" in p:
+            for elem in p["elements"]:
+                buffers.append(elem.get("value", ""))
+    
+    result = []
+    for i, buf in enumerate(buffers):
+        if buf and buf != "ResourceId::Null()":
+            result.append({
+                "slot": start_slot + i,
+                "resourceId": buf
+            })
+    return result
+
+
+def parse_samplers_from_params(params):
+    """
+    解析 *SetSamplers 调用的参数
+    返回: [{slot: int, resourceId: str}, ...]
+    """
+    start_slot = 0
+    samplers = []
+    
+    for p in params:
+        name = p.get("name", "")
+        if name == "StartSlot":
+            start_slot = int(p.get("value", 0))
+        elif name == "ppSamplers" and "elements" in p:
+            for elem in p["elements"]:
+                samplers.append(elem.get("value", ""))
+    
+    result = []
+    for i, sampler in enumerate(samplers):
+        if sampler and sampler != "ResourceId::Null()":
+            result.append({
+                "slot": start_slot + i,
+                "resourceId": sampler
+            })
+    return result
+
+
+def parse_render_targets_from_params(params):
+    """
+    解析 OMSetRenderTargets 调用的参数
+    返回: {views: [{slot: int, resourceId: str}, ...], depthStencil: str}
+    """
+    rtv_list = []
+    dsv = None
+    
+    for p in params:
+        name = p.get("name", "")
+        if name == "ppRenderTargetViews" and "elements" in p:
+            for i, elem in enumerate(p["elements"]):
+                rid = elem.get("value", "")
+                if rid and rid != "ResourceId::Null()":
+                    rtv_list.append({
+                        "slot": i,
+                        "resourceId": rid
+                    })
+        elif name == "pDepthStencilView":
+            val = p.get("value", "")
+            if val and val != "ResourceId::Null()":
+                dsv = val
+    
+    return {
+        "views": rtv_list,
+        "depthStencil": dsv
+    }
+
+
+def parse_vertex_buffers_from_params(params):
+    """
+    解析 IASetVertexBuffers 调用的参数
+    返回: [{slot: int, buffer: str, stride: int, offset: int}, ...]
+    """
+    # 复用已有的 parse_d3d11_vertex_buffers
+    return parse_d3d11_vertex_buffers(params)
+
+
+def parse_index_buffer_from_params(params):
+    """
+    解析 IASetIndexBuffer 调用的参数
+    返回: {buffer: str, format: str, offset: int}
+    """
+    # 复用已有的 parse_d3d11_index_buffer
+    return parse_d3d11_index_buffer(params)
+
+
+def merge_slot_resources(target_list, new_resources):
+    """
+    合并 slot-based 资源列表，同一 slot 以新值覆盖旧值
+    """
+    existing_slots = {r["slot"]: i for i, r in enumerate(target_list)}
+    
+    for res in new_resources:
+        slot = res["slot"]
+        if slot in existing_slots:
+            # 覆盖已有 slot
+            target_list[existing_slots[slot]] = res
+        else:
+            # 新增 slot
+            target_list.append(res)
+            existing_slots[slot] = len(target_list) - 1
+
+
 def parse_vulkan_index_buffer(params):
     """解析 Vulkan vkCmdBindIndexBuffer 参数"""
     ib_info = {}
@@ -1018,6 +1164,41 @@ def parse_pipeline_state_from_binding_records(binding_records, state_objects=Non
         },
         "primitiveTopology": None,
         "inputLayout": None,
+        # 新增字段 - Shader Resources
+        "shaderResources": {
+            "vs": [],
+            "ps": [],
+            "gs": [],
+            "hs": [],
+            "ds": [],
+            "cs": [],
+        },
+        # 新增字段 - Constant Buffers
+        "constantBuffers": {
+            "vs": [],
+            "ps": [],
+            "gs": [],
+            "hs": [],
+            "ds": [],
+            "cs": [],
+        },
+        # 新增字段 - Samplers
+        "samplers": {
+            "vs": [],
+            "ps": [],
+            "gs": [],
+            "hs": [],
+            "ds": [],
+            "cs": [],
+        },
+        # 新增字段 - Render Targets
+        "renderTargets": {
+            "views": [],
+            "depthStencil": None,
+        },
+        # 新增字段 - Vertex/Index Buffers
+        "vertexBuffers": [],
+        "indexBuffer": None,
     }
     
     for record in binding_records:
@@ -1094,6 +1275,114 @@ def parse_pipeline_state_from_binding_records(binding_records, state_objects=Non
         # 解析 Input Layout (D3D11)
         elif "IASetInputLayout" in name:
             pipeline_state["inputLayout"] = parse_input_layout_from_params(params)
+        
+        # ============================================================
+        # 新增解析：Shader Resources (SRV)
+        # ============================================================
+        elif "VSSetShaderResources" in name:
+            resources = parse_shader_resources_from_params(params)
+            if resources:
+                merge_slot_resources(pipeline_state["shaderResources"]["vs"], resources)
+        elif "PSSetShaderResources" in name:
+            resources = parse_shader_resources_from_params(params)
+            if resources:
+                merge_slot_resources(pipeline_state["shaderResources"]["ps"], resources)
+        elif "GSSetShaderResources" in name:
+            resources = parse_shader_resources_from_params(params)
+            if resources:
+                merge_slot_resources(pipeline_state["shaderResources"]["gs"], resources)
+        elif "HSSetShaderResources" in name:
+            resources = parse_shader_resources_from_params(params)
+            if resources:
+                merge_slot_resources(pipeline_state["shaderResources"]["hs"], resources)
+        elif "DSSetShaderResources" in name:
+            resources = parse_shader_resources_from_params(params)
+            if resources:
+                merge_slot_resources(pipeline_state["shaderResources"]["ds"], resources)
+        elif "CSSetShaderResources" in name:
+            resources = parse_shader_resources_from_params(params)
+            if resources:
+                merge_slot_resources(pipeline_state["shaderResources"]["cs"], resources)
+        
+        # ============================================================
+        # 新增解析：Constant Buffers (CBV)
+        # ============================================================
+        elif "VSSetConstantBuffers" in name:
+            buffers = parse_constant_buffers_from_params(params)
+            if buffers:
+                merge_slot_resources(pipeline_state["constantBuffers"]["vs"], buffers)
+        elif "PSSetConstantBuffers" in name:
+            buffers = parse_constant_buffers_from_params(params)
+            if buffers:
+                merge_slot_resources(pipeline_state["constantBuffers"]["ps"], buffers)
+        elif "GSSetConstantBuffers" in name:
+            buffers = parse_constant_buffers_from_params(params)
+            if buffers:
+                merge_slot_resources(pipeline_state["constantBuffers"]["gs"], buffers)
+        elif "HSSetConstantBuffers" in name:
+            buffers = parse_constant_buffers_from_params(params)
+            if buffers:
+                merge_slot_resources(pipeline_state["constantBuffers"]["hs"], buffers)
+        elif "DSSetConstantBuffers" in name:
+            buffers = parse_constant_buffers_from_params(params)
+            if buffers:
+                merge_slot_resources(pipeline_state["constantBuffers"]["ds"], buffers)
+        elif "CSSetConstantBuffers" in name:
+            buffers = parse_constant_buffers_from_params(params)
+            if buffers:
+                merge_slot_resources(pipeline_state["constantBuffers"]["cs"], buffers)
+        
+        # ============================================================
+        # 新增解析：Samplers
+        # ============================================================
+        elif "VSSetSamplers" in name:
+            samplers = parse_samplers_from_params(params)
+            if samplers:
+                merge_slot_resources(pipeline_state["samplers"]["vs"], samplers)
+        elif "PSSetSamplers" in name:
+            samplers = parse_samplers_from_params(params)
+            if samplers:
+                merge_slot_resources(pipeline_state["samplers"]["ps"], samplers)
+        elif "GSSetSamplers" in name:
+            samplers = parse_samplers_from_params(params)
+            if samplers:
+                merge_slot_resources(pipeline_state["samplers"]["gs"], samplers)
+        elif "HSSetSamplers" in name:
+            samplers = parse_samplers_from_params(params)
+            if samplers:
+                merge_slot_resources(pipeline_state["samplers"]["hs"], samplers)
+        elif "DSSetSamplers" in name:
+            samplers = parse_samplers_from_params(params)
+            if samplers:
+                merge_slot_resources(pipeline_state["samplers"]["ds"], samplers)
+        elif "CSSetSamplers" in name:
+            samplers = parse_samplers_from_params(params)
+            if samplers:
+                merge_slot_resources(pipeline_state["samplers"]["cs"], samplers)
+        
+        # ============================================================
+        # 新增解析：Render Targets
+        # ============================================================
+        elif "OMSetRenderTargets" in name:
+            rt_info = parse_render_targets_from_params(params)
+            if rt_info:
+                pipeline_state["renderTargets"] = rt_info
+        
+        # ============================================================
+        # 新增解析：Vertex Buffers
+        # ============================================================
+        elif "IASetVertexBuffers" in name:
+            vb_info = parse_vertex_buffers_from_params(params)
+            if vb_info:
+                merge_slot_resources(pipeline_state["vertexBuffers"], vb_info)
+        
+        # ============================================================
+        # 新增解析：Index Buffer
+        # ============================================================
+        elif "IASetIndexBuffer" in name:
+            ib_info = parse_index_buffer_from_params(params)
+            if ib_info:
+                pipeline_state["indexBuffer"] = ib_info
     
     return pipeline_state
 

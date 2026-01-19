@@ -1,0 +1,1619 @@
+{
+  "apiType": "D3D11",
+  "events": [
+    {
+      "eventId": 0,
+      "chunkId": 1085,
+      "name": "ID3D11DeviceContext::ClearRenderTargetView",
+      "timestamp": 863444796086,
+      "duration": 77.0,
+      "params": [
+        {
+          "name": "callstack",
+          "type": "callstack"
+        },
+        {
+          "name": "Context",
+          "type": "ID3D11DeviceContext *",
+          "value": "90"
+        },
+        {
+          "name": "pRenderTargetView",
+          "type": "ID3D11RenderTargetView *",
+          "value": "131"
+        },
+        {
+          "name": "ColorRGBA",
+          "type": "array",
+          "important": true,
+          "elements": [
+            {
+              "name": "float",
+              "type": "float",
+              "value": "0"
+            },
+            {
+              "name": "float",
+              "type": "float",
+              "value": "0"
+            },
+            {
+              "name": "float",
+              "type": "float",
+              "value": "0"
+            },
+            {
+              "name": "float",
+              "type": "float",
+              "value": "0"
+            }
+          ]
+        },
+        {
+          "name": "DebugMessages",
+          "type": "DebugMessage"
+        }
+      ],
+      "type": "clear",
+      "flags": [],
+      "relatedCalls": [
+        "ID3D11DeviceContext::VSSetShaderResources(Context: 90, StartSlot: 0, NumViews: 16, ppShaderResourceViews: [0, 0, 0, 0, 0, ...])",
+        "ID3D11DeviceContext::VSSetSamplers(Context: 90, StartSlot: 0, NumSamplers: 16, ppSamplers: [0, 0, 0, 0, 0, ...])",
+        "ID3D11DeviceContext::PSSetShaderResources(Context: 90, StartSlot: 0, NumViews: 16, ppShaderResourceViews: [0, 0, 0, 0, 0, ...])",
+        "ID3D11DeviceContext::PSSetSamplers(Context: 90, StartSlot: 0, NumSamplers: 16, ppSamplers: [0, 0, 0, 0, 0, ...])",
+        "ID3D11DeviceContext::GSSetShaderResources(Context: 90, StartSlot: 0, NumViews: 16, ppShaderResourceViews: [0, 0, 0, 0, 0, ...])",
+        "ID3D11DeviceContext::GSSetSamplers(Context: 90, StartSlot: 0, NumSamplers: 16, ppSamplers: [0, 0, 0, 0, 0, ...])",
+        "ID3D11DeviceContext::HSSetShaderResources(Context: 90, StartSlot: 0, NumViews: 16, ppShaderResourceViews: [0, 0, 0, 0, 0, ...])",
+        "ID3D11DeviceContext::DSSetShaderResources(Context: 90, StartSlot: 0, NumViews: 16, ppShaderResourceViews: [0, 0, 0, 0, 0, ...])",
+        "ID3D11DeviceContext::CSSetShaderResources(Context: 90, StartSlot: 0, NumViews: 16, ppShaderResourceViews: [0, 0, 0, 0, 0, ...])",
+        "ID3D11DeviceContext::CSSetSamplers(Context: 90, StartSlot: 0, NumSamplers: 16, ppSamplers: [0, 0, 0, 0, 0, ...])",
+        "ID3D11DeviceContext::OMSetRenderTargets(Context: 90, NumViews: 8, ppRenderTargetViews: [0, 0, 0, 0, 0, ...], pDepthStencilView: 0)",
+        "ID3D11DeviceContext::RSSetViewports(Context: 90, NumViewports: 1, pViewports: [{...}])"
+      ],
+      "pipelineState": {
+        "viewport": {
+          "x": 0.0,
+          "y": 0.0,
+          "width": 1366.0,
+          "height": 768.0,
+          "minDepth": 0.0,
+          "maxDepth": 1.0,
+          "count": 1
+        },
+        "scissor": null,
+        "blendState": null,
+        "depthState": null,
+        "rasterizerState": null,
+        "shaders": {
+          "vs": null,
+          "ps": null,
+          "gs": null,
+          "hs": null,
+          "ds": null,
+          "cs": null
+        },
+        "primitiveTopology": null,
+        "inputLayout": null
+      }
+    },
+    {
+      "eventId": 1,
+      "chunkId": 1084,
+      "name": "ID3D11DeviceContext::ClearDepthStencilView",
+      "timestamp": 863444796199,
+      "duration": 45.0,
+      "params": [
+        {
+          "name": "callstack",
+          "type": "callstack"
+        },
+        {
+          "name": "Context",
+          "type": "ID3D11DeviceContext *",
+          "value": "90"
+        },
+        {
+          "name": "pDepthStencilView",
+          "type": "ID3D11DepthStencilView *",
+          "value": "276"
+        },
+        {
+          "name": "ClearFlags",
+          "type": "D3D11_CLEAR_FLAG",
+          "value": "3"
+        },
+        {
+          "name": "Depth",
+          "type": "float",
+          "value": "0",
+          "important": true
+        },
+        {
+          "name": "Stencil",
+          "type": "uint8_t",
+          "value": "0",
+          "important": true
+        },
+        {
+          "name": "DebugMessages",
+          "type": "DebugMessage"
+        }
+      ],
+      "type": "clear",
+      "flags": [],
+      "relatedCalls": [
+        "ID3D11DeviceContext::VSSetShaderResources(Context: 90, StartSlot: 0, NumViews: 16, ppShaderResourceViews: [0, 0, 0, 0, 0, ...])",
+        "ID3D11DeviceContext::VSSetSamplers(Context: 90, StartSlot: 0, NumSamplers: 16, ppSamplers: [0, 0, 0, 0, 0, ...])",
+        "ID3D11DeviceContext::PSSetShaderResources(Context: 90, StartSlot: 0, NumViews: 16, ppShaderResourceViews: [0, 0, 0, 0, 0, ...])",
+        "ID3D11DeviceContext::PSSetSamplers(Context: 90, StartSlot: 0, NumSamplers: 16, ppSamplers: [0, 0, 0, 0, 0, ...])",
+        "ID3D11DeviceContext::GSSetShaderResources(Context: 90, StartSlot: 0, NumViews: 16, ppShaderResourceViews: [0, 0, 0, 0, 0, ...])",
+        "ID3D11DeviceContext::GSSetSamplers(Context: 90, StartSlot: 0, NumSamplers: 16, ppSamplers: [0, 0, 0, 0, 0, ...])",
+        "ID3D11DeviceContext::HSSetShaderResources(Context: 90, StartSlot: 0, NumViews: 16, ppShaderResourceViews: [0, 0, 0, 0, 0, ...])",
+        "ID3D11DeviceContext::DSSetShaderResources(Context: 90, StartSlot: 0, NumViews: 16, ppShaderResourceViews: [0, 0, 0, 0, 0, ...])",
+        "ID3D11DeviceContext::CSSetShaderResources(Context: 90, StartSlot: 0, NumViews: 16, ppShaderResourceViews: [0, 0, 0, 0, 0, ...])",
+        "ID3D11DeviceContext::CSSetSamplers(Context: 90, StartSlot: 0, NumSamplers: 16, ppSamplers: [0, 0, 0, 0, 0, ...])",
+        "ID3D11DeviceContext::OMSetRenderTargets(Context: 90, NumViews: 8, ppRenderTargetViews: [0, 0, 0, 0, 0, ...], pDepthStencilView: 0)",
+        "ID3D11DeviceContext::RSSetViewports(Context: 90, NumViewports: 1, pViewports: [{...}])"
+      ],
+      "pipelineState": {
+        "viewport": {
+          "x": 0.0,
+          "y": 0.0,
+          "width": 1366.0,
+          "height": 768.0,
+          "minDepth": 0.0,
+          "maxDepth": 1.0,
+          "count": 1
+        },
+        "scissor": null,
+        "blendState": null,
+        "depthState": null,
+        "rasterizerState": null,
+        "shaders": {
+          "vs": null,
+          "ps": null,
+          "gs": null,
+          "hs": null,
+          "ds": null,
+          "cs": null
+        },
+        "primitiveTopology": null,
+        "inputLayout": null
+      }
+    },
+    {
+      "eventId": 2,
+      "chunkId": 1084,
+      "name": "ID3D11DeviceContext::ClearDepthStencilView",
+      "timestamp": 863444796595,
+      "duration": 6.0,
+      "params": [
+        {
+          "name": "callstack",
+          "type": "callstack"
+        },
+        {
+          "name": "Context",
+          "type": "ID3D11DeviceContext *",
+          "value": "90"
+        },
+        {
+          "name": "pDepthStencilView",
+          "type": "ID3D11DepthStencilView *",
+          "value": "276"
+        },
+        {
+          "name": "ClearFlags",
+          "type": "D3D11_CLEAR_FLAG",
+          "value": "3"
+        },
+        {
+          "name": "Depth",
+          "type": "float",
+          "value": "0",
+          "important": true
+        },
+        {
+          "name": "Stencil",
+          "type": "uint8_t",
+          "value": "0",
+          "important": true
+        },
+        {
+          "name": "DebugMessages",
+          "type": "DebugMessage"
+        }
+      ],
+      "type": "clear",
+      "flags": [],
+      "relatedCalls": [
+        "ID3D11DeviceContext::VSSetShaderResources(Context: 90, StartSlot: 0, NumViews: 16, ppShaderResourceViews: [0, 0, 0, 0, 0, ...])",
+        "ID3D11DeviceContext::VSSetSamplers(Context: 90, StartSlot: 0, NumSamplers: 16, ppSamplers: [0, 0, 0, 0, 0, ...])",
+        "ID3D11DeviceContext::PSSetShaderResources(Context: 90, StartSlot: 0, NumViews: 16, ppShaderResourceViews: [0, 0, 0, 0, 0, ...])",
+        "ID3D11DeviceContext::PSSetSamplers(Context: 90, StartSlot: 0, NumSamplers: 16, ppSamplers: [0, 0, 0, 0, 0, ...])",
+        "ID3D11DeviceContext::GSSetShaderResources(Context: 90, StartSlot: 0, NumViews: 16, ppShaderResourceViews: [0, 0, 0, 0, 0, ...])",
+        "ID3D11DeviceContext::GSSetSamplers(Context: 90, StartSlot: 0, NumSamplers: 16, ppSamplers: [0, 0, 0, 0, 0, ...])",
+        "ID3D11DeviceContext::HSSetShaderResources(Context: 90, StartSlot: 0, NumViews: 16, ppShaderResourceViews: [0, 0, 0, 0, 0, ...])",
+        "ID3D11DeviceContext::DSSetShaderResources(Context: 90, StartSlot: 0, NumViews: 16, ppShaderResourceViews: [0, 0, 0, 0, 0, ...])",
+        "ID3D11DeviceContext::CSSetShaderResources(Context: 90, StartSlot: 0, NumViews: 16, ppShaderResourceViews: [0, 0, 0, 0, 0, ...])",
+        "ID3D11DeviceContext::CSSetSamplers(Context: 90, StartSlot: 0, NumSamplers: 16, ppSamplers: [0, 0, 0, 0, 0, ...])",
+        "ID3D11DeviceContext::OMSetRenderTargets(Context: 90, NumViews: 8, ppRenderTargetViews: [0, 0, 0, 0, 0, ...], pDepthStencilView: 0)",
+        "ID3D11DeviceContext::RSSetViewports(Context: 90, NumViewports: 1, pViewports: [{...}])",
+        "ID3D11DeviceContext::OMSetRenderTargets(Context: 90, NumViews: 1, ppRenderTargetViews: [131], pDepthStencilView: 276)",
+        "ID3D11DeviceContext::VSSetShaderResources(Context: 90, StartSlot: 0, NumViews: 16, ppShaderResourceViews: [0, 0, 0, 0, 0, ...])",
+        "ID3D11DeviceContext::VSSetSamplers(Context: 90, StartSlot: 0, NumSamplers: 16, ppSamplers: [0, 0, 0, 0, 0, ...])",
+        "ID3D11DeviceContext::PSSetShaderResources(Context: 90, StartSlot: 0, NumViews: 16, ppShaderResourceViews: [0, 0, 0, 0, 0, ...])",
+        "ID3D11DeviceContext::PSSetSamplers(Context: 90, StartSlot: 0, NumSamplers: 16, ppSamplers: [0, 0, 0, 0, 0, ...])",
+        "ID3D11DeviceContext::GSSetShaderResources(Context: 90, StartSlot: 0, NumViews: 16, ppShaderResourceViews: [0, 0, 0, 0, 0, ...])",
+        "ID3D11DeviceContext::GSSetSamplers(Context: 90, StartSlot: 0, NumSamplers: 16, ppSamplers: [0, 0, 0, 0, 0, ...])",
+        "ID3D11DeviceContext::HSSetShaderResources(Context: 90, StartSlot: 0, NumViews: 16, ppShaderResourceViews: [0, 0, 0, 0, 0, ...])",
+        "ID3D11DeviceContext::DSSetShaderResources(Context: 90, StartSlot: 0, NumViews: 16, ppShaderResourceViews: [0, 0, 0, 0, 0, ...])",
+        "ID3D11DeviceContext::CSSetShaderResources(Context: 90, StartSlot: 0, NumViews: 16, ppShaderResourceViews: [0, 0, 0, 0, 0, ...])",
+        "ID3D11DeviceContext::CSSetSamplers(Context: 90, StartSlot: 0, NumSamplers: 16, ppSamplers: [0, 0, 0, 0, 0, ...])",
+        "ID3D11DeviceContext::OMSetRenderTargets(Context: 90, NumViews: 8, ppRenderTargetViews: [0, 0, 0, 0, 0, ...], pDepthStencilView: 0)",
+        "ID3D11DeviceContext::RSSetViewports(Context: 90, NumViewports: 1, pViewports: [{...}])"
+      ],
+      "pipelineState": {
+        "viewport": {
+          "x": 0.0,
+          "y": 0.0,
+          "width": 1366.0,
+          "height": 768.0,
+          "minDepth": 0.0,
+          "maxDepth": 1.0,
+          "count": 1
+        },
+        "scissor": null,
+        "blendState": null,
+        "depthState": null,
+        "rasterizerState": null,
+        "shaders": {
+          "vs": null,
+          "ps": null,
+          "gs": null,
+          "hs": null,
+          "ds": null,
+          "cs": null
+        },
+        "primitiveTopology": null,
+        "inputLayout": null
+      }
+    },
+    {
+      "eventId": 3,
+      "chunkId": 1071,
+      "name": "ID3D11DeviceContext::DrawIndexed",
+      "timestamp": 863444797877,
+      "duration": 388.0,
+      "params": [
+        {
+          "name": "callstack",
+          "type": "callstack"
+        },
+        {
+          "name": "Context",
+          "type": "ID3D11DeviceContext *",
+          "value": "90"
+        },
+        {
+          "name": "IndexCount",
+          "type": "uint32_t",
+          "value": "30",
+          "important": true
+        },
+        {
+          "name": "StartIndexLocation",
+          "type": "uint32_t",
+          "value": "0"
+        },
+        {
+          "name": "BaseVertexLocation",
+          "type": "int32_t",
+          "value": "0"
+        },
+        {
+          "name": "DebugMessages",
+          "type": "DebugMessage"
+        }
+      ],
+      "type": "draw",
+      "flags": [
+        "indexed"
+      ],
+      "relatedCalls": [
+        "ID3D11DeviceContext::VSSetShaderResources(Context: 90, StartSlot: 0, NumViews: 16, ppShaderResourceViews: [0, 0, 0, 0, 0, ...])",
+        "ID3D11DeviceContext::VSSetSamplers(Context: 90, StartSlot: 0, NumSamplers: 16, ppSamplers: [0, 0, 0, 0, 0, ...])",
+        "ID3D11DeviceContext::PSSetShaderResources(Context: 90, StartSlot: 0, NumViews: 16, ppShaderResourceViews: [0, 0, 0, 0, 0, ...])",
+        "ID3D11DeviceContext::PSSetSamplers(Context: 90, StartSlot: 0, NumSamplers: 16, ppSamplers: [0, 0, 0, 0, 0, ...])",
+        "ID3D11DeviceContext::GSSetShaderResources(Context: 90, StartSlot: 0, NumViews: 16, ppShaderResourceViews: [0, 0, 0, 0, 0, ...])",
+        "ID3D11DeviceContext::GSSetSamplers(Context: 90, StartSlot: 0, NumSamplers: 16, ppSamplers: [0, 0, 0, 0, 0, ...])",
+        "ID3D11DeviceContext::HSSetShaderResources(Context: 90, StartSlot: 0, NumViews: 16, ppShaderResourceViews: [0, 0, 0, 0, 0, ...])",
+        "ID3D11DeviceContext::DSSetShaderResources(Context: 90, StartSlot: 0, NumViews: 16, ppShaderResourceViews: [0, 0, 0, 0, 0, ...])",
+        "ID3D11DeviceContext::CSSetShaderResources(Context: 90, StartSlot: 0, NumViews: 16, ppShaderResourceViews: [0, 0, 0, 0, 0, ...])",
+        "ID3D11DeviceContext::CSSetSamplers(Context: 90, StartSlot: 0, NumSamplers: 16, ppSamplers: [0, 0, 0, 0, 0, ...])",
+        "ID3D11DeviceContext::OMSetRenderTargets(Context: 90, NumViews: 8, ppRenderTargetViews: [0, 0, 0, 0, 0, ...], pDepthStencilView: 0)",
+        "ID3D11DeviceContext::RSSetViewports(Context: 90, NumViewports: 1, pViewports: [{...}])",
+        "ID3D11DeviceContext::OMSetRenderTargets(Context: 90, NumViews: 1, ppRenderTargetViews: [131], pDepthStencilView: 276)",
+        "ID3D11DeviceContext::VSSetShaderResources(Context: 90, StartSlot: 0, NumViews: 16, ppShaderResourceViews: [0, 0, 0, 0, 0, ...])",
+        "ID3D11DeviceContext::VSSetSamplers(Context: 90, StartSlot: 0, NumSamplers: 16, ppSamplers: [0, 0, 0, 0, 0, ...])",
+        "ID3D11DeviceContext::PSSetShaderResources(Context: 90, StartSlot: 0, NumViews: 16, ppShaderResourceViews: [0, 0, 0, 0, 0, ...])",
+        "ID3D11DeviceContext::PSSetSamplers(Context: 90, StartSlot: 0, NumSamplers: 16, ppSamplers: [0, 0, 0, 0, 0, ...])",
+        "ID3D11DeviceContext::GSSetShaderResources(Context: 90, StartSlot: 0, NumViews: 16, ppShaderResourceViews: [0, 0, 0, 0, 0, ...])",
+        "ID3D11DeviceContext::GSSetSamplers(Context: 90, StartSlot: 0, NumSamplers: 16, ppSamplers: [0, 0, 0, 0, 0, ...])",
+        "ID3D11DeviceContext::HSSetShaderResources(Context: 90, StartSlot: 0, NumViews: 16, ppShaderResourceViews: [0, 0, 0, 0, 0, ...])",
+        "ID3D11DeviceContext::DSSetShaderResources(Context: 90, StartSlot: 0, NumViews: 16, ppShaderResourceViews: [0, 0, 0, 0, 0, ...])",
+        "ID3D11DeviceContext::CSSetShaderResources(Context: 90, StartSlot: 0, NumViews: 16, ppShaderResourceViews: [0, 0, 0, 0, 0, ...])",
+        "ID3D11DeviceContext::CSSetSamplers(Context: 90, StartSlot: 0, NumSamplers: 16, ppSamplers: [0, 0, 0, 0, 0, ...])",
+        "ID3D11DeviceContext::OMSetRenderTargets(Context: 90, NumViews: 8, ppRenderTargetViews: [0, 0, 0, 0, 0, ...], pDepthStencilView: 0)",
+        "ID3D11DeviceContext::RSSetViewports(Context: 90, NumViewports: 1, pViewports: [{...}])",
+        "ID3D11DeviceContext::OMSetRenderTargets(Context: 90, NumViews: 1, ppRenderTargetViews: [0], pDepthStencilView: 276)",
+        "ID3D11DeviceContext::VSSetShaderResources(Context: 90, StartSlot: 0, NumViews: 16, ppShaderResourceViews: [0, 0, 0, 0, 0, ...])",
+        "ID3D11DeviceContext::VSSetSamplers(Context: 90, StartSlot: 0, NumSamplers: 16, ppSamplers: [0, 0, 0, 0, 0, ...])",
+        "ID3D11DeviceContext::PSSetShaderResources(Context: 90, StartSlot: 0, NumViews: 16, ppShaderResourceViews: [0, 0, 0, 0, 0, ...])",
+        "ID3D11DeviceContext::PSSetSamplers(Context: 90, StartSlot: 0, NumSamplers: 16, ppSamplers: [0, 0, 0, 0, 0, ...])",
+        "ID3D11DeviceContext::GSSetShaderResources(Context: 90, StartSlot: 0, NumViews: 16, ppShaderResourceViews: [0, 0, 0, 0, 0, ...])",
+        "ID3D11DeviceContext::GSSetSamplers(Context: 90, StartSlot: 0, NumSamplers: 16, ppSamplers: [0, 0, 0, 0, 0, ...])",
+        "ID3D11DeviceContext::HSSetShaderResources(Context: 90, StartSlot: 0, NumViews: 16, ppShaderResourceViews: [0, 0, 0, 0, 0, ...])",
+        "ID3D11DeviceContext::DSSetShaderResources(Context: 90, StartSlot: 0, NumViews: 16, ppShaderResourceViews: [0, 0, 0, 0, 0, ...])",
+        "ID3D11DeviceContext::CSSetShaderResources(Context: 90, StartSlot: 0, NumViews: 16, ppShaderResourceViews: [0, 0, 0, 0, 0, ...])",
+        "ID3D11DeviceContext::CSSetSamplers(Context: 90, StartSlot: 0, NumSamplers: 16, ppSamplers: [0, 0, 0, 0, 0, ...])",
+        "ID3D11DeviceContext::OMSetRenderTargets(Context: 90, NumViews: 8, ppRenderTargetViews: [0, 0, 0, 0, 0, ...], pDepthStencilView: 0)",
+        "ID3D11DeviceContext::RSSetViewports(Context: 90, NumViewports: 1, pViewports: [{...}])",
+        "ID3D11DeviceContext::OMSetRenderTargets(Context: 90, NumViews: 1, ppRenderTargetViews: [131], pDepthStencilView: 276)",
+        "ID3D11DeviceContext::CSSetShader(Context: 90, pShader: 0, NumClassInstances: 0)",
+        "ID3D11DeviceContext::CSSetConstantBuffers(Context: 90, StartSlot: 0, NumBuffers: 6, ppConstantBuffers: [0, 0, 0, 0, 0, ...])",
+        "ID3D11DeviceContext::VSSetShader(Context: 90, pShader: 291, NumClassInstances: 0)",
+        "ID3D11DeviceContext::PSSetShader(Context: 90, pShader: 292, NumClassInstances: 0)",
+        "ID3D11DeviceContext::GSSetShader(Context: 90, pShader: 0, NumClassInstances: 0)",
+        "ID3D11DeviceContext::GSSetConstantBuffers(Context: 90, StartSlot: 0, NumBuffers: 6, ppConstantBuffers: [0, 0, 0, 0, 0, ...])",
+        "ID3D11DeviceContext::DSSetShader(Context: 90, pShader: 0, NumClassInstances: 0)",
+        "ID3D11DeviceContext::DSSetConstantBuffers(Context: 90, StartSlot: 0, NumBuffers: 6, ppConstantBuffers: [0, 0, 0, 0, 0, ...])",
+        "ID3D11DeviceContext::HSSetShader(Context: 90, pShader: 0, NumClassInstances: 0)",
+        "ID3D11DeviceContext::HSSetConstantBuffers(Context: 90, StartSlot: 0, NumBuffers: 6, ppConstantBuffers: [0, 0, 0, 0, 0, ...])",
+        "ID3D11DeviceContext::IASetInputLayout(Context: 90, pInputLayout: 312)",
+        "ID3D11DeviceContext::IASetVertexBuffers(Context: 90, StartSlot: 0, NumBuffers: 4, ppVertexBuffers: [307, 0, 0, 0], pStrides: [32, 0, 0, 0], pOffsets: [0, 0, 0, 0])",
+        "ID3D11DeviceContext::IASetIndexBuffer(Context: 90, pIndexBuffer: 308, Format: 57, Offset: 0)",
+        "ID3D11DeviceContext::VSSetShaderResources(Context: 90, StartSlot: 0, NumViews: 16, ppShaderResourceViews: [306, 0, 0, 0, 0, ...])",
+        "ID3D11DeviceContext::VSSetSamplers(Context: 90, StartSlot: 0, NumSamplers: 16, ppSamplers: [264, 0, 0, 0, 0, ...])",
+        "ID3D11DeviceContext::PSSetShaderResources(Context: 90, StartSlot: 0, NumViews: 16, ppShaderResourceViews: [306, 0, 0, 0, 0, ...])",
+        "ID3D11DeviceContext::PSSetSamplers(Context: 90, StartSlot: 0, NumSamplers: 16, ppSamplers: [264, 0, 0, 0, 0, ...])",
+        "ID3D11DeviceContext::GSSetShaderResources(Context: 90, StartSlot: 0, NumViews: 16, ppShaderResourceViews: [0, 0, 0, 0, 0, ...])",
+        "ID3D11DeviceContext::GSSetSamplers(Context: 90, StartSlot: 0, NumSamplers: 16, ppSamplers: [0, 0, 0, 0, 0, ...])",
+        "ID3D11DeviceContext::HSSetShaderResources(Context: 90, StartSlot: 0, NumViews: 16, ppShaderResourceViews: [0, 0, 0, 0, 0, ...])",
+        "ID3D11DeviceContext::DSSetShaderResources(Context: 90, StartSlot: 0, NumViews: 16, ppShaderResourceViews: [0, 0, 0, 0, 0, ...])",
+        "ID3D11DeviceContext::RSSetState(Context: 90, pRasterizerState: 189)",
+        "ID3D11DeviceContext::OMSetBlendState(Context: 90, pBlendState: 273, BlendFactor: [0, 0, 1, 0], SampleMask: 4294967295)",
+        "ID3D11DeviceContext::OMSetDepthStencilState(Context: 90, pDepthStencilState: 182, StencilRef: 0)",
+        "ID3D11DeviceContext::IASetPrimitiveTopology(Context: 90, Topology: 4)"
+      ],
+      "meshInfo": {
+        "vertexBuffers": [
+          {
+            "slot": 0,
+            "buffer": "307",
+            "stride": 32,
+            "offset": 0
+          },
+          {
+            "slot": 1,
+            "buffer": "0",
+            "stride": 0,
+            "offset": 0
+          },
+          {
+            "slot": 2,
+            "buffer": "0",
+            "stride": 0,
+            "offset": 0
+          },
+          {
+            "slot": 3,
+            "buffer": "0",
+            "stride": 0,
+            "offset": 0
+          }
+        ],
+        "indexBuffer": {
+          "buffer": "308",
+          "format": "57",
+          "offset": 0
+        },
+        "inputLayout": "312",
+        "primitiveTopology": "4"
+      },
+      "pipelineState": {
+        "viewport": {
+          "x": 0.0,
+          "y": 0.0,
+          "width": 1366.0,
+          "height": 768.0,
+          "minDepth": 0.0,
+          "maxDepth": 1.0,
+          "count": 1
+        },
+        "scissor": null,
+        "blendState": {
+          "enabled": true,
+          "stateId": "273",
+          "blendFactor": [
+            0.0,
+            0.0,
+            1.0,
+            0.0
+          ],
+          "sampleMask": "4294967295",
+          "srcColor": "Unknown",
+          "dstColor": "Unknown"
+        },
+        "depthState": {
+          "testEnabled": true,
+          "writeEnabled": true,
+          "compareFunc": "Unknown",
+          "stencilEnabled": false,
+          "stencilRef": 0,
+          "stateId": "182"
+        },
+        "rasterizerState": {
+          "stateId": "189",
+          "fillMode": "Solid",
+          "cullMode": "Back"
+        },
+        "shaders": {
+          "vs": {
+            "type": "VS",
+            "id": "291",
+            "valid": true
+          },
+          "ps": {
+            "type": "PS",
+            "id": "292",
+            "valid": true
+          },
+          "gs": {
+            "type": "GS",
+            "id": "0",
+            "valid": false
+          },
+          "hs": {
+            "type": "HS",
+            "id": "0",
+            "valid": false
+          },
+          "ds": {
+            "type": "DS",
+            "id": "0",
+            "valid": false
+          },
+          "cs": {
+            "type": "CS",
+            "id": "0",
+            "valid": false
+          }
+        },
+        "primitiveTopology": "4",
+        "inputLayout": {
+          "id": "312",
+          "valid": true
+        }
+      },
+      "resourceBindings": {
+        "shaderResources": [
+          {
+            "type": "SRV",
+            "stage": "VS",
+            "slot": 0,
+            "resourceId": "306"
+          },
+          {
+            "type": "SRV",
+            "stage": "PS",
+            "slot": 0,
+            "resourceId": "306"
+          }
+        ],
+        "constantBuffers": [],
+        "samplers": [
+          {
+            "type": "Sampler",
+            "stage": "VS",
+            "slot": 0,
+            "resourceId": "264"
+          },
+          {
+            "type": "Sampler",
+            "stage": "PS",
+            "slot": 0,
+            "resourceId": "264"
+          }
+        ],
+        "descriptorSets": [],
+        "unorderedAccessViews": []
+      }
+    },
+    {
+      "eventId": 4,
+      "chunkId": 1072,
+      "name": "ID3D11DeviceContext::Draw",
+      "timestamp": 863444798803,
+      "duration": 119.0,
+      "params": [
+        {
+          "name": "callstack",
+          "type": "callstack"
+        },
+        {
+          "name": "Context",
+          "type": "ID3D11DeviceContext *",
+          "value": "90"
+        },
+        {
+          "name": "VertexCount",
+          "type": "uint32_t",
+          "value": "4",
+          "important": true
+        },
+        {
+          "name": "StartVertexLocation",
+          "type": "uint32_t",
+          "value": "0"
+        },
+        {
+          "name": "DebugMessages",
+          "type": "DebugMessage"
+        }
+      ],
+      "type": "draw",
+      "flags": [],
+      "relatedCalls": [
+        "ID3D11DeviceContext::CSSetShader(Context: 90, pShader: 0, NumClassInstances: 0)",
+        "ID3D11DeviceContext::CSSetConstantBuffers(Context: 90, StartSlot: 0, NumBuffers: 6, ppConstantBuffers: [0, 0, 0, 0, 0, ...])",
+        "ID3D11DeviceContext::VSSetShader(Context: 90, pShader: 293, NumClassInstances: 0)",
+        "ID3D11DeviceContext::PSSetShader(Context: 90, pShader: 294, NumClassInstances: 0)",
+        "ID3D11DeviceContext::GSSetShader(Context: 90, pShader: 0, NumClassInstances: 0)",
+        "ID3D11DeviceContext::GSSetConstantBuffers(Context: 90, StartSlot: 0, NumBuffers: 6, ppConstantBuffers: [0, 0, 0, 0, 0, ...])",
+        "ID3D11DeviceContext::DSSetShader(Context: 90, pShader: 0, NumClassInstances: 0)",
+        "ID3D11DeviceContext::DSSetConstantBuffers(Context: 90, StartSlot: 0, NumBuffers: 6, ppConstantBuffers: [0, 0, 0, 0, 0, ...])",
+        "ID3D11DeviceContext::HSSetShader(Context: 90, pShader: 0, NumClassInstances: 0)",
+        "ID3D11DeviceContext::HSSetConstantBuffers(Context: 90, StartSlot: 0, NumBuffers: 6, ppConstantBuffers: [0, 0, 0, 0, 0, ...])",
+        "ID3D11DeviceContext::IASetInputLayout(Context: 90, pInputLayout: 314)",
+        "ID3D11DeviceContext::IASetVertexBuffers(Context: 90, StartSlot: 0, NumBuffers: 4, ppVertexBuffers: [309, 0, 0, 0], pStrides: [32, 0, 0, 0], pOffsets: [0, 0, 0, 0])",
+        "ID3D11DeviceContext::IASetIndexBuffer(Context: 90, pIndexBuffer: 0, Format: 57, Offset: 0)",
+        "ID3D11DeviceContext::PSSetShaderResources(Context: 90, StartSlot: 0, NumViews: 16, ppShaderResourceViews: [304, 302, 300, 0, 0, ...])",
+        "ID3D11DeviceContext::PSSetSamplers(Context: 90, StartSlot: 0, NumSamplers: 16, ppSamplers: [313, 313, 264, 0, 0, ...])",
+        "ID3D11DeviceContext::IASetPrimitiveTopology(Context: 90, Topology: 5)"
+      ],
+      "meshInfo": {
+        "vertexBuffers": [
+          {
+            "slot": 0,
+            "buffer": "309",
+            "stride": 32,
+            "offset": 0
+          },
+          {
+            "slot": 1,
+            "buffer": "0",
+            "stride": 0,
+            "offset": 0
+          },
+          {
+            "slot": 2,
+            "buffer": "0",
+            "stride": 0,
+            "offset": 0
+          },
+          {
+            "slot": 3,
+            "buffer": "0",
+            "stride": 0,
+            "offset": 0
+          }
+        ],
+        "indexBuffer": {
+          "buffer": "0",
+          "format": "57",
+          "offset": 0
+        },
+        "inputLayout": "314",
+        "primitiveTopology": "5"
+      },
+      "pipelineState": {
+        "viewport": null,
+        "scissor": null,
+        "blendState": null,
+        "depthState": null,
+        "rasterizerState": null,
+        "shaders": {
+          "vs": {
+            "type": "VS",
+            "id": "293",
+            "valid": true
+          },
+          "ps": {
+            "type": "PS",
+            "id": "294",
+            "valid": true
+          },
+          "gs": {
+            "type": "GS",
+            "id": "0",
+            "valid": false
+          },
+          "hs": {
+            "type": "HS",
+            "id": "0",
+            "valid": false
+          },
+          "ds": {
+            "type": "DS",
+            "id": "0",
+            "valid": false
+          },
+          "cs": {
+            "type": "CS",
+            "id": "0",
+            "valid": false
+          }
+        },
+        "primitiveTopology": "5",
+        "inputLayout": {
+          "id": "314",
+          "valid": true
+        }
+      },
+      "resourceBindings": {
+        "shaderResources": [
+          {
+            "type": "SRV",
+            "stage": "PS",
+            "slot": 0,
+            "resourceId": "304"
+          },
+          {
+            "type": "SRV",
+            "stage": "PS",
+            "slot": 1,
+            "resourceId": "302"
+          },
+          {
+            "type": "SRV",
+            "stage": "PS",
+            "slot": 2,
+            "resourceId": "300"
+          }
+        ],
+        "constantBuffers": [],
+        "samplers": [
+          {
+            "type": "Sampler",
+            "stage": "PS",
+            "slot": 0,
+            "resourceId": "313"
+          },
+          {
+            "type": "Sampler",
+            "stage": "PS",
+            "slot": 1,
+            "resourceId": "313"
+          },
+          {
+            "type": "Sampler",
+            "stage": "PS",
+            "slot": 2,
+            "resourceId": "264"
+          }
+        ],
+        "descriptorSets": [],
+        "unorderedAccessViews": []
+      }
+    },
+    {
+      "eventId": 5,
+      "chunkId": 1071,
+      "name": "ID3D11DeviceContext::DrawIndexed",
+      "timestamp": 863444799233,
+      "duration": 48.0,
+      "params": [
+        {
+          "name": "callstack",
+          "type": "callstack"
+        },
+        {
+          "name": "Context",
+          "type": "ID3D11DeviceContext *",
+          "value": "90"
+        },
+        {
+          "name": "IndexCount",
+          "type": "uint32_t",
+          "value": "30",
+          "important": true
+        },
+        {
+          "name": "StartIndexLocation",
+          "type": "uint32_t",
+          "value": "0"
+        },
+        {
+          "name": "BaseVertexLocation",
+          "type": "int32_t",
+          "value": "0"
+        },
+        {
+          "name": "DebugMessages",
+          "type": "DebugMessage"
+        }
+      ],
+      "type": "draw",
+      "flags": [
+        "indexed"
+      ],
+      "relatedCalls": [
+        "ID3D11DeviceContext::CSSetShader(Context: 90, pShader: 0, NumClassInstances: 0)",
+        "ID3D11DeviceContext::CSSetConstantBuffers(Context: 90, StartSlot: 0, NumBuffers: 6, ppConstantBuffers: [0, 0, 0, 0, 0, ...])",
+        "ID3D11DeviceContext::VSSetShader(Context: 90, pShader: 280, NumClassInstances: 0)",
+        "ID3D11DeviceContext::PSSetShader(Context: 90, pShader: 281, NumClassInstances: 0)",
+        "ID3D11DeviceContext::GSSetShader(Context: 90, pShader: 0, NumClassInstances: 0)",
+        "ID3D11DeviceContext::GSSetConstantBuffers(Context: 90, StartSlot: 0, NumBuffers: 6, ppConstantBuffers: [0, 0, 0, 0, 0, ...])",
+        "ID3D11DeviceContext::DSSetShader(Context: 90, pShader: 0, NumClassInstances: 0)",
+        "ID3D11DeviceContext::DSSetConstantBuffers(Context: 90, StartSlot: 0, NumBuffers: 6, ppConstantBuffers: [0, 0, 0, 0, 0, ...])",
+        "ID3D11DeviceContext::HSSetShader(Context: 90, pShader: 0, NumClassInstances: 0)",
+        "ID3D11DeviceContext::HSSetConstantBuffers(Context: 90, StartSlot: 0, NumBuffers: 6, ppConstantBuffers: [0, 0, 0, 0, 0, ...])",
+        "ID3D11DeviceContext::IASetInputLayout(Context: 90, pInputLayout: 286)",
+        "ID3D11DeviceContext::IASetVertexBuffers(Context: 90, StartSlot: 0, NumBuffers: 4, ppVertexBuffers: [284, 0, 0, 0], pStrides: [32, 0, 0, 0], pOffsets: [0, 0, 0, 0])",
+        "ID3D11DeviceContext::IASetIndexBuffer(Context: 90, pIndexBuffer: 285, Format: 57, Offset: 0)",
+        "ID3D11DeviceContext::IASetPrimitiveTopology(Context: 90, Topology: 4)"
+      ],
+      "meshInfo": {
+        "vertexBuffers": [
+          {
+            "slot": 0,
+            "buffer": "284",
+            "stride": 32,
+            "offset": 0
+          },
+          {
+            "slot": 1,
+            "buffer": "0",
+            "stride": 0,
+            "offset": 0
+          },
+          {
+            "slot": 2,
+            "buffer": "0",
+            "stride": 0,
+            "offset": 0
+          },
+          {
+            "slot": 3,
+            "buffer": "0",
+            "stride": 0,
+            "offset": 0
+          }
+        ],
+        "indexBuffer": {
+          "buffer": "285",
+          "format": "57",
+          "offset": 0
+        },
+        "inputLayout": "286",
+        "primitiveTopology": "4"
+      },
+      "pipelineState": {
+        "viewport": null,
+        "scissor": null,
+        "blendState": null,
+        "depthState": null,
+        "rasterizerState": null,
+        "shaders": {
+          "vs": {
+            "type": "VS",
+            "id": "280",
+            "valid": true
+          },
+          "ps": {
+            "type": "PS",
+            "id": "281",
+            "valid": true
+          },
+          "gs": {
+            "type": "GS",
+            "id": "0",
+            "valid": false
+          },
+          "hs": {
+            "type": "HS",
+            "id": "0",
+            "valid": false
+          },
+          "ds": {
+            "type": "DS",
+            "id": "0",
+            "valid": false
+          },
+          "cs": {
+            "type": "CS",
+            "id": "0",
+            "valid": false
+          }
+        },
+        "primitiveTopology": "4",
+        "inputLayout": {
+          "id": "286",
+          "valid": true
+        }
+      },
+      "resourceBindings": {
+        "shaderResources": [],
+        "constantBuffers": [],
+        "samplers": [],
+        "descriptorSets": [],
+        "unorderedAccessViews": []
+      }
+    },
+    {
+      "eventId": 6,
+      "chunkId": 1072,
+      "name": "ID3D11DeviceContext::Draw",
+      "timestamp": 863444799593,
+      "duration": 30.0,
+      "params": [
+        {
+          "name": "callstack",
+          "type": "callstack"
+        },
+        {
+          "name": "Context",
+          "type": "ID3D11DeviceContext *",
+          "value": "90"
+        },
+        {
+          "name": "VertexCount",
+          "type": "uint32_t",
+          "value": "4",
+          "important": true
+        },
+        {
+          "name": "StartVertexLocation",
+          "type": "uint32_t",
+          "value": "0"
+        },
+        {
+          "name": "DebugMessages",
+          "type": "DebugMessage"
+        }
+      ],
+      "type": "draw",
+      "flags": [],
+      "relatedCalls": [
+        "ID3D11DeviceContext::CSSetShader(Context: 90, pShader: 0, NumClassInstances: 0)",
+        "ID3D11DeviceContext::CSSetConstantBuffers(Context: 90, StartSlot: 0, NumBuffers: 6, ppConstantBuffers: [0, 0, 0, 0, 0, ...])",
+        "ID3D11DeviceContext::VSSetShader(Context: 90, pShader: 293, NumClassInstances: 0)",
+        "ID3D11DeviceContext::PSSetShader(Context: 90, pShader: 294, NumClassInstances: 0)",
+        "ID3D11DeviceContext::GSSetShader(Context: 90, pShader: 0, NumClassInstances: 0)",
+        "ID3D11DeviceContext::GSSetConstantBuffers(Context: 90, StartSlot: 0, NumBuffers: 6, ppConstantBuffers: [0, 0, 0, 0, 0, ...])",
+        "ID3D11DeviceContext::DSSetShader(Context: 90, pShader: 0, NumClassInstances: 0)",
+        "ID3D11DeviceContext::DSSetConstantBuffers(Context: 90, StartSlot: 0, NumBuffers: 6, ppConstantBuffers: [0, 0, 0, 0, 0, ...])",
+        "ID3D11DeviceContext::HSSetShader(Context: 90, pShader: 0, NumClassInstances: 0)",
+        "ID3D11DeviceContext::HSSetConstantBuffers(Context: 90, StartSlot: 0, NumBuffers: 6, ppConstantBuffers: [0, 0, 0, 0, 0, ...])",
+        "ID3D11DeviceContext::IASetInputLayout(Context: 90, pInputLayout: 314)",
+        "ID3D11DeviceContext::IASetVertexBuffers(Context: 90, StartSlot: 0, NumBuffers: 4, ppVertexBuffers: [310, 0, 0, 0], pStrides: [32, 0, 0, 0], pOffsets: [0, 0, 0, 0])",
+        "ID3D11DeviceContext::IASetIndexBuffer(Context: 90, pIndexBuffer: 0, Format: 57, Offset: 0)",
+        "ID3D11DeviceContext::PSSetShaderResources(Context: 90, StartSlot: 0, NumViews: 16, ppShaderResourceViews: [304, 302, 300, 0, 0, ...])",
+        "ID3D11DeviceContext::PSSetSamplers(Context: 90, StartSlot: 0, NumSamplers: 16, ppSamplers: [313, 313, 264, 0, 0, ...])",
+        "ID3D11DeviceContext::IASetPrimitiveTopology(Context: 90, Topology: 5)"
+      ],
+      "meshInfo": {
+        "vertexBuffers": [
+          {
+            "slot": 0,
+            "buffer": "310",
+            "stride": 32,
+            "offset": 0
+          },
+          {
+            "slot": 1,
+            "buffer": "0",
+            "stride": 0,
+            "offset": 0
+          },
+          {
+            "slot": 2,
+            "buffer": "0",
+            "stride": 0,
+            "offset": 0
+          },
+          {
+            "slot": 3,
+            "buffer": "0",
+            "stride": 0,
+            "offset": 0
+          }
+        ],
+        "indexBuffer": {
+          "buffer": "0",
+          "format": "57",
+          "offset": 0
+        },
+        "inputLayout": "314",
+        "primitiveTopology": "5"
+      },
+      "pipelineState": {
+        "viewport": null,
+        "scissor": null,
+        "blendState": null,
+        "depthState": null,
+        "rasterizerState": null,
+        "shaders": {
+          "vs": {
+            "type": "VS",
+            "id": "293",
+            "valid": true
+          },
+          "ps": {
+            "type": "PS",
+            "id": "294",
+            "valid": true
+          },
+          "gs": {
+            "type": "GS",
+            "id": "0",
+            "valid": false
+          },
+          "hs": {
+            "type": "HS",
+            "id": "0",
+            "valid": false
+          },
+          "ds": {
+            "type": "DS",
+            "id": "0",
+            "valid": false
+          },
+          "cs": {
+            "type": "CS",
+            "id": "0",
+            "valid": false
+          }
+        },
+        "primitiveTopology": "5",
+        "inputLayout": {
+          "id": "314",
+          "valid": true
+        }
+      },
+      "resourceBindings": {
+        "shaderResources": [
+          {
+            "type": "SRV",
+            "stage": "PS",
+            "slot": 0,
+            "resourceId": "304"
+          },
+          {
+            "type": "SRV",
+            "stage": "PS",
+            "slot": 1,
+            "resourceId": "302"
+          },
+          {
+            "type": "SRV",
+            "stage": "PS",
+            "slot": 2,
+            "resourceId": "300"
+          }
+        ],
+        "constantBuffers": [],
+        "samplers": [
+          {
+            "type": "Sampler",
+            "stage": "PS",
+            "slot": 0,
+            "resourceId": "313"
+          },
+          {
+            "type": "Sampler",
+            "stage": "PS",
+            "slot": 1,
+            "resourceId": "313"
+          },
+          {
+            "type": "Sampler",
+            "stage": "PS",
+            "slot": 2,
+            "resourceId": "264"
+          }
+        ],
+        "descriptorSets": [],
+        "unorderedAccessViews": []
+      }
+    },
+    {
+      "eventId": 7,
+      "chunkId": 1072,
+      "name": "ID3D11DeviceContext::Draw",
+      "timestamp": 863444800083,
+      "duration": 49.0,
+      "params": [
+        {
+          "name": "callstack",
+          "type": "callstack"
+        },
+        {
+          "name": "Context",
+          "type": "ID3D11DeviceContext *",
+          "value": "90"
+        },
+        {
+          "name": "VertexCount",
+          "type": "uint32_t",
+          "value": "4",
+          "important": true
+        },
+        {
+          "name": "StartVertexLocation",
+          "type": "uint32_t",
+          "value": "0"
+        },
+        {
+          "name": "DebugMessages",
+          "type": "DebugMessage"
+        }
+      ],
+      "type": "draw",
+      "flags": [],
+      "relatedCalls": [
+        "ID3D11DeviceContext::CSSetShader(Context: 90, pShader: 0, NumClassInstances: 0)",
+        "ID3D11DeviceContext::CSSetConstantBuffers(Context: 90, StartSlot: 0, NumBuffers: 6, ppConstantBuffers: [0, 0, 0, 0, 0, ...])",
+        "ID3D11DeviceContext::VSSetShader(Context: 90, pShader: 267, NumClassInstances: 0)",
+        "ID3D11DeviceContext::PSSetShader(Context: 90, pShader: 268, NumClassInstances: 0)",
+        "ID3D11DeviceContext::GSSetShader(Context: 90, pShader: 0, NumClassInstances: 0)",
+        "ID3D11DeviceContext::GSSetConstantBuffers(Context: 90, StartSlot: 0, NumBuffers: 6, ppConstantBuffers: [0, 0, 0, 0, 0, ...])",
+        "ID3D11DeviceContext::DSSetShader(Context: 90, pShader: 0, NumClassInstances: 0)",
+        "ID3D11DeviceContext::DSSetConstantBuffers(Context: 90, StartSlot: 0, NumBuffers: 6, ppConstantBuffers: [0, 0, 0, 0, 0, ...])",
+        "ID3D11DeviceContext::HSSetShader(Context: 90, pShader: 0, NumClassInstances: 0)",
+        "ID3D11DeviceContext::HSSetConstantBuffers(Context: 90, StartSlot: 0, NumBuffers: 6, ppConstantBuffers: [0, 0, 0, 0, 0, ...])",
+        "ID3D11DeviceContext::IASetInputLayout(Context: 90, pInputLayout: 278)",
+        "ID3D11DeviceContext::IASetVertexBuffers(Context: 90, StartSlot: 0, NumBuffers: 4, ppVertexBuffers: [274, 0, 0, 0], pStrides: [32, 0, 0, 0], pOffsets: [0, 0, 0, 0])",
+        "ID3D11DeviceContext::IASetIndexBuffer(Context: 90, pIndexBuffer: 0, Format: 57, Offset: 0)",
+        "ID3D11DeviceContext::PSSetShaderResources(Context: 90, StartSlot: 0, NumViews: 16, ppShaderResourceViews: [272, 302, 300, 0, 0, ...])",
+        "ID3D11DeviceContext::PSSetSamplers(Context: 90, StartSlot: 0, NumSamplers: 16, ppSamplers: [264, 313, 264, 0, 0, ...])",
+        "ID3D11DeviceContext::IASetPrimitiveTopology(Context: 90, Topology: 5)"
+      ],
+      "meshInfo": {
+        "vertexBuffers": [
+          {
+            "slot": 0,
+            "buffer": "274",
+            "stride": 32,
+            "offset": 0
+          },
+          {
+            "slot": 1,
+            "buffer": "0",
+            "stride": 0,
+            "offset": 0
+          },
+          {
+            "slot": 2,
+            "buffer": "0",
+            "stride": 0,
+            "offset": 0
+          },
+          {
+            "slot": 3,
+            "buffer": "0",
+            "stride": 0,
+            "offset": 0
+          }
+        ],
+        "indexBuffer": {
+          "buffer": "0",
+          "format": "57",
+          "offset": 0
+        },
+        "inputLayout": "278",
+        "primitiveTopology": "5"
+      },
+      "pipelineState": {
+        "viewport": null,
+        "scissor": null,
+        "blendState": null,
+        "depthState": null,
+        "rasterizerState": null,
+        "shaders": {
+          "vs": {
+            "type": "VS",
+            "id": "267",
+            "valid": true
+          },
+          "ps": {
+            "type": "PS",
+            "id": "268",
+            "valid": true
+          },
+          "gs": {
+            "type": "GS",
+            "id": "0",
+            "valid": false
+          },
+          "hs": {
+            "type": "HS",
+            "id": "0",
+            "valid": false
+          },
+          "ds": {
+            "type": "DS",
+            "id": "0",
+            "valid": false
+          },
+          "cs": {
+            "type": "CS",
+            "id": "0",
+            "valid": false
+          }
+        },
+        "primitiveTopology": "5",
+        "inputLayout": {
+          "id": "278",
+          "valid": true
+        }
+      },
+      "resourceBindings": {
+        "shaderResources": [
+          {
+            "type": "SRV",
+            "stage": "PS",
+            "slot": 0,
+            "resourceId": "272"
+          },
+          {
+            "type": "SRV",
+            "stage": "PS",
+            "slot": 1,
+            "resourceId": "302"
+          },
+          {
+            "type": "SRV",
+            "stage": "PS",
+            "slot": 2,
+            "resourceId": "300"
+          }
+        ],
+        "constantBuffers": [],
+        "samplers": [
+          {
+            "type": "Sampler",
+            "stage": "PS",
+            "slot": 0,
+            "resourceId": "264"
+          },
+          {
+            "type": "Sampler",
+            "stage": "PS",
+            "slot": 1,
+            "resourceId": "313"
+          },
+          {
+            "type": "Sampler",
+            "stage": "PS",
+            "slot": 2,
+            "resourceId": "264"
+          }
+        ],
+        "descriptorSets": [],
+        "unorderedAccessViews": []
+      }
+    },
+    {
+      "eventId": 8,
+      "chunkId": 1072,
+      "name": "ID3D11DeviceContext::Draw",
+      "timestamp": 863444800394,
+      "duration": 43.0,
+      "params": [
+        {
+          "name": "callstack",
+          "type": "callstack"
+        },
+        {
+          "name": "Context",
+          "type": "ID3D11DeviceContext *",
+          "value": "90"
+        },
+        {
+          "name": "VertexCount",
+          "type": "uint32_t",
+          "value": "54",
+          "important": true
+        },
+        {
+          "name": "StartVertexLocation",
+          "type": "uint32_t",
+          "value": "0"
+        },
+        {
+          "name": "DebugMessages",
+          "type": "DebugMessage"
+        }
+      ],
+      "type": "draw",
+      "flags": [],
+      "relatedCalls": [
+        "ID3D11DeviceContext::CSSetShader(Context: 90, pShader: 0, NumClassInstances: 0)",
+        "ID3D11DeviceContext::CSSetConstantBuffers(Context: 90, StartSlot: 0, NumBuffers: 6, ppConstantBuffers: [0, 0, 0, 0, 0, ...])",
+        "ID3D11DeviceContext::VSSetShader(Context: 90, pShader: 295, NumClassInstances: 0)",
+        "ID3D11DeviceContext::PSSetShader(Context: 90, pShader: 296, NumClassInstances: 0)",
+        "ID3D11DeviceContext::GSSetShader(Context: 90, pShader: 0, NumClassInstances: 0)",
+        "ID3D11DeviceContext::GSSetConstantBuffers(Context: 90, StartSlot: 0, NumBuffers: 6, ppConstantBuffers: [0, 0, 0, 0, 0, ...])",
+        "ID3D11DeviceContext::DSSetShader(Context: 90, pShader: 0, NumClassInstances: 0)",
+        "ID3D11DeviceContext::DSSetConstantBuffers(Context: 90, StartSlot: 0, NumBuffers: 6, ppConstantBuffers: [0, 0, 0, 0, 0, ...])",
+        "ID3D11DeviceContext::HSSetShader(Context: 90, pShader: 0, NumClassInstances: 0)",
+        "ID3D11DeviceContext::HSSetConstantBuffers(Context: 90, StartSlot: 0, NumBuffers: 6, ppConstantBuffers: [0, 0, 0, 0, 0, ...])",
+        "ID3D11DeviceContext::IASetInputLayout(Context: 90, pInputLayout: 315)",
+        "ID3D11DeviceContext::IASetVertexBuffers(Context: 90, StartSlot: 0, NumBuffers: 4, ppVertexBuffers: [8333, 0, 0, 0], pStrides: [32, 0, 0, 0], pOffsets: [0, 0, 0, 0])",
+        "ID3D11DeviceContext::IASetIndexBuffer(Context: 90, pIndexBuffer: 0, Format: 57, Offset: 0)",
+        "ID3D11DeviceContext::PSSetShaderResources(Context: 90, StartSlot: 0, NumViews: 16, ppShaderResourceViews: [298, 302, 300, 0, 0, ...])",
+        "ID3D11DeviceContext::PSSetSamplers(Context: 90, StartSlot: 0, NumSamplers: 16, ppSamplers: [264, 313, 264, 0, 0, ...])",
+        "ID3D11DeviceContext::IASetPrimitiveTopology(Context: 90, Topology: 4)"
+      ],
+      "meshInfo": {
+        "vertexBuffers": [
+          {
+            "slot": 0,
+            "buffer": "8333",
+            "stride": 32,
+            "offset": 0
+          },
+          {
+            "slot": 1,
+            "buffer": "0",
+            "stride": 0,
+            "offset": 0
+          },
+          {
+            "slot": 2,
+            "buffer": "0",
+            "stride": 0,
+            "offset": 0
+          },
+          {
+            "slot": 3,
+            "buffer": "0",
+            "stride": 0,
+            "offset": 0
+          }
+        ],
+        "indexBuffer": {
+          "buffer": "0",
+          "format": "57",
+          "offset": 0
+        },
+        "inputLayout": "315",
+        "primitiveTopology": "4"
+      },
+      "pipelineState": {
+        "viewport": null,
+        "scissor": null,
+        "blendState": null,
+        "depthState": null,
+        "rasterizerState": null,
+        "shaders": {
+          "vs": {
+            "type": "VS",
+            "id": "295",
+            "valid": true
+          },
+          "ps": {
+            "type": "PS",
+            "id": "296",
+            "valid": true
+          },
+          "gs": {
+            "type": "GS",
+            "id": "0",
+            "valid": false
+          },
+          "hs": {
+            "type": "HS",
+            "id": "0",
+            "valid": false
+          },
+          "ds": {
+            "type": "DS",
+            "id": "0",
+            "valid": false
+          },
+          "cs": {
+            "type": "CS",
+            "id": "0",
+            "valid": false
+          }
+        },
+        "primitiveTopology": "4",
+        "inputLayout": {
+          "id": "315",
+          "valid": true
+        }
+      },
+      "resourceBindings": {
+        "shaderResources": [
+          {
+            "type": "SRV",
+            "stage": "PS",
+            "slot": 0,
+            "resourceId": "298"
+          },
+          {
+            "type": "SRV",
+            "stage": "PS",
+            "slot": 1,
+            "resourceId": "302"
+          },
+          {
+            "type": "SRV",
+            "stage": "PS",
+            "slot": 2,
+            "resourceId": "300"
+          }
+        ],
+        "constantBuffers": [],
+        "samplers": [
+          {
+            "type": "Sampler",
+            "stage": "PS",
+            "slot": 0,
+            "resourceId": "264"
+          },
+          {
+            "type": "Sampler",
+            "stage": "PS",
+            "slot": 1,
+            "resourceId": "313"
+          },
+          {
+            "type": "Sampler",
+            "stage": "PS",
+            "slot": 2,
+            "resourceId": "264"
+          }
+        ],
+        "descriptorSets": [],
+        "unorderedAccessViews": []
+      }
+    },
+    {
+      "eventId": 9,
+      "chunkId": 1072,
+      "name": "ID3D11DeviceContext::Draw",
+      "timestamp": 863444801283,
+      "duration": 47.0,
+      "params": [
+        {
+          "name": "callstack",
+          "type": "callstack"
+        },
+        {
+          "name": "Context",
+          "type": "ID3D11DeviceContext *",
+          "value": "90"
+        },
+        {
+          "name": "VertexCount",
+          "type": "uint32_t",
+          "value": "4392",
+          "important": true
+        },
+        {
+          "name": "StartVertexLocation",
+          "type": "uint32_t",
+          "value": "0"
+        },
+        {
+          "name": "DebugMessages",
+          "type": "DebugMessage"
+        }
+      ],
+      "type": "draw",
+      "flags": [],
+      "relatedCalls": [
+        "ID3D11DeviceContext::VSSetShaderResources(Context: 90, StartSlot: 0, NumViews: 16, ppShaderResourceViews: [0, 0, 0, 0, 0, ...])",
+        "ID3D11DeviceContext::VSSetSamplers(Context: 90, StartSlot: 0, NumSamplers: 16, ppSamplers: [0, 0, 0, 0, 0, ...])",
+        "ID3D11DeviceContext::PSSetShaderResources(Context: 90, StartSlot: 0, NumViews: 16, ppShaderResourceViews: [0, 0, 0, 0, 0, ...])",
+        "ID3D11DeviceContext::PSSetSamplers(Context: 90, StartSlot: 0, NumSamplers: 16, ppSamplers: [0, 0, 0, 0, 0, ...])",
+        "ID3D11DeviceContext::GSSetShaderResources(Context: 90, StartSlot: 0, NumViews: 16, ppShaderResourceViews: [0, 0, 0, 0, 0, ...])",
+        "ID3D11DeviceContext::GSSetSamplers(Context: 90, StartSlot: 0, NumSamplers: 16, ppSamplers: [0, 0, 0, 0, 0, ...])",
+        "ID3D11DeviceContext::HSSetShaderResources(Context: 90, StartSlot: 0, NumViews: 16, ppShaderResourceViews: [0, 0, 0, 0, 0, ...])",
+        "ID3D11DeviceContext::DSSetShaderResources(Context: 90, StartSlot: 0, NumViews: 16, ppShaderResourceViews: [0, 0, 0, 0, 0, ...])",
+        "ID3D11DeviceContext::CSSetShaderResources(Context: 90, StartSlot: 0, NumViews: 16, ppShaderResourceViews: [0, 0, 0, 0, 0, ...])",
+        "ID3D11DeviceContext::CSSetSamplers(Context: 90, StartSlot: 0, NumSamplers: 16, ppSamplers: [0, 0, 0, 0, 0, ...])",
+        "ID3D11DeviceContext::OMSetRenderTargets(Context: 90, NumViews: 8, ppRenderTargetViews: [0, 0, 0, 0, 0, ...], pDepthStencilView: 0)",
+        "ID3D11DeviceContext::RSSetViewports(Context: 90, NumViewports: 1, pViewports: [{...}])",
+        "ID3D11DeviceContext::OMSetRenderTargets(Context: 90, NumViews: 1, ppRenderTargetViews: [131], pDepthStencilView: 276)",
+        "ID3D11DeviceContext::VSSetShaderResources(Context: 90, StartSlot: 0, NumViews: 16, ppShaderResourceViews: [0, 0, 0, 0, 0, ...])",
+        "ID3D11DeviceContext::VSSetSamplers(Context: 90, StartSlot: 0, NumSamplers: 16, ppSamplers: [0, 0, 0, 0, 0, ...])",
+        "ID3D11DeviceContext::PSSetShaderResources(Context: 90, StartSlot: 0, NumViews: 16, ppShaderResourceViews: [0, 0, 0, 0, 0, ...])",
+        "ID3D11DeviceContext::PSSetSamplers(Context: 90, StartSlot: 0, NumSamplers: 16, ppSamplers: [0, 0, 0, 0, 0, ...])",
+        "ID3D11DeviceContext::GSSetShaderResources(Context: 90, StartSlot: 0, NumViews: 16, ppShaderResourceViews: [0, 0, 0, 0, 0, ...])",
+        "ID3D11DeviceContext::GSSetSamplers(Context: 90, StartSlot: 0, NumSamplers: 16, ppSamplers: [0, 0, 0, 0, 0, ...])",
+        "ID3D11DeviceContext::HSSetShaderResources(Context: 90, StartSlot: 0, NumViews: 16, ppShaderResourceViews: [0, 0, 0, 0, 0, ...])",
+        "ID3D11DeviceContext::DSSetShaderResources(Context: 90, StartSlot: 0, NumViews: 16, ppShaderResourceViews: [0, 0, 0, 0, 0, ...])",
+        "ID3D11DeviceContext::CSSetShaderResources(Context: 90, StartSlot: 0, NumViews: 16, ppShaderResourceViews: [0, 0, 0, 0, 0, ...])",
+        "ID3D11DeviceContext::CSSetSamplers(Context: 90, StartSlot: 0, NumSamplers: 16, ppSamplers: [0, 0, 0, 0, 0, ...])",
+        "ID3D11DeviceContext::OMSetRenderTargets(Context: 90, NumViews: 8, ppRenderTargetViews: [0, 0, 0, 0, 0, ...], pDepthStencilView: 0)",
+        "ID3D11DeviceContext::RSSetViewports(Context: 90, NumViewports: 1, pViewports: [{...}])",
+        "ID3D11DeviceContext::OMSetRenderTargets(Context: 90, NumViews: 1, ppRenderTargetViews: [131], pDepthStencilView: 276)",
+        "ID3D11DeviceContext::CSSetShader(Context: 90, pShader: 0, NumClassInstances: 0)",
+        "ID3D11DeviceContext::CSSetConstantBuffers(Context: 90, StartSlot: 0, NumBuffers: 6, ppConstantBuffers: [0, 0, 0, 0, 0, ...])",
+        "ID3D11DeviceContext::VSSetShader(Context: 90, pShader: 317, NumClassInstances: 0)",
+        "ID3D11DeviceContext::PSSetShader(Context: 90, pShader: 318, NumClassInstances: 0)",
+        "ID3D11DeviceContext::GSSetShader(Context: 90, pShader: 0, NumClassInstances: 0)",
+        "ID3D11DeviceContext::GSSetConstantBuffers(Context: 90, StartSlot: 0, NumBuffers: 6, ppConstantBuffers: [0, 0, 0, 0, 0, ...])",
+        "ID3D11DeviceContext::DSSetShader(Context: 90, pShader: 0, NumClassInstances: 0)",
+        "ID3D11DeviceContext::DSSetConstantBuffers(Context: 90, StartSlot: 0, NumBuffers: 6, ppConstantBuffers: [0, 0, 0, 0, 0, ...])",
+        "ID3D11DeviceContext::HSSetShader(Context: 90, pShader: 0, NumClassInstances: 0)",
+        "ID3D11DeviceContext::HSSetConstantBuffers(Context: 90, StartSlot: 0, NumBuffers: 6, ppConstantBuffers: [0, 0, 0, 0, 0, ...])",
+        "ID3D11DeviceContext::IASetInputLayout(Context: 90, pInputLayout: 324)",
+        "ID3D11DeviceContext::IASetVertexBuffers(Context: 90, StartSlot: 0, NumBuffers: 4, ppVertexBuffers: [8331, 0, 0, 0], pStrides: [24, 0, 0, 0], pOffsets: [0, 0, 0, 0])",
+        "ID3D11DeviceContext::IASetIndexBuffer(Context: 90, pIndexBuffer: 0, Format: 57, Offset: 0)",
+        "ID3D11DeviceContext::VSSetShaderResources(Context: 90, StartSlot: 0, NumViews: 16, ppShaderResourceViews: [320, 0, 0, 0, 0, ...])",
+        "ID3D11DeviceContext::VSSetSamplers(Context: 90, StartSlot: 0, NumSamplers: 16, ppSamplers: [255, 0, 0, 0, 0, ...])",
+        "ID3D11DeviceContext::PSSetShaderResources(Context: 90, StartSlot: 0, NumViews: 16, ppShaderResourceViews: [320, 0, 0, 0, 0, ...])",
+        "ID3D11DeviceContext::PSSetSamplers(Context: 90, StartSlot: 0, NumSamplers: 16, ppSamplers: [255, 0, 0, 0, 0, ...])",
+        "ID3D11DeviceContext::GSSetShaderResources(Context: 90, StartSlot: 0, NumViews: 16, ppShaderResourceViews: [0, 0, 0, 0, 0, ...])",
+        "ID3D11DeviceContext::GSSetSamplers(Context: 90, StartSlot: 0, NumSamplers: 16, ppSamplers: [0, 0, 0, 0, 0, ...])",
+        "ID3D11DeviceContext::HSSetShaderResources(Context: 90, StartSlot: 0, NumViews: 16, ppShaderResourceViews: [0, 0, 0, 0, 0, ...])",
+        "ID3D11DeviceContext::DSSetShaderResources(Context: 90, StartSlot: 0, NumViews: 16, ppShaderResourceViews: [0, 0, 0, 0, 0, ...])",
+        "ID3D11DeviceContext::OMSetBlendState(Context: 90, pBlendState: 321, BlendFactor: [0, 0, 1, 0], SampleMask: 4294967295)",
+        "ID3D11DeviceContext::IASetPrimitiveTopology(Context: 90, Topology: 4)"
+      ],
+      "meshInfo": {
+        "vertexBuffers": [
+          {
+            "slot": 0,
+            "buffer": "8331",
+            "stride": 24,
+            "offset": 0
+          },
+          {
+            "slot": 1,
+            "buffer": "0",
+            "stride": 0,
+            "offset": 0
+          },
+          {
+            "slot": 2,
+            "buffer": "0",
+            "stride": 0,
+            "offset": 0
+          },
+          {
+            "slot": 3,
+            "buffer": "0",
+            "stride": 0,
+            "offset": 0
+          }
+        ],
+        "indexBuffer": {
+          "buffer": "0",
+          "format": "57",
+          "offset": 0
+        },
+        "inputLayout": "324",
+        "primitiveTopology": "4"
+      },
+      "pipelineState": {
+        "viewport": {
+          "x": 0.0,
+          "y": 0.0,
+          "width": 1366.0,
+          "height": 768.0,
+          "minDepth": 0.0,
+          "maxDepth": 1.0,
+          "count": 1
+        },
+        "scissor": null,
+        "blendState": {
+          "enabled": true,
+          "stateId": "321",
+          "blendFactor": [
+            0.0,
+            0.0,
+            1.0,
+            0.0
+          ],
+          "sampleMask": "4294967295",
+          "srcColor": "Unknown",
+          "dstColor": "Unknown"
+        },
+        "depthState": null,
+        "rasterizerState": null,
+        "shaders": {
+          "vs": {
+            "type": "VS",
+            "id": "317",
+            "valid": true
+          },
+          "ps": {
+            "type": "PS",
+            "id": "318",
+            "valid": true
+          },
+          "gs": {
+            "type": "GS",
+            "id": "0",
+            "valid": false
+          },
+          "hs": {
+            "type": "HS",
+            "id": "0",
+            "valid": false
+          },
+          "ds": {
+            "type": "DS",
+            "id": "0",
+            "valid": false
+          },
+          "cs": {
+            "type": "CS",
+            "id": "0",
+            "valid": false
+          }
+        },
+        "primitiveTopology": "4",
+        "inputLayout": {
+          "id": "324",
+          "valid": true
+        }
+      },
+      "resourceBindings": {
+        "shaderResources": [
+          {
+            "type": "SRV",
+            "stage": "VS",
+            "slot": 0,
+            "resourceId": "320"
+          },
+          {
+            "type": "SRV",
+            "stage": "PS",
+            "slot": 0,
+            "resourceId": "320"
+          }
+        ],
+        "constantBuffers": [],
+        "samplers": [
+          {
+            "type": "Sampler",
+            "stage": "VS",
+            "slot": 0,
+            "resourceId": "255"
+          },
+          {
+            "type": "Sampler",
+            "stage": "PS",
+            "slot": 0,
+            "resourceId": "255"
+          }
+        ],
+        "descriptorSets": [],
+        "unorderedAccessViews": []
+      }
+    }
+  ],
+  "renderPasses": [],
+  "textures": [],
+  "buffers": [],
+  "header": {
+    "driver": "D3D11"
+  },
+  "statistics": {
+    "totalEvents": 10,
+    "totalDrawCalls": 7,
+    "totalDispatches": 0,
+    "totalCopies": 0,
+    "totalTextures": 0,
+    "totalBuffers": 0,
+    "totalTextureMemory": 0
+  }
+}

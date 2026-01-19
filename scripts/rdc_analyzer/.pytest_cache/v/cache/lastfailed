@@ -1,0 +1,14 @@
+{
+  "tests/test_core.py::TestTextureInfo::test_default_values": true,
+  "tests/test_core.py::TestBufferInfo::test_default_values": true,
+  "tests/test_core.py::TestPassInfo::test_default_values": true,
+  "tests/test_core.py::TestIssue::test_default_values": true,
+  "tests/test_rules.py::TestRuleRegistry::test_get_rules_by_category": true,
+  "tests/test_rules.py::TestTextureRules::test_large_texture_rule_triggers": true,
+  "tests/test_rules.py::TestMobileRules::test_mobile_rules_only_on_mobile": true,
+  "tests/test_bridge.py": true,
+  "tests/test_diff_engine.py::TestMetricDiff": true,
+  "tests/test_diff_engine.py::TestDiffEngine": true,
+  "tests/test_diff_engine.py::TestDiffEngineIgnoreOrder": true,
+  "tests/test_diff_engine.py::TestDiffResultProperties": true
+}

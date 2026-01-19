@@ -1,0 +1,19 @@
+{
+  "apiType": "D3D11",
+  "events": [],
+  "renderPasses": [],
+  "textures": [],
+  "buffers": [],
+  "header": {
+    "driver": "D3D11"
+  },
+  "statistics": {
+    "totalEvents": 0,
+    "totalDrawCalls": 0,
+    "totalDispatches": 0,
+    "totalCopies": 0,
+    "totalTextures": 0,
+    "totalBuffers": 0,
+    "totalTextureMemory": 0
+  }
+}
