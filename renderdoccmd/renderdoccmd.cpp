@@ -662,6 +662,7 @@ private:
   std::string remote_host;
   bool software_render = false;
   bool export_metadata = false;
+  bool export_bindings = false;
   uint32_t max_dimension = 0;
 
 public:
@@ -678,6 +679,7 @@ public:
     parser.add("software-render", '\0', "Force software rendering (SwiftShader/WARP).");
     parser.add<std::string>("remote-host", '\0', "Replay on remote host instead of locally.", false);
     parser.add("metadata", 'm', "Export texture metadata as JSON.");
+    parser.add("bindings", 'b', "Export resource bindings with CB member data as JSON.");
   }
 
   virtual const char *Description() { return "Export all textures from a capture to image files."; }
@@ -705,6 +707,7 @@ public:
     max_dimension = parser.get<uint32_t>("max-size");
     software_render = parser.exist("software-render");
     export_metadata = parser.exist("metadata");
+    export_bindings = parser.exist("bindings");
 
     if(parser.exist("remote-host"))
       remote_host = parser.get<std::string>("remote-host");
@@ -769,6 +772,13 @@ private:
 
     int ret = ExportTextures(controller, fileType, ext);
 
+    if(export_bindings)
+    {
+      int bindingsRet = ExportBindings(controller);
+      if(bindingsRet != 0)
+        ret = bindingsRet;
+    }
+
     controller->Shutdown();
 
     return ret;
@@ -803,6 +813,13 @@ private:
     }
 
     int ret = ExportTextures(controller, fileType, ext);
+
+    if(export_bindings)
+    {
+      int bindingsRet = ExportBindings(controller);
+      if(bindingsRet != 0)
+        ret = bindingsRet;
+    }
 
     remote->CloseCapture(controller);
     remote->ShutdownConnection();
@@ -873,9 +890,13 @@ private:
 
         if(export_metadata)
         {
+          // Get the resource ID as uint64_t using the same cast as in core.cpp DoSerialise
+          uint64_t resIdValue = *reinterpret_cast<const uint64_t *>(&tex.resourceId);
+          
           std::ostringstream meta;
           meta << "  {";
-          meta << "\"id\": " << i << ", ";
+          meta << "\"id\": " << resIdValue << ", ";
+          meta << "\"index\": " << i << ", ";
           meta << "\"name\": \"" << texName << "\", ";
           meta << "\"width\": " << tex.width << ", ";
           meta << "\"height\": " << tex.height << ", ";
@@ -918,6 +939,461 @@ private:
     }
 
     return (failed > 0) ? 1 : 0;
+  }
+
+  // Helper: Flatten nested actions into a flat list
+  void FlattenActions(const rdcarray<ActionDescription> &actions,
+                      rdcarray<ActionDescription> &out)
+  {
+    for(size_t i = 0; i < actions.size(); i++)
+    {
+      out.push_back(actions[i]);
+      if(!actions[i].children.empty())
+        FlattenActions(actions[i].children, out);
+    }
+  }
+
+  // Helper: Escape JSON string
+  std::string EscapeJson(const rdcstr &s)
+  {
+    std::string result;
+    result.reserve(s.size() * 2);
+    for(size_t i = 0; i < s.size(); i++)
+    {
+      char c = s[i];
+      if(c == '"')
+        result += "\\\"";
+      else if(c == '\\')
+        result += "\\\\";
+      else if(c == '\n')
+        result += "\\n";
+      else if(c == '\r')
+        result += "\\r";
+      else if(c == '\t')
+        result += "\\t";
+      else
+        result += c;
+    }
+    return result;
+  }
+
+  // Helper: Get VarType name
+  const char *VarTypeName(VarType type)
+  {
+    switch(type)
+    {
+      case VarType::Float: return "Float";
+      case VarType::Double: return "Double";
+      case VarType::Half: return "Half";
+      case VarType::SInt: return "SInt";
+      case VarType::UInt: return "UInt";
+      case VarType::SShort: return "SShort";
+      case VarType::UShort: return "UShort";
+      case VarType::SLong: return "SLong";
+      case VarType::ULong: return "ULong";
+      case VarType::SByte: return "SByte";
+      case VarType::UByte: return "UByte";
+      case VarType::Bool: return "Bool";
+      default: return "Unknown";
+    }
+  }
+
+  // Helper: Serialize ShaderVariable to JSON string
+  void SerializeShaderVariable(const ShaderVariable &var, std::ostream &json, int indent = 0)
+  {
+    std::string pad(indent * 2, ' ');
+    json << pad << "{";
+    json << "\"name\":\"" << EscapeJson(var.name) << "\",";
+    json << "\"type\":\"" << VarTypeName(var.type) << "\",";
+    json << "\"rows\":" << (int)var.rows << ",";
+    json << "\"columns\":" << (int)var.columns;
+
+    if(var.members.empty())
+    {
+      // Leaf node: serialize value array
+      json << ",\"value\":[";
+      int count = var.rows * var.columns;
+      if(count > 16)
+        count = 16;    // Cap to avoid huge arrays
+      for(int i = 0; i < count; i++)
+      {
+        if(i > 0)
+          json << ",";
+        switch(var.type)
+        {
+          case VarType::Float: json << var.value.f32v[i]; break;
+          case VarType::Double: json << var.value.f64v[i]; break;
+          case VarType::SInt: json << var.value.s32v[i]; break;
+          case VarType::UInt: json << var.value.u32v[i]; break;
+          case VarType::SLong: json << var.value.s64v[i]; break;
+          case VarType::ULong: json << var.value.u64v[i]; break;
+          case VarType::Bool: json << (var.value.u32v[i] ? "true" : "false"); break;
+          default: json << var.value.u32v[i]; break;
+        }
+      }
+      json << "]";
+    }
+    else
+    {
+      // Struct: recursively serialize members
+      json << ",\"members\":[";
+      for(size_t i = 0; i < var.members.size(); i++)
+      {
+        if(i > 0)
+          json << ",";
+        SerializeShaderVariable(var.members[i], json, indent + 1);
+      }
+      json << "]";
+    }
+    json << "}";
+  }
+
+  // Helper: Get ShaderStage name
+  const char *ShaderStageName(ShaderStage stage)
+  {
+    switch(stage)
+    {
+      case ShaderStage::Vertex: return "Vertex";
+      case ShaderStage::Hull: return "Hull";
+      case ShaderStage::Domain: return "Domain";
+      case ShaderStage::Geometry: return "Geometry";
+      case ShaderStage::Pixel: return "Pixel";
+      case ShaderStage::Compute: return "Compute";
+      default: return "Unknown";
+    }
+  }
+
+  // Helper: Get VKPipe::Shader for a stage
+  const VKPipe::Shader *GetVulkanShader(const VKPipe::State *vk, ShaderStage stage)
+  {
+    switch(stage)
+    {
+      case ShaderStage::Vertex: return &vk->vertexShader;
+      case ShaderStage::Hull: return &vk->tessControlShader;
+      case ShaderStage::Domain: return &vk->tessEvalShader;
+      case ShaderStage::Geometry: return &vk->geometryShader;
+      case ShaderStage::Pixel: return &vk->fragmentShader;
+      case ShaderStage::Compute: return &vk->computeShader;
+      default: return NULL;
+    }
+  }
+
+  // Helper: Get D3D12Pipe::Shader for a stage
+  const D3D12Pipe::Shader *GetD3D12Shader(const D3D12Pipe::State *d3d12, ShaderStage stage)
+  {
+    switch(stage)
+    {
+      case ShaderStage::Vertex: return &d3d12->vertexShader;
+      case ShaderStage::Hull: return &d3d12->hullShader;
+      case ShaderStage::Domain: return &d3d12->domainShader;
+      case ShaderStage::Geometry: return &d3d12->geometryShader;
+      case ShaderStage::Pixel: return &d3d12->pixelShader;
+      case ShaderStage::Compute: return &d3d12->computeShader;
+      default: return NULL;
+    }
+  }
+
+  // Helper: Get D3D11Pipe::Shader for a stage
+  const D3D11Pipe::Shader *GetD3D11Shader(const D3D11Pipe::State *d3d11, ShaderStage stage)
+  {
+    switch(stage)
+    {
+      case ShaderStage::Vertex: return &d3d11->vertexShader;
+      case ShaderStage::Hull: return &d3d11->hullShader;
+      case ShaderStage::Domain: return &d3d11->domainShader;
+      case ShaderStage::Geometry: return &d3d11->geometryShader;
+      case ShaderStage::Pixel: return &d3d11->pixelShader;
+      case ShaderStage::Compute: return &d3d11->computeShader;
+      default: return NULL;
+    }
+  }
+
+  // Helper: Get GLPipe::Shader for a stage
+  const GLPipe::Shader *GetGLShader(const GLPipe::State *gl, ShaderStage stage)
+  {
+    switch(stage)
+    {
+      case ShaderStage::Vertex: return &gl->vertexShader;
+      case ShaderStage::Hull: return &gl->tessControlShader;
+      case ShaderStage::Domain: return &gl->tessEvalShader;
+      case ShaderStage::Geometry: return &gl->geometryShader;
+      case ShaderStage::Pixel: return &gl->fragmentShader;
+      case ShaderStage::Compute: return &gl->computeShader;
+      default: return NULL;
+    }
+  }
+
+  // Main function: Export resource bindings with CB data
+  // Uses API-specific pipeline state to avoid linking against PipeState methods
+  int ExportBindings(IReplayController *controller)
+  {
+    std::cout << "Exporting resource bindings with CB data..." << std::endl;
+
+    // Determine API type
+    APIProperties apiProps = controller->GetAPIProperties();
+    GraphicsAPI api = apiProps.pipelineType;
+
+    // Get all actions and flatten
+    rdcarray<ActionDescription> rootActions = controller->GetRootActions();
+    rdcarray<ActionDescription> allActions;
+    FlattenActions(rootActions, allActions);
+
+    // Get resource names
+    const rdcarray<ResourceDescription> &resources = controller->GetResources();
+    std::map<ResourceId, std::string> resourceNames;
+    for(size_t i = 0; i < resources.size(); i++)
+      resourceNames[resources[i].resourceId] = conv(resources[i].name);
+
+    std::vector<std::string> eventEntries;
+    int processedEvents = 0;
+
+    // Shader stages to check
+    ShaderStage stages[] = {ShaderStage::Vertex, ShaderStage::Hull, ShaderStage::Domain,
+                            ShaderStage::Geometry, ShaderStage::Pixel, ShaderStage::Compute};
+
+    for(size_t actIdx = 0; actIdx < allActions.size(); actIdx++)
+    {
+      const ActionDescription &action = allActions[actIdx];
+
+      // Only process draw/dispatch calls
+      if(!(action.flags & (ActionFlags::Drawcall | ActionFlags::Dispatch)))
+        continue;
+
+      // Set replay to this event
+      controller->SetFrameEvent(action.eventId, true);
+
+      std::ostringstream eventJson;
+      eventJson << "    {";
+      eventJson << "\"eventId\":" << action.eventId << ",";
+      eventJson << "\"name\":\"" << EscapeJson(action.customName) << "\",";
+      eventJson << "\"constantBuffers\":[";
+
+      bool firstCB = true;
+
+      // Process based on API type
+      if(api == GraphicsAPI::Vulkan)
+      {
+        const VKPipe::State *vk = controller->GetVulkanPipelineState();
+        if(vk)
+        {
+          ResourceId pipeObj =
+              (action.flags & ActionFlags::Dispatch) ? vk->compute.pipelineResourceId : vk->graphics.pipelineResourceId;
+
+          for(int stageIdx = 0; stageIdx < 6; stageIdx++)
+          {
+            ShaderStage stage = stages[stageIdx];
+            const VKPipe::Shader *shader = GetVulkanShader(vk, stage);
+            if(!shader || shader->resourceId == ResourceId() || !shader->reflection)
+              continue;
+
+            const ShaderReflection *refl = shader->reflection;
+
+            // Iterate through constant blocks from reflection
+            for(size_t cbIdx = 0; cbIdx < refl->constantBlocks.size(); cbIdx++)
+            {
+              const ConstantBlock &cbMeta = refl->constantBlocks[cbIdx];
+
+              // For Vulkan, use buffer data directly via GetBufferData (simplified approach)
+              // We use reflection info to get structure, and call GetCBufferVariableContents
+              // with a null buffer to get the reflection-based structure at least
+              rdcarray<ShaderVariable> vars = controller->GetCBufferVariableContents(
+                  pipeObj, shader->resourceId, stage, shader->entryPoint, (uint32_t)cbIdx,
+                  ResourceId(), 0, cbMeta.byteSize);
+
+              if(!firstCB)
+                eventJson << ",";
+              firstCB = false;
+
+              eventJson << "{";
+              eventJson << "\"stage\":\"" << ShaderStageName(stage) << "\",";
+              eventJson << "\"slot\":" << cbIdx << ",";
+              eventJson << "\"name\":\"" << EscapeJson(cbMeta.name) << "\",";
+              eventJson << "\"size\":" << cbMeta.byteSize << ",";
+              eventJson << "\"members\":[";
+
+              for(size_t varIdx = 0; varIdx < vars.size(); varIdx++)
+              {
+                if(varIdx > 0)
+                  eventJson << ",";
+                SerializeShaderVariable(vars[varIdx], eventJson, 0);
+              }
+
+              eventJson << "]}";
+            }
+          }
+        }
+      }
+      else if(api == GraphicsAPI::D3D12)
+      {
+        const D3D12Pipe::State *d3d12 = controller->GetD3D12PipelineState();
+        if(d3d12)
+        {
+          ResourceId pipeObj = d3d12->pipelineResourceId;
+
+          for(int stageIdx = 0; stageIdx < 6; stageIdx++)
+          {
+            ShaderStage stage = stages[stageIdx];
+            const D3D12Pipe::Shader *shader = GetD3D12Shader(d3d12, stage);
+            if(!shader || shader->resourceId == ResourceId() || !shader->reflection)
+              continue;
+
+            const ShaderReflection *refl = shader->reflection;
+
+            for(size_t cbIdx = 0; cbIdx < refl->constantBlocks.size(); cbIdx++)
+            {
+              const ConstantBlock &cbMeta = refl->constantBlocks[cbIdx];
+
+              rdcarray<ShaderVariable> vars = controller->GetCBufferVariableContents(
+                  pipeObj, shader->resourceId, stage, rdcstr(), (uint32_t)cbIdx, ResourceId(), 0,
+                  cbMeta.byteSize);
+
+              if(!firstCB)
+                eventJson << ",";
+              firstCB = false;
+
+              eventJson << "{";
+              eventJson << "\"stage\":\"" << ShaderStageName(stage) << "\",";
+              eventJson << "\"slot\":" << cbIdx << ",";
+              eventJson << "\"name\":\"" << EscapeJson(cbMeta.name) << "\",";
+              eventJson << "\"size\":" << cbMeta.byteSize << ",";
+              eventJson << "\"members\":[";
+
+              for(size_t varIdx = 0; varIdx < vars.size(); varIdx++)
+              {
+                if(varIdx > 0)
+                  eventJson << ",";
+                SerializeShaderVariable(vars[varIdx], eventJson, 0);
+              }
+
+              eventJson << "]}";
+            }
+          }
+        }
+      }
+      else if(api == GraphicsAPI::D3D11)
+      {
+        const D3D11Pipe::State *d3d11 = controller->GetD3D11PipelineState();
+        if(d3d11)
+        {
+          for(int stageIdx = 0; stageIdx < 6; stageIdx++)
+          {
+            ShaderStage stage = stages[stageIdx];
+            const D3D11Pipe::Shader *shader = GetD3D11Shader(d3d11, stage);
+            if(!shader || shader->resourceId == ResourceId() || !shader->reflection)
+              continue;
+
+            const ShaderReflection *refl = shader->reflection;
+
+            for(size_t cbIdx = 0; cbIdx < refl->constantBlocks.size(); cbIdx++)
+            {
+              const ConstantBlock &cbMeta = refl->constantBlocks[cbIdx];
+
+              // D3D11: GetCBufferVariableContents will resolve the binding internally
+              rdcarray<ShaderVariable> vars = controller->GetCBufferVariableContents(
+                  ResourceId(), shader->resourceId, stage, rdcstr(), (uint32_t)cbIdx, ResourceId(),
+                  0, cbMeta.byteSize);
+
+              if(!firstCB)
+                eventJson << ",";
+              firstCB = false;
+
+              eventJson << "{";
+              eventJson << "\"stage\":\"" << ShaderStageName(stage) << "\",";
+              eventJson << "\"slot\":" << cbIdx << ",";
+              eventJson << "\"name\":\"" << EscapeJson(cbMeta.name) << "\",";
+              eventJson << "\"size\":" << cbMeta.byteSize << ",";
+              eventJson << "\"members\":[";
+
+              for(size_t varIdx = 0; varIdx < vars.size(); varIdx++)
+              {
+                if(varIdx > 0)
+                  eventJson << ",";
+                SerializeShaderVariable(vars[varIdx], eventJson, 0);
+              }
+
+              eventJson << "]}";
+            }
+          }
+        }
+      }
+      else if(api == GraphicsAPI::OpenGL)
+      {
+        const GLPipe::State *gl = controller->GetGLPipelineState();
+        if(gl)
+        {
+          ResourceId pipeObj = gl->pipelineResourceId;
+
+          for(int stageIdx = 0; stageIdx < 6; stageIdx++)
+          {
+            ShaderStage stage = stages[stageIdx];
+            const GLPipe::Shader *shader = GetGLShader(gl, stage);
+            if(!shader || shader->shaderResourceId == ResourceId() || !shader->reflection)
+              continue;
+
+            const ShaderReflection *refl = shader->reflection;
+
+            for(size_t cbIdx = 0; cbIdx < refl->constantBlocks.size(); cbIdx++)
+            {
+              const ConstantBlock &cbMeta = refl->constantBlocks[cbIdx];
+
+              rdcarray<ShaderVariable> vars = controller->GetCBufferVariableContents(
+                  pipeObj, shader->shaderResourceId, stage, rdcstr(), (uint32_t)cbIdx, ResourceId(),
+                  0, cbMeta.byteSize);
+
+              if(!firstCB)
+                eventJson << ",";
+              firstCB = false;
+
+              eventJson << "{";
+              eventJson << "\"stage\":\"" << ShaderStageName(stage) << "\",";
+              eventJson << "\"slot\":" << cbIdx << ",";
+              eventJson << "\"name\":\"" << EscapeJson(cbMeta.name) << "\",";
+              eventJson << "\"size\":" << cbMeta.byteSize << ",";
+              eventJson << "\"members\":[";
+
+              for(size_t varIdx = 0; varIdx < vars.size(); varIdx++)
+              {
+                if(varIdx > 0)
+                  eventJson << ",";
+                SerializeShaderVariable(vars[varIdx], eventJson, 0);
+              }
+
+              eventJson << "]}";
+            }
+          }
+        }
+      }
+
+      eventJson << "]}";
+      eventEntries.push_back(eventJson.str());
+      processedEvents++;
+
+      if(processedEvents % 100 == 0)
+        std::cout << "\r  Processed " << processedEvents << " events..." << std::flush;
+    }
+
+    std::cout << "\r  Processed " << processedEvents << " events total." << std::endl;
+
+    // Write bindings.json
+    std::string bindingsPath = outdir + "/bindings.json";
+    FILE *f = fopen(bindingsPath.c_str(), "w");
+    if(f)
+    {
+      fprintf(f, "{\n  \"events\": [\n");
+      for(size_t i = 0; i < eventEntries.size(); i++)
+      {
+        fprintf(f, "%s%s\n", eventEntries[i].c_str(), (i < eventEntries.size() - 1) ? "," : "");
+      }
+      fprintf(f, "  ]\n}\n");
+      fclose(f);
+      std::cout << "Bindings written to: " << bindingsPath << std::endl;
+      return 0;
+    }
+    else
+    {
+      std::cerr << "Failed to write bindings to: " << bindingsPath << std::endl;
+      return 1;
+    }
   }
 };
 
