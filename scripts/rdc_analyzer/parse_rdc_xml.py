@@ -358,7 +358,8 @@ def parse_rdc_xml(xml_path):
     binding_calls = vk_binding_calls + d3d11_binding_calls + d3d12_binding_calls
     
     # 跟踪当前绑定状态（用于关联到 Draw 调用）
-    current_bindings = []
+    current_bindings = []           # 字符串格式的调用（向后兼容）
+    current_binding_records = []    # 结构化调用记录（用于 meshInfo/pipelineState 解析）
     
     for chunk in chunks.findall("chunk"):
         chunk_name = chunk.get("name", "")
@@ -394,7 +395,15 @@ def parse_rdc_xml(xml_path):
             
             # 关联之前的绑定调用
             event["relatedCalls"] = current_bindings.copy()
+            
+            # 解析 Mesh 信息
+            event["meshInfo"] = parse_mesh_info(current_binding_records)
+            
+            # 解析 Pipeline State
+            event["pipelineState"] = parse_pipeline_state_from_related_calls(current_bindings)
+            
             current_bindings = []  # 清空，为下一个 draw 准备
+            current_binding_records = []  # 清空结构化记录
             
             # 提取绘制参数
             for p in params:
@@ -417,6 +426,8 @@ def parse_rdc_xml(xml_path):
             # 记录绑定调用，等待关联到下一个 draw
             binding_str = format_binding_call(chunk_name, params)
             current_bindings.append(binding_str)
+            # 同时保存结构化记录用于 meshInfo/pipelineState 解析
+            current_binding_records.append({"name": chunk_name, "params": params})
             
         elif chunk_name in render_pass_begin:
             if current_render_pass:
@@ -524,6 +535,157 @@ def format_binding_call(name, params):
     if param_strs:
         return f"{name}({', '.join(param_strs)})"
     return name
+
+
+def parse_mesh_info(binding_records):
+    """
+    从绑定记录中解析 Mesh 信息
+    
+    Args:
+        binding_records: 结构化的绑定调用列表 [{"name": "...", "params": [...]}]
+    
+    Returns:
+        meshInfo 对象包含:
+        - vertexBuffers: [{buffer, offset, stride}]
+        - indexBuffer: {buffer, offset, format}
+        - inputLayout: 输入布局 ID
+        - primitiveTopology: 图元拓扑
+    """
+    mesh_info = {
+        "vertexBuffers": [],
+        "indexBuffer": None,
+        "inputLayout": None,
+        "primitiveTopology": None
+    }
+    
+    for record in binding_records:
+        name = record.get("name", "")
+        params = record.get("params", [])
+        
+        # D3D11: IASetVertexBuffers
+        if "IASetVertexBuffers" in name:
+            vb_info = parse_d3d11_vertex_buffers(params)
+            if vb_info:
+                mesh_info["vertexBuffers"].extend(vb_info)
+                
+        # D3D11: IASetIndexBuffer
+        elif "IASetIndexBuffer" in name:
+            ib_info = parse_d3d11_index_buffer(params)
+            if ib_info:
+                mesh_info["indexBuffer"] = ib_info
+                
+        # D3D11: IASetInputLayout
+        elif "IASetInputLayout" in name:
+            for p in params:
+                if p.get("name") == "pInputLayout":
+                    mesh_info["inputLayout"] = p.get("value", "")
+                    
+        # D3D11: IASetPrimitiveTopology
+        elif "IASetPrimitiveTopology" in name:
+            for p in params:
+                if p.get("name") == "Topology":
+                    mesh_info["primitiveTopology"] = p.get("value", "")
+                    
+        # Vulkan: vkCmdBindVertexBuffers
+        elif "vkCmdBindVertexBuffers" in name:
+            vb_info = parse_vulkan_vertex_buffers(params)
+            if vb_info:
+                mesh_info["vertexBuffers"].extend(vb_info)
+                
+        # Vulkan: vkCmdBindIndexBuffer
+        elif "vkCmdBindIndexBuffer" in name:
+            ib_info = parse_vulkan_index_buffer(params)
+            if ib_info:
+                mesh_info["indexBuffer"] = ib_info
+    
+    return mesh_info
+
+
+def parse_d3d11_vertex_buffers(params):
+    """解析 D3D11 IASetVertexBuffers 参数"""
+    buffers = []
+    strides = []
+    offsets = []
+    start_slot = 0
+    
+    for p in params:
+        name = p.get("name", "")
+        if name == "StartSlot":
+            start_slot = int(p.get("value", 0))
+        elif name == "ppVertexBuffers" and "elements" in p:
+            for elem in p["elements"]:
+                buffers.append(elem.get("value", ""))
+        elif name == "pStrides" and "elements" in p:
+            for elem in p["elements"]:
+                strides.append(int(elem.get("value", 0)))
+        elif name == "pOffsets" and "elements" in p:
+            for elem in p["elements"]:
+                offsets.append(int(elem.get("value", 0)))
+    
+    result = []
+    for i, buf in enumerate(buffers):
+        result.append({
+            "slot": start_slot + i,
+            "buffer": buf,
+            "stride": strides[i] if i < len(strides) else 0,
+            "offset": offsets[i] if i < len(offsets) else 0
+        })
+    return result
+
+
+def parse_d3d11_index_buffer(params):
+    """解析 D3D11 IASetIndexBuffer 参数"""
+    ib_info = {}
+    for p in params:
+        name = p.get("name", "")
+        if name == "pIndexBuffer":
+            ib_info["buffer"] = p.get("value", "")
+        elif name == "Format":
+            ib_info["format"] = p.get("value", "")
+        elif name == "Offset":
+            ib_info["offset"] = int(p.get("value", 0))
+    return ib_info if ib_info.get("buffer") else None
+
+
+def parse_vulkan_vertex_buffers(params):
+    """解析 Vulkan vkCmdBindVertexBuffers 参数"""
+    buffers = []
+    offsets = []
+    first_binding = 0
+    
+    for p in params:
+        name = p.get("name", "")
+        if name == "firstBinding":
+            first_binding = int(p.get("value", 0))
+        elif name == "pBuffers" and "elements" in p:
+            for elem in p["elements"]:
+                buffers.append(elem.get("value", ""))
+        elif name == "pOffsets" and "elements" in p:
+            for elem in p["elements"]:
+                offsets.append(int(elem.get("value", 0)))
+    
+    result = []
+    for i, buf in enumerate(buffers):
+        result.append({
+            "slot": first_binding + i,
+            "buffer": buf,
+            "offset": offsets[i] if i < len(offsets) else 0
+        })
+    return result
+
+
+def parse_vulkan_index_buffer(params):
+    """解析 Vulkan vkCmdBindIndexBuffer 参数"""
+    ib_info = {}
+    for p in params:
+        name = p.get("name", "")
+        if name == "buffer":
+            ib_info["buffer"] = p.get("value", "")
+        elif name == "offset":
+            ib_info["offset"] = int(p.get("value", 0))
+        elif name == "indexType":
+            ib_info["format"] = p.get("value", "")
+    return ib_info if ib_info.get("buffer") else None
 
 
 def parse_pipeline_state_from_related_calls(related_calls):
