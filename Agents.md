@@ -86,6 +86,40 @@ make -C build-android
   4. 若需求或范围变化：立即暂停 /do，回退 /plan 更新同一 plan.md，获批后再继续。
   5. 自检：按 plan.md 的 Definition of Done 勾选，**自主运行验证命令确认结果**。
   6. 遇阻流程：同一问题尝试不超过 3 次；记录已尝试方法/错误/推测原因/备选方案到 plan.md 的 Risks/Blockers，再决定等待指示或调整方案。
+  7. **Git 自动提交**：每完成一个独立功能/任务后立即提交到 Git。
+
+- **[强制] Git 自动提交规则**:
+  - **触发时机**：完成一个可验证的功能/修复/任务后
+  - **提交格式**：遵循 Conventional Commits
+    ```
+    <type>(<scope>): <简短描述>
+    
+    - 详细说明修改内容
+    - 涉及的文件列表
+    ```
+  - **类型 (type)**:
+    | 类型 | 说明 |
+    |------|------|
+    | `feat` | 新功能 |
+    | `fix` | 修复 Bug |
+    | `docs` | 文档更新 |
+    | `refactor` | 重构（无功能变化） |
+    | `style` | 代码格式化 |
+    | `chore` | 构建/工具变更 |
+  - **示例**:
+    ```bash
+    git add scripts/rdc_analyzer/extract_pipeline.py
+    git commit -m "feat(rdc-analyzer): 添加 Pipeline State 提取功能
+
+    - 新增 extract_pipeline.py 脚本
+    - 支持从 RDC 提取 Shader、Viewport、Blend State
+    - 输出 JSON 格式供 HTML 报告使用"
+    ```
+  - **禁止行为**:
+    - ❌ 累积多个任务后批量提交
+    - ❌ 使用模糊的提交信息（如 "update", "fix"）
+    - ❌ 忘记提交就开始下一个任务
+
 - **[增强] 批次执行与汇报**:
   - **默认批次**：每完成 3 个任务进行总结是否存在疑问、不确定，如果存在就汇报进度，等待反馈
   - **汇报格式**：已完成项 + 验证结果 + "Ready for feedback."
