@@ -1,0 +1,3866 @@
+"""
+HTML 可交互视图导出器
+=====================
+
+生成带搜索/筛选功能的调用链浏览器
+支持依赖图可视化、问题高亮、资源追踪等功能
+"""
+
+import html
+import json
+from dataclasses import dataclass
+from datetime import datetime
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Union
+
+from ..core.pipeline_state import DrawCallDetail
+from ..analysis.call_analyzer import BindingIssue
+from ..analysis.resource_tracker import ResourceDependency, ResourceLifetime
+from .json_exporter import JSONExporter, EnhancedJSONEncoder
+
+
+@dataclass
+class HTMLExportConfig:
+    """HTML 导出配置"""
+    
+    # 页面标题
+    title: str = "RDC Call Chain Analyzer"
+    
+    # 主题
+    theme: str = "dark"  # 'dark' or 'light'
+    
+    # 功能开关
+    include_search: bool = True
+    include_filter: bool = True
+    include_dependency_graph: bool = True
+    include_statistics: bool = True
+    include_timeline: bool = True
+    
+    # 性能优化
+    lazy_load_threshold: int = 1000  # 超过此数量时启用懒加载
+
+
+# 内置的 HTML 模板
+HTML_TEMPLATE = '''<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{title}</title>
+    <style>
+        :root {{
+            --bg-primary: {bg_primary};
+            --bg-secondary: {bg_secondary};
+            --bg-tertiary: {bg_tertiary};
+            --text-primary: {text_primary};
+            --text-secondary: {text_secondary};
+            --accent: #4a9eff;
+            --accent-hover: #6bb3ff;
+            --error: #ff6b6b;
+            --warning: #ffa94d;
+            --info: #74c0fc;
+            --success: #69db7c;
+            --border: {border_color};
+        }}
+        
+        * {{
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }}
+        
+        body {{
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.6;
+        }}
+        
+        .container {{
+            max-width: 1600px;
+            margin: 0 auto;
+            padding: 20px;
+        }}
+        
+        /* Header */
+        .header {{
+            background: var(--bg-secondary);
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 16px;
+        }}
+        
+        .header h1 {{
+            font-size: 24px;
+            font-weight: 600;
+            color: var(--accent);
+        }}
+        
+        .header-meta {{
+            font-size: 14px;
+            color: var(--text-secondary);
+        }}
+        
+        /* Statistics Cards */
+        .stats-grid {{
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+            margin-bottom: 20px;
+        }}
+        
+        .stat-card {{
+            background: var(--bg-secondary);
+            border-radius: 12px;
+            padding: 20px;
+            text-align: center;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }}
+        
+        .stat-card:hover {{
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(0,0,0,0.3);
+        }}
+        
+        .stat-value {{
+            font-size: 32px;
+            font-weight: 700;
+            color: var(--accent);
+        }}
+        
+        .stat-label {{
+            font-size: 14px;
+            color: var(--text-secondary);
+            margin-top: 4px;
+        }}
+        
+        .stat-card.error .stat-value {{ color: var(--error); }}
+        .stat-card.warning .stat-value {{ color: var(--warning); }}
+        .stat-card.success .stat-value {{ color: var(--success); }}
+        
+        /* Toolbar */
+        .toolbar {{
+            background: var(--bg-secondary);
+            border-radius: 12px;
+            padding: 16px;
+            margin-bottom: 20px;
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+            align-items: center;
+        }}
+        
+        .search-box {{
+            flex: 1;
+            min-width: 250px;
+            position: relative;
+        }}
+        
+        .search-box input {{
+            width: 100%;
+            padding: 10px 16px 10px 40px;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+            font-size: 14px;
+        }}
+        
+        .search-box input:focus {{
+            outline: none;
+            border-color: var(--accent);
+        }}
+        
+        .search-box::before {{
+            content: "🔍";
+            position: absolute;
+            left: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+        }}
+        
+        .filter-group {{
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }}
+        
+        .filter-btn {{
+            padding: 8px 16px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+            cursor: pointer;
+            font-size: 13px;
+            transition: all 0.2s;
+        }}
+        
+        .filter-btn:hover {{
+            border-color: var(--accent);
+            color: var(--accent);
+        }}
+        
+        .filter-btn.active {{
+            background: var(--accent);
+            border-color: var(--accent);
+            color: white;
+        }}
+        
+        /* Main Content Layout */
+        .main-content {{
+            display: grid;
+            grid-template-columns: 350px 1fr;
+            gap: 20px;
+        }}
+        
+        @media (max-width: 1024px) {{
+            .main-content {{
+                grid-template-columns: 1fr;
+            }}
+        }}
+        
+        /* Call List Panel */
+        .call-list-panel {{
+            background: var(--bg-secondary);
+            border-radius: 12px;
+            overflow: hidden;
+            max-height: 800px;
+            display: flex;
+            flex-direction: column;
+        }}
+        
+        .panel-header {{
+            padding: 16px;
+            border-bottom: 1px solid var(--border);
+            font-weight: 600;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }}
+        
+        .call-list {{
+            flex: 1;
+            overflow-y: auto;
+        }}
+        
+        .call-item {{
+            padding: 12px 16px;
+            border-bottom: 1px solid var(--border);
+            cursor: pointer;
+            transition: background 0.2s;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }}
+        
+        .call-item:hover {{
+            background: var(--bg-tertiary);
+        }}
+        
+        .call-item.selected {{
+            background: var(--accent);
+            color: white;
+        }}
+        
+        .call-item.has-issues {{
+            border-left: 3px solid var(--error);
+        }}
+        
+        .call-id {{
+            font-family: 'Monaco', 'Menlo', monospace;
+            font-size: 12px;
+            color: var(--text-secondary);
+            background: var(--bg-tertiary);
+            padding: 2px 6px;
+            border-radius: 4px;
+        }}
+        
+        .call-item.selected .call-id {{
+            background: rgba(255,255,255,0.2);
+            color: white;
+        }}
+        
+        .call-name {{
+            font-size: 14px;
+            flex: 1;
+            margin: 0 12px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }}
+        
+        .issue-badge {{
+            background: var(--error);
+            color: white;
+            font-size: 11px;
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-weight: 600;
+        }}
+        
+        /* Detail Panel */
+        .detail-panel {{
+            background: var(--bg-secondary);
+            border-radius: 12px;
+            overflow: hidden;
+        }}
+        
+        .tabs {{
+            display: flex;
+            border-bottom: 1px solid var(--border);
+            background: var(--bg-tertiary);
+        }}
+        
+        .tab {{
+            padding: 12px 24px;
+            cursor: pointer;
+            border-bottom: 2px solid transparent;
+            transition: all 0.2s;
+            font-size: 14px;
+        }}
+        
+        .tab:hover {{
+            background: var(--bg-secondary);
+        }}
+        
+        .tab.active {{
+            border-bottom-color: var(--accent);
+            color: var(--accent);
+        }}
+        
+        .tab-content {{
+            padding: 20px;
+            display: none;
+            max-height: 700px;
+            overflow-y: auto;
+        }}
+        
+        .tab-content.active {{
+            display: block;
+        }}
+        
+        /* Pipeline State */
+        .state-section {{
+            margin-bottom: 24px;
+        }}
+        
+        .state-section h3 {{
+            font-size: 16px;
+            margin-bottom: 12px;
+            color: var(--accent);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }}
+        
+        .state-section h3::before {{
+            content: "";
+            width: 4px;
+            height: 16px;
+            background: var(--accent);
+            border-radius: 2px;
+        }}
+        
+        .state-grid {{
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 12px;
+        }}
+        
+        .state-item {{
+            background: var(--bg-tertiary);
+            padding: 12px;
+            border-radius: 8px;
+        }}
+        
+        .state-label {{
+            font-size: 12px;
+            color: var(--text-secondary);
+            margin-bottom: 4px;
+        }}
+        
+        .state-value {{
+            font-family: 'Monaco', 'Menlo', monospace;
+            font-size: 14px;
+            word-break: break-all;
+        }}
+        
+        /* Resource Bindings Table */
+        .binding-table {{
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+        }}
+        
+        .binding-table th,
+        .binding-table td {{
+            padding: 10px 12px;
+            text-align: left;
+            border-bottom: 1px solid var(--border);
+        }}
+        
+        .binding-table th {{
+            background: var(--bg-tertiary);
+            font-weight: 600;
+            color: var(--text-secondary);
+            position: sticky;
+            top: 0;
+        }}
+        
+        .binding-table tr:hover td {{
+            background: var(--bg-tertiary);
+        }}
+        
+        /* Issues Panel */
+        .issue-item {{
+            background: var(--bg-tertiary);
+            border-radius: 8px;
+            padding: 16px;
+            margin-bottom: 12px;
+            border-left: 4px solid var(--error);
+        }}
+        
+        .issue-item.warning {{
+            border-left-color: var(--warning);
+        }}
+        
+        .issue-item.info {{
+            border-left-color: var(--info);
+        }}
+        
+        .issue-header {{
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }}
+        
+        .issue-rule {{
+            font-weight: 600;
+            color: var(--error);
+        }}
+        
+        .issue-item.warning .issue-rule {{
+            color: var(--warning);
+        }}
+        
+        .issue-item.info .issue-rule {{
+            color: var(--info);
+        }}
+        
+        .issue-severity {{
+            font-size: 11px;
+            padding: 2px 8px;
+            border-radius: 4px;
+            text-transform: uppercase;
+        }}
+        
+        .severity-error {{ background: var(--error); color: white; }}
+        .severity-warning {{ background: var(--warning); color: black; }}
+        .severity-info {{ background: var(--info); color: black; }}
+        
+        .issue-message {{
+            font-size: 14px;
+            line-height: 1.5;
+        }}
+        
+        /* Dependencies Graph */
+        .dep-graph {{
+            background: var(--bg-tertiary);
+            border-radius: 8px;
+            padding: 16px;
+            min-height: 300px;
+        }}
+        
+        .dep-item {{
+            display: flex;
+            align-items: center;
+            padding: 8px 0;
+            border-bottom: 1px dashed var(--border);
+        }}
+        
+        .dep-item:last-child {{
+            border-bottom: none;
+        }}
+        
+        .dep-node {{
+            padding: 6px 12px;
+            background: var(--accent);
+            color: white;
+            border-radius: 6px;
+            font-size: 13px;
+            font-family: monospace;
+        }}
+        
+        .dep-arrow {{
+            margin: 0 12px;
+            color: var(--text-secondary);
+            font-size: 18px;
+        }}
+        
+        .dep-type {{
+            font-size: 11px;
+            padding: 2px 8px;
+            border-radius: 4px;
+            background: var(--bg-secondary);
+            margin-left: 12px;
+        }}
+        
+        .dep-type.RAW {{ color: var(--info); border: 1px solid var(--info); }}
+        .dep-type.WAR {{ color: var(--warning); border: 1px solid var(--warning); }}
+        .dep-type.WAW {{ color: var(--error); border: 1px solid var(--error); }}
+        
+        /* Resource Lifetime */
+        .lifetime-item {{
+            background: var(--bg-tertiary);
+            border-radius: 8px;
+            padding: 16px;
+            margin-bottom: 12px;
+        }}
+        
+        .lifetime-header {{
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+        }}
+        
+        .lifetime-name {{
+            font-weight: 600;
+            font-family: monospace;
+        }}
+        
+        .lifetime-type {{
+            font-size: 12px;
+            padding: 2px 8px;
+            background: var(--bg-secondary);
+            border-radius: 4px;
+            color: var(--text-secondary);
+        }}
+        
+        .lifetime-bar {{
+            height: 24px;
+            background: var(--bg-secondary);
+            border-radius: 4px;
+            position: relative;
+            overflow: hidden;
+        }}
+        
+        .lifetime-range {{
+            position: absolute;
+            height: 100%;
+            background: linear-gradient(90deg, var(--success), var(--accent));
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 11px;
+            color: white;
+            font-weight: 600;
+        }}
+        
+        .lifetime-stats {{
+            display: flex;
+            gap: 16px;
+            margin-top: 12px;
+            font-size: 13px;
+            color: var(--text-secondary);
+        }}
+        
+        /* Performance Dashboard */
+        .perf-dashboard {{
+            padding: 20px;
+        }}
+        
+        .perf-score-container {{
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 40px;
+            margin-bottom: 24px;
+            padding: 24px;
+            background: var(--bg-tertiary);
+            border-radius: 16px;
+        }}
+        
+        .perf-score-ring {{
+            position: relative;
+            width: 160px;
+            height: 160px;
+        }}
+        
+        .perf-score-ring svg {{
+            transform: rotate(-90deg);
+        }}
+        
+        .perf-score-ring circle {{
+            fill: none;
+            stroke-width: 12;
+        }}
+        
+        .perf-score-ring .bg {{
+            stroke: var(--border);
+        }}
+        
+        .perf-score-ring .progress {{
+            stroke-linecap: round;
+            transition: stroke-dashoffset 1s ease;
+        }}
+        
+        .perf-score-text {{
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+        }}
+        
+        .perf-score-value {{
+            font-size: 42px;
+            font-weight: 700;
+        }}
+        
+        .perf-score-label {{
+            font-size: 14px;
+            color: var(--text-secondary);
+        }}
+        
+        .perf-score-excellent {{ color: var(--success); }}
+        .perf-score-good {{ color: #a9e34b; }}
+        .perf-score-fair {{ color: var(--warning); }}
+        .perf-score-poor {{ color: var(--error); }}
+        
+        .perf-summary-stats {{
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }}
+        
+        .perf-summary-item {{
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }}
+        
+        .perf-summary-icon {{
+            width: 48px;
+            height: 48px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+        }}
+        
+        .perf-summary-icon.issues {{ background: rgba(255, 107, 107, 0.2); }}
+        .perf-summary-icon.draws {{ background: rgba(74, 158, 255, 0.2); }}
+        .perf-summary-icon.textures {{ background: rgba(105, 219, 124, 0.2); }}
+        
+        .perf-summary-value {{
+            font-size: 24px;
+            font-weight: 600;
+        }}
+        
+        .perf-summary-label {{
+            font-size: 13px;
+            color: var(--text-secondary);
+        }}
+        
+        /* Performance Category Cards */
+        .perf-categories {{
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 16px;
+            margin-bottom: 24px;
+        }}
+        
+        .perf-category-card {{
+            background: var(--bg-tertiary);
+            border-radius: 12px;
+            padding: 20px;
+            border-left: 4px solid var(--accent);
+        }}
+        
+        .perf-category-card.warning {{ border-left-color: var(--warning); }}
+        .perf-category-card.error {{ border-left-color: var(--error); }}
+        .perf-category-card.success {{ border-left-color: var(--success); }}
+        
+        .perf-category-header {{
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+        }}
+        
+        .perf-category-name {{
+            font-weight: 600;
+            font-size: 15px;
+        }}
+        
+        .perf-category-count {{
+            background: var(--bg-secondary);
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 13px;
+            font-weight: 600;
+        }}
+        
+        .perf-category-bar {{
+            height: 8px;
+            background: var(--border);
+            border-radius: 4px;
+            overflow: hidden;
+        }}
+        
+        .perf-category-fill {{
+            height: 100%;
+            border-radius: 4px;
+            transition: width 0.5s ease;
+        }}
+        
+        .perf-category-fill.low {{ background: var(--success); }}
+        .perf-category-fill.medium {{ background: var(--warning); }}
+        .perf-category-fill.high {{ background: var(--error); }}
+        
+        /* Performance Issues List */
+        .perf-issues-section {{
+            margin-top: 24px;
+        }}
+        
+        .perf-issues-header {{
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+        }}
+        
+        .perf-issues-title {{
+            font-size: 18px;
+            font-weight: 600;
+        }}
+        
+        .perf-issues-filter {{
+            display: flex;
+            gap: 8px;
+        }}
+        
+        .perf-filter-btn {{
+            padding: 6px 12px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+            cursor: pointer;
+            font-size: 12px;
+            transition: all 0.2s;
+        }}
+        
+        .perf-filter-btn:hover,
+        .perf-filter-btn.active {{
+            background: var(--accent);
+            border-color: var(--accent);
+            color: white;
+        }}
+        
+        .perf-issue-card {{
+            background: var(--bg-tertiary);
+            border-radius: 12px;
+            padding: 16px;
+            margin-bottom: 12px;
+            border-left: 4px solid var(--warning);
+            transition: transform 0.2s;
+        }}
+        
+        .perf-issue-card:hover {{
+            transform: translateX(4px);
+        }}
+        
+        .perf-issue-card.critical {{ border-left-color: var(--error); }}
+        .perf-issue-card.warning {{ border-left-color: var(--warning); }}
+        .perf-issue-card.info {{ border-left-color: var(--info); }}
+        
+        .perf-issue-header {{
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 8px;
+        }}
+        
+        .perf-issue-rule {{
+            font-family: 'Monaco', 'Menlo', monospace;
+            font-size: 12px;
+            color: var(--accent);
+            background: var(--bg-secondary);
+            padding: 4px 8px;
+            border-radius: 4px;
+        }}
+        
+        .perf-issue-impact {{
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 12px;
+        }}
+        
+        .perf-impact-bar {{
+            width: 60px;
+            height: 6px;
+            background: var(--border);
+            border-radius: 3px;
+            overflow: hidden;
+        }}
+        
+        .perf-impact-fill {{
+            height: 100%;
+            border-radius: 3px;
+        }}
+        
+        .perf-issue-message {{
+            font-size: 14px;
+            line-height: 1.5;
+            margin-bottom: 8px;
+        }}
+        
+        .perf-issue-details {{
+            display: flex;
+            gap: 16px;
+            font-size: 12px;
+            color: var(--text-secondary);
+        }}
+        
+        .perf-issue-location {{
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }}
+        
+        /* Performance Recommendations */
+        .perf-recommendations {{
+            margin-top: 24px;
+            background: var(--bg-tertiary);
+            border-radius: 12px;
+            padding: 20px;
+        }}
+        
+        .perf-rec-title {{
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }}
+        
+        .perf-rec-list {{
+            list-style: none;
+        }}
+        
+        .perf-rec-item {{
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+            padding: 12px 0;
+            border-bottom: 1px solid var(--border);
+        }}
+        
+        .perf-rec-item:last-child {{
+            border-bottom: none;
+        }}
+        
+        .perf-rec-icon {{
+            width: 32px;
+            height: 32px;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+            flex-shrink: 0;
+        }}
+        
+        .perf-rec-icon.high {{ background: rgba(255, 107, 107, 0.2); }}
+        .perf-rec-icon.medium {{ background: rgba(255, 169, 77, 0.2); }}
+        .perf-rec-icon.low {{ background: rgba(116, 192, 252, 0.2); }}
+        
+        .perf-rec-content {{
+            flex: 1;
+        }}
+        
+        .perf-rec-text {{
+            font-size: 14px;
+            line-height: 1.5;
+        }}
+        
+        .perf-rec-priority {{
+            font-size: 11px;
+            padding: 2px 8px;
+            border-radius: 4px;
+            margin-left: 8px;
+        }}
+        
+        .perf-rec-priority.high {{
+            background: rgba(255, 107, 107, 0.2);
+            color: var(--error);
+        }}
+        
+        .perf-rec-priority.medium {{
+            background: rgba(255, 169, 77, 0.2);
+            color: var(--warning);
+        }}
+        
+        .perf-rec-priority.low {{
+            background: rgba(116, 192, 252, 0.2);
+            color: var(--info);
+        }}
+        
+        /* Resource Link (clickable resource IDs) */
+        .resource-link {{
+            color: var(--accent);
+            cursor: pointer;
+            text-decoration: none;
+            font-family: 'Monaco', 'Menlo', monospace;
+            padding: 2px 6px;
+            background: var(--bg-tertiary);
+            border-radius: 4px;
+            transition: all 0.2s;
+        }}
+        
+        .resource-link:hover {{
+            background: var(--accent);
+            color: white;
+        }}
+        
+        /* Resource Modal */
+        .modal-overlay {{
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            z-index: 1000;
+            backdrop-filter: blur(4px);
+            animation: fadeIn 0.2s ease;
+        }}
+        
+        .modal-overlay.active {{
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }}
+        
+        @keyframes fadeIn {{
+            from {{ opacity: 0; }}
+            to {{ opacity: 1; }}
+        }}
+        
+        .modal {{
+            background: var(--bg-secondary);
+            border-radius: 16px;
+            width: 90%;
+            max-width: 1000px;
+            max-height: 85vh;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+            animation: slideUp 0.3s ease;
+        }}
+        
+        @keyframes slideUp {{
+            from {{ transform: translateY(30px); opacity: 0; }}
+            to {{ transform: translateY(0); opacity: 1; }}
+        }}
+        
+        .modal-header {{
+            padding: 20px 24px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }}
+        
+        .modal-title {{
+            font-size: 18px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }}
+        
+        .modal-title .resource-type-badge {{
+            font-size: 12px;
+            padding: 4px 10px;
+            background: var(--accent);
+            color: white;
+            border-radius: 12px;
+            font-weight: 500;
+        }}
+        
+        .modal-close {{
+            background: none;
+            border: none;
+            font-size: 24px;
+            color: var(--text-secondary);
+            cursor: pointer;
+            padding: 8px;
+            border-radius: 8px;
+            transition: all 0.2s;
+        }}
+        
+        .modal-close:hover {{
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+        }}
+        
+        .modal-body {{
+            flex: 1;
+            overflow-y: auto;
+            padding: 24px;
+        }}
+        
+        .modal-footer {{
+            padding: 16px 24px;
+            border-top: 1px solid var(--border);
+            display: flex;
+            justify-content: flex-end;
+            gap: 12px;
+        }}
+        
+        /* Resource Info Grid */
+        .resource-info-grid {{
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 16px;
+            margin-bottom: 24px;
+        }}
+        
+        .resource-info-item {{
+            background: var(--bg-tertiary);
+            padding: 16px;
+            border-radius: 10px;
+        }}
+        
+        .resource-info-label {{
+            font-size: 12px;
+            color: var(--text-secondary);
+            margin-bottom: 6px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }}
+        
+        .resource-info-value {{
+            font-size: 16px;
+            font-weight: 600;
+            font-family: 'Monaco', 'Menlo', monospace;
+        }}
+        
+        /* Data Preview Section */
+        .data-preview {{
+            background: var(--bg-tertiary);
+            border-radius: 10px;
+            overflow: hidden;
+        }}
+        
+        .data-preview-header {{
+            padding: 12px 16px;
+            background: var(--bg-primary);
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }}
+        
+        .data-preview-title {{
+            font-weight: 600;
+            font-size: 14px;
+        }}
+        
+        .data-preview-tabs {{
+            display: flex;
+            gap: 8px;
+        }}
+        
+        .preview-tab {{
+            padding: 6px 12px;
+            font-size: 12px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+            cursor: pointer;
+            transition: all 0.2s;
+        }}
+        
+        .preview-tab:hover {{
+            border-color: var(--accent);
+        }}
+        
+        .preview-tab.active {{
+            background: var(--accent);
+            border-color: var(--accent);
+            color: white;
+        }}
+        
+        .data-preview-content {{
+            padding: 16px;
+            font-family: 'Monaco', 'Menlo', 'Courier New', monospace;
+            font-size: 12px;
+            line-height: 1.6;
+            max-height: 400px;
+            overflow: auto;
+            white-space: pre;
+        }}
+        
+        /* Data Table */
+        .data-table {{
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 12px;
+            font-family: 'Monaco', 'Menlo', monospace;
+        }}
+        
+        .data-table th,
+        .data-table td {{
+            padding: 8px 12px;
+            text-align: left;
+            border-bottom: 1px solid var(--border);
+        }}
+        
+        .data-table th {{
+            background: var(--bg-primary);
+            font-weight: 600;
+            color: var(--text-secondary);
+            position: sticky;
+            top: 0;
+            z-index: 1;
+        }}
+        
+        .data-table tr:hover td {{
+            background: rgba(74, 158, 255, 0.1);
+        }}
+        
+        .data-table .index-col {{
+            color: var(--text-secondary);
+            width: 60px;
+        }}
+        
+        /* Hex Dump View */
+        .hex-dump {{
+            display: grid;
+            grid-template-columns: 80px 1fr 1fr;
+            gap: 16px;
+            font-family: 'Monaco', 'Menlo', monospace;
+            font-size: 11px;
+        }}
+        
+        .hex-dump-offset {{
+            color: var(--accent);
+        }}
+        
+        .hex-dump-bytes {{
+            color: var(--text-primary);
+        }}
+        
+        .hex-dump-ascii {{
+            color: var(--text-secondary);
+        }}
+        
+        /* Export Buttons */
+        .export-btn {{
+            padding: 10px 20px;
+            border: none;
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }}
+        
+        .export-btn-primary {{
+            background: var(--accent);
+            color: white;
+        }}
+        
+        .export-btn-primary:hover {{
+            background: var(--accent-hover);
+        }}
+        
+        .export-btn-secondary {{
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+            border: 1px solid var(--border);
+        }}
+        
+        .export-btn-secondary:hover {{
+            border-color: var(--accent);
+            color: var(--accent);
+        }}
+        
+        /* Timeline Access Markers */
+        .access-timeline {{
+            background: var(--bg-tertiary);
+            border-radius: 10px;
+            padding: 16px;
+            margin-top: 16px;
+        }}
+        
+        .access-timeline-title {{
+            font-weight: 600;
+            margin-bottom: 12px;
+            font-size: 14px;
+        }}
+        
+        .access-list {{
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }}
+        
+        .access-marker {{
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-size: 12px;
+            font-family: monospace;
+        }}
+        
+        .access-marker.read {{
+            background: rgba(116, 192, 252, 0.2);
+            color: var(--info);
+            border: 1px solid var(--info);
+        }}
+        
+        .access-marker.write {{
+            background: rgba(255, 169, 77, 0.2);
+            color: var(--warning);
+            border: 1px solid var(--warning);
+        }}
+        
+        /* Scrollbar */
+        ::-webkit-scrollbar {{
+            width: 8px;
+            height: 8px;
+        }}
+        
+        ::-webkit-scrollbar-track {{
+            background: var(--bg-tertiary);
+            border-radius: 4px;
+        }}
+        
+        ::-webkit-scrollbar-thumb {{
+            background: var(--border);
+            border-radius: 4px;
+        }}
+        
+        ::-webkit-scrollbar-thumb:hover {{
+            background: var(--accent);
+        }}
+        
+        /* Empty State */
+        .empty-state {{
+            text-align: center;
+            padding: 60px 20px;
+            color: var(--text-secondary);
+        }}
+        
+        .empty-state-icon {{
+            font-size: 48px;
+            margin-bottom: 16px;
+        }}
+        
+        /* Loading */
+        .loading {{
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 40px;
+        }}
+        
+        .spinner {{
+            width: 32px;
+            height: 32px;
+            border: 3px solid var(--border);
+            border-top-color: var(--accent);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }}
+        
+        @keyframes spin {{
+            to {{ transform: rotate(360deg); }}
+        }}
+        
+        /* Shader Styles */
+        .shader-modal {{
+            max-width: 1200px;
+            max-height: 90vh;
+        }}
+        
+        .shader-modal-body {{
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            height: 600px;
+        }}
+        
+        .shader-info-header {{
+            padding: 16px 24px;
+            background: var(--bg-tertiary);
+            border-bottom: 1px solid var(--border);
+        }}
+        
+        .shader-info-header .info-row {{
+            display: flex;
+            gap: 24px;
+            flex-wrap: wrap;
+        }}
+        
+        .shader-info-header .info-item {{
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 13px;
+        }}
+        
+        .shader-info-header .info-label {{
+            color: var(--text-secondary);
+        }}
+        
+        .shader-info-header .info-value {{
+            color: var(--text-primary);
+            font-weight: 500;
+        }}
+        
+        .shader-code-tabs {{
+            display: flex;
+            padding: 8px 24px;
+            gap: 8px;
+            background: var(--bg-secondary);
+            border-bottom: 1px solid var(--border);
+        }}
+        
+        .shader-code-tab {{
+            padding: 6px 16px;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 13px;
+            color: var(--text-secondary);
+            transition: all 0.2s;
+        }}
+        
+        .shader-code-tab:hover {{
+            background: var(--bg-primary);
+            color: var(--text-primary);
+        }}
+        
+        .shader-code-tab.active {{
+            background: var(--accent);
+            border-color: var(--accent);
+            color: white;
+        }}
+        
+        .shader-code-container {{
+            flex: 1;
+            overflow: auto;
+            background: #1a1a2e;
+        }}
+        
+        .shader-code {{
+            margin: 0;
+            padding: 16px 24px;
+            font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+            font-size: 13px;
+            line-height: 1.5;
+            color: #e0e0e0;
+            white-space: pre;
+            overflow-x: auto;
+        }}
+        
+        .shader-code .keyword {{
+            color: #569cd6;
+        }}
+        
+        .shader-code .type {{
+            color: #4ec9b0;
+        }}
+        
+        .shader-code .number {{
+            color: #b5cea8;
+        }}
+        
+        .shader-code .string {{
+            color: #ce9178;
+        }}
+        
+        .shader-code .comment {{
+            color: #6a9955;
+            font-style: italic;
+        }}
+        
+        .shader-code .semantic {{
+            color: #dcdcaa;
+        }}
+        
+        .shader-code .register {{
+            color: #c586c0;
+        }}
+        
+        /* Shader Card in Tab */
+        .shaders-grid {{
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 16px;
+            padding: 16px;
+        }}
+        
+        .shader-card {{
+            background: var(--bg-tertiary);
+            border-radius: 12px;
+            padding: 16px;
+            cursor: pointer;
+            transition: all 0.2s;
+            border: 1px solid var(--border);
+        }}
+        
+        .shader-card:hover {{
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+            border-color: var(--accent);
+        }}
+        
+        .shader-card-header {{
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 12px;
+        }}
+        
+        .shader-stage-badge {{
+            padding: 4px 10px;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 600;
+            color: white;
+        }}
+        
+        .shader-stage-badge.vs {{ background: #4a9eff; }}
+        .shader-stage-badge.ps {{ background: #ff6b6b; }}
+        .shader-stage-badge.gs {{ background: #ffa94d; }}
+        .shader-stage-badge.hs {{ background: #69db7c; }}
+        .shader-stage-badge.ds {{ background: #74c0fc; }}
+        .shader-stage-badge.cs {{ background: #cc5de8; }}
+        
+        .shader-card-name {{
+            font-weight: 500;
+            color: var(--text-primary);
+            word-break: break-all;
+        }}
+        
+        .shader-card-info {{
+            font-size: 12px;
+            color: var(--text-secondary);
+        }}
+        
+        .shader-card-info div {{
+            margin-bottom: 4px;
+        }}
+        
+        .shader-card-footer {{
+            margin-top: 12px;
+            padding-top: 12px;
+            border-top: 1px solid var(--border);
+            display: flex;
+            gap: 8px;
+        }}
+        
+        .shader-resource-tag {{
+            font-size: 11px;
+            padding: 2px 8px;
+            background: var(--bg-secondary);
+            border-radius: 4px;
+            color: var(--text-secondary);
+        }}
+        
+        /* ============ Mali GPU Analysis Panel ============ */
+        .mali-dashboard {{
+            padding: 20px;
+        }}
+        
+        .mali-header {{
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 24px;
+            flex-wrap: wrap;
+            gap: 16px;
+        }}
+        
+        .mali-header h3 {{
+            font-size: 18px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }}
+        
+        .mali-gpu-selector {{
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }}
+        
+        .mali-gpu-selector label {{
+            font-size: 14px;
+            color: var(--text-secondary);
+        }}
+        
+        .mali-gpu-select {{
+            padding: 8px 16px;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+            font-size: 14px;
+            min-width: 200px;
+        }}
+        
+        .mali-gpu-select:focus {{
+            outline: none;
+            border-color: var(--accent);
+        }}
+        
+        .mali-status {{
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 16px;
+            border-radius: 8px;
+            font-size: 13px;
+        }}
+        
+        .mali-status.available {{
+            background: rgba(105, 219, 124, 0.15);
+            color: var(--success);
+        }}
+        
+        .mali-status.unavailable {{
+            background: rgba(255, 107, 107, 0.15);
+            color: var(--error);
+        }}
+        
+        /* Mali Summary Cards */
+        .mali-summary {{
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 16px;
+            margin-bottom: 24px;
+        }}
+        
+        .mali-summary-card {{
+            background: var(--bg-secondary);
+            border-radius: 12px;
+            padding: 20px;
+            text-align: center;
+        }}
+        
+        .mali-summary-card .value {{
+            font-size: 28px;
+            font-weight: 700;
+            color: var(--accent);
+        }}
+        
+        .mali-summary-card .label {{
+            font-size: 13px;
+            color: var(--text-secondary);
+            margin-top: 4px;
+        }}
+        
+        .mali-summary-card.warning .value {{
+            color: var(--warning);
+        }}
+        
+        .mali-summary-card.error .value {{
+            color: var(--error);
+        }}
+        
+        /* Mali Shader Table */
+        .mali-shaders-section {{
+            background: var(--bg-secondary);
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 24px;
+        }}
+        
+        .mali-shaders-section h4 {{
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }}
+        
+        .mali-shader-table {{
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+        }}
+        
+        .mali-shader-table th {{
+            text-align: left;
+            padding: 12px;
+            background: var(--bg-tertiary);
+            color: var(--text-secondary);
+            font-weight: 500;
+            border-bottom: 1px solid var(--border);
+        }}
+        
+        .mali-shader-table td {{
+            padding: 12px;
+            border-bottom: 1px solid var(--border);
+        }}
+        
+        .mali-shader-table tr:hover {{
+            background: var(--bg-tertiary);
+        }}
+        
+        .mali-shader-name {{
+            font-weight: 500;
+            color: var(--accent);
+        }}
+        
+        .mali-stage-badge {{
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+        }}
+        
+        .mali-stage-badge.vs {{ background: rgba(74, 158, 255, 0.2); color: #4a9eff; }}
+        .mali-stage-badge.ps {{ background: rgba(255, 107, 107, 0.2); color: #ff6b6b; }}
+        .mali-stage-badge.cs {{ background: rgba(105, 219, 124, 0.2); color: #69db7c; }}
+        .mali-stage-badge.gs {{ background: rgba(255, 169, 77, 0.2); color: #ffa94d; }}
+        
+        /* Mali Cycle Bars */
+        .mali-cycle-bar {{
+            display: flex;
+            height: 8px;
+            border-radius: 4px;
+            overflow: hidden;
+            background: var(--bg-tertiary);
+            min-width: 100px;
+        }}
+        
+        .mali-cycle-bar .segment {{
+            height: 100%;
+        }}
+        
+        .mali-cycle-bar .segment.arithmetic {{ background: #4a9eff; }}
+        .mali-cycle-bar .segment.load-store {{ background: #ffa94d; }}
+        .mali-cycle-bar .segment.texture {{ background: #ff6b6b; }}
+        .mali-cycle-bar .segment.varying {{ background: #69db7c; }}
+        
+        /* Mali Bottleneck Badge */
+        .mali-bottleneck {{
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 500;
+        }}
+        
+        .mali-bottleneck.A {{ background: rgba(74, 158, 255, 0.2); color: #4a9eff; }}
+        .mali-bottleneck.LS {{ background: rgba(255, 169, 77, 0.2); color: #ffa94d; }}
+        .mali-bottleneck.T {{ background: rgba(255, 107, 107, 0.2); color: #ff6b6b; }}
+        .mali-bottleneck.V {{ background: rgba(105, 219, 124, 0.2); color: #69db7c; }}
+        
+        /* Mali Register Warning */
+        .mali-reg-warning {{
+            color: var(--warning);
+            font-size: 12px;
+        }}
+        
+        .mali-reg-spill {{
+            color: var(--error);
+            font-weight: 500;
+        }}
+        
+        /* Mali Legend */
+        .mali-legend {{
+            display: flex;
+            gap: 24px;
+            flex-wrap: wrap;
+            margin-bottom: 16px;
+            padding: 12px;
+            background: var(--bg-tertiary);
+            border-radius: 8px;
+        }}
+        
+        .mali-legend-item {{
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 12px;
+            color: var(--text-secondary);
+        }}
+        
+        .mali-legend-color {{
+            width: 12px;
+            height: 12px;
+            border-radius: 3px;
+        }}
+        
+        .mali-legend-color.arithmetic {{ background: #4a9eff; }}
+        .mali-legend-color.load-store {{ background: #ffa94d; }}
+        .mali-legend-color.texture {{ background: #ff6b6b; }}
+        .mali-legend-color.varying {{ background: #69db7c; }}
+        
+        /* Mali Recommendations */
+        .mali-recommendations {{
+            margin-top: 24px;
+            background: var(--bg-tertiary);
+            border-radius: 12px;
+            padding: 20px;
+        }}
+        
+        .mali-rec-title {{
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }}
+        
+        .mali-rec-list {{
+            list-style: none;
+        }}
+        
+        .mali-rec-item {{
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+            padding: 12px 0;
+            border-bottom: 1px solid var(--border);
+        }}
+        
+        .mali-rec-item:last-child {{
+            border-bottom: none;
+        }}
+        
+        .mali-rec-icon {{
+            width: 28px;
+            height: 28px;
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+            flex-shrink: 0;
+            background: rgba(74, 158, 255, 0.2);
+        }}
+        
+        .mali-rec-text {{
+            font-size: 14px;
+            line-height: 1.5;
+            color: var(--text-primary);
+        }}
+        
+        .mali-rec-shader {{
+            font-size: 12px;
+            color: var(--text-secondary);
+            margin-top: 4px;
+        }}
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <div>
+                <h1>🎮 {title}</h1>
+                <div class="header-meta">
+                    {header_meta}
+                </div>
+            </div>
+            <div class="header-meta">
+                Generated: {export_time}
+            </div>
+        </div>
+        
+        <!-- Statistics -->
+        <div class="stats-grid" id="stats-grid">
+            {statistics_html}
+        </div>
+        
+        <!-- Toolbar -->
+        <div class="toolbar">
+            <div class="search-box">
+                <input type="text" id="search-input" placeholder="Search draw calls, resources, issues...">
+            </div>
+            <div class="filter-group">
+                <button class="filter-btn active" data-filter="all">All</button>
+                <button class="filter-btn" data-filter="issues">With Issues</button>
+                <button class="filter-btn" data-filter="deps">With Dependencies</button>
+            </div>
+        </div>
+        
+        <!-- Main Content -->
+        <div class="main-content">
+            <!-- Call List -->
+            <div class="call-list-panel">
+                <div class="panel-header">
+                    <span>Draw Calls</span>
+                    <span id="call-count">{call_count}</span>
+                </div>
+                <div class="call-list" id="call-list">
+                    {call_list_html}
+                </div>
+            </div>
+            
+            <!-- Detail Panel -->
+            <div class="detail-panel">
+                <div class="tabs">
+                    <div class="tab active" data-tab="pipeline">Pipeline State</div>
+                    <div class="tab" data-tab="shaders">Shaders</div>
+                    <div class="tab" data-tab="issues">Issues <span id="issues-badge"></span></div>
+                    <div class="tab" data-tab="deps">Dependencies</div>
+                    <div class="tab" data-tab="resources">Resources</div>
+                    <div class="tab" data-tab="performance">Performance</div>
+                    <div class="tab" data-tab="mali">Mali GPU</div>
+                </div>
+                
+                <div class="tab-content active" id="tab-pipeline">
+                    <div class="empty-state" id="pipeline-empty">
+                        <div class="empty-state-icon">📋</div>
+                        <p>Select a draw call to view pipeline state</p>
+                    </div>
+                    <div id="pipeline-content"></div>
+                </div>
+                
+                <div class="tab-content" id="tab-issues">
+                    {issues_html}
+                </div>
+                
+                <div class="tab-content" id="tab-deps">
+                    {dependencies_html}
+                </div>
+                
+                <div class="tab-content" id="tab-resources">
+                    {resources_html}
+                </div>
+                
+                <div class="tab-content" id="tab-shaders">
+                    <div class="empty-state" id="shaders-empty">
+                        <div class="empty-state-icon">💻</div>
+                        <p>Select a draw call to view shaders</p>
+                    </div>
+                    <div id="shaders-content"></div>
+                </div>
+                
+                <div class="tab-content" id="tab-performance">
+                    {performance_html}
+                </div>
+                
+                <div class="tab-content" id="tab-mali">
+                    {mali_html}
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Shader Code Modal -->
+    <div class="modal-overlay" id="shader-modal">
+        <div class="modal shader-modal">
+            <div class="modal-header">
+                <div class="modal-title">
+                    <span id="shader-modal-name">Shader</span>
+                    <span class="resource-type-badge" id="shader-modal-stage">VS</span>
+                </div>
+                <button class="modal-close" onclick="closeShaderModal()">&times;</button>
+            </div>
+            <div class="modal-body shader-modal-body" id="shader-modal-body">
+                <div class="shader-info-header" id="shader-info-header"></div>
+                <div class="shader-code-tabs">
+                    <button class="shader-code-tab active" data-code="asm">ASM</button>
+                    <button class="shader-code-tab" data-code="hlsl">HLSL</button>
+                </div>
+                <div class="shader-code-container">
+                    <pre class="shader-code" id="shader-code-content"><code></code></pre>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="export-btn export-btn-secondary" onclick="copyShaderCode()">
+                    📋 Copy Code
+                </button>
+                <button class="export-btn export-btn-primary" onclick="closeShaderModal()">
+                    Close
+                </button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Resource Detail Modal -->
+    <div class="modal-overlay" id="resource-modal">
+        <div class="modal">
+            <div class="modal-header">
+                <div class="modal-title">
+                    <span id="modal-resource-name">Resource</span>
+                    <span class="resource-type-badge" id="modal-resource-type">BUFFER</span>
+                </div>
+                <button class="modal-close" onclick="closeResourceModal()">&times;</button>
+            </div>
+            <div class="modal-body" id="modal-body">
+                <!-- Dynamic content -->
+            </div>
+            <div class="modal-footer">
+                <button class="export-btn export-btn-secondary" onclick="exportResourceJSON()">
+                    📋 Export JSON
+                </button>
+                <button class="export-btn export-btn-secondary" onclick="exportResourceHex()">
+                    🔢 Export Hex
+                </button>
+                <button class="export-btn export-btn-primary" onclick="closeResourceModal()">
+                    Close
+                </button>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        // Embedded data
+        const analysisData = {json_data};
+        
+        // State
+        let selectedCallId = null;
+        let currentFilter = 'all';
+        
+        // DOM elements
+        const searchInput = document.getElementById('search-input');
+        const callList = document.getElementById('call-list');
+        const callCount = document.getElementById('call-count');
+        
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {{
+            initTabs();
+            initFilters();
+            initSearch();
+            initCallList();
+        }});
+        
+        // Tab switching
+        function initTabs() {{
+            document.querySelectorAll('.tab').forEach(tab => {{
+                tab.addEventListener('click', () => {{
+                    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+                    document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+                    tab.classList.add('active');
+                    document.getElementById('tab-' + tab.dataset.tab).classList.add('active');
+                }});
+            }});
+        }}
+        
+        // Filter buttons
+        function initFilters() {{
+            document.querySelectorAll('.filter-btn').forEach(btn => {{
+                btn.addEventListener('click', () => {{
+                    document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+                    btn.classList.add('active');
+                    currentFilter = btn.dataset.filter;
+                    filterCallList();
+                }});
+            }});
+        }}
+        
+        // Search functionality
+        function initSearch() {{
+            searchInput.addEventListener('input', debounce(() => {{
+                filterCallList();
+            }}, 200));
+        }}
+        
+        // Call list interactions
+        function initCallList() {{
+            document.querySelectorAll('.call-item').forEach(item => {{
+                item.addEventListener('click', () => {{
+                    selectCall(parseInt(item.dataset.eventId));
+                }});
+            }});
+        }}
+        
+        function selectCall(eventId) {{
+            selectedCallId = eventId;
+            
+            // Update UI
+            document.querySelectorAll('.call-item').forEach(item => {{
+                item.classList.toggle('selected', parseInt(item.dataset.eventId) === eventId);
+            }});
+            
+            // Update detail panel
+            const call = analysisData.draw_calls.find(d => d.event_id === eventId);
+            if (call) {{
+                renderPipelineState(call);
+                updateIssuesBadge(eventId);
+            }}
+            
+            // Update shaders tab
+            if (typeof updateShadersContent === 'function') {{
+                updateShadersContent(eventId);
+            }}
+        }}
+        
+        function renderPipelineState(call) {{
+            const container = document.getElementById('pipeline-content');
+            const empty = document.getElementById('pipeline-empty');
+            
+            if (!call.pipeline_state) {{
+                empty.style.display = 'block';
+                container.innerHTML = '';
+                return;
+            }}
+            
+            empty.style.display = 'none';
+            
+            let html = `
+                <div class="state-section">
+                    <h3>Draw Call Info</h3>
+                    <div class="state-grid">
+                        <div class="state-item">
+                            <div class="state-label">Event ID</div>
+                            <div class="state-value">#${{call.event_id}}</div>
+                        </div>
+                        <div class="state-item">
+                            <div class="state-label">Draw Type</div>
+                            <div class="state-value">${{call.draw_type || 'N/A'}}</div>
+                        </div>
+                        <div class="state-item">
+                            <div class="state-label">Vertex Count</div>
+                            <div class="state-value">${{call.vertex_count}}</div>
+                        </div>
+                        <div class="state-item">
+                            <div class="state-label">Instance Count</div>
+                            <div class="state-value">${{call.instance_count}}</div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            const ps = call.pipeline_state;
+            
+            // Input Assembly
+            if (ps.input_assembly) {{
+                const ia = ps.input_assembly;
+                html += `
+                    <div class="state-section">
+                        <h3>Input Assembly</h3>
+                        <div class="state-grid">
+                            <div class="state-item">
+                                <div class="state-label">Topology</div>
+                                <div class="state-value">${{ia.topology}}</div>
+                            </div>
+                        </div>
+                        ${{ia.vertex_buffers && ia.vertex_buffers.length > 0 ? `
+                            <table class="binding-table" style="margin-top: 12px;">
+                                <thead>
+                                    <tr>
+                                        <th>Slot</th>
+                                        <th>Resource ID</th>
+                                        <th>Stride</th>
+                                        <th>Size</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${{ia.vertex_buffers.map(vb => `
+                                        <tr>
+                                            <td>${{vb.slot}}</td>
+                                            <td>${{vb.resource_id}}</td>
+                                            <td>${{vb.stride || 'N/A'}}</td>
+                                            <td>${{formatBytes(vb.size_bytes)}}</td>
+                                        </tr>
+                                    `).join('')}}
+                                </tbody>
+                            </table>
+                        ` : ''}}
+                    </div>
+                `;
+            }}
+            
+            // Rasterizer
+            if (ps.rasterizer) {{
+                const rs = ps.rasterizer;
+                html += `
+                    <div class="state-section">
+                        <h3>Rasterizer</h3>
+                        <div class="state-grid">
+                            <div class="state-item">
+                                <div class="state-label">Fill Mode</div>
+                                <div class="state-value">${{rs.fill_mode}}</div>
+                            </div>
+                            <div class="state-item">
+                                <div class="state-label">Cull Mode</div>
+                                <div class="state-value">${{rs.cull_mode}}</div>
+                            </div>
+                            <div class="state-item">
+                                <div class="state-label">Front CCW</div>
+                                <div class="state-value">${{rs.front_ccw}}</div>
+                            </div>
+                            <div class="state-item">
+                                <div class="state-label">Depth Bias</div>
+                                <div class="state-value">${{rs.depth_bias}}</div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }}
+            
+            // Shader Stages
+            const shaderStages = ['vs', 'hs', 'ds', 'gs', 'ps', 'cs'];
+            const stageNames = {{
+                'vs': 'Vertex Shader',
+                'hs': 'Hull Shader',
+                'ds': 'Domain Shader',
+                'gs': 'Geometry Shader',
+                'ps': 'Pixel Shader',
+                'cs': 'Compute Shader'
+            }};
+            
+            shaderStages.forEach(stage => {{
+                const bindings = ps[stage + '_bindings'];
+                if (bindings && bindings.shader_resource_id) {{
+                    html += `
+                        <div class="state-section">
+                            <h3>${{stageNames[stage]}}</h3>
+                            <div class="state-grid">
+                                <div class="state-item">
+                                    <div class="state-label">Shader ID</div>
+                                    <div class="state-value">${{bindings.shader_resource_id}}</div>
+                                </div>
+                                ${{bindings.shader_name ? `
+                                    <div class="state-item">
+                                        <div class="state-label">Name</div>
+                                        <div class="state-value">${{bindings.shader_name}}</div>
+                                    </div>
+                                ` : ''}}
+                            </div>
+                            ${{renderBindingsTable('Constant Buffers', bindings.constant_buffers)}}
+                            ${{renderBindingsTable('Shader Resources', bindings.shader_resources)}}
+                            ${{renderBindingsTable('UAVs', bindings.uavs)}}
+                        </div>
+                    `;
+                }}
+            }});
+            
+            // Output Merger
+            if (ps.output_merger) {{
+                const om = ps.output_merger;
+                html += `
+                    <div class="state-section">
+                        <h3>Output Merger</h3>
+                        ${{om.render_targets && om.render_targets.length > 0 ? `
+                            <table class="binding-table">
+                                <thead>
+                                    <tr>
+                                        <th>Slot</th>
+                                        <th>Resource</th>
+                                        <th>Format</th>
+                                        <th>Size</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${{om.render_targets.map(rt => `
+                                        <tr>
+                                            <td>${{rt.slot}}</td>
+                                            <td>${{rt.resource_name || rt.resource_id}}</td>
+                                            <td>${{rt.format}}</td>
+                                            <td>${{rt.width}}x${{rt.height}}</td>
+                                        </tr>
+                                    `).join('')}}
+                                </tbody>
+                            </table>
+                        ` : ''}}
+                        ${{om.depth_stencil ? `
+                            <div style="margin-top: 16px;">
+                                <strong>Depth Stencil:</strong> ${{om.depth_stencil.resource_name || om.depth_stencil.resource_id}}
+                                (${{om.depth_stencil.format}}, ${{om.depth_stencil.width}}x${{om.depth_stencil.height}})
+                            </div>
+                        ` : ''}}
+                    </div>
+                `;
+            }}
+            
+            container.innerHTML = html;
+        }}
+        
+        function renderBindingsTable(title, bindings) {{
+            if (!bindings || bindings.length === 0) return '';
+            
+            return `
+                <div style="margin-top: 12px;">
+                    <strong style="font-size: 13px; color: var(--text-secondary);">${{title}}</strong>
+                    <table class="binding-table" style="margin-top: 8px;">
+                        <thead>
+                            <tr>
+                                <th>Slot</th>
+                                <th>Resource</th>
+                                <th>Type</th>
+                                <th>Size</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${{bindings.map(b => `
+                                <tr>
+                                    <td>${{b.slot}}</td>
+                                    <td>${{b.resource_name || b.resource_id}}</td>
+                                    <td>${{b.resource_type || 'N/A'}}</td>
+                                    <td>${{b.width ? `${{b.width}}x${{b.height}}` : formatBytes(b.size_bytes)}}</td>
+                                </tr>
+                            `).join('')}}
+                        </tbody>
+                    </table>
+                </div>
+            `;
+        }}
+        
+        function updateIssuesBadge(eventId) {{
+            const issues = analysisData.issues.filter(i => i.event_id === eventId);
+            const badge = document.getElementById('issues-badge');
+            badge.textContent = issues.length > 0 ? `(${{issues.length}})` : '';
+        }}
+        
+        function filterCallList() {{
+            const searchTerm = searchInput.value.toLowerCase();
+            let visibleCount = 0;
+            
+            document.querySelectorAll('.call-item').forEach(item => {{
+                const eventId = parseInt(item.dataset.eventId);
+                const call = analysisData.draw_calls.find(d => d.event_id === eventId);
+                const hasIssues = analysisData.issues.some(i => i.event_id === eventId);
+                const hasDeps = analysisData.dependencies.some(d => 
+                    d.source_event === eventId || d.target_event === eventId
+                );
+                
+                let visible = true;
+                
+                // Filter by type
+                if (currentFilter === 'issues' && !hasIssues) visible = false;
+                if (currentFilter === 'deps' && !hasDeps) visible = false;
+                
+                // Filter by search
+                if (searchTerm && visible) {{
+                    const searchText = `${{eventId}} ${{call?.name || ''}}`.toLowerCase();
+                    visible = searchText.includes(searchTerm);
+                }}
+                
+                item.style.display = visible ? 'flex' : 'none';
+                if (visible) visibleCount++;
+            }});
+            
+            callCount.textContent = visibleCount;
+        }}
+        
+        // Utilities
+        function formatBytes(bytes) {{
+            if (!bytes) return 'N/A';
+            if (bytes < 1024) return bytes + ' B';
+            if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+            return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+        }}
+        
+        function debounce(func, wait) {{
+            let timeout;
+            return function executedFunction(...args) {{
+                const later = () => {{
+                    clearTimeout(timeout);
+                    func(...args);
+                }};
+                clearTimeout(timeout);
+                timeout = setTimeout(later, wait);
+            }};
+        }}
+        
+        // =====================================================
+        // Resource Modal Functions
+        // =====================================================
+        
+        let currentResourceData = null;
+        
+        // Open resource modal with resource info
+        function openResourceModal(resourceId, resourceName, resourceType) {{
+            const modal = document.getElementById('resource-modal');
+            const modalName = document.getElementById('modal-resource-name');
+            const modalType = document.getElementById('modal-resource-type');
+            const modalBody = document.getElementById('modal-body');
+            
+            modalName.textContent = resourceName || `Resource_${{resourceId}}`;
+            modalType.textContent = resourceType || 'UNKNOWN';
+            
+            // Find resource data from lifetimes
+            const resourceLifetime = analysisData.resource_lifetimes?.find(
+                r => r.resource_id === resourceId || r.resource_name === resourceName
+            );
+            
+            currentResourceData = {{
+                id: resourceId,
+                name: resourceName,
+                type: resourceType,
+                lifetime: resourceLifetime
+            }};
+            
+            // Render modal content
+            let bodyHtml = '';
+            
+            // Resource Info Grid
+            bodyHtml += `<div class="resource-info-grid">`;
+            bodyHtml += `
+                <div class="resource-info-item">
+                    <div class="resource-info-label">Resource ID</div>
+                    <div class="resource-info-value">${{resourceId}}</div>
+                </div>
+            `;
+            
+            if (resourceLifetime) {{
+                bodyHtml += `
+                    <div class="resource-info-item">
+                        <div class="resource-info-label">First Access</div>
+                        <div class="resource-info-value">#${{resourceLifetime.first_access_event}}</div>
+                    </div>
+                    <div class="resource-info-item">
+                        <div class="resource-info-label">Last Access</div>
+                        <div class="resource-info-value">#${{resourceLifetime.last_access_event}}</div>
+                    </div>
+                    <div class="resource-info-item">
+                        <div class="resource-info-label">Read Count</div>
+                        <div class="resource-info-value">${{resourceLifetime.read_count || 0}}</div>
+                    </div>
+                    <div class="resource-info-item">
+                        <div class="resource-info-label">Write Count</div>
+                        <div class="resource-info-value">${{resourceLifetime.write_count || 0}}</div>
+                    </div>
+                `;
+            }}
+            bodyHtml += `</div>`;
+            
+            // Data Preview Section
+            bodyHtml += `
+                <div class="data-preview">
+                    <div class="data-preview-header">
+                        <span class="data-preview-title">📊 Data Preview</span>
+                        <div class="data-preview-tabs">
+                            <button class="preview-tab active" onclick="switchPreviewTab(this, 'structured')">Structured</button>
+                            <button class="preview-tab" onclick="switchPreviewTab(this, 'hex')">Hex Dump</button>
+                            <button class="preview-tab" onclick="switchPreviewTab(this, 'raw')">Raw</button>
+                        </div>
+                    </div>
+                    <div class="data-preview-content" id="preview-content">
+                        ${{renderResourcePreview(resourceId, resourceType, resourceLifetime)}}
+                    </div>
+                </div>
+            `;
+            
+            // Access Timeline
+            if (resourceLifetime) {{
+                bodyHtml += renderAccessTimeline(resourceLifetime);
+            }}
+            
+            modalBody.innerHTML = bodyHtml;
+            modal.classList.add('active');
+            
+            // Close on overlay click
+            modal.onclick = function(e) {{
+                if (e.target === modal) {{
+                    closeResourceModal();
+                }}
+            }};
+            
+            // Close on Escape key
+            document.addEventListener('keydown', handleModalEscape);
+        }}
+        
+        function closeResourceModal() {{
+            const modal = document.getElementById('resource-modal');
+            modal.classList.remove('active');
+            document.removeEventListener('keydown', handleModalEscape);
+        }}
+        
+        function handleModalEscape(e) {{
+            if (e.key === 'Escape') {{
+                closeResourceModal();
+            }}
+        }}
+        
+        function switchPreviewTab(btn, tabType) {{
+            // Update active tab
+            btn.parentElement.querySelectorAll('.preview-tab').forEach(t => t.classList.remove('active'));
+            btn.classList.add('active');
+            
+            // Update content
+            const content = document.getElementById('preview-content');
+            if (currentResourceData) {{
+                content.innerHTML = renderResourcePreview(
+                    currentResourceData.id,
+                    currentResourceData.type,
+                    currentResourceData.lifetime,
+                    tabType
+                );
+            }}
+        }}
+        
+        function renderResourcePreview(resourceId, resourceType, lifetime, viewType = 'structured') {{
+            // Check if we have sample data embedded
+            // Note: resource_samples keys are strings, so convert resourceId to string
+            const sampleData = analysisData.resource_samples?.[String(resourceId)];
+            
+            if (!sampleData) {{
+                return `
+                    <div style="text-align: center; padding: 40px; color: var(--text-secondary);">
+                        <div style="font-size: 32px; margin-bottom: 12px;">📭</div>
+                        <p>No preview data available for this resource.</p>
+                        <p style="font-size: 12px; margin-top: 8px;">
+                            Use the CLI tool to extract data:<br>
+                            <code style="background: var(--bg-primary); padding: 4px 8px; border-radius: 4px;">
+                                python inspect_resource.py --resource ${{resourceId}}
+                            </code>
+                        </p>
+                    </div>
+                `;
+            }}
+            
+            if (viewType === 'hex') {{
+                return renderHexDump(sampleData.bytes || []);
+            }} else if (viewType === 'raw') {{
+                return `<pre>${{JSON.stringify(sampleData, null, 2)}}</pre>`;
+            }} else {{
+                // Structured view
+                return renderStructuredData(sampleData, resourceType);
+            }}
+        }}
+        
+        function renderHexDump(bytes) {{
+            if (!bytes || bytes.length === 0) {{
+                return '<div style="color: var(--text-secondary);">No byte data available</div>';
+            }}
+            
+            let html = '<div class="hex-dump">';
+            const bytesPerRow = 16;
+            
+            for (let offset = 0; offset < Math.min(bytes.length, 512); offset += bytesPerRow) {{
+                const rowBytes = bytes.slice(offset, offset + bytesPerRow);
+                
+                // Offset column
+                html += `<span class="hex-dump-offset">${{offset.toString(16).padStart(8, '0')}}</span>`;
+                
+                // Hex bytes
+                const hexParts = rowBytes.map(b => b.toString(16).padStart(2, '0')).join(' ');
+                html += `<span class="hex-dump-bytes">${{hexParts.padEnd(47, ' ')}}</span>`;
+                
+                // ASCII representation
+                const asciiParts = rowBytes.map(b => (b >= 32 && b <= 126) ? String.fromCharCode(b) : '.').join('');
+                html += `<span class="hex-dump-ascii">${{asciiParts}}</span>`;
+            }}
+            
+            html += '</div>';
+            
+            if (bytes.length > 512) {{
+                html += `<div style="margin-top: 12px; color: var(--text-secondary); font-size: 12px;">
+                    Showing first 512 of ${{bytes.length}} bytes
+                </div>`;
+            }}
+            
+            return html;
+        }}
+        
+        function renderStructuredData(sampleData, resourceType) {{
+            // Check if this is a texture/image type
+            if (resourceType === 'TEXTURE' || resourceType === 'RENDER_TARGET' || 
+                resourceType === 'DEPTH_STENCIL' || sampleData.image_base64 || sampleData.thumbnail) {{
+                return renderTexturePreview(sampleData, resourceType);
+            }}
+            
+            if (sampleData.vertices) {{
+                // Vertex buffer
+                return renderVertexTable(sampleData.vertices, sampleData.layout);
+            }} else if (sampleData.indices) {{
+                // Index buffer
+                return renderIndexTable(sampleData.indices);
+            }} else if (sampleData.constants) {{
+                // Constant buffer
+                return renderConstantTable(sampleData.constants);
+            }} else if (sampleData.floats) {{
+                // Generic float array
+                return renderFloatTable(sampleData.floats);
+            }}
+            
+            return '<div style="color: var(--text-secondary);">Unknown data format</div>';
+        }}
+        
+        function renderTexturePreview(sampleData, resourceType) {{
+            let html = '<div class="texture-preview-container">';
+            
+            // Texture metadata
+            const width = sampleData.width || 'Unknown';
+            const height = sampleData.height || 'Unknown';
+            const format = sampleData.format || 'Unknown';
+            const mipLevels = sampleData.mip_levels || 1;
+            const arraySize = sampleData.array_size || 1;
+            
+            html += `
+                <div class="texture-info-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 12px; margin-bottom: 16px;">
+                    <div class="texture-info-item" style="background: var(--bg-tertiary); padding: 10px; border-radius: 6px;">
+                        <div style="font-size: 11px; color: var(--text-secondary);">Dimensions</div>
+                        <div style="font-size: 14px; font-weight: 600;">${{width}} × ${{height}}</div>
+                    </div>
+                    <div class="texture-info-item" style="background: var(--bg-tertiary); padding: 10px; border-radius: 6px;">
+                        <div style="font-size: 11px; color: var(--text-secondary);">Format</div>
+                        <div style="font-size: 14px; font-weight: 600;">${{format}}</div>
+                    </div>
+                    <div class="texture-info-item" style="background: var(--bg-tertiary); padding: 10px; border-radius: 6px;">
+                        <div style="font-size: 11px; color: var(--text-secondary);">Mip Levels</div>
+                        <div style="font-size: 14px; font-weight: 600;">${{mipLevels}}</div>
+                    </div>
+                    <div class="texture-info-item" style="background: var(--bg-tertiary); padding: 10px; border-radius: 6px;">
+                        <div style="font-size: 11px; color: var(--text-secondary);">Array Size</div>
+                        <div style="font-size: 14px; font-weight: 600;">${{arraySize}}</div>
+                    </div>
+                </div>
+            `;
+            
+            // Image preview
+            if (sampleData.image_base64) {{
+                // Real image data available
+                html += `
+                    <div class="texture-image-preview" style="text-align: center; background: var(--bg-tertiary); padding: 20px; border-radius: 8px;">
+                        <img src="data:image/png;base64,${{sampleData.image_base64}}" 
+                             alt="Texture Preview" 
+                             style="max-width: 100%; max-height: 400px; border-radius: 4px; image-rendering: pixelated;">
+                    </div>
+                `;
+            }} else if (sampleData.thumbnail) {{
+                // Thumbnail available
+                html += `
+                    <div class="texture-image-preview" style="text-align: center; background: var(--bg-tertiary); padding: 20px; border-radius: 8px;">
+                        <img src="data:image/png;base64,${{sampleData.thumbnail}}" 
+                             alt="Texture Thumbnail" 
+                             style="max-width: 100%; max-height: 200px; border-radius: 4px;">
+                        <div style="margin-top: 8px; font-size: 12px; color: var(--text-secondary);">Thumbnail preview</div>
+                    </div>
+                `;
+            }} else {{
+                // Generate placeholder based on type
+                const colors = {{
+                    'RENDER_TARGET': ['#4a9eff', '#69db7c'],
+                    'DEPTH_STENCIL': ['#868e96', '#495057'],
+                    'TEXTURE': ['#ffa94d', '#ff6b6b']
+                }};
+                const [c1, c2] = colors[resourceType] || ['#4a9eff', '#69db7c'];
+                
+                html += `
+                    <div class="texture-image-preview" style="text-align: center; background: var(--bg-tertiary); padding: 20px; border-radius: 8px;">
+                        <svg width="200" height="150" viewBox="0 0 200 150" style="border-radius: 4px;">
+                            <defs>
+                                <linearGradient id="texGrad_${{Date.now()}}" x1="0%" y1="0%" x2="100%" y2="100%">
+                                    <stop offset="0%" style="stop-color:${{c1}};stop-opacity:0.8" />
+                                    <stop offset="100%" style="stop-color:${{c2}};stop-opacity:0.8" />
+                                </linearGradient>
+                                <pattern id="grid_${{Date.now()}}" width="20" height="20" patternUnits="userSpaceOnUse">
+                                    <rect width="10" height="10" fill="rgba(255,255,255,0.1)"/>
+                                    <rect x="10" y="10" width="10" height="10" fill="rgba(255,255,255,0.1)"/>
+                                </pattern>
+                            </defs>
+                            <rect width="200" height="150" fill="url(#texGrad_${{Date.now()}})"/>
+                            <rect width="200" height="150" fill="url(#grid_${{Date.now()}})"/>
+                            <text x="100" y="70" text-anchor="middle" fill="white" font-size="14" font-weight="600">
+                                ${{width}} × ${{height}}
+                            </text>
+                            <text x="100" y="90" text-anchor="middle" fill="rgba(255,255,255,0.7)" font-size="11">
+                                ${{format}}
+                            </text>
+                        </svg>
+                        <div style="margin-top: 12px; font-size: 12px; color: var(--text-secondary);">
+                            📷 Placeholder - Run analysis with texture export to see actual image
+                        </div>
+                    </div>
+                `;
+            }}
+            
+            html += '</div>';
+            return html;
+        }}
+        
+        function renderVertexTable(vertices, layout) {{
+            if (!vertices || vertices.length === 0) return '';
+            
+            // Get headers from first vertex or layout
+            const headers = layout?.elements?.map(e => e.semantic) || Object.keys(vertices[0] || {{}});
+            
+            let html = `
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th class="index-col">#</th>
+                            ${{headers.map(h => `<th>${{h}}</th>`).join('')}}
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
+            
+            vertices.slice(0, 100).forEach((v, i) => {{
+                html += `<tr><td class="index-col">${{i}}</td>`;
+                headers.forEach(h => {{
+                    const val = v[h];
+                    if (Array.isArray(val)) {{
+                        html += `<td>${{val.map(x => x.toFixed(3)).join(', ')}}</td>`;
+                    }} else if (typeof val === 'number') {{
+                        html += `<td>${{val.toFixed(3)}}</td>`;
+                    }} else {{
+                        html += `<td>${{val}}</td>`;
+                    }}
+                }});
+                html += `</tr>`;
+            }});
+            
+            html += '</tbody></table>';
+            
+            if (vertices.length > 100) {{
+                html += `<div style="margin-top: 12px; color: var(--text-secondary); font-size: 12px;">
+                    Showing first 100 of ${{vertices.length}} vertices
+                </div>`;
+            }}
+            
+            return html;
+        }}
+        
+        function renderIndexTable(indices) {{
+            let html = `
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th class="index-col">Triangle</th>
+                            <th>v0</th>
+                            <th>v1</th>
+                            <th>v2</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
+            
+            for (let i = 0; i < Math.min(indices.length, 300); i += 3) {{
+                const triIdx = Math.floor(i / 3);
+                html += `<tr>
+                    <td class="index-col">${{triIdx}}</td>
+                    <td>${{indices[i] ?? '-'}}</td>
+                    <td>${{indices[i + 1] ?? '-'}}</td>
+                    <td>${{indices[i + 2] ?? '-'}}</td>
+                </tr>`;
+            }}
+            
+            html += '</tbody></table>';
+            
+            if (indices.length > 300) {{
+                html += `<div style="margin-top: 12px; color: var(--text-secondary); font-size: 12px;">
+                    Showing first 100 triangles of ${{Math.floor(indices.length / 3)}} total
+                </div>`;
+            }}
+            
+            return html;
+        }}
+        
+        function renderConstantTable(constants) {{
+            let html = `
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th>Type</th>
+                            <th>Value</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
+            
+            Object.entries(constants).forEach(([name, data]) => {{
+                const type = data.type || 'float4';
+                const value = Array.isArray(data.value) 
+                    ? data.value.map(v => typeof v === 'number' ? v.toFixed(4) : v).join(', ')
+                    : data.value;
+                html += `<tr>
+                    <td>${{name}}</td>
+                    <td>${{type}}</td>
+                    <td>${{value}}</td>
+                </tr>`;
+            }});
+            
+            html += '</tbody></table>';
+            return html;
+        }}
+        
+        function renderFloatTable(floats) {{
+            let html = '<div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; font-family: monospace; font-size: 12px;">';
+            
+            floats.slice(0, 256).forEach((f, i) => {{
+                html += `<div style="background: var(--bg-primary); padding: 4px 8px; border-radius: 4px;">
+                    <span style="color: var(--text-secondary);">[${{i}}]</span> ${{f.toFixed(6)}}
+                </div>`;
+            }});
+            
+            html += '</div>';
+            
+            if (floats.length > 256) {{
+                html += `<div style="margin-top: 12px; color: var(--text-secondary); font-size: 12px;">
+                    Showing first 256 of ${{floats.length}} values
+                </div>`;
+            }}
+            
+            return html;
+        }}
+        
+        function renderAccessTimeline(lifetime) {{
+            if (!lifetime) return '';
+            
+            const reads = lifetime.read_events || [];
+            const writes = lifetime.write_events || [];
+            
+            if (reads.length === 0 && writes.length === 0) return '';
+            
+            let html = `
+                <div class="access-timeline">
+                    <div class="access-timeline-title">📍 Access Timeline</div>
+                    <div class="access-list">
+            `;
+            
+            // Combine and sort all events
+            const allEvents = [
+                ...reads.map(e => ({{ event: e, type: 'read' }})),
+                ...writes.map(e => ({{ event: e, type: 'write' }}))
+            ].sort((a, b) => a.event - b.event);
+            
+            // Show first 20 events
+            allEvents.slice(0, 20).forEach(e => {{
+                const typeClass = e.type === 'read' ? 'read' : 'write';
+                const icon = e.type === 'read' ? '📖' : '✏️';
+                html += `<span class="access-marker ${{typeClass}}" onclick="selectCall(${{e.event}})">${{icon}} #${{e.event}}</span>`;
+            }});
+            
+            if (allEvents.length > 20) {{
+                html += `<span style="color: var(--text-secondary); padding: 6px;">+${{allEvents.length - 20}} more</span>`;
+            }}
+            
+            html += '</div></div>';
+            return html;
+        }}
+        
+        // Export functions
+        function exportResourceJSON() {{
+            if (!currentResourceData) return;
+            
+            const dataStr = JSON.stringify(currentResourceData, null, 2);
+            downloadFile(dataStr, `resource_${{currentResourceData.id}}.json`, 'application/json');
+        }}
+        
+        function exportResourceHex() {{
+            if (!currentResourceData) return;
+            
+            const sampleData = analysisData.resource_samples?.[String(currentResourceData.id)];
+            if (!sampleData?.bytes) {{
+                alert('No byte data available for export');
+                return;
+            }}
+            
+            let hexStr = '';
+            sampleData.bytes.forEach((b, i) => {{
+                hexStr += b.toString(16).padStart(2, '0');
+                hexStr += (i % 16 === 15) ? '\\n' : ' ';
+            }});
+            
+            downloadFile(hexStr, `resource_${{currentResourceData.id}}.hex`, 'text/plain');
+        }}
+        
+        function downloadFile(content, filename, mimeType) {{
+            const blob = new Blob([content], {{ type: mimeType }});
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }}
+        
+        // Make resource IDs clickable
+        function makeResourceLinksClickable() {{
+            // Find all resource references in the page
+            document.querySelectorAll('[data-resource-id]').forEach(el => {{
+                el.classList.add('resource-link');
+                el.onclick = function() {{
+                    const id = parseInt(this.dataset.resourceId);
+                    const name = this.dataset.resourceName || this.textContent;
+                    const type = this.dataset.resourceType || 'BUFFER';
+                    openResourceModal(id, name, type);
+                }};
+            }});
+        }}
+        
+        // Initialize resource links on page load
+        document.addEventListener('DOMContentLoaded', () => {{
+            makeResourceLinksClickable();
+        }});
+        
+        // ========== SHADER FUNCTIONS ==========
+        let currentShaderData = null;
+        let currentShaderCodeType = 'asm';
+        
+        function updateShadersContent(eventId) {{
+            const content = document.getElementById('shaders-content');
+            const empty = document.getElementById('shaders-empty');
+            
+            // Find shaders for this event from analysisData
+            const drawCall = analysisData.draw_calls?.find(d => d.event_id === eventId);
+            const shaders = drawCall?.shaders || analysisData.shaders_by_event?.[eventId] || [];
+            
+            if (!shaders || shaders.length === 0) {{
+                empty.style.display = 'block';
+                content.innerHTML = '';
+                return;
+            }}
+            
+            empty.style.display = 'none';
+            
+            let html = '<div class="shaders-grid">';
+            
+            shaders.forEach((shader, index) => {{
+                const stage = shader.type || shader.stage || 'Unknown';
+                const stageLower = stage.toLowerCase();
+                const name = shader.name || shader.entry_point || `Shader_${{index}}`;
+                const encoding = shader.encoding || 'Unknown';
+                const hasDebug = shader.has_debug_info ? '✓' : '✗';
+                const cbCount = shader.constant_blocks?.length || 0;
+                const srvCount = shader.read_only_resources?.length || 0;
+                const uavCount = shader.read_write_resources?.length || 0;
+                
+                html += `
+                    <div class="shader-card" onclick='openShaderModal(${{JSON.stringify(shader).replace(/'/g, "\\'")}})'>
+                        <div class="shader-card-header">
+                            <span class="shader-stage-badge ${{stageLower}}">${{stage}}</span>
+                            <span class="shader-card-name">${{escapeHtml(name)}}</span>
+                        </div>
+                        <div class="shader-card-info">
+                            <div>📦 Encoding: ${{encoding}}</div>
+                            <div>🔍 Debug Info: ${{hasDebug}}</div>
+                            ${{shader.hash ? `<div>🔐 Hash: ${{shader.hash}}</div>` : ''}}
+                        </div>
+                        <div class="shader-card-footer">
+                            ${{cbCount > 0 ? `<span class="shader-resource-tag">${{cbCount}} CB</span>` : ''}}
+                            ${{srvCount > 0 ? `<span class="shader-resource-tag">${{srvCount}} SRV</span>` : ''}}
+                            ${{uavCount > 0 ? `<span class="shader-resource-tag">${{uavCount}} UAV</span>` : ''}}
+                        </div>
+                    </div>
+                `;
+            }});
+            
+            html += '</div>';
+            content.innerHTML = html;
+        }}
+        
+        function openShaderModal(shader) {{
+            currentShaderData = shader;
+            currentShaderCodeType = 'asm';
+            
+            const modal = document.getElementById('shader-modal');
+            const nameEl = document.getElementById('shader-modal-name');
+            const stageEl = document.getElementById('shader-modal-stage');
+            const headerEl = document.getElementById('shader-info-header');
+            const codeEl = document.getElementById('shader-code-content');
+            
+            // Set header info
+            nameEl.textContent = shader.name || shader.entry_point || 'Shader';
+            stageEl.textContent = shader.type || shader.stage || '?';
+            stageEl.className = `resource-type-badge shader-stage-badge ${{(shader.type || '').toLowerCase()}}`;
+            
+            // Build info header
+            let infoHtml = '<div class="info-row">';
+            if (shader.entry_point) {{
+                infoHtml += `<div class="info-item"><span class="info-label">Entry:</span><span class="info-value">${{escapeHtml(shader.entry_point)}}</span></div>`;
+            }}
+            if (shader.encoding) {{
+                infoHtml += `<div class="info-item"><span class="info-label">Encoding:</span><span class="info-value">${{shader.encoding}}</span></div>`;
+            }}
+            if (shader.hash) {{
+                infoHtml += `<div class="info-item"><span class="info-label">Hash:</span><span class="info-value">${{shader.hash}}</span></div>`;
+            }}
+            if (shader.debug_file) {{
+                infoHtml += `<div class="info-item"><span class="info-label">Source:</span><span class="info-value">${{escapeHtml(shader.debug_file)}}</span></div>`;
+            }}
+            infoHtml += '</div>';
+            
+            // Add signature info if available
+            if (shader.input_signature && shader.input_signature.length > 0) {{
+                infoHtml += `<div class="info-row" style="margin-top: 8px;">
+                    <div class="info-item"><span class="info-label">Inputs:</span><span class="info-value">${{shader.input_signature.map(s => s.semantic_name + s.semantic_index).join(', ')}}</span></div>
+                </div>`;
+            }}
+            
+            headerEl.innerHTML = infoHtml;
+            
+            // Set code content
+            updateShaderCodeContent();
+            
+            // Init code tabs
+            document.querySelectorAll('.shader-code-tab').forEach(tab => {{
+                tab.classList.remove('active');
+                if (tab.dataset.code === 'asm') tab.classList.add('active');
+                
+                tab.onclick = () => {{
+                    document.querySelectorAll('.shader-code-tab').forEach(t => t.classList.remove('active'));
+                    tab.classList.add('active');
+                    currentShaderCodeType = tab.dataset.code;
+                    updateShaderCodeContent();
+                }};
+            }});
+            
+            // Show modal
+            modal.classList.add('active');
+            
+            // ESC to close
+            document.addEventListener('keydown', handleShaderModalEscape);
+        }}
+        
+        function updateShaderCodeContent() {{
+            const codeEl = document.getElementById('shader-code-content').querySelector('code');
+            
+            if (!currentShaderData) {{
+                codeEl.textContent = '// No shader data';
+                return;
+            }}
+            
+            let code = '';
+            if (currentShaderCodeType === 'asm') {{
+                code = currentShaderData.source_asm || '// No ASM disassembly available';
+            }} else {{
+                code = currentShaderData.source_hlsl || '// No HLSL source available\\n// (HLSL is only available if debug info was embedded during compilation)';
+            }}
+            
+            // Apply basic syntax highlighting
+            codeEl.innerHTML = highlightShaderCode(code, currentShaderCodeType);
+        }}
+        
+        function highlightShaderCode(code, type) {{
+            // Escape HTML first
+            let highlighted = escapeHtml(code);
+            
+            // Apply syntax highlighting patterns
+            if (type === 'asm') {{
+                // ASM/DXBC style highlighting
+                // Comments
+                highlighted = highlighted.replace(/(\/\/.*)/g, '<span class="comment">$1</span>');
+                // Registers (r0, v0, o0, cb0, etc.)
+                highlighted = highlighted.replace(/\\b([rvocst]\\d+)\\b/g, '<span class="register">$1</span>');
+                // Keywords
+                highlighted = highlighted.replace(/\\b(dcl_|def|mov|add|mul|div|mad|dp3|dp4|sample|ld|store|ret|if|else|endif|loop|endloop|call|break)\\b/gi, '<span class="keyword">$1</span>');
+            }} else {{
+                // HLSL style highlighting
+                // Comments
+                highlighted = highlighted.replace(/(\/\/.*)/g, '<span class="comment">$1</span>');
+                highlighted = highlighted.replace(/(\/\\*[\\s\\S]*?\\*\/)/g, '<span class="comment">$1</span>');
+                // Strings
+                highlighted = highlighted.replace(/(".*?")/g, '<span class="string">$1</span>');
+                // Keywords
+                highlighted = highlighted.replace(/\\b(struct|cbuffer|Texture2D|SamplerState|float|float2|float3|float4|int|uint|bool|void|return|if|else|for|while|do|switch|case|break|continue|discard|true|false)\\b/g, '<span class="keyword">$1</span>');
+                // Types
+                highlighted = highlighted.replace(/\\b(float4x4|float3x3|float2x2|half|double|sampler|texture)\\b/g, '<span class="type">$1</span>');
+                // Semantics
+                highlighted = highlighted.replace(/(:\\s*)(SV_\\w+|POSITION\\d*|TEXCOORD\\d*|COLOR\\d*|NORMAL\\d*)/gi, '$1<span class="semantic">$2</span>');
+                // Numbers
+                highlighted = highlighted.replace(/\\b(\\d+\\.\\d+f?|\\d+f?|0x[0-9a-fA-F]+)\\b/g, '<span class="number">$1</span>');
+            }}
+            
+            return highlighted;
+        }}
+        
+        function closeShaderModal() {{
+            const modal = document.getElementById('shader-modal');
+            modal.classList.remove('active');
+            document.removeEventListener('keydown', handleShaderModalEscape);
+            currentShaderData = null;
+        }}
+        
+        function handleShaderModalEscape(e) {{
+            if (e.key === 'Escape') {{
+                closeShaderModal();
+            }}
+        }}
+        
+        function copyShaderCode() {{
+            if (!currentShaderData) return;
+            
+            const code = currentShaderCodeType === 'asm' 
+                ? (currentShaderData.source_asm || '') 
+                : (currentShaderData.source_hlsl || '');
+            
+            navigator.clipboard.writeText(code).then(() => {{
+                // Show feedback
+                const btn = event.target;
+                const originalText = btn.innerHTML;
+                btn.innerHTML = '✓ Copied!';
+                setTimeout(() => {{ btn.innerHTML = originalText; }}, 1500);
+            }}).catch(err => {{
+                console.error('Failed to copy:', err);
+            }});
+        }}
+        
+    </script>
+</body>
+</html>
+'''
+
+
+class HTMLExporter:
+    """HTML 导出器"""
+    
+    def __init__(self, config: Optional[HTMLExportConfig] = None):
+        self.config = config or HTMLExportConfig()
+        self.json_exporter = JSONExporter()
+    
+    def export(
+        self,
+        draws: List[DrawCallDetail],
+        issues: Optional[List[BindingIssue]] = None,
+        dependencies: Optional[List[ResourceDependency]] = None,
+        lifetimes: Optional[Dict[int, ResourceLifetime]] = None,
+        source_file: Optional[str] = None,
+        api_type: Optional[str] = None,
+        performance_report: Optional[Dict[str, Any]] = None,
+        mali_report: Optional[Dict[str, Any]] = None,
+    ) -> str:
+        """
+        导出为 HTML 字符串
+        
+        Args:
+            draws: Draw call 详情列表
+            issues: 绑定问题列表
+            dependencies: 资源依赖列表
+            lifetimes: 资源生命周期字典
+            source_file: 源文件名
+            api_type: API 类型
+            performance_report: 性能分析报告字典
+            mali_report: Mali GPU 分析报告字典
+        
+        Returns:
+            完整的 HTML 页面内容
+        """
+        # 首先获取 JSON 数据
+        json_str = self.json_exporter.export(
+            draws, issues, dependencies, lifetimes, source_file, api_type
+        )
+        json_data = json.loads(json_str)
+        
+        # 生成各部分 HTML
+        statistics_html = self._generate_statistics_html(json_data.get('statistics', {}))
+        call_list_html = self._generate_call_list_html(json_data.get('draw_calls', []), json_data.get('issues', []))
+        issues_html = self._generate_issues_html(json_data.get('issues', []))
+        dependencies_html = self._generate_dependencies_html(json_data.get('dependencies', []))
+        resources_html = self._generate_resources_html(json_data.get('resource_lifetimes', []), len(draws))
+        performance_html = self._generate_performance_html(performance_report)
+        mali_html = self._generate_mali_html(mali_report)
+        
+        # 主题颜色
+        if self.config.theme == 'dark':
+            colors = {
+                'bg_primary': '#0d1117',
+                'bg_secondary': '#161b22',
+                'bg_tertiary': '#21262d',
+                'text_primary': '#e6edf3',
+                'text_secondary': '#8b949e',
+                'border_color': '#30363d',
+            }
+        else:
+            colors = {
+                'bg_primary': '#f6f8fa',
+                'bg_secondary': '#ffffff',
+                'bg_tertiary': '#f0f3f6',
+                'text_primary': '#24292f',
+                'text_secondary': '#57606a',
+                'border_color': '#d0d7de',
+            }
+        
+        # 元数据
+        metadata = json_data.get('metadata', {})
+        header_meta = f"Source: {metadata.get('source_file', 'N/A')} | API: {metadata.get('api_type', 'N/A')}"
+        
+        # 渲染模板
+        return HTML_TEMPLATE.format(
+            title=html.escape(self.config.title),
+            export_time=metadata.get('export_time', datetime.now().isoformat()),
+            header_meta=html.escape(header_meta),
+            statistics_html=statistics_html,
+            call_list_html=call_list_html,
+            call_count=len(draws),
+            issues_html=issues_html,
+            dependencies_html=dependencies_html,
+            resources_html=resources_html,
+            performance_html=performance_html,
+            mali_html=mali_html,
+            json_data=json_str,
+            **colors,
+        )
+    
+    def export_to_file(
+        self,
+        output_path: Union[str, Path],
+        draws: List[DrawCallDetail],
+        issues: Optional[List[BindingIssue]] = None,
+        dependencies: Optional[List[ResourceDependency]] = None,
+        lifetimes: Optional[Dict[int, ResourceLifetime]] = None,
+        source_file: Optional[str] = None,
+        api_type: Optional[str] = None,
+        performance_report: Optional[Dict[str, Any]] = None,
+        mali_report: Optional[Dict[str, Any]] = None,
+    ) -> Path:
+        """导出为 HTML 文件"""
+        output_path = Path(output_path)
+        html_content = self.export(
+            draws, issues, dependencies, lifetimes, source_file, api_type,
+            performance_report=performance_report,
+            mali_report=mali_report
+        )
+        
+        with open(output_path, 'w', encoding='utf-8') as f:
+            f.write(html_content)
+        
+        return output_path
+    
+    def _generate_statistics_html(self, stats: Dict[str, Any]) -> str:
+        """生成统计卡片 HTML"""
+        cards = [
+            ('📊', 'Draw Calls', stats.get('total_draw_calls', 0), ''),
+            ('⚠️', 'Issues', stats.get('total_issues', 0), 'error' if stats.get('total_issues', 0) > 0 else ''),
+            ('🔗', 'Dependencies', stats.get('total_dependencies', 0), ''),
+            ('📦', 'Resources', stats.get('total_resources', 0), ''),
+        ]
+        
+        html_parts = []
+        for icon, label, value, extra_class in cards:
+            html_parts.append(f'''
+                <div class="stat-card {extra_class}">
+                    <div class="stat-value">{icon} {value}</div>
+                    <div class="stat-label">{html.escape(label)}</div>
+                </div>
+            ''')
+        
+        return '\n'.join(html_parts)
+    
+    def _generate_call_list_html(self, draws: List[Dict], issues: List[Dict]) -> str:
+        """生成调用列表 HTML"""
+        issue_by_event = {}
+        for issue in issues:
+            eid = issue.get('event_id')
+            issue_by_event[eid] = issue_by_event.get(eid, 0) + 1
+        
+        html_parts = []
+        for draw in draws:
+            event_id = draw.get('event_id', 0)
+            name = draw.get('name', 'Unknown')
+            issue_count = issue_by_event.get(event_id, 0)
+            has_issues_class = 'has-issues' if issue_count > 0 else ''
+            issue_badge = f'<span class="issue-badge">{issue_count}</span>' if issue_count > 0 else ''
+            
+            html_parts.append(f'''
+                <div class="call-item {has_issues_class}" data-event-id="{event_id}">
+                    <span class="call-id">#{event_id}</span>
+                    <span class="call-name">{html.escape(name)}</span>
+                    {issue_badge}
+                </div>
+            ''')
+        
+        return '\n'.join(html_parts)
+    
+    def _generate_issues_html(self, issues: List[Dict]) -> str:
+        """生成问题列表 HTML"""
+        if not issues:
+            return '''
+                <div class="empty-state">
+                    <div class="empty-state-icon">✅</div>
+                    <p>No issues detected</p>
+                </div>
+            '''
+        
+        html_parts = []
+        for issue in issues:
+            severity = issue.get('severity', 'info').lower()
+            severity_class = f'severity-{severity}'
+            item_class = 'warning' if severity == 'warning' else ('info' if severity == 'info' else '')
+            
+            html_parts.append(f'''
+                <div class="issue-item {item_class}">
+                    <div class="issue-header">
+                        <span class="issue-rule">[{html.escape(issue.get('rule_id', 'UNKNOWN'))}] Event #{issue.get('event_id', 0)}</span>
+                        <span class="issue-severity {severity_class}">{html.escape(severity)}</span>
+                    </div>
+                    <div class="issue-message">{html.escape(issue.get('message', ''))}</div>
+                </div>
+            ''')
+        
+        return '\n'.join(html_parts)
+    
+    def _generate_dependencies_html(self, dependencies: List[Dict]) -> str:
+        """生成依赖关系 HTML"""
+        if not dependencies:
+            return '''
+                <div class="empty-state">
+                    <div class="empty-state-icon">🔗</div>
+                    <p>No resource dependencies detected</p>
+                </div>
+            '''
+        
+        html_parts = ['<div class="dep-graph">']
+        for dep in dependencies:
+            dep_type = dep.get('dependency_type', 'UNKNOWN')
+            resource_name = dep.get('resource_name', '')
+            resource_id = dep.get('resource_id', 0)
+            resource_type = dep.get('resource_type', 'BUFFER')
+            
+            # 创建可点击的资源链接
+            if resource_name:
+                resource_link = f'''<span class="resource-link" 
+                    data-resource-id="{resource_id}"
+                    onclick="openResourceModal({resource_id}, '{html.escape(resource_name)}', '{html.escape(resource_type)}')"
+                    style="margin-left: auto; font-size: 12px;">{html.escape(resource_name)}</span>'''
+            else:
+                resource_link = ''
+            
+            html_parts.append(f'''
+                <div class="dep-item">
+                    <span class="dep-node">#{dep.get('source_event', 0)}</span>
+                    <span class="dep-arrow">→</span>
+                    <span class="dep-node">#{dep.get('target_event', 0)}</span>
+                    <span class="dep-type {dep_type}">{dep_type}</span>
+                    {resource_link}
+                </div>
+            ''')
+        html_parts.append('</div>')
+        
+        return '\n'.join(html_parts)
+    
+    def _generate_resources_html(self, lifetimes: List[Dict], total_events: int) -> str:
+        """生成资源生命周期 HTML"""
+        if not lifetimes:
+            return '''
+                <div class="empty-state">
+                    <div class="empty-state-icon">📦</div>
+                    <p>No resource tracking data available</p>
+                </div>
+            '''
+        
+        # 找出实际的事件 ID 范围
+        all_first = [lt.get('first_access_event', 0) for lt in lifetimes]
+        all_last = [lt.get('last_access_event', 0) for lt in lifetimes]
+        min_event = min(all_first) if all_first else 0
+        max_event = max(all_last) if all_last else 1
+        event_range = max(max_event - min_event, 1)  # 避免除零
+        
+        # 按资源类型和名称排序
+        sorted_lifetimes = sorted(lifetimes, key=lambda x: (x.get('resource_type', ''), x.get('resource_name', '')))
+        
+        # 只显示前 50 个最活跃的资源（按读写次数排序）
+        active_lifetimes = sorted(sorted_lifetimes, 
+                                   key=lambda x: x.get('read_count', 0) + x.get('write_count', 0), 
+                                   reverse=True)[:50]
+        
+        html_parts = [f'''
+            <div style="margin-bottom: 16px; padding: 12px; background: var(--bg-tertiary); border-radius: 8px;">
+                <strong>Resource Lifetime Overview</strong>
+                <div style="margin-top: 8px; font-size: 13px; color: var(--text-secondary);">
+                    Showing top {len(active_lifetimes)} of {len(lifetimes)} tracked resources 
+                    (Event range: #{min_event} - #{max_event})
+                </div>
+            </div>
+        ''']
+        
+        for lt in active_lifetimes:
+            first = lt.get('first_access_event', 0)
+            last = lt.get('last_access_event', 0)
+            resource_name = str(lt.get('resource_name', 'Unknown'))
+            resource_type = str(lt.get('resource_type', 'Unknown'))
+            resource_id = lt.get('resource_id', 0)
+            read_count = lt.get('read_count', 0)
+            write_count = lt.get('write_count', 0)
+            
+            # 计算条形图位置 - 相对于事件范围
+            left_pct = ((first - min_event) / event_range) * 100
+            width_pct = max(((last - first) / event_range) * 100, 3)  # 最小 3% 宽度
+            
+            # 根据读写情况确定颜色
+            if write_count > 0 and read_count > 0:
+                bar_color = 'linear-gradient(90deg, var(--success), var(--accent))'  # 读写都有
+            elif write_count > 0:
+                bar_color = 'linear-gradient(90deg, var(--warning), var(--error))'  # 只写
+            else:
+                bar_color = 'linear-gradient(90deg, var(--info), var(--accent))'  # 只读
+            
+            # 警告标记
+            warning_html = ''
+            if lt.get('is_written_never_read'):
+                warning_html = '<span style="color: var(--warning); margin-left: 8px;">⚠️ Written but never read</span>'
+            
+            # 资源名称使用可点击链接
+            name_short = resource_name[:40]
+            resource_link = f'''<span class="resource-link" 
+                data-resource-id="{resource_id}" 
+                data-resource-name="{html.escape(resource_name)}" 
+                data-resource-type="{html.escape(resource_type)}"
+                onclick="openResourceModal({resource_id}, '{html.escape(resource_name)}', '{html.escape(resource_type)}')"
+                title="Click to view details">{html.escape(name_short)}</span>'''
+            
+            html_parts.append(f'''
+                <div class="lifetime-item">
+                    <div class="lifetime-header">
+                        <span class="lifetime-name">{resource_link}</span>
+                        <span class="lifetime-type">{html.escape(resource_type)}</span>
+                    </div>
+                    <div class="lifetime-bar" title="Events #{first} - #{last}">
+                        <div class="lifetime-range" style="left: {left_pct:.1f}%; width: {width_pct:.1f}%; background: {bar_color};">
+                            #{first} - #{last}
+                        </div>
+                    </div>
+                    <div class="lifetime-stats">
+                        <span>📖 Reads: {read_count}</span>
+                        <span>✏️ Writes: {write_count}</span>
+                        {warning_html}
+                    </div>
+                </div>
+            ''')
+        
+        return '\n'.join(html_parts)
+    
+    def _generate_performance_html(self, report: Optional[Dict[str, Any]]) -> str:
+        """生成性能分析 HTML"""
+        if not report:
+            return '''
+                <div class="empty-state">
+                    <div class="empty-state-icon">⚡</div>
+                    <p>No performance analysis data available</p>
+                    <p style="font-size: 12px; color: var(--text-secondary); margin-top: 8px;">
+                        Run performance analysis to see optimization opportunities
+                    </p>
+                </div>
+            '''
+        
+        # 获取数据
+        overall_score = report.get('overall_score', 0)
+        issues = report.get('issues', [])
+        metrics = report.get('metrics', {})
+        recommendations = report.get('recommendations', [])
+        
+        # 计算分数等级和颜色
+        if overall_score >= 90:
+            score_class = 'perf-score-excellent'
+            score_label = 'Excellent'
+            ring_color = '#69db7c'  # success green
+        elif overall_score >= 70:
+            score_class = 'perf-score-good'
+            score_label = 'Good'
+            ring_color = '#a9e34b'  # lime
+        elif overall_score >= 50:
+            score_class = 'perf-score-fair'
+            score_label = 'Fair'
+            ring_color = '#ffa94d'  # warning orange
+        else:
+            score_class = 'perf-score-poor'
+            score_label = 'Needs Improvement'
+            ring_color = '#ff6b6b'  # error red
+        
+        # SVG 环形进度条参数
+        radius = 70
+        circumference = 2 * 3.14159 * radius
+        progress_offset = circumference - (overall_score / 100) * circumference
+        
+        # 按规则分类问题
+        issue_by_rule: Dict[str, List[Dict]] = {}
+        for issue in issues:
+            rule_id = issue.get('rule_id', 'UNKNOWN')
+            if rule_id not in issue_by_rule:
+                issue_by_rule[rule_id] = []
+            issue_by_rule[rule_id].append(issue)
+        
+        # 规则描述映射
+        rule_names = {
+            'PERF001': '过度绘制 (Overdraw)',
+            'PERF002': '状态冗余 (State Redundancy)',
+            'PERF003': '小批次绘制 (Small Batches)',
+            'PERF004': '大纹理 (Large Textures)',
+            'PERF005': '未压缩纹理 (Uncompressed)',
+            'PERF006': 'Alpha 混合过度',
+            'PERF007': '频繁资源绑定',
+        }
+        
+        # 构建 HTML
+        html_parts = ['<div class="perf-dashboard">']
+        
+        # === 分数环和摘要 ===
+        html_parts.append(f'''
+            <div class="perf-score-container">
+                <div class="perf-score-ring">
+                    <svg width="160" height="160">
+                        <circle class="bg" cx="80" cy="80" r="{radius}"></circle>
+                        <circle class="progress" cx="80" cy="80" r="{radius}"
+                            stroke="{ring_color}"
+                            stroke-dasharray="{circumference}"
+                            stroke-dashoffset="{progress_offset}">
+                        </circle>
+                    </svg>
+                    <div class="perf-score-text">
+                        <div class="perf-score-value {score_class}">{overall_score}</div>
+                        <div class="perf-score-label">{score_label}</div>
+                    </div>
+                </div>
+                
+                <div class="perf-summary-stats">
+                    <div class="perf-summary-item">
+                        <div class="perf-summary-icon issues">⚠️</div>
+                        <div>
+                            <div class="perf-summary-value">{len(issues)}</div>
+                            <div class="perf-summary-label">Performance Issues</div>
+                        </div>
+                    </div>
+                    <div class="perf-summary-item">
+                        <div class="perf-summary-icon draws">📊</div>
+                        <div>
+                            <div class="perf-summary-value">{metrics.get('total_draw_calls', 0)}</div>
+                            <div class="perf-summary-label">Draw Calls Analyzed</div>
+                        </div>
+                    </div>
+                    <div class="perf-summary-item">
+                        <div class="perf-summary-icon textures">🖼️</div>
+                        <div>
+                            <div class="perf-summary-value">{metrics.get('total_textures', 0)}</div>
+                            <div class="perf-summary-label">Textures Analyzed</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        ''')
+        
+        # === 分类卡片 ===
+        if issue_by_rule:
+            html_parts.append('<div class="perf-categories">')
+            for rule_id, rule_issues in sorted(issue_by_rule.items()):
+                count = len(rule_issues)
+                rule_name = rule_names.get(rule_id, rule_id)
+                
+                # 根据问题数量确定严重程度
+                if count >= 10:
+                    card_class = 'error'
+                    fill_class = 'high'
+                    fill_width = 100
+                elif count >= 5:
+                    card_class = 'warning'
+                    fill_class = 'medium'
+                    fill_width = 60
+                else:
+                    card_class = 'success'
+                    fill_class = 'low'
+                    fill_width = 30
+                
+                html_parts.append(f'''
+                    <div class="perf-category-card {card_class}">
+                        <div class="perf-category-header">
+                            <span class="perf-category-name">{html.escape(rule_name)}</span>
+                            <span class="perf-category-count">{count}</span>
+                        </div>
+                        <div class="perf-category-bar">
+                            <div class="perf-category-fill {fill_class}" style="width: {fill_width}%;"></div>
+                        </div>
+                    </div>
+                ''')
+            html_parts.append('</div>')
+        
+        # === 问题列表 ===
+        if issues:
+            html_parts.append('''
+                <div class="perf-issues-section">
+                    <div class="perf-issues-header">
+                        <span class="perf-issues-title">⚠️ Detected Issues</span>
+                        <div class="perf-issues-filter">
+                            <button class="perf-filter-btn active" onclick="filterPerfIssues('all')">All</button>
+                            <button class="perf-filter-btn" onclick="filterPerfIssues('critical')">Critical</button>
+                            <button class="perf-filter-btn" onclick="filterPerfIssues('warning')">Warning</button>
+                        </div>
+                    </div>
+                    <div id="perf-issues-list">
+            ''')
+            
+            # 按影响分数排序
+            sorted_issues = sorted(issues, key=lambda x: x.get('impact_score', 0), reverse=True)
+            
+            for issue in sorted_issues[:50]:  # 最多显示50个
+                rule_id = issue.get('rule_id', 'UNKNOWN')
+                message = issue.get('message', '')
+                impact = issue.get('impact_score', 0)
+                event_id = issue.get('event_id')
+                resource_id = issue.get('resource_id')
+                
+                # 确定严重程度
+                if impact >= 10:
+                    severity_class = 'critical'
+                    impact_color = '#ff6b6b'
+                elif impact >= 5:
+                    severity_class = 'warning'
+                    impact_color = '#ffa94d'
+                else:
+                    severity_class = 'info'
+                    impact_color = '#74c0fc'
+                
+                # 位置信息
+                location_parts = []
+                if event_id is not None:
+                    location_parts.append(f'📍 Event #{event_id}')
+                if resource_id is not None:
+                    location_parts.append(f'📦 Resource #{resource_id}')
+                location_html = ' &nbsp;|&nbsp; '.join(location_parts) if location_parts else ''
+                
+                html_parts.append(f'''
+                    <div class="perf-issue-card {severity_class}" data-severity="{severity_class}">
+                        <div class="perf-issue-header">
+                            <span class="perf-issue-rule">{html.escape(rule_id)}</span>
+                            <div class="perf-issue-impact">
+                                <span>Impact: {impact}</span>
+                                <div class="perf-impact-bar">
+                                    <div class="perf-impact-fill" style="width: {min(impact * 10, 100)}%; background: {impact_color};"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="perf-issue-message">{html.escape(message)}</div>
+                        <div class="perf-issue-details">
+                            <span class="perf-issue-location">{location_html}</span>
+                        </div>
+                    </div>
+                ''')
+            
+            html_parts.append('</div></div>')
+        
+        # === 建议 ===
+        if recommendations:
+            html_parts.append('''
+                <div class="perf-recommendations">
+                    <div class="perf-rec-title">💡 Optimization Recommendations</div>
+                    <ul class="perf-rec-list">
+            ''')
+            
+            for rec in recommendations:
+                text = rec.get('text', '') if isinstance(rec, dict) else str(rec)
+                priority = rec.get('priority', 'medium') if isinstance(rec, dict) else 'medium'
+                
+                priority_icons = {'high': '🔴', 'medium': '🟡', 'low': '🔵'}
+                icon = priority_icons.get(priority, '🟡')
+                
+                html_parts.append(f'''
+                    <li class="perf-rec-item">
+                        <div class="perf-rec-icon {priority}">{icon}</div>
+                        <div class="perf-rec-content">
+                            <span class="perf-rec-text">{html.escape(text)}</span>
+                            <span class="perf-rec-priority {priority}">{priority.upper()}</span>
+                        </div>
+                    </li>
+                ''')
+            
+            html_parts.append('</ul></div>')
+        
+        html_parts.append('</div>')
+        
+        # 添加筛选 JavaScript
+        html_parts.append('''
+            <script>
+                function filterPerfIssues(severity) {
+                    document.querySelectorAll('.perf-filter-btn').forEach(btn => {
+                        btn.classList.toggle('active', btn.textContent.toLowerCase() === severity);
+                    });
+                    
+                    document.querySelectorAll('.perf-issue-card').forEach(card => {
+                        if (severity === 'all') {
+                            card.style.display = 'block';
+                        } else {
+                            card.style.display = card.dataset.severity === severity ? 'block' : 'none';
+                        }
+                    });
+                }
+            </script>
+        ''')
+        
+        return '\n'.join(html_parts)
+    
+    def _generate_mali_html(self, report: Optional[Dict[str, Any]]) -> str:
+        """生成 Mali GPU 分析 HTML"""
+        if not report:
+            return '''
+                <div class="empty-state">
+                    <div class="empty-state-icon">📱</div>
+                    <p>No Mali GPU analysis data available</p>
+                    <p style="font-size: 12px; color: var(--text-secondary); margin-top: 8px;">
+                        Enable Mali analysis and ensure malioc is installed to see GPU performance data.
+                        <br><br>
+                        <a href="https://developer.arm.com/Tools%20and%20Software/Mali%20Offline%20Compiler" 
+                           target="_blank" style="color: var(--accent);">
+                            Download Mali Offline Compiler
+                        </a>
+                    </p>
+                </div>
+            '''
+        
+        # 获取数据
+        gpu_name = report.get('gpu_name', 'Unknown')
+        total_shaders = report.get('total_shaders', 0)
+        success_count = report.get('success_count', 0)
+        failed_count = report.get('failed_count', 0)
+        results = report.get('results', [])
+        summary = report.get('summary', {})
+        malioc_available = report.get('malioc_available', True)
+        malioc_version = report.get('malioc_version', '')
+        
+        # 计算汇总统计
+        total_arithmetic = summary.get('total_arithmetic_cycles', 0)
+        total_texture = summary.get('total_texture_cycles', 0)
+        high_pressure_count = len(summary.get('high_register_pressure', []))
+        spill_count = len(summary.get('stack_spilling', []))
+        arithmetic_bound = len(summary.get('arithmetic_bound', []))
+        texture_bound = len(summary.get('texture_bound', []))
+        
+        # 构建 HTML
+        html_parts = ['<div class="mali-dashboard">']
+        
+        # === 头部：GPU 选择器和状态 ===
+        status_class = 'available' if malioc_available else 'unavailable'
+        status_text = f'✓ malioc ready ({malioc_version})' if malioc_available else '✗ malioc not found'
+        
+        html_parts.append(f'''
+            <div class="mali-header">
+                <h3>📱 Mali GPU Performance Analysis</h3>
+                <div class="mali-gpu-selector">
+                    <label>Target GPU:</label>
+                    <span class="mali-gpu-select" style="display: inline-block;">{html.escape(gpu_name)}</span>
+                </div>
+                <div class="mali-status {status_class}">
+                    {status_text}
+                </div>
+            </div>
+        ''')
+        
+        # === 汇总卡片 ===
+        html_parts.append('<div class="mali-summary">')
+        
+        cards = [
+            ('💻', 'Shaders Analyzed', f'{success_count}/{total_shaders}', ''),
+            ('⚡', 'Total A Cycles', f'{total_arithmetic:.1f}', ''),
+            ('🖼️', 'Total T Cycles', f'{total_texture:.1f}', ''),
+            ('📊', 'A-Bound Shaders', str(arithmetic_bound), 'warning' if arithmetic_bound > 0 else ''),
+            ('🎨', 'T-Bound Shaders', str(texture_bound), 'warning' if texture_bound > 0 else ''),
+            ('⚠️', 'High Reg Pressure', str(high_pressure_count), 'error' if high_pressure_count > 0 else ''),
+        ]
+        
+        for icon, label, value, extra_class in cards:
+            html_parts.append(f'''
+                <div class="mali-summary-card {extra_class}">
+                    <div class="value">{icon} {value}</div>
+                    <div class="label">{html.escape(label)}</div>
+                </div>
+            ''')
+        
+        html_parts.append('</div>')
+        
+        # === 周期图例 ===
+        html_parts.append('''
+            <div class="mali-legend">
+                <div class="mali-legend-item">
+                    <div class="mali-legend-color arithmetic"></div>
+                    <span>Arithmetic (A)</span>
+                </div>
+                <div class="mali-legend-item">
+                    <div class="mali-legend-color load-store"></div>
+                    <span>Load/Store (LS)</span>
+                </div>
+                <div class="mali-legend-item">
+                    <div class="mali-legend-color texture"></div>
+                    <span>Texture (T)</span>
+                </div>
+                <div class="mali-legend-item">
+                    <div class="mali-legend-color varying"></div>
+                    <span>Varying (V)</span>
+                </div>
+            </div>
+        ''')
+        
+        # === Shader 分析表格 ===
+        if results:
+            html_parts.append('''
+                <div class="mali-shaders-section">
+                    <h4>📋 Shader Analysis Results</h4>
+                    <table class="mali-shader-table">
+                        <thead>
+                            <tr>
+                                <th>Shader</th>
+                                <th>Stage</th>
+                                <th>Cycles</th>
+                                <th>Breakdown</th>
+                                <th>Bound</th>
+                                <th>Registers</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+            ''')
+            
+            for shader_result in results:
+                name = shader_result.get('shader_name', 'Unknown')
+                shader_type = shader_result.get('shader_type', '')
+                cycles = shader_result.get('cycles', {})
+                registers = shader_result.get('registers', {})
+                success = shader_result.get('success', False)
+                
+                if not success:
+                    # 分析失败的 Shader
+                    error_msg = shader_result.get('error_message', 'Analysis failed')
+                    html_parts.append(f'''
+                        <tr>
+                            <td class="mali-shader-name">{html.escape(name)}</td>
+                            <td><span class="mali-stage-badge {shader_type[:2].lower()}">{shader_type}</span></td>
+                            <td colspan="4" style="color: var(--error);">⚠️ {html.escape(error_msg)}</td>
+                        </tr>
+                    ''')
+                    continue
+                
+                # 周期数据
+                a_cycles = cycles.get('arithmetic', 0)
+                ls_cycles = cycles.get('load_store', 0)
+                t_cycles = cycles.get('texture', 0)
+                v_cycles = cycles.get('varying', 0)
+                total_cycles = cycles.get('total', 0) or (a_cycles + ls_cycles + t_cycles + v_cycles)
+                bound = cycles.get('bound', '')
+                
+                # 计算百分比用于条形图
+                if total_cycles > 0:
+                    a_pct = (a_cycles / total_cycles) * 100
+                    ls_pct = (ls_cycles / total_cycles) * 100
+                    t_pct = (t_cycles / total_cycles) * 100
+                    v_pct = (v_cycles / total_cycles) * 100
+                else:
+                    a_pct = ls_pct = t_pct = v_pct = 0
+                
+                # 寄存器信息
+                work_regs = registers.get('work', 0)
+                spilling = registers.get('stack_spilling', False)
+                pressure_high = registers.get('pressure_high', False)
+                
+                reg_html = f'{work_regs}'
+                if spilling:
+                    reg_html += ' <span class="mali-reg-spill">⚠️ Spill!</span>'
+                elif pressure_high:
+                    reg_html += ' <span class="mali-reg-warning">⚠️</span>'
+                
+                # Stage badge class
+                stage_class = shader_type[:2].lower() if shader_type else 'vs'
+                
+                html_parts.append(f'''
+                    <tr>
+                        <td class="mali-shader-name">{html.escape(name)}</td>
+                        <td><span class="mali-stage-badge {stage_class}">{shader_type}</span></td>
+                        <td>{total_cycles:.1f}</td>
+                        <td>
+                            <div class="mali-cycle-bar" title="A:{a_cycles:.1f} LS:{ls_cycles:.1f} T:{t_cycles:.1f} V:{v_cycles:.1f}">
+                                <div class="segment arithmetic" style="width: {a_pct:.1f}%;"></div>
+                                <div class="segment load-store" style="width: {ls_pct:.1f}%;"></div>
+                                <div class="segment texture" style="width: {t_pct:.1f}%;"></div>
+                                <div class="segment varying" style="width: {v_pct:.1f}%;"></div>
+                            </div>
+                        </td>
+                        <td><span class="mali-bottleneck {bound}">{bound}</span></td>
+                        <td>{reg_html}</td>
+                    </tr>
+                ''')
+            
+            html_parts.append('</tbody></table></div>')
+        
+        # === 优化建议 ===
+        all_recommendations = []
+        for shader_result in results:
+            name = shader_result.get('shader_name', 'Unknown')
+            recs = shader_result.get('recommendations', [])
+            for rec in recs:
+                all_recommendations.append((name, rec))
+        
+        if all_recommendations:
+            html_parts.append('''
+                <div class="mali-recommendations">
+                    <div class="mali-rec-title">💡 Optimization Recommendations</div>
+                    <ul class="mali-rec-list">
+            ''')
+            
+            for shader_name, rec_text in all_recommendations[:20]:  # 最多显示20条
+                html_parts.append(f'''
+                    <li class="mali-rec-item">
+                        <div class="mali-rec-icon">💡</div>
+                        <div>
+                            <div class="mali-rec-text">{html.escape(rec_text)}</div>
+                            <div class="mali-rec-shader">Shader: {html.escape(shader_name)}</div>
+                        </div>
+                    </li>
+                ''')
+            
+            html_parts.append('</ul></div>')
+        
+        html_parts.append('</div>')
+        
+        return '\n'.join(html_parts)
+
+
+# 便捷函数
+def export_to_html(
+    draws: List[DrawCallDetail],
+    output_path: Union[str, Path],
+    issues: Optional[List[BindingIssue]] = None,
+    dependencies: Optional[List[ResourceDependency]] = None,
+    lifetimes: Optional[Dict[int, ResourceLifetime]] = None,
+    source_file: Optional[str] = None,
+    api_type: Optional[str] = None,
+    config: Optional[HTMLExportConfig] = None,
+    performance_report: Optional[Dict[str, Any]] = None,
+    mali_report: Optional[Dict[str, Any]] = None,
+) -> Path:
+    """
+    导出分析结果为交互式 HTML 页面
+    
+    Args:
+        draws: Draw Call 详情列表
+        output_path: 输出文件路径
+        issues: 检测到的问题列表
+        dependencies: 资源依赖关系列表
+        lifetimes: 资源生命周期字典
+        source_file: 源 RDC 文件路径
+        api_type: API 类型
+        config: HTML 导出配置
+        performance_report: 性能分析报告字典
+        mali_report: Mali GPU 分析报告字典
+    
+    Returns:
+        输出文件的 Path 对象
+    """
+    exporter = HTMLExporter(config)
+    return exporter.export_to_file(
+        output_path,
+        draws,
+        issues=issues,
+        dependencies=dependencies,
+        lifetimes=lifetimes,
+        source_file=source_file,
+        api_type=api_type,
+        performance_report=performance_report,
+        mali_report=mali_report,
+    )

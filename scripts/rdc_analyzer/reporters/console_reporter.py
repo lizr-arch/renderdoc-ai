@@ -1,0 +1,165 @@
+"""
+控制台报告器
+============
+
+生成终端友好的文本报告。
+"""
+
+from typing import Dict, List
+
+from .base import BaseReporter, ReportData
+
+
+class ConsoleReporter(BaseReporter):
+    """控制台格式报告器"""
+    
+    format_name = "console"
+    file_extension = ".txt"
+    
+    # ANSI 颜色代码
+    COLORS = {
+        "reset": "\033[0m",
+        "bold": "\033[1m",
+        "red": "\033[91m",
+        "yellow": "\033[93m",
+        "blue": "\033[94m",
+        "green": "\033[92m",
+        "cyan": "\033[96m",
+        "gray": "\033[90m",
+    }
+    
+    def __init__(self, report_data: ReportData, use_colors: bool = True):
+        """
+        初始化控制台报告器
+        
+        Args:
+            report_data: 报告数据
+            use_colors: 是否使用 ANSI 颜色
+        """
+        super().__init__(report_data)
+        self.use_colors = use_colors
+    
+    def _color(self, text: str, color: str) -> str:
+        """应用颜色"""
+        if not self.use_colors:
+            return text
+        return f"{self.COLORS.get(color, '')}{text}{self.COLORS['reset']}"
+    
+    def generate(self) -> str:
+        """
+        生成控制台报告
+        
+        Returns:
+            格式化的文本报告
+        """
+        lines = []
+        
+        # 头部
+        lines.append("")
+        lines.append(self._color("=" * 60, "cyan"))
+        lines.append(self._color("  RDC 性能分析报告", "bold"))
+        lines.append(self._color("=" * 60, "cyan"))
+        lines.append("")
+        
+        # 元数据
+        lines.append(f"  文件: {self.data.file_path}")
+        lines.append(f"  平台: {self.data.platform.upper()}")
+        lines.append(f"  API:  {self.data.api}")
+        lines.append(f"  时间: {self.data.analysis_time.strftime('%Y-%m-%d %H:%M:%S')}")
+        lines.append("")
+        
+        # 摘要
+        lines.append(self._color("-" * 60, "gray"))
+        lines.append(self._color("  摘要", "bold"))
+        lines.append(self._color("-" * 60, "gray"))
+        
+        error_str = self._color(f"  错误:   {self.data.error_count}", "red" if self.data.error_count > 0 else "green")
+        warning_str = self._color(f"  警告:   {self.data.warning_count}", "yellow" if self.data.warning_count > 0 else "green")
+        info_str = self._color(f"  信息:   {self.data.info_count}", "blue")
+        
+        lines.append(error_str)
+        lines.append(warning_str)
+        lines.append(info_str)
+        lines.append(f"  总计:   {len(self.data.issues)}")
+        lines.append("")
+        
+        # 帧统计
+        if self.data.frame_summary:
+            fs = self.data.frame_summary
+            lines.append(self._color("-" * 60, "gray"))
+            lines.append(self._color("  帧统计", "bold"))
+            lines.append(self._color("-" * 60, "gray"))
+            lines.append(f"  Draw Calls:    {fs.draw_call_count:,}")
+            lines.append(f"  顶点数:        {fs.vertex_count:,}")
+            lines.append(f"  图元数:        {fs.primitive_count:,}")
+            lines.append(f"  纹理数量:      {fs.texture_count}")
+            if fs.total_texture_memory:
+                lines.append(f"  纹理内存:      {fs.total_texture_memory / (1024*1024):.1f} MB")
+            lines.append(f"  缓冲区数量:    {fs.buffer_count}")
+            if fs.total_buffer_memory:
+                lines.append(f"  缓冲区内存:    {fs.total_buffer_memory / (1024*1024):.1f} MB")
+            lines.append(f"  渲染 Pass:     {fs.pass_count}")
+            lines.append("")
+        
+        # 问题列表
+        if self.data.issues:
+            lines.append(self._color("-" * 60, "gray"))
+            lines.append(self._color(f"  问题详情 ({len(self.data.issues)})", "bold"))
+            lines.append(self._color("-" * 60, "gray"))
+            lines.append("")
+            
+            for i, issue in enumerate(self.data.issues, 1):
+                # 严重度颜色
+                if issue.severity.name == "ERROR":
+                    sev_color = "red"
+                    sev_icon = "✖"
+                elif issue.severity.name == "WARNING":
+                    sev_color = "yellow"
+                    sev_icon = "⚠"
+                else:
+                    sev_color = "blue"
+                    sev_icon = "ℹ"
+                
+                # 问题标题
+                severity_str = self._color(f"[{issue.severity.name}]", sev_color)
+                lines.append(f"  {sev_icon} {severity_str} {self._color(issue.code, 'cyan')}")
+                
+                # 消息
+                lines.append(f"     {issue.message}")
+                
+                # 位置
+                if issue.location_path:
+                    lines.append(self._color(f"     📍 {issue.location_path}", "gray"))
+                
+                # 建议
+                if issue.suggestion:
+                    lines.append(self._color(f"     💡 {issue.suggestion}", "gray"))
+                
+                lines.append("")
+        else:
+            lines.append(self._color("  ✅ 未发现性能问题！", "green"))
+            lines.append("")
+        
+        # 页脚
+        lines.append(self._color("=" * 60, "cyan"))
+        lines.append(f"  Generated by RDC Analyzer v{self.data.analyzer_version}")
+        lines.append(self._color("=" * 60, "cyan"))
+        lines.append("")
+        
+        return "\n".join(lines)
+    
+    def generate_brief(self) -> str:
+        """
+        生成简短摘要
+        
+        Returns:
+            单行摘要
+        """
+        status = "PASS" if self.data.error_count == 0 else "FAIL"
+        status_color = "green" if status == "PASS" else "red"
+        
+        return self._color(
+            f"[{status}] {len(self.data.issues)} issues "
+            f"({self.data.error_count} errors, {self.data.warning_count} warnings)",
+            status_color
+        )
