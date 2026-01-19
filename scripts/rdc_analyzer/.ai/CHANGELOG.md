@@ -6,6 +6,25 @@
 
 ## 2025-01-19
 
+### Flux-0119 (Phase 2 Comparison Engine)
+
+- **18:30** TASK-010~013: Phase 2 核心对比引擎完成
+  - 新增: `diff/diff_engine.py` - 数据对比引擎
+    - 支持 DrawCall/Geometry/Texture/Buffer/Shader 全维度对比
+    - 自动处理 null viewport 等边界情况
+  - 新增: `diff/regression_detector.py` - 性能回归检测器
+    - 9 条回归规则（DrawCall +10%、Texture Memory +20% 等）
+    - 自动生成回归报告和建议
+  - 新增: `diff/diff_html_exporter.py` - HTML 对比报告生成
+    - 红/绿标识新增/删除资源
+    - 回归指标可视化展示
+  - 新增: `compare_rdc.py` - RDC 对比入口脚本
+    - 命令行: `py -3 compare_rdc.py <baseline.rdc> <current.rdc>`
+  - 测试结果:
+    - g145.rdc vs g145-battle-2.rdc 对比成功 ✅
+    - 检测到 Draw Calls +360%, Texture Memory +108%
+  - Commit: `48b770712`
+
 ### Agent-Initial (核心功能开发)
 
 - **14:54** TASK-000: 完成核心功能实现
