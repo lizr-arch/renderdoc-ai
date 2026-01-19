@@ -195,6 +195,7 @@ py -3 generate_real_report.py capture_data.json textures/ report.html
 | 文档 | 路径 | 说明 |
 |------|------|------|
 | **入职引导** | `.ai/ONBOARDING.md` | 🆕 新 AI 快速入门模板 |
+| ⭐ **功能索引** | `.ai/FEATURE_INDEX.md` | **必读** 所有已实现功能清单 |
 | 任务总索引 | `.ai/TASK_INDEX.md` | 任务入口，查找每日任务 |
 | 今日任务 | `.ai/tasks/YYYY-MM-DD.md` | 当天任务看板 |
 | 开发规范 | `.ai/CONVENTIONS.md` | 代码和协作规则 |
