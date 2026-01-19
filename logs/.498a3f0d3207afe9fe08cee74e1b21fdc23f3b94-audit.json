@@ -1,0 +1,15 @@
+{
+    "keep": {
+        "days": true,
+        "amount": 14
+    },
+    "auditLog": "D:\\Code\\git\\renderdoc\\logs\\.498a3f0d3207afe9fe08cee74e1b21fdc23f3b94-audit.json",
+    "files": [
+        {
+            "date": 1768824459032,
+            "name": "D:\\Code\\git\\renderdoc\\logs\\error-2026-01-19.log",
+            "hash": "4230d8a0fb702c0b08c523d3a912916224274053fb46a2c062f9c4fc8f082c3e"
+        }
+    ],
+    "hashType": "sha256"
+}
