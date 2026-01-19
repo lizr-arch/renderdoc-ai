@@ -679,7 +679,7 @@ def parse_rdc_xml(xml_path):
             event["pipelineState"] = parse_pipeline_state_from_binding_records(current_binding_records, state_objects)
             
             # 解析资源绑定（SRVs, CBVs, Samplers, DescriptorSets）
-            event["resourceBindings"] = parse_resource_bindings(current_binding_records)
+            event["resourceBindings"] = parse_resource_bindings(current_binding_records, descriptor_set_contents)
             
             current_bindings = []  # 清空，为下一个 draw 准备
             current_binding_records = []  # 清空结构化记录
@@ -1454,16 +1454,19 @@ def parse_input_layout_from_params(params):
     return layout
 
 
-def parse_resource_bindings(binding_records):
+def parse_resource_bindings(binding_records, descriptor_set_contents=None):
     """
     从结构化绑定记录中解析资源绑定数据
     
     Args:
         binding_records: 结构化的绑定调用列表 [{"name": "...", "params": [...]}]
+        descriptor_set_contents: Vulkan 描述符集内容映射表 {set_id -> [bindings]}
     
     返回:
         dict: 包含 shaderResources, constantBuffers, samplers, descriptorSets 等信息
     """
+    if descriptor_set_contents is None:
+        descriptor_set_contents = {}
     bindings = {
         "shaderResources": [],   # SRVs (纹理/缓冲区)
         "constantBuffers": [],   # CBVs
@@ -1502,7 +1505,7 @@ def parse_resource_bindings(binding_records):
                 
         # ============= Vulkan Descriptor Sets =============
         elif "vkCmdBindDescriptorSets" in name:
-            desc_sets = parse_descriptor_sets_from_params(params)
+            desc_sets = parse_descriptor_sets_from_params(params, descriptor_set_contents)
             if desc_sets:
                 bindings["descriptorSets"].extend(desc_sets)
                 
@@ -1664,8 +1667,19 @@ def parse_uavs_from_params(params, call_name):
     return uavs
 
 
-def parse_descriptor_sets_from_params(params):
-    """解析 Vulkan vkCmdBindDescriptorSets 的描述符集绑定"""
+def parse_descriptor_sets_from_params(params, descriptor_set_contents=None):
+    """解析 Vulkan vkCmdBindDescriptorSets 的描述符集绑定
+    
+    Args:
+        params: 参数列表
+        descriptor_set_contents: 预扫描得到的描述符集内容映射表 {set_id -> [bindings]}
+    
+    Returns:
+        list: 描述符集列表，每个包含 bindings（展开的资源）
+    """
+    if descriptor_set_contents is None:
+        descriptor_set_contents = {}
+    
     descriptor_sets = []
     
     first_set = 0
@@ -1691,12 +1705,16 @@ def parse_descriptor_sets_from_params(params):
             for i, elem in enumerate(elements):
                 set_id = elem.get("value", "")
                 if set_id and set_id != "0":
+                    # 查找该描述符集的具体内容
+                    bindings = descriptor_set_contents.get(set_id, [])
+                    
                     descriptor_sets.append({
                         "type": "DescriptorSet",
                         "bindPoint": pipeline_bind_point,
                         "setIndex": first_set + i,
                         "resourceId": set_id,
                         "layout": layout_id,
+                        "bindings": bindings,  # 展开的资源列表
                     })
     
     return descriptor_sets

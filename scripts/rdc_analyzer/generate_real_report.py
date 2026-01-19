@@ -242,7 +242,7 @@ def convert_resource_bindings_to_template_format(resource_bindings):
             "resourceId": uav.get("resourceId", ""),
         })
     
-    # 处理 Vulkan/D3D12 Descriptor Sets (放入特殊阶段)
+    # 处理 Vulkan/D3D12 Descriptor Sets (展开内部资源)
     for desc_set in resource_bindings.get("descriptorSets", []):
         # Vulkan 的 bindPoint 决定阶段
         bind_point = desc_set.get("bindPoint", "GRAPHICS")
@@ -253,14 +253,113 @@ def convert_resource_bindings_to_template_format(resource_bindings):
         
         stage_dict = get_stage_dict(stage)
         
-        # 描述符集作为特殊的纹理/资源条目
-        stage_dict["textures"].append({
-            "slot": desc_set.get("setIndex", 0),
-            "id": desc_set.get("layout", "DescriptorSet"),
-            "name": f"DescriptorSet[{desc_set.get('setIndex', 0)}]",
-            "type": "DescriptorSet",
-            "descriptorSetInfo": desc_set,  # 保留原始信息
-        })
+        set_index = desc_set.get("setIndex", 0)
+        bindings = desc_set.get("bindings", [])
+        
+        if bindings:
+            # 展开描述符集内的资源
+            for binding in bindings:
+                binding_index = binding.get("binding", 0)
+                descriptor_type = binding.get("descriptorType", "")
+                resources = binding.get("resources", [])
+                
+                for res in resources:
+                    res_type = res.get("type", "")
+                    res_id = res.get("resourceId", "")
+                    
+                    if res_type == "image":
+                        # 图像资源 - 分类为纹理或 UAV
+                        layout = res.get("layout", "")
+                        if "STORAGE" in descriptor_type.upper():
+                            # Storage Image 视为 UAV
+                            stage_dict["uavs"].append({
+                                "slot": binding_index,
+                                "resourceId": res_id,
+                                "setIndex": set_index,
+                                "imageLayout": layout,
+                                "type": "StorageImage",
+                                "descriptorType": descriptor_type,
+                            })
+                        else:
+                            # Sampled Image 视为纹理
+                            stage_dict["textures"].append({
+                                "slot": binding_index,
+                                "id": res_id,
+                                "name": f"Image_{res_id}",
+                                "type": "VkImage",
+                                "setIndex": set_index,
+                                "imageLayout": layout,
+                                "descriptorType": descriptor_type,
+                            })
+                    
+                    elif res_type == "buffer":
+                        # 缓冲区资源
+                        offset = res.get("offset", 0)
+                        range_val = res.get("range", 0)
+                        
+                        if "UNIFORM" in descriptor_type.upper():
+                            # Uniform Buffer 视为 Constant Buffer
+                            stage_dict["constantBuffers"].append({
+                                "slot": binding_index,
+                                "resourceId": res_id,
+                                "name": f"UBO_{binding_index}",
+                                "setIndex": set_index,
+                                "offset": offset,
+                                "range": range_val,
+                                "descriptorType": descriptor_type,
+                            })
+                        else:
+                            # Storage Buffer / Texel Buffer 视为 UAV
+                            stage_dict["uavs"].append({
+                                "slot": binding_index,
+                                "resourceId": res_id,
+                                "setIndex": set_index,
+                                "offset": offset,
+                                "range": range_val,
+                                "type": "StorageBuffer",
+                                "descriptorType": descriptor_type,
+                            })
+                    
+                    elif res_type == "sampler":
+                        # 采样器
+                        stage_dict["samplers"].append({
+                            "slot": binding_index,
+                            "resourceId": res_id,
+                            "setIndex": set_index,
+                            "descriptorType": descriptor_type,
+                        })
+                    
+                    elif res_type == "combined_image_sampler":
+                        # Combined Image Sampler - 同时添加纹理和采样器
+                        layout = res.get("layout", "")
+                        sampler_id = res.get("sampler", "")
+                        
+                        stage_dict["textures"].append({
+                            "slot": binding_index,
+                            "id": res_id,
+                            "name": f"Image_{res_id}",
+                            "type": "CombinedImageSampler",
+                            "setIndex": set_index,
+                            "imageLayout": layout,
+                            "descriptorType": descriptor_type,
+                        })
+                        
+                        if sampler_id:
+                            stage_dict["samplers"].append({
+                                "slot": binding_index,
+                                "resourceId": sampler_id,
+                                "setIndex": set_index,
+                                "type": "CombinedSampler",
+                            })
+        else:
+            # 没有展开的 bindings，保留原始描述符集信息
+            stage_dict["textures"].append({
+                "slot": set_index,
+                "id": desc_set.get("resourceId", "DescriptorSet"),
+                "name": f"DescriptorSet[{set_index}]",
+                "type": "DescriptorSet",
+                "descriptorSetInfo": desc_set,  # 保留原始信息
+            })
     
     return bindings_by_stage
 
