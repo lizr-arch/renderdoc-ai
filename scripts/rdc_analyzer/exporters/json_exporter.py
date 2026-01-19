@@ -155,6 +155,10 @@ class ExportedDrawCall:
     issues: List[ExportedIssue] = field(default_factory=list)
     resource_reads: List[int] = field(default_factory=list)
     resource_writes: List[int] = field(default_factory=list)
+    
+    # Shader 和纹理绑定 (供前端直接使用)
+    shaders: List[Dict[str, Any]] = field(default_factory=list)
+    bound_textures: List[Dict[str, Any]] = field(default_factory=list)
 
 
 @dataclass
@@ -336,8 +340,94 @@ class JSONExporter:
         # 添加管线状态 - 注意 DrawCallDetail 使用 pipeline 而不是 pipeline_state
         if self.config.include_pipeline_state and draw.pipeline:
             exported.pipeline_state = self._convert_pipeline_state(draw.pipeline)
+            
+            # 提取 shaders 到扁平数组 (供前端直接使用)
+            if self.config.include_shader_details:
+                exported.shaders = self._extract_shaders_flat(draw.pipeline)
+                exported.bound_textures = self._extract_bound_textures(draw.pipeline)
         
         return exported
+    
+    def _extract_shaders_flat(self, state: PipelineSnapshot) -> List[Dict[str, Any]]:
+        """从管线状态中提取着色器信息为扁平数组"""
+        shaders = []
+        
+        shader_stages = [
+            ('Vertex', 'VS', state.vertex_shader),
+            ('Hull', 'HS', state.hull_shader),
+            ('Domain', 'DS', state.domain_shader),
+            ('Geometry', 'GS', state.geometry_shader),
+            ('Pixel', 'PS', state.pixel_shader),
+            ('Compute', 'CS', state.compute_shader),
+        ]
+        
+        for stage_name, stage_abbrev, shader in shader_stages:
+            if shader and shader.resource_id:
+                shader_info: Dict[str, Any] = {
+                    'type': stage_abbrev,
+                    'stage': stage_name,
+                    'resource_id': shader.resource_id,
+                    'name': shader.name or f"{stage_abbrev}_Shader",
+                    'entry_point': getattr(shader, 'entry_point', 'main'),
+                    'encoding': getattr(shader, 'encoding', 'Unknown'),
+                    'has_debug_info': getattr(shader, 'has_debug_info', False),
+                }
+                
+                # 添加资源绑定计数
+                shader_info['constant_blocks'] = [
+                    {'slot': cb.slot, 'name': cb.resource_name or f"CB{cb.slot}"}
+                    for cb in (shader.constant_buffers or [])
+                ]
+                shader_info['read_only_resources'] = [
+                    {'slot': sr.slot, 'name': sr.resource_name or f"SRV{sr.slot}", 'type': str(sr.resource_type) if sr.resource_type else 'Unknown'}
+                    for sr in (shader.shader_resources or [])
+                ]
+                shader_info['read_write_resources'] = [
+                    {'slot': uav.slot, 'name': uav.resource_name or f"UAV{uav.slot}"}
+                    for uav in (shader.uavs or [])
+                ]
+                
+                # 添加 SPIR-V 特有的资源信息（如果存在）
+                if hasattr(shader, 'resources') and shader.resources:
+                    shader_info['resources'] = shader.resources
+                    shader_info['texture_count'] = getattr(shader, 'texture_count', 0)
+                    shader_info['sampler_count'] = getattr(shader, 'sampler_count', 0)
+                    shader_info['buffer_count'] = getattr(shader, 'buffer_count', 0)
+                    shader_info['uniform_count'] = getattr(shader, 'uniform_count', 0)
+                
+                shaders.append(shader_info)
+        
+        return shaders
+    
+    def _extract_bound_textures(self, state: PipelineSnapshot) -> List[Dict[str, Any]]:
+        """从管线状态中提取绑定的纹理资源"""
+        textures = []
+        seen_ids = set()  # 避免重复
+        
+        # 从各着色器阶段收集 shader_resources 中的纹理
+        for shader in [state.vertex_shader, state.hull_shader, state.domain_shader,
+                       state.geometry_shader, state.pixel_shader, state.compute_shader]:
+            if not shader:
+                continue
+            
+            for sr in (shader.shader_resources or []):
+                if sr.resource_id and sr.resource_id not in seen_ids:
+                    # 判断是否是纹理类型
+                    res_type = str(sr.resource_type) if sr.resource_type else ''
+                    if 'texture' in res_type.lower() or sr.width > 0:
+                        seen_ids.add(sr.resource_id)
+                        textures.append({
+                            'slot': sr.slot,
+                            'resource_id': sr.resource_id,
+                            'name': sr.resource_name or f"Texture_{sr.resource_id}",
+                            'type': res_type,
+                            'format': sr.format or '',
+                            'width': sr.width or 0,
+                            'height': sr.height or 0,
+                            'stage': shader.stage.name if hasattr(shader, 'stage') and shader.stage else 'Unknown',
+                        })
+        
+        return textures
     
     def _convert_pipeline_state(self, state: PipelineSnapshot) -> Dict[str, Any]:
         """转换管线状态为字典"""
