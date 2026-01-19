@@ -296,24 +296,66 @@ def parse_rdc_xml(xml_path):
     
     # D3D11 binding calls
     d3d11_binding_calls = [
+        # Input Assembler
         "ID3D11DeviceContext::IASetInputLayout",
         "ID3D11DeviceContext::IASetVertexBuffers",
         "ID3D11DeviceContext::IASetIndexBuffer",
         "ID3D11DeviceContext::IASetPrimitiveTopology",
+        # Shaders
         "ID3D11DeviceContext::VSSetShader",
         "ID3D11DeviceContext::PSSetShader",
         "ID3D11DeviceContext::GSSetShader",
         "ID3D11DeviceContext::HSSetShader",
         "ID3D11DeviceContext::DSSetShader",
         "ID3D11DeviceContext::CSSetShader",
+        # Constant Buffers
+        "ID3D11DeviceContext::VSSetConstantBuffers",
+        "ID3D11DeviceContext::PSSetConstantBuffers",
+        "ID3D11DeviceContext::GSSetConstantBuffers",
+        "ID3D11DeviceContext::HSSetConstantBuffers",
+        "ID3D11DeviceContext::DSSetConstantBuffers",
+        "ID3D11DeviceContext::CSSetConstantBuffers",
+        # Shader Resources
+        "ID3D11DeviceContext::VSSetShaderResources",
+        "ID3D11DeviceContext::PSSetShaderResources",
+        "ID3D11DeviceContext::GSSetShaderResources",
+        "ID3D11DeviceContext::HSSetShaderResources",
+        "ID3D11DeviceContext::DSSetShaderResources",
+        "ID3D11DeviceContext::CSSetShaderResources",
+        # Samplers
+        "ID3D11DeviceContext::VSSetSamplers",
+        "ID3D11DeviceContext::PSSetSamplers",
+        "ID3D11DeviceContext::GSSetSamplers",
+        "ID3D11DeviceContext::CSSetSamplers",
+        # Rasterizer
         "ID3D11DeviceContext::RSSetViewports",
         "ID3D11DeviceContext::RSSetScissorRects",
+        "ID3D11DeviceContext::RSSetState",
+        # Output Merger
         "ID3D11DeviceContext::OMSetRenderTargets",
+        "ID3D11DeviceContext::OMSetRenderTargetsAndUnorderedAccessViews",
         "ID3D11DeviceContext::OMSetBlendState",
         "ID3D11DeviceContext::OMSetDepthStencilState",
     ]
     
-    binding_calls = vk_binding_calls + d3d11_binding_calls
+    # D3D12 binding calls
+    d3d12_binding_calls = [
+        "ID3D12GraphicsCommandList::SetGraphicsRootSignature",
+        "ID3D12GraphicsCommandList::SetPipelineState",
+        "ID3D12GraphicsCommandList::IASetVertexBuffers",
+        "ID3D12GraphicsCommandList::IASetIndexBuffer",
+        "ID3D12GraphicsCommandList::IASetPrimitiveTopology",
+        "ID3D12GraphicsCommandList::RSSetViewports",
+        "ID3D12GraphicsCommandList::RSSetScissorRects",
+        "ID3D12GraphicsCommandList::OMSetRenderTargets",
+        "ID3D12GraphicsCommandList::OMSetBlendFactor",
+        "ID3D12GraphicsCommandList::OMSetStencilRef",
+        "ID3D12GraphicsCommandList::SetGraphicsRootConstantBufferView",
+        "ID3D12GraphicsCommandList::SetGraphicsRootDescriptorTable",
+        "ID3D12GraphicsCommandList::SetGraphicsRoot32BitConstants",
+    ]
+    
+    binding_calls = vk_binding_calls + d3d11_binding_calls + d3d12_binding_calls
     
     # 跟踪当前绑定状态（用于关联到 Draw 调用）
     current_bindings = []
@@ -482,6 +524,270 @@ def format_binding_call(name, params):
     if param_strs:
         return f"{name}({', '.join(param_strs)})"
     return name
+
+
+def parse_pipeline_state_from_related_calls(related_calls):
+    """
+    从 relatedCalls 字符串列表中解析 Pipeline State 数据
+    
+    返回:
+        dict: 包含 viewport, blendState, depthState, shaders 等信息
+    """
+    pipeline_state = {
+        "viewport": None,
+        "scissor": None,
+        "blendState": None,
+        "depthState": None,
+        "rasterizerState": None,
+        "shaders": {
+            "vs": None,
+            "ps": None,
+            "gs": None,
+            "hs": None,
+            "ds": None,
+            "cs": None,
+        },
+        "primitiveTopology": None,
+        "inputLayout": None,
+    }
+    
+    for call in related_calls:
+        if not call:
+            continue
+            
+        # 解析 Viewport (D3D11: RSSetViewports, Vulkan: vkCmdSetViewport)
+        if "RSSetViewports" in call or "vkCmdSetViewport" in call:
+            viewport = parse_viewport_from_call(call)
+            if viewport:
+                pipeline_state["viewport"] = viewport
+                
+        # 解析 Scissor
+        elif "RSSetScissorRects" in call or "vkCmdSetScissor" in call:
+            scissor = parse_scissor_from_call(call)
+            if scissor:
+                pipeline_state["scissor"] = scissor
+                
+        # 解析 Blend State
+        elif "OMSetBlendState" in call or "OMSetBlendFactor" in call:
+            blend = parse_blend_state_from_call(call)
+            if blend:
+                pipeline_state["blendState"] = blend
+                
+        # 解析 Depth Stencil State
+        elif "OMSetDepthStencilState" in call or "OMSetStencilRef" in call:
+            depth = parse_depth_state_from_call(call)
+            if depth:
+                pipeline_state["depthState"] = depth
+                
+        # 解析 Rasterizer State
+        elif "RSSetState" in call:
+            pipeline_state["rasterizerState"] = {"raw": call}
+            
+        # 解析 Shaders
+        elif "VSSetShader" in call:
+            pipeline_state["shaders"]["vs"] = parse_shader_from_call(call, "VS")
+        elif "PSSetShader" in call:
+            pipeline_state["shaders"]["ps"] = parse_shader_from_call(call, "PS")
+        elif "GSSetShader" in call:
+            pipeline_state["shaders"]["gs"] = parse_shader_from_call(call, "GS")
+        elif "HSSetShader" in call:
+            pipeline_state["shaders"]["hs"] = parse_shader_from_call(call, "HS")
+        elif "DSSetShader" in call:
+            pipeline_state["shaders"]["ds"] = parse_shader_from_call(call, "DS")
+        elif "CSSetShader" in call:
+            pipeline_state["shaders"]["cs"] = parse_shader_from_call(call, "CS")
+        elif "vkCmdBindPipeline" in call:
+            # Vulkan pipeline 包含所有 shader
+            pipeline_state["shaders"]["pipeline"] = parse_shader_from_call(call, "Pipeline")
+            
+        # 解析 Primitive Topology
+        elif "IASetPrimitiveTopology" in call:
+            topology = parse_topology_from_call(call)
+            if topology:
+                pipeline_state["primitiveTopology"] = topology
+                
+        # 解析 Input Layout
+        elif "IASetInputLayout" in call:
+            pipeline_state["inputLayout"] = parse_input_layout_from_call(call)
+    
+    return pipeline_state
+
+
+def parse_viewport_from_call(call):
+    """从 RSSetViewports 调用字符串解析 viewport 数据"""
+    # 示例: ID3D11DeviceContext::RSSetViewports(NumViewports: 1, pViewports: [...])
+    viewport = {
+        "x": 0.0,
+        "y": 0.0,
+        "width": 0.0,
+        "height": 0.0,
+        "minDepth": 0.0,
+        "maxDepth": 1.0,
+    }
+    
+    # 尝试从括号内容中解析数值
+    # 简化解析：提取常见模式
+    import re
+    
+    # 匹配 NumViewports
+    num_match = re.search(r'NumViewports:\s*(\d+)', call)
+    if num_match:
+        viewport["count"] = int(num_match.group(1))
+    
+    # 尝试匹配 Width/Height 模式 (有些格式会直接列出)
+    width_match = re.search(r'Width:\s*([\d.]+)', call, re.IGNORECASE)
+    height_match = re.search(r'Height:\s*([\d.]+)', call, re.IGNORECASE)
+    
+    if width_match:
+        viewport["width"] = float(width_match.group(1))
+    if height_match:
+        viewport["height"] = float(height_match.group(1))
+    
+    # 保留原始调用以供参考
+    viewport["raw"] = call
+    
+    return viewport
+
+
+def parse_scissor_from_call(call):
+    """从 RSSetScissorRects 调用字符串解析 scissor 数据"""
+    scissor = {
+        "left": 0,
+        "top": 0,
+        "right": 0,
+        "bottom": 0,
+    }
+    
+    import re
+    
+    # 匹配 NumRects
+    num_match = re.search(r'NumRects:\s*(\d+)', call)
+    if num_match:
+        scissor["count"] = int(num_match.group(1))
+    
+    scissor["raw"] = call
+    return scissor
+
+
+def parse_blend_state_from_call(call):
+    """从 OMSetBlendState 调用字符串解析 blend state 数据"""
+    blend = {
+        "enabled": True,  # 假设如果调用存在则启用
+        # 使用 HTML 模板期望的字段名
+        "srcColor": "Unknown",
+        "dstColor": "Unknown",
+    }
+    
+    import re
+    
+    # 提取 pBlendState 资源 ID
+    state_match = re.search(r'pBlendState:\s*(\d+|NULL)', call)
+    if state_match:
+        value = state_match.group(1)
+        blend["stateId"] = value
+        blend["enabled"] = value != "NULL" and value != "0"
+    
+    # 提取 BlendFactor
+    factor_match = re.search(r'BlendFactor:\s*\[([\d.,\s]+)\]', call)
+    if factor_match:
+        factors = factor_match.group(1).split(',')
+        blend["blendFactor"] = [float(f.strip()) for f in factors[:4]]
+    
+    # 提取 SampleMask
+    mask_match = re.search(r'SampleMask:\s*([\da-fA-Fx]+)', call)
+    if mask_match:
+        blend["sampleMask"] = mask_match.group(1)
+    
+    blend["raw"] = call
+    return blend
+
+
+def parse_depth_state_from_call(call):
+    """从 OMSetDepthStencilState 调用字符串解析 depth stencil state 数据"""
+    depth = {
+        # 使用 HTML 模板期望的字段名
+        "testEnabled": True,
+        "writeEnabled": True,
+        "compareFunc": "Unknown",
+        "stencilEnabled": False,
+        "stencilRef": 0,
+    }
+    
+    import re
+    
+    # 提取 pDepthStencilState 资源 ID
+    state_match = re.search(r'pDepthStencilState:\s*(\d+|NULL)', call)
+    if state_match:
+        value = state_match.group(1)
+        depth["stateId"] = value
+        depth["testEnabled"] = value != "NULL" and value != "0"
+        depth["writeEnabled"] = depth["testEnabled"]  # 假设与 test 一致
+    
+    # 提取 StencilRef
+    ref_match = re.search(r'StencilRef:\s*(\d+)', call)
+    if ref_match:
+        depth["stencilRef"] = int(ref_match.group(1))
+    
+    depth["raw"] = call
+    return depth
+
+
+def parse_shader_from_call(call, shader_type):
+    """从 SetShader 调用字符串解析 shader 信息"""
+    shader = {
+        "type": shader_type,
+        "id": None,
+        "valid": False,
+    }
+    
+    import re
+    
+    # D3D11: pShader: 12345 或 pShader: NULL
+    # Vulkan: pipeline: 12345
+    shader_match = re.search(r'(?:pShader|pipeline|pComputeShader):\s*(\d+|NULL)', call)
+    if shader_match:
+        value = shader_match.group(1)
+        shader["id"] = value
+        shader["valid"] = value != "NULL" and value != "0"
+    
+    shader["raw"] = call
+    return shader
+
+
+def parse_topology_from_call(call):
+    """从 IASetPrimitiveTopology 调用解析图元拓扑"""
+    import re
+    
+    # 匹配 Topology: D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST
+    topo_match = re.search(r'Topology:\s*(\S+)', call)
+    if topo_match:
+        topo = topo_match.group(1)
+        # 简化名称
+        topo = topo.replace("D3D11_PRIMITIVE_TOPOLOGY_", "")
+        topo = topo.replace("D3D_PRIMITIVE_TOPOLOGY_", "")
+        return topo
+    
+    return None
+
+
+def parse_input_layout_from_call(call):
+    """从 IASetInputLayout 调用解析 input layout"""
+    import re
+    
+    layout = {
+        "id": None,
+        "valid": False,
+    }
+    
+    # 匹配 pInputLayout: 12345
+    layout_match = re.search(r'pInputLayout:\s*(\d+|NULL)', call)
+    if layout_match:
+        value = layout_match.group(1)
+        layout["id"] = value
+        layout["valid"] = value != "NULL" and value != "0"
+    
+    layout["raw"] = call
+    return layout
 
 
 def main():

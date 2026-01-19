@@ -3,16 +3,27 @@
 使用真实 RDC XML 数据生成 HTML 报告
 
 用法:
-    py -3 generate_real_report.py <capture.xml> [output.html]
+    py -3 generate_real_report.py <capture.json> [output.html] [--textures <texture_dir>]
+
+示例:
+    # 基本用法（仅事件数据）
+    py -3 generate_real_report.py g145_data.json report.html
+    
+    # 带纹理缩略图
+    py -3 generate_real_report.py g145_data.json report.html --textures ../output/g145_textures
 """
 
 import json
 import sys
 import base64
+import argparse
 from pathlib import Path
 
 # 导入现有的报告生成模块
 from generate_offline_report import generate_offline_html
+
+# 导入 Pipeline State 解析函数
+from parse_rdc_xml import parse_pipeline_state_from_related_calls
 
 
 def load_rdc_data(json_path):
@@ -42,8 +53,9 @@ def convert_to_report_format(rdc_data):
         event_type = event.get("type", "")
         
         # 转换事件格式
+        # 注意: HTML 模板使用 "eid" 字段名
         converted_event = {
-            "eventId": event.get("eventId", 0),
+            "eid": event.get("eventId", 0),
             "name": event.get("name", ""),
             "type": event_type,
             "flags": event.get("flags", []),
@@ -72,6 +84,12 @@ def convert_to_report_format(rdc_data):
                     })
             
             converted_event["apiCall"] = api_call
+            
+            # 从 relatedCalls 解析 Pipeline State
+            related_calls = event.get("relatedCalls", [])
+            if related_calls:
+                pipeline_state = parse_pipeline_state_from_related_calls(related_calls)
+                converted_event["pipelineState"] = pipeline_state
             
             # 添加顶点/索引计数
             if "vertexCount" in event:
@@ -129,7 +147,7 @@ def convert_to_report_format(rdc_data):
         "totalDraws": total_draws,
         "totalDispatches": total_dispatches,
         "totalCopies": total_copies,
-        "frameDurationMs": frame_duration_ms,
+        "frameDuration": frame_duration_ms,  # HTML 模板使用 frameDuration
         "events": event_tree,
         "passes": passes,
     }
@@ -285,16 +303,158 @@ def load_frame_thumbnail(json_path):
     return None
 
 
-def main():
-    if len(sys.argv) < 2:
-        print("Usage: generate_real_report.py <capture_data.json> [output.html]")
-        print("\nFirst run parse_rdc_xml.py to convert RDC XML to JSON:")
-        print("  py -3 parse_rdc_xml.py capture.xml capture.json")
-        print("  py -3 generate_real_report.py capture.json report.html")
-        sys.exit(1)
+def load_texture_thumbnails(texture_dir: Path) -> dict:
+    """
+    从纹理导出目录加载缩略图为 Base64 Data URI
     
-    json_path = Path(sys.argv[1])
-    output_path = Path(sys.argv[2]) if len(sys.argv) > 2 else json_path.with_suffix('.html')
+    支持:
+    - textures.json (C++ renderdoccmd export 输出)
+    - manifest.json (Python export_textures.py 输出)
+    
+    Returns:
+        {resource_id: base64_data_uri, ...}
+    """
+    thumbnail_map = {}
+    
+    # 查找元数据文件
+    manifest_candidates = [
+        texture_dir / "textures.json",
+        texture_dir / "manifest.json",
+    ]
+    
+    manifest_path = None
+    for p in manifest_candidates:
+        if p.exists():
+            manifest_path = p
+            break
+    
+    if not manifest_path:
+        print(f"  [WARN] No textures.json or manifest.json in {texture_dir}")
+        return thumbnail_map
+    
+    try:
+        with open(manifest_path, 'r', encoding='utf-8') as f:
+            manifest = json.load(f)
+        
+        for tex in manifest.get("textures", []):
+            # 兼容两种格式：id (C++) 或 resource_id (Python)
+            res_id = tex.get("id") or tex.get("resource_id")
+            # 兼容两种格式：file (C++) 或 filename (Python)
+            filename = tex.get("file") or tex.get("filename")
+            
+            if res_id is not None and filename:
+                img_path = texture_dir / filename
+                if img_path.exists():
+                    try:
+                        with open(img_path, 'rb') as img_file:
+                            img_data = img_file.read()
+                            b64_data = base64.b64encode(img_data).decode('utf-8')
+                            # 根据扩展名确定 MIME 类型
+                            ext = img_path.suffix.lower()
+                            mime_type = {
+                                '.png': 'image/png',
+                                '.jpg': 'image/jpeg',
+                                '.jpeg': 'image/jpeg',
+                            }.get(ext, 'image/png')
+                            thumbnail_map[str(res_id)] = f"data:{mime_type};base64,{b64_data}"
+                    except IOError as e:
+                        print(f"  [WARN] Failed to read {img_path}: {e}")
+        
+        print(f"  Loaded {len(thumbnail_map)} texture thumbnails from {manifest_path.name}")
+        
+    except (json.JSONDecodeError, IOError) as e:
+        print(f"  [ERROR] Failed to load manifest: {e}")
+    
+    return thumbnail_map
+
+
+def merge_thumbnails_to_textures(textures: list, thumbnail_map: dict) -> list:
+    """
+    将缩略图 Base64 数据合并到纹理列表
+    """
+    for tex in textures:
+        res_id = str(tex.get("resourceId", ""))
+        if res_id in thumbnail_map:
+            tex["thumbnail"] = thumbnail_map[res_id]
+    
+    return textures
+
+
+def create_textures_from_export(texture_dir: Path) -> list:
+    """
+    从导出目录的 manifest 创建纹理列表
+    
+    用于：RDC JSON 中没有纹理数据，但有导出的纹理文件
+    """
+    textures = []
+    
+    manifest_candidates = [
+        texture_dir / "textures.json",
+        texture_dir / "manifest.json",
+    ]
+    
+    manifest_path = None
+    for p in manifest_candidates:
+        if p.exists():
+            manifest_path = p
+            break
+    
+    if not manifest_path:
+        return textures
+    
+    try:
+        with open(manifest_path, 'r', encoding='utf-8') as f:
+            manifest = json.load(f)
+        
+        for tex in manifest.get("textures", []):
+            # 兼容两种格式
+            res_id = tex.get("id") or tex.get("resource_id") or 0
+            
+            texture = {
+                "resourceId": str(res_id),
+                "name": tex.get("name", f"Texture_{res_id}"),
+                "width": tex.get("width", 0),
+                "height": tex.get("height", 0),
+                "depth": tex.get("depth", 1),
+                "format": tex.get("format", "Unknown"),
+                "mips": tex.get("mips", 1),
+                "arraySize": tex.get("arrayLayers", 1),
+                "sampleCount": tex.get("samples", 1),
+                "byteSize": tex.get("byteSize", 0),
+                "usage": "",
+            }
+            textures.append(texture)
+        
+        print(f"  Created {len(textures)} textures from export manifest")
+        
+    except (json.JSONDecodeError, IOError) as e:
+        print(f"  [ERROR] Failed to parse manifest: {e}")
+    
+    return textures
+
+
+def main():
+    # 使用 argparse 解析命令行参数
+    parser = argparse.ArgumentParser(
+        description="使用 RDC JSON 数据生成 HTML 报告",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+示例:
+  py -3 generate_real_report.py g145_data.json
+  py -3 generate_real_report.py g145_data.json report.html
+  py -3 generate_real_report.py g145_data.json report.html --textures ../output/g145_textures
+        """
+    )
+    parser.add_argument("json_path", help="RDC JSON 数据文件路径")
+    parser.add_argument("output_path", nargs="?", help="输出 HTML 文件路径（默认与输入同名）")
+    parser.add_argument("--textures", "-t", dest="texture_dir",
+                        help="纹理导出目录路径（包含 textures.json 和 PNG 文件）")
+    
+    args = parser.parse_args()
+    
+    json_path = Path(args.json_path)
+    output_path = Path(args.output_path) if args.output_path else json_path.with_suffix('.html')
+    texture_dir = Path(args.texture_dir) if args.texture_dir else None
     
     if not json_path.exists():
         print(f"Error: File not found: {json_path}")
@@ -312,7 +472,7 @@ def main():
     print(f"  Dispatches: {event_data['totalDispatches']}")
     print(f"  Copies: {event_data['totalCopies']}")
     print(f"  Passes: {len(event_data['passes'])}")
-    print(f"  Frame Duration: {event_data['frameDurationMs']:.2f} ms")
+    print(f"  Frame Duration: {event_data['frameDuration']:.2f} ms")
     
     # 转换纹理数据
     rdc_textures = rdc_data.get("textures", [])
@@ -337,6 +497,29 @@ def main():
             "unused_vram_bytes": 0,
         }
         duplicate_analysis = {"groups": [], "summary": {"wastedVramBytes": 0}}
+    
+    # 加载纹理缩略图（如果提供了纹理目录）
+    thumbnail_count = 0
+    if texture_dir:
+        if texture_dir.exists():
+            print(f"\nLoading texture thumbnails from {texture_dir}...")
+            thumbnail_map = load_texture_thumbnails(texture_dir)
+            
+            if thumbnail_map:
+                # 优先使用导出数据（因为 XML resourceId 与 Export id 不匹配）
+                # 从导出目录创建纹理列表，替换 XML 数据
+                print("  Replacing XML textures with exported textures (IDs don't match)...")
+                textures = create_textures_from_export(texture_dir)
+                textures = merge_thumbnails_to_textures(textures, thumbnail_map)
+                thumbnail_count = len(textures)
+                
+                # 重新计算分析
+                usage_analysis = analyze_texture_usage(textures)
+                duplicate_analysis = find_duplicate_textures(textures)
+                
+                print(f"  Using {len(textures)} exported textures with {thumbnail_count} thumbnails")
+        else:
+            print(f"\n[WARN] Texture directory not found: {texture_dir}")
     
     # 加载帧缩略图
     frame_thumbnail = load_frame_thumbnail(json_path)
