@@ -1,8 +1,8 @@
 # RDC Analyzer 项目索引
 
-> **最后更新**: 2025-01-19 | **版本**: 1.0.0
+> **最后更新**: 2025-01-19 | **版本**: 1.1.0
 >
-> ⚠️ **AI 必读**: 每次会话开始时必须阅读此文件和 `TASKS.md`
+> ⚠️ **AI 必读**: 每次会话开始时必须阅读此文件和 `TASK_INDEX.md`
 
 ---
 
@@ -194,7 +194,8 @@ py -3 generate_real_report.py capture_data.json textures/ report.html
 
 | 文档 | 路径 | 说明 |
 |------|------|------|
-| 任务看板 | `.ai/TASKS.md` | 查看/认领任务 |
+| 任务总索引 | `.ai/TASK_INDEX.md` | 任务入口，查找每日任务 |
+| 今日任务 | `.ai/tasks/YYYY-MM-DD.md` | 当天任务看板 |
 | 开发规范 | `.ai/CONVENTIONS.md` | 代码和协作规则 |
 | 变更日志 | `.ai/CHANGELOG.md` | 历史变更记录 |
 | 项目规范 | `../../Agents.md` | RenderDoc 项目级规范 |

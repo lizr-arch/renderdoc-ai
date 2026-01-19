@@ -1,8 +1,31 @@
 # 多 AI 协同开发规范
 
-> **版本**: 1.0.0 | **最后更新**: 2025-01-19
+> **版本**: 1.1.0 | **最后更新**: 2025-01-19
 >
 > ⚠️ **强制遵守**: 所有参与开发的 AI Agent 必须遵守本规范
+
+---
+
+## 0. Agent ID 规则
+
+每个 AI Agent 必须使用唯一标识符，格式：
+
+```
+Agent-YYYYMMDD-HHmmss
+```
+
+**示例**: `Agent-20250119-153000`
+
+**生成规则**:
+- 使用会话开始时的时间戳（精确到秒）
+- 时区: 本地时间（北京时间 UTC+8）
+- 此 ID 用于锁文件、CHANGELOG、任务认领等所有场景
+
+**如何获取当前时间**:
+```python
+from datetime import datetime
+agent_id = f"Agent-{datetime.now().strftime('%Y%m%d-%H%M%S')}"
+```
 
 ---
 
@@ -265,27 +288,84 @@ py -3 test_e2e_real_data.py "测试文件.rdc" output/test
 
 ---
 
-## 9. 快速参考卡
+## 9. 任务文件结构
+
+### 9.1 目录结构
+
+```
+.ai/
+├── INDEX.md              # 项目索引（AI 必读）
+├── TASK_INDEX.md         # 📋 任务总索引（入口）
+├── CONVENTIONS.md        # 开发规范（本文件）
+├── CHANGELOG.md          # 变更日志
+│
+├── tasks/                # 每日任务文件
+│   ├── TEMPLATE.md       # 任务模板
+│   ├── 2025-01-19.md     # 按日期存放
+│   └── ...
+│
+├── archive/              # 历史归档（按月）
+│   └── 2025-01.md
+│
+└── locks/                # 任务锁文件
+    └── TASK-xxx.lock
+```
+
+### 9.2 任务查找流程
+
+```
+1. 打开 TASK_INDEX.md
+      ↓
+2. 找到"当前活跃"表格
+      ↓
+3. 点击对应日期的任务文件链接
+      ↓
+4. 在每日任务文件中认领任务
+```
+
+### 9.3 新一天的任务创建
+
+当开始新的一天工作时：
+1. 复制 `tasks/TEMPLATE.md` 为 `tasks/YYYY-MM-DD.md`
+2. 更新 `TASK_INDEX.md` 的"当前活跃"表格
+3. Git 提交: `chore(ai): create task file for YYYY-MM-DD`
+
+### 9.4 月末归档
+
+每月结束时：
+1. 将已完成任务汇总到 `archive/YYYY-MM.md`
+2. 更新 `TASK_INDEX.md` 的统计数据
+3. 可以删除或保留每日任务文件
+
+---
+
+## 10. 快速参考卡
 
 ```
 ┌─────────────────────────────────────────────────────────┐
 │                    AI 协同开发速查                       │
 ├─────────────────────────────────────────────────────────┤
+│ Agent ID:                                               │
+│   格式: Agent-YYYYMMDD-HHmmss                           │
+│   示例: Agent-20250119-153000                           │
+├─────────────────────────────────────────────────────────┤
 │ 开始会话:                                               │
-│   1. 读 INDEX.md + TASKS.md                             │
-│   2. 检查 locks/ 目录                                   │
-│   3. 向用户确认任务                                     │
+│   1. 读 INDEX.md                                        │
+│   2. 读 TASK_INDEX.md → 找到今日任务文件                │
+│   3. 检查 locks/ 目录                                   │
+│   4. 向用户确认任务                                     │
 ├─────────────────────────────────────────────────────────┤
 │ 认领任务:                                               │
 │   1. 创建 locks/TASK-xxx.lock                           │
-│   2. 更新 TASKS.md                                      │
+│   2. 更新 tasks/YYYY-MM-DD.md                           │
 │   3. git commit "chore(ai): claim TASK-xxx"             │
 ├─────────────────────────────────────────────────────────┤
 │ 完成任务:                                               │
 │   1. git commit "feat(xxx): 功能描述"                   │
-│   2. 更新 TASKS.md + CHANGELOG.md                       │
-│   3. 删除 locks/TASK-xxx.lock                           │
-│   4. git commit "chore(ai): complete TASK-xxx"          │
+│   2. 更新 tasks/YYYY-MM-DD.md + CHANGELOG.md            │
+│   3. 更新 TASK_INDEX.md 统计                            │
+│   4. 删除 locks/TASK-xxx.lock                           │
+│   5. git commit "chore(ai): complete TASK-xxx"          │
 ├─────────────────────────────────────────────────────────┤
 │ 遇到冲突:                                               │
 │   1. 停止修改                                           │
