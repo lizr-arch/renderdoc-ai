@@ -1,0 +1,2243 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RDC Call Chain Analyzer</title>
+    <style>
+        :root {
+            --bg-primary: #0d1117;
+            --bg-secondary: #161b22;
+            --bg-tertiary: #21262d;
+            --text-primary: #e6edf3;
+            --text-secondary: #8b949e;
+            --accent: #4a9eff;
+            --accent-hover: #6bb3ff;
+            --error: #ff6b6b;
+            --warning: #ffa94d;
+            --info: #74c0fc;
+            --success: #69db7c;
+            --border: #30363d;
+        }
+        
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.6;
+        }
+        
+        .container {
+            max-width: 1600px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        /* Header */
+        .header {
+            background: var(--bg-secondary);
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 16px;
+        }
+        
+        .header h1 {
+            font-size: 24px;
+            font-weight: 600;
+            color: var(--accent);
+        }
+        
+        .header-meta {
+            font-size: 14px;
+            color: var(--text-secondary);
+        }
+        
+        /* Statistics Cards */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+            margin-bottom: 20px;
+        }
+        
+        .stat-card {
+            background: var(--bg-secondary);
+            border-radius: 12px;
+            padding: 20px;
+            text-align: center;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        
+        .stat-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(0,0,0,0.3);
+        }
+        
+        .stat-value {
+            font-size: 32px;
+            font-weight: 700;
+            color: var(--accent);
+        }
+        
+        .stat-label {
+            font-size: 14px;
+            color: var(--text-secondary);
+            margin-top: 4px;
+        }
+        
+        .stat-card.error .stat-value { color: var(--error); }
+        .stat-card.warning .stat-value { color: var(--warning); }
+        .stat-card.success .stat-value { color: var(--success); }
+        
+        /* Toolbar */
+        .toolbar {
+            background: var(--bg-secondary);
+            border-radius: 12px;
+            padding: 16px;
+            margin-bottom: 20px;
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+        
+        .search-box {
+            flex: 1;
+            min-width: 250px;
+            position: relative;
+        }
+        
+        .search-box input {
+            width: 100%;
+            padding: 10px 16px 10px 40px;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+            font-size: 14px;
+        }
+        
+        .search-box input:focus {
+            outline: none;
+            border-color: var(--accent);
+        }
+        
+        .search-box::before {
+            content: "🔍";
+            position: absolute;
+            left: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+        }
+        
+        .filter-group {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+        
+        .filter-btn {
+            padding: 8px 16px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+            cursor: pointer;
+            font-size: 13px;
+            transition: all 0.2s;
+        }
+        
+        .filter-btn:hover {
+            border-color: var(--accent);
+            color: var(--accent);
+        }
+        
+        .filter-btn.active {
+            background: var(--accent);
+            border-color: var(--accent);
+            color: white;
+        }
+        
+        /* Main Content Layout */
+        .main-content {
+            display: grid;
+            grid-template-columns: 350px 1fr;
+            gap: 20px;
+        }
+        
+        @media (max-width: 1024px) {
+            .main-content {
+                grid-template-columns: 1fr;
+            }
+        }
+        
+        /* Call List Panel */
+        .call-list-panel {
+            background: var(--bg-secondary);
+            border-radius: 12px;
+            overflow: hidden;
+            max-height: 800px;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .panel-header {
+            padding: 16px;
+            border-bottom: 1px solid var(--border);
+            font-weight: 600;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .call-list {
+            flex: 1;
+            overflow-y: auto;
+        }
+        
+        .call-item {
+            padding: 12px 16px;
+            border-bottom: 1px solid var(--border);
+            cursor: pointer;
+            transition: background 0.2s;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .call-item:hover {
+            background: var(--bg-tertiary);
+        }
+        
+        .call-item.selected {
+            background: var(--accent);
+            color: white;
+        }
+        
+        .call-item.has-issues {
+            border-left: 3px solid var(--error);
+        }
+        
+        .call-id {
+            font-family: 'Monaco', 'Menlo', monospace;
+            font-size: 12px;
+            color: var(--text-secondary);
+            background: var(--bg-tertiary);
+            padding: 2px 6px;
+            border-radius: 4px;
+        }
+        
+        .call-item.selected .call-id {
+            background: rgba(255,255,255,0.2);
+            color: white;
+        }
+        
+        .call-name {
+            font-size: 14px;
+            flex: 1;
+            margin: 0 12px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        
+        .issue-badge {
+            background: var(--error);
+            color: white;
+            font-size: 11px;
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-weight: 600;
+        }
+        
+        /* Detail Panel */
+        .detail-panel {
+            background: var(--bg-secondary);
+            border-radius: 12px;
+            overflow: hidden;
+        }
+        
+        .tabs {
+            display: flex;
+            border-bottom: 1px solid var(--border);
+            background: var(--bg-tertiary);
+        }
+        
+        .tab {
+            padding: 12px 24px;
+            cursor: pointer;
+            border-bottom: 2px solid transparent;
+            transition: all 0.2s;
+            font-size: 14px;
+        }
+        
+        .tab:hover {
+            background: var(--bg-secondary);
+        }
+        
+        .tab.active {
+            border-bottom-color: var(--accent);
+            color: var(--accent);
+        }
+        
+        .tab-content {
+            padding: 20px;
+            display: none;
+            max-height: 700px;
+            overflow-y: auto;
+        }
+        
+        .tab-content.active {
+            display: block;
+        }
+        
+        /* Pipeline State */
+        .state-section {
+            margin-bottom: 24px;
+        }
+        
+        .state-section h3 {
+            font-size: 16px;
+            margin-bottom: 12px;
+            color: var(--accent);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .state-section h3::before {
+            content: "";
+            width: 4px;
+            height: 16px;
+            background: var(--accent);
+            border-radius: 2px;
+        }
+        
+        .state-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 12px;
+        }
+        
+        .state-item {
+            background: var(--bg-tertiary);
+            padding: 12px;
+            border-radius: 8px;
+        }
+        
+        .state-label {
+            font-size: 12px;
+            color: var(--text-secondary);
+            margin-bottom: 4px;
+        }
+        
+        .state-value {
+            font-family: 'Monaco', 'Menlo', monospace;
+            font-size: 14px;
+            word-break: break-all;
+        }
+        
+        /* Resource Bindings Table */
+        .binding-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+        }
+        
+        .binding-table th,
+        .binding-table td {
+            padding: 10px 12px;
+            text-align: left;
+            border-bottom: 1px solid var(--border);
+        }
+        
+        .binding-table th {
+            background: var(--bg-tertiary);
+            font-weight: 600;
+            color: var(--text-secondary);
+            position: sticky;
+            top: 0;
+        }
+        
+        .binding-table tr:hover td {
+            background: var(--bg-tertiary);
+        }
+        
+        /* Issues Panel */
+        .issue-item {
+            background: var(--bg-tertiary);
+            border-radius: 8px;
+            padding: 16px;
+            margin-bottom: 12px;
+            border-left: 4px solid var(--error);
+        }
+        
+        .issue-item.warning {
+            border-left-color: var(--warning);
+        }
+        
+        .issue-item.info {
+            border-left-color: var(--info);
+        }
+        
+        .issue-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+        
+        .issue-rule {
+            font-weight: 600;
+            color: var(--error);
+        }
+        
+        .issue-item.warning .issue-rule {
+            color: var(--warning);
+        }
+        
+        .issue-item.info .issue-rule {
+            color: var(--info);
+        }
+        
+        .issue-severity {
+            font-size: 11px;
+            padding: 2px 8px;
+            border-radius: 4px;
+            text-transform: uppercase;
+        }
+        
+        .severity-error { background: var(--error); color: white; }
+        .severity-warning { background: var(--warning); color: black; }
+        .severity-info { background: var(--info); color: black; }
+        
+        .issue-message {
+            font-size: 14px;
+            line-height: 1.5;
+        }
+        
+        /* Dependencies Graph */
+        .dep-graph {
+            background: var(--bg-tertiary);
+            border-radius: 8px;
+            padding: 16px;
+            min-height: 300px;
+        }
+        
+        .dep-item {
+            display: flex;
+            align-items: center;
+            padding: 8px 0;
+            border-bottom: 1px dashed var(--border);
+        }
+        
+        .dep-item:last-child {
+            border-bottom: none;
+        }
+        
+        .dep-node {
+            padding: 6px 12px;
+            background: var(--accent);
+            color: white;
+            border-radius: 6px;
+            font-size: 13px;
+            font-family: monospace;
+        }
+        
+        .dep-arrow {
+            margin: 0 12px;
+            color: var(--text-secondary);
+            font-size: 18px;
+        }
+        
+        .dep-type {
+            font-size: 11px;
+            padding: 2px 8px;
+            border-radius: 4px;
+            background: var(--bg-secondary);
+            margin-left: 12px;
+        }
+        
+        .dep-type.RAW { color: var(--info); border: 1px solid var(--info); }
+        .dep-type.WAR { color: var(--warning); border: 1px solid var(--warning); }
+        .dep-type.WAW { color: var(--error); border: 1px solid var(--error); }
+        
+        /* Resource Lifetime */
+        .lifetime-item {
+            background: var(--bg-tertiary);
+            border-radius: 8px;
+            padding: 16px;
+            margin-bottom: 12px;
+        }
+        
+        .lifetime-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+        
+        .lifetime-name {
+            font-weight: 600;
+            font-family: monospace;
+        }
+        
+        .lifetime-type {
+            font-size: 12px;
+            padding: 2px 8px;
+            background: var(--bg-secondary);
+            border-radius: 4px;
+            color: var(--text-secondary);
+        }
+        
+        .lifetime-bar {
+            height: 24px;
+            background: var(--bg-secondary);
+            border-radius: 4px;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .lifetime-range {
+            position: absolute;
+            height: 100%;
+            background: linear-gradient(90deg, var(--success), var(--accent));
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 11px;
+            color: white;
+            font-weight: 600;
+        }
+        
+        .lifetime-stats {
+            display: flex;
+            gap: 16px;
+            margin-top: 12px;
+            font-size: 13px;
+            color: var(--text-secondary);
+        }
+        
+        /* Resource Link (clickable resource IDs) */
+        .resource-link {
+            color: var(--accent);
+            cursor: pointer;
+            text-decoration: none;
+            font-family: 'Monaco', 'Menlo', monospace;
+            padding: 2px 6px;
+            background: var(--bg-tertiary);
+            border-radius: 4px;
+            transition: all 0.2s;
+        }
+        
+        .resource-link:hover {
+            background: var(--accent);
+            color: white;
+        }
+        
+        /* Resource Modal */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            z-index: 1000;
+            backdrop-filter: blur(4px);
+            animation: fadeIn 0.2s ease;
+        }
+        
+        .modal-overlay.active {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        
+        .modal {
+            background: var(--bg-secondary);
+            border-radius: 16px;
+            width: 90%;
+            max-width: 1000px;
+            max-height: 85vh;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+            animation: slideUp 0.3s ease;
+        }
+        
+        @keyframes slideUp {
+            from { transform: translateY(30px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+        
+        .modal-header {
+            padding: 20px 24px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .modal-title {
+            font-size: 18px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        
+        .modal-title .resource-type-badge {
+            font-size: 12px;
+            padding: 4px 10px;
+            background: var(--accent);
+            color: white;
+            border-radius: 12px;
+            font-weight: 500;
+        }
+        
+        .modal-close {
+            background: none;
+            border: none;
+            font-size: 24px;
+            color: var(--text-secondary);
+            cursor: pointer;
+            padding: 8px;
+            border-radius: 8px;
+            transition: all 0.2s;
+        }
+        
+        .modal-close:hover {
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+        }
+        
+        .modal-body {
+            flex: 1;
+            overflow-y: auto;
+            padding: 24px;
+        }
+        
+        .modal-footer {
+            padding: 16px 24px;
+            border-top: 1px solid var(--border);
+            display: flex;
+            justify-content: flex-end;
+            gap: 12px;
+        }
+        
+        /* Resource Info Grid */
+        .resource-info-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+        
+        .resource-info-item {
+            background: var(--bg-tertiary);
+            padding: 16px;
+            border-radius: 10px;
+        }
+        
+        .resource-info-label {
+            font-size: 12px;
+            color: var(--text-secondary);
+            margin-bottom: 6px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .resource-info-value {
+            font-size: 16px;
+            font-weight: 600;
+            font-family: 'Monaco', 'Menlo', monospace;
+        }
+        
+        /* Data Preview Section */
+        .data-preview {
+            background: var(--bg-tertiary);
+            border-radius: 10px;
+            overflow: hidden;
+        }
+        
+        .data-preview-header {
+            padding: 12px 16px;
+            background: var(--bg-primary);
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .data-preview-title {
+            font-weight: 600;
+            font-size: 14px;
+        }
+        
+        .data-preview-tabs {
+            display: flex;
+            gap: 8px;
+        }
+        
+        .preview-tab {
+            padding: 6px 12px;
+            font-size: 12px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .preview-tab:hover {
+            border-color: var(--accent);
+        }
+        
+        .preview-tab.active {
+            background: var(--accent);
+            border-color: var(--accent);
+            color: white;
+        }
+        
+        .data-preview-content {
+            padding: 16px;
+            font-family: 'Monaco', 'Menlo', 'Courier New', monospace;
+            font-size: 12px;
+            line-height: 1.6;
+            max-height: 400px;
+            overflow: auto;
+            white-space: pre;
+        }
+        
+        /* Data Table */
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 12px;
+            font-family: 'Monaco', 'Menlo', monospace;
+        }
+        
+        .data-table th,
+        .data-table td {
+            padding: 8px 12px;
+            text-align: left;
+            border-bottom: 1px solid var(--border);
+        }
+        
+        .data-table th {
+            background: var(--bg-primary);
+            font-weight: 600;
+            color: var(--text-secondary);
+            position: sticky;
+            top: 0;
+            z-index: 1;
+        }
+        
+        .data-table tr:hover td {
+            background: rgba(74, 158, 255, 0.1);
+        }
+        
+        .data-table .index-col {
+            color: var(--text-secondary);
+            width: 60px;
+        }
+        
+        /* Hex Dump View */
+        .hex-dump {
+            display: grid;
+            grid-template-columns: 80px 1fr 1fr;
+            gap: 16px;
+            font-family: 'Monaco', 'Menlo', monospace;
+            font-size: 11px;
+        }
+        
+        .hex-dump-offset {
+            color: var(--accent);
+        }
+        
+        .hex-dump-bytes {
+            color: var(--text-primary);
+        }
+        
+        .hex-dump-ascii {
+            color: var(--text-secondary);
+        }
+        
+        /* Export Buttons */
+        .export-btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .export-btn-primary {
+            background: var(--accent);
+            color: white;
+        }
+        
+        .export-btn-primary:hover {
+            background: var(--accent-hover);
+        }
+        
+        .export-btn-secondary {
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+            border: 1px solid var(--border);
+        }
+        
+        .export-btn-secondary:hover {
+            border-color: var(--accent);
+            color: var(--accent);
+        }
+        
+        /* Timeline Access Markers */
+        .access-timeline {
+            background: var(--bg-tertiary);
+            border-radius: 10px;
+            padding: 16px;
+            margin-top: 16px;
+        }
+        
+        .access-timeline-title {
+            font-weight: 600;
+            margin-bottom: 12px;
+            font-size: 14px;
+        }
+        
+        .access-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+        
+        .access-marker {
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-size: 12px;
+            font-family: monospace;
+        }
+        
+        .access-marker.read {
+            background: rgba(116, 192, 252, 0.2);
+            color: var(--info);
+            border: 1px solid var(--info);
+        }
+        
+        .access-marker.write {
+            background: rgba(255, 169, 77, 0.2);
+            color: var(--warning);
+            border: 1px solid var(--warning);
+        }
+        
+        /* Scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        
+        ::-webkit-scrollbar-track {
+            background: var(--bg-tertiary);
+            border-radius: 4px;
+        }
+        
+        ::-webkit-scrollbar-thumb {
+            background: var(--border);
+            border-radius: 4px;
+        }
+        
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--accent);
+        }
+        
+        /* Empty State */
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: var(--text-secondary);
+        }
+        
+        .empty-state-icon {
+            font-size: 48px;
+            margin-bottom: 16px;
+        }
+        
+        /* Loading */
+        .loading {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 40px;
+        }
+        
+        .spinner {
+            width: 32px;
+            height: 32px;
+            border: 3px solid var(--border);
+            border-top-color: var(--accent);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <div>
+                <h1>🎮 RDC Call Chain Analyzer</h1>
+                <div class="header-meta">
+                    Source: test_capture.rdc | API: D3D11
+                </div>
+            </div>
+            <div class="header-meta">
+                Generated: 2026-01-16T14:22:18.837370
+            </div>
+        </div>
+        
+        <!-- Statistics -->
+        <div class="stats-grid" id="stats-grid">
+            
+                <div class="stat-card ">
+                    <div class="stat-value">📊 3</div>
+                    <div class="stat-label">Draw Calls</div>
+                </div>
+            
+
+                <div class="stat-card error">
+                    <div class="stat-value">⚠️ 2</div>
+                    <div class="stat-label">Issues</div>
+                </div>
+            
+
+                <div class="stat-card ">
+                    <div class="stat-value">🔗 2</div>
+                    <div class="stat-label">Dependencies</div>
+                </div>
+            
+
+                <div class="stat-card ">
+                    <div class="stat-value">📦 3</div>
+                    <div class="stat-label">Resources</div>
+                </div>
+            
+        </div>
+        
+        <!-- Toolbar -->
+        <div class="toolbar">
+            <div class="search-box">
+                <input type="text" id="search-input" placeholder="Search draw calls, resources, issues...">
+            </div>
+            <div class="filter-group">
+                <button class="filter-btn active" data-filter="all">All</button>
+                <button class="filter-btn" data-filter="issues">With Issues</button>
+                <button class="filter-btn" data-filter="deps">With Dependencies</button>
+            </div>
+        </div>
+        
+        <!-- Main Content -->
+        <div class="main-content">
+            <!-- Call List -->
+            <div class="call-list-panel">
+                <div class="panel-header">
+                    <span>Draw Calls</span>
+                    <span id="call-count">3</span>
+                </div>
+                <div class="call-list" id="call-list">
+                    
+                <div class="call-item has-issues" data-event-id="100">
+                    <span class="call-id">#100</span>
+                    <span class="call-name">DrawIndexed_GBuffer</span>
+                    <span class="issue-badge">1</span>
+                </div>
+            
+
+                <div class="call-item has-issues" data-event-id="200">
+                    <span class="call-id">#200</span>
+                    <span class="call-name">DrawInstanced_Shadows</span>
+                    <span class="issue-badge">1</span>
+                </div>
+            
+
+                <div class="call-item " data-event-id="300">
+                    <span class="call-id">#300</span>
+                    <span class="call-name">DrawIndexed_Lighting</span>
+                    
+                </div>
+            
+                </div>
+            </div>
+            
+            <!-- Detail Panel -->
+            <div class="detail-panel">
+                <div class="tabs">
+                    <div class="tab active" data-tab="pipeline">Pipeline State</div>
+                    <div class="tab" data-tab="issues">Issues <span id="issues-badge"></span></div>
+                    <div class="tab" data-tab="deps">Dependencies</div>
+                    <div class="tab" data-tab="resources">Resources</div>
+                </div>
+                
+                <div class="tab-content active" id="tab-pipeline">
+                    <div class="empty-state" id="pipeline-empty">
+                        <div class="empty-state-icon">📋</div>
+                        <p>Select a draw call to view pipeline state</p>
+                    </div>
+                    <div id="pipeline-content"></div>
+                </div>
+                
+                <div class="tab-content" id="tab-issues">
+                    
+                <div class="issue-item ">
+                    <div class="issue-header">
+                        <span class="issue-rule">[BIND001] Event #100</span>
+                        <span class="issue-severity severity-error">error</span>
+                    </div>
+                    <div class="issue-message">Missing vertex shader</div>
+                </div>
+            
+
+                <div class="issue-item warning">
+                    <div class="issue-header">
+                        <span class="issue-rule">[BIND002] Event #200</span>
+                        <span class="issue-severity severity-warning">warning</span>
+                    </div>
+                    <div class="issue-message">Null constant buffer at slot 0</div>
+                </div>
+            
+                </div>
+                
+                <div class="tab-content" id="tab-deps">
+                    <div class="dep-graph">
+
+                <div class="dep-item">
+                    <span class="dep-node">#100</span>
+                    <span class="dep-arrow">→</span>
+                    <span class="dep-node">#200</span>
+                    <span class="dep-type 1">1</span>
+                    <span class="resource-link" 
+                    data-resource-id="1001"
+                    onclick="openResourceModal(1001, 'GBuffer_Color', 'BUFFER')"
+                    style="margin-left: auto; font-size: 12px;">GBuffer_Color</span>
+                </div>
+            
+
+                <div class="dep-item">
+                    <span class="dep-node">#200</span>
+                    <span class="dep-arrow">→</span>
+                    <span class="dep-node">#300</span>
+                    <span class="dep-type 1">1</span>
+                    <span class="resource-link" 
+                    data-resource-id="1002"
+                    onclick="openResourceModal(1002, 'ShadowMap', 'BUFFER')"
+                    style="margin-left: auto; font-size: 12px;">ShadowMap</span>
+                </div>
+            
+</div>
+                </div>
+                
+                <div class="tab-content" id="tab-resources">
+                    
+            <div style="margin-bottom: 16px; padding: 12px; background: var(--bg-tertiary); border-radius: 8px;">
+                <strong>Resource Lifetime Overview</strong>
+                <div style="margin-top: 8px; font-size: 13px; color: var(--text-secondary);">
+                    Showing top 3 of 3 tracked resources 
+                    (Event range: #100 - #300)
+                </div>
+            </div>
+        
+
+                <div class="lifetime-item">
+                    <div class="lifetime-header">
+                        <span class="lifetime-name"><span class="resource-link" 
+                data-resource-id="2001" 
+                data-resource-name="PerFrame_CB" 
+                data-resource-type="BUFFER"
+                onclick="openResourceModal(2001, 'PerFrame_CB', 'BUFFER')"
+                title="Click to view details">PerFrame_CB</span></span>
+                        <span class="lifetime-type">BUFFER</span>
+                    </div>
+                    <div class="lifetime-bar" title="Events #100 - #300">
+                        <div class="lifetime-range" style="left: 0.0%; width: 100.0%; background: linear-gradient(90deg, var(--info), var(--accent));">
+                            #100 - #300
+                        </div>
+                    </div>
+                    <div class="lifetime-stats">
+                        <span>📖 Reads: 3</span>
+                        <span>✏️ Writes: 0</span>
+                        
+                    </div>
+                </div>
+            
+
+                <div class="lifetime-item">
+                    <div class="lifetime-header">
+                        <span class="lifetime-name"><span class="resource-link" 
+                data-resource-id="1001" 
+                data-resource-name="GBuffer_Color" 
+                data-resource-type="RENDER_TARGET"
+                onclick="openResourceModal(1001, 'GBuffer_Color', 'RENDER_TARGET')"
+                title="Click to view details">GBuffer_Color</span></span>
+                        <span class="lifetime-type">RENDER_TARGET</span>
+                    </div>
+                    <div class="lifetime-bar" title="Events #100 - #300">
+                        <div class="lifetime-range" style="left: 0.0%; width: 100.0%; background: linear-gradient(90deg, var(--success), var(--accent));">
+                            #100 - #300
+                        </div>
+                    </div>
+                    <div class="lifetime-stats">
+                        <span>📖 Reads: 2</span>
+                        <span>✏️ Writes: 1</span>
+                        
+                    </div>
+                </div>
+            
+
+                <div class="lifetime-item">
+                    <div class="lifetime-header">
+                        <span class="lifetime-name"><span class="resource-link" 
+                data-resource-id="1002" 
+                data-resource-name="ShadowMap" 
+                data-resource-type="TEXTURE"
+                onclick="openResourceModal(1002, 'ShadowMap', 'TEXTURE')"
+                title="Click to view details">ShadowMap</span></span>
+                        <span class="lifetime-type">TEXTURE</span>
+                    </div>
+                    <div class="lifetime-bar" title="Events #200 - #300">
+                        <div class="lifetime-range" style="left: 50.0%; width: 50.0%; background: linear-gradient(90deg, var(--success), var(--accent));">
+                            #200 - #300
+                        </div>
+                    </div>
+                    <div class="lifetime-stats">
+                        <span>📖 Reads: 1</span>
+                        <span>✏️ Writes: 1</span>
+                        
+                    </div>
+                </div>
+            
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Resource Detail Modal -->
+    <div class="modal-overlay" id="resource-modal">
+        <div class="modal">
+            <div class="modal-header">
+                <div class="modal-title">
+                    <span id="modal-resource-name">Resource</span>
+                    <span class="resource-type-badge" id="modal-resource-type">BUFFER</span>
+                </div>
+                <button class="modal-close" onclick="closeResourceModal()">&times;</button>
+            </div>
+            <div class="modal-body" id="modal-body">
+                <!-- Dynamic content -->
+            </div>
+            <div class="modal-footer">
+                <button class="export-btn export-btn-secondary" onclick="exportResourceJSON()">
+                    📋 Export JSON
+                </button>
+                <button class="export-btn export-btn-secondary" onclick="exportResourceHex()">
+                    🔢 Export Hex
+                </button>
+                <button class="export-btn export-btn-primary" onclick="closeResourceModal()">
+                    Close
+                </button>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        // Embedded data
+        const analysisData = {"metadata": {"export_time": "2026-01-16T14:22:18.836369", "analyzer_version": "1.0.0", "source_file": "test_capture.rdc", "api_type": "D3D11", "frame_number": null, "total_events": 3, "total_draw_calls": 3}, "draw_calls": [{"event_id": 100, "name": "DrawIndexed_GBuffer", "draw_type": "DRAW_INDEXED", "vertex_count": 0, "instance_count": 1, "index_offset": 0, "vertex_offset": 0, "pipeline_state": {"input_assembly": {"topology": "TRIANGLE_LIST", "vertex_buffers": []}, "rasterizer": {"fill_mode": "SOLID", "cull_mode": "BACK", "front_ccw": false, "depth_bias": 0, "scissor_enabled": false}, "output_merger": {"render_targets": []}}, "issues": [], "resource_reads": [], "resource_writes": []}, {"event_id": 200, "name": "DrawInstanced_Shadows", "draw_type": "DRAW_INSTANCED", "vertex_count": 0, "instance_count": 1, "index_offset": 0, "vertex_offset": 0, "pipeline_state": {"input_assembly": {"topology": "TRIANGLE_LIST", "vertex_buffers": []}, "rasterizer": {"fill_mode": "SOLID", "cull_mode": "BACK", "front_ccw": false, "depth_bias": 0, "scissor_enabled": false}, "output_merger": {"render_targets": []}}, "issues": [], "resource_reads": [], "resource_writes": []}, {"event_id": 300, "name": "DrawIndexed_Lighting", "draw_type": "DRAW_INDEXED", "vertex_count": 0, "instance_count": 1, "index_offset": 0, "vertex_offset": 0, "pipeline_state": {"input_assembly": {"topology": "TRIANGLE_LIST", "vertex_buffers": []}, "rasterizer": {"fill_mode": "SOLID", "cull_mode": "BACK", "front_ccw": false, "depth_bias": 0, "scissor_enabled": false}, "output_merger": {"render_targets": []}}, "issues": [], "resource_reads": [], "resource_writes": []}], "issues": [{"event_id": 100, "rule_id": "BIND001", "severity": "error", "category": "binding", "message": "Missing vertex shader", "details": {}}, {"event_id": 200, "rule_id": "BIND002", "severity": "warning", "category": "binding", "message": "Null constant buffer at slot 0", "details": {}}], "dependencies": [{"source_event": 100, "target_event": 200, "resource_id": 1001, "resource_name": "GBuffer_Color", "dependency_type": 1, "access_detail": "WRITE -> READ"}, {"source_event": 200, "target_event": 300, "resource_id": 1002, "resource_name": "ShadowMap", "dependency_type": 1, "access_detail": "WRITE -> READ"}], "resource_lifetimes": [{"resource_id": 1001, "resource_name": "GBuffer_Color", "resource_type": "RENDER_TARGET", "first_access_event": 100, "last_access_event": 300, "read_count": 2, "write_count": 1, "hazards": [], "is_written_never_read": false}, {"resource_id": 1002, "resource_name": "ShadowMap", "resource_type": "TEXTURE", "first_access_event": 200, "last_access_event": 300, "read_count": 1, "write_count": 1, "hazards": [], "is_written_never_read": false}, {"resource_id": 2001, "resource_name": "PerFrame_CB", "resource_type": "BUFFER", "first_access_event": 100, "last_access_event": 300, "read_count": 3, "write_count": 0, "hazards": [], "is_written_never_read": false}], "statistics": {"total_draw_calls": 3, "total_issues": 2, "issues_by_severity": {"error": 1, "warning": 1}, "issues_by_category": {"binding": 2}, "issues_by_rule": {"BIND001": 1, "BIND002": 1}, "total_resources": 3, "total_dependencies": 2, "dependencies_by_type": {"1": 2}, "redundant_bindings": 0, "missing_resources": 1, "unused_resources": 0}, "resource_samples": {"1001": {"width": 1920, "height": 1080, "format": "R8G8B8A8_UNORM", "mip_levels": 1, "array_size": 1, "thumbnail": "iVBORw0KGgoAAAANSUhEUgAAAIAAAABICAYAAAA+hf0SAAAA30lEQVR4nO3VsQ3DMBAEwZPM/kuWXIaCnQGYMzjsX9v7Xnt2eyu+s98IOztff4EvKUCcAsQpQJwCxClAnALEKUCcAsQpQJwCxBlAnBMQpwBxChCnAHEKEKcAcQoQpwBxChCnAHEGEOcExClAnALEKUCcAsQpQJwCxClAnALEKUCcAsQpQJwBxDkBcQoQpwBxChCnAHEKEKcAcQoQpwBxChBnAHFOQJwCxClAnALEKUCcAsQpQJwCxClAnALEKUCcAsQZQJwTEKcAcQoQpwBxChCnAHEKEKcAcQoQpwBr+wMXBoMWaTBNWAAAAABJRU5ErkJggg=="}, "1002": {"width": 2048, "height": 2048, "format": "D32_FLOAT", "mip_levels": 1, "array_size": 4, "thumbnail": "iVBORw0KGgoAAAANSUhEUgAAAIAAAACACAYAAADDPmHLAAABlElEQVR4nO3awQnDQAwAwTgluSwVpJrcldOBf4GQnfke+i2CAx3Xdd2vBzPz9Pza3cd38/PT8+/HV/6eAOIEECeAOAHECSBOAHHHeZ73L/9Tze9X522AOAHECSBOAHECiBNAnADiDvcAm563AeIEECeAOAHECSBOAHECiHMPMO15GyBOAHECiBNAnADiBBAngDj3ANuetwHiBBAngDgBxAkgTgBxAohzDzDteRsgTgBxAogTQJwA4gQQJ4A49wDbnrcB4gQQJ4A4AcQJIE4AcQKIcw8w7XkbIE4AcQKIE0CcAOIEECeAOPcA2563AeIEECeAOAHECSBOAHECiHMPMO15GyBOAHECiBNAnADiBBAngDj3ANuetwHiBBAngDgBxAkgTgBxAohzDzDteRsgTgBxAogTQJwA4gQQJ4A49wDbnrcB4gQQJ4A4AcQJIE4AcQKIcw8w7XkbIE4AcQKIE0CcAOIEECeAOPcA2563AeIEECeAOAHECSBOAHECiHMPMO15GyBOAHECiBNAnADiBBAngLgPp1GQYHSSkaQAAAAASUVORK5CYII="}, "2001": {"size_bytes": 256, "constants": [{"name": "ViewMatrix", "type": "float4x4", "offset": 0}, {"name": "ProjMatrix", "type": "float4x4", "offset": 64}, {"name": "CameraPos", "type": "float3", "offset": 128, "value": [10.5, 20.0, -5.0]}, {"name": "Time", "type": "float", "offset": 140, "value": 1.234}]}}}; const _unused = {
+  "metadata": {
+    "export_time": "2026-01-16T14:22:18.837370",
+    "analyzer_version": "1.0.0",
+    "source_file": "test_capture.rdc",
+    "api_type": "D3D11",
+    "frame_number": null,
+    "total_events": 3,
+    "total_draw_calls": 3
+  },
+  "draw_calls": [
+    {
+      "event_id": 100,
+      "name": "DrawIndexed_GBuffer",
+      "draw_type": "DRAW_INDEXED",
+      "vertex_count": 0,
+      "instance_count": 1,
+      "index_offset": 0,
+      "vertex_offset": 0,
+      "pipeline_state": {
+        "input_assembly": {
+          "topology": "TRIANGLE_LIST",
+          "vertex_buffers": []
+        },
+        "rasterizer": {
+          "fill_mode": "SOLID",
+          "cull_mode": "BACK",
+          "front_ccw": false,
+          "depth_bias": 0,
+          "scissor_enabled": false
+        },
+        "output_merger": {
+          "render_targets": []
+        }
+      },
+      "issues": [],
+      "resource_reads": [],
+      "resource_writes": []
+    },
+    {
+      "event_id": 200,
+      "name": "DrawInstanced_Shadows",
+      "draw_type": "DRAW_INSTANCED",
+      "vertex_count": 0,
+      "instance_count": 1,
+      "index_offset": 0,
+      "vertex_offset": 0,
+      "pipeline_state": {
+        "input_assembly": {
+          "topology": "TRIANGLE_LIST",
+          "vertex_buffers": []
+        },
+        "rasterizer": {
+          "fill_mode": "SOLID",
+          "cull_mode": "BACK",
+          "front_ccw": false,
+          "depth_bias": 0,
+          "scissor_enabled": false
+        },
+        "output_merger": {
+          "render_targets": []
+        }
+      },
+      "issues": [],
+      "resource_reads": [],
+      "resource_writes": []
+    },
+    {
+      "event_id": 300,
+      "name": "DrawIndexed_Lighting",
+      "draw_type": "DRAW_INDEXED",
+      "vertex_count": 0,
+      "instance_count": 1,
+      "index_offset": 0,
+      "vertex_offset": 0,
+      "pipeline_state": {
+        "input_assembly": {
+          "topology": "TRIANGLE_LIST",
+          "vertex_buffers": []
+        },
+        "rasterizer": {
+          "fill_mode": "SOLID",
+          "cull_mode": "BACK",
+          "front_ccw": false,
+          "depth_bias": 0,
+          "scissor_enabled": false
+        },
+        "output_merger": {
+          "render_targets": []
+        }
+      },
+      "issues": [],
+      "resource_reads": [],
+      "resource_writes": []
+    }
+  ],
+  "issues": [
+    {
+      "event_id": 100,
+      "rule_id": "BIND001",
+      "severity": "error",
+      "category": "binding",
+      "message": "Missing vertex shader",
+      "details": {}
+    },
+    {
+      "event_id": 200,
+      "rule_id": "BIND002",
+      "severity": "warning",
+      "category": "binding",
+      "message": "Null constant buffer at slot 0",
+      "details": {}
+    }
+  ],
+  "dependencies": [
+    {
+      "source_event": 100,
+      "target_event": 200,
+      "resource_id": 1001,
+      "resource_name": "GBuffer_Color",
+      "dependency_type": 1,
+      "access_detail": "WRITE -> READ"
+    },
+    {
+      "source_event": 200,
+      "target_event": 300,
+      "resource_id": 1002,
+      "resource_name": "ShadowMap",
+      "dependency_type": 1,
+      "access_detail": "WRITE -> READ"
+    }
+  ],
+  "resource_lifetimes": [
+    {
+      "resource_id": 1001,
+      "resource_name": "GBuffer_Color",
+      "resource_type": "RENDER_TARGET",
+      "first_access_event": 100,
+      "last_access_event": 300,
+      "read_count": 2,
+      "write_count": 1,
+      "hazards": [],
+      "is_written_never_read": false
+    },
+    {
+      "resource_id": 1002,
+      "resource_name": "ShadowMap",
+      "resource_type": "TEXTURE",
+      "first_access_event": 200,
+      "last_access_event": 300,
+      "read_count": 1,
+      "write_count": 1,
+      "hazards": [],
+      "is_written_never_read": false
+    },
+    {
+      "resource_id": 2001,
+      "resource_name": "PerFrame_CB",
+      "resource_type": "BUFFER",
+      "first_access_event": 100,
+      "last_access_event": 300,
+      "read_count": 3,
+      "write_count": 0,
+      "hazards": [],
+      "is_written_never_read": false
+    }
+  ],
+  "statistics": {
+    "total_draw_calls": 3,
+    "total_issues": 2,
+    "issues_by_severity": {
+      "error": 1,
+      "warning": 1
+    },
+    "issues_by_category": {
+      "binding": 2
+    },
+    "issues_by_rule": {
+      "BIND001": 1,
+      "BIND002": 1
+    },
+    "total_resources": 3,
+    "total_dependencies": 2,
+    "dependencies_by_type": {
+      "1": 2
+    },
+    "redundant_bindings": 0,
+    "missing_resources": 1,
+    "unused_resources": 0
+  }
+};
+        
+        // State
+        let selectedCallId = null;
+        let currentFilter = 'all';
+        
+        // DOM elements
+        const searchInput = document.getElementById('search-input');
+        const callList = document.getElementById('call-list');
+        const callCount = document.getElementById('call-count');
+        
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            initTabs();
+            initFilters();
+            initSearch();
+            initCallList();
+        });
+        
+        // Tab switching
+        function initTabs() {
+            document.querySelectorAll('.tab').forEach(tab => {
+                tab.addEventListener('click', () => {
+                    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+                    document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+                    tab.classList.add('active');
+                    document.getElementById('tab-' + tab.dataset.tab).classList.add('active');
+                });
+            });
+        }
+        
+        // Filter buttons
+        function initFilters() {
+            document.querySelectorAll('.filter-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+                    btn.classList.add('active');
+                    currentFilter = btn.dataset.filter;
+                    filterCallList();
+                });
+            });
+        }
+        
+        // Search functionality
+        function initSearch() {
+            searchInput.addEventListener('input', debounce(() => {
+                filterCallList();
+            }, 200));
+        }
+        
+        // Call list interactions
+        function initCallList() {
+            document.querySelectorAll('.call-item').forEach(item => {
+                item.addEventListener('click', () => {
+                    selectCall(parseInt(item.dataset.eventId));
+                });
+            });
+        }
+        
+        function selectCall(eventId) {
+            selectedCallId = eventId;
+            
+            // Update UI
+            document.querySelectorAll('.call-item').forEach(item => {
+                item.classList.toggle('selected', parseInt(item.dataset.eventId) === eventId);
+            });
+            
+            // Update detail panel
+            const call = analysisData.draw_calls.find(d => d.event_id === eventId);
+            if (call) {
+                renderPipelineState(call);
+                updateIssuesBadge(eventId);
+            }
+        }
+        
+        function renderPipelineState(call) {
+            const container = document.getElementById('pipeline-content');
+            const empty = document.getElementById('pipeline-empty');
+            
+            if (!call.pipeline_state) {
+                empty.style.display = 'block';
+                container.innerHTML = '';
+                return;
+            }
+            
+            empty.style.display = 'none';
+            
+            let html = `
+                <div class="state-section">
+                    <h3>Draw Call Info</h3>
+                    <div class="state-grid">
+                        <div class="state-item">
+                            <div class="state-label">Event ID</div>
+                            <div class="state-value">#${call.event_id}</div>
+                        </div>
+                        <div class="state-item">
+                            <div class="state-label">Draw Type</div>
+                            <div class="state-value">${call.draw_type || 'N/A'}</div>
+                        </div>
+                        <div class="state-item">
+                            <div class="state-label">Vertex Count</div>
+                            <div class="state-value">${call.vertex_count}</div>
+                        </div>
+                        <div class="state-item">
+                            <div class="state-label">Instance Count</div>
+                            <div class="state-value">${call.instance_count}</div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            const ps = call.pipeline_state;
+            
+            // Input Assembly
+            if (ps.input_assembly) {
+                const ia = ps.input_assembly;
+                html += `
+                    <div class="state-section">
+                        <h3>Input Assembly</h3>
+                        <div class="state-grid">
+                            <div class="state-item">
+                                <div class="state-label">Topology</div>
+                                <div class="state-value">${ia.topology}</div>
+                            </div>
+                        </div>
+                        ${ia.vertex_buffers && ia.vertex_buffers.length > 0 ? `
+                            <table class="binding-table" style="margin-top: 12px;">
+                                <thead>
+                                    <tr>
+                                        <th>Slot</th>
+                                        <th>Resource ID</th>
+                                        <th>Stride</th>
+                                        <th>Size</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${ia.vertex_buffers.map(vb => `
+                                        <tr>
+                                            <td>${vb.slot}</td>
+                                            <td>${vb.resource_id}</td>
+                                            <td>${vb.stride || 'N/A'}</td>
+                                            <td>${formatBytes(vb.size_bytes)}</td>
+                                        </tr>
+                                    `).join('')}
+                                </tbody>
+                            </table>
+                        ` : ''}
+                    </div>
+                `;
+            }
+            
+            // Rasterizer
+            if (ps.rasterizer) {
+                const rs = ps.rasterizer;
+                html += `
+                    <div class="state-section">
+                        <h3>Rasterizer</h3>
+                        <div class="state-grid">
+                            <div class="state-item">
+                                <div class="state-label">Fill Mode</div>
+                                <div class="state-value">${rs.fill_mode}</div>
+                            </div>
+                            <div class="state-item">
+                                <div class="state-label">Cull Mode</div>
+                                <div class="state-value">${rs.cull_mode}</div>
+                            </div>
+                            <div class="state-item">
+                                <div class="state-label">Front CCW</div>
+                                <div class="state-value">${rs.front_ccw}</div>
+                            </div>
+                            <div class="state-item">
+                                <div class="state-label">Depth Bias</div>
+                                <div class="state-value">${rs.depth_bias}</div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+            
+            // Shader Stages
+            const shaderStages = ['vs', 'hs', 'ds', 'gs', 'ps', 'cs'];
+            const stageNames = {
+                'vs': 'Vertex Shader',
+                'hs': 'Hull Shader',
+                'ds': 'Domain Shader',
+                'gs': 'Geometry Shader',
+                'ps': 'Pixel Shader',
+                'cs': 'Compute Shader'
+            };
+            
+            shaderStages.forEach(stage => {
+                const bindings = ps[stage + '_bindings'];
+                if (bindings && bindings.shader_resource_id) {
+                    html += `
+                        <div class="state-section">
+                            <h3>${stageNames[stage]}</h3>
+                            <div class="state-grid">
+                                <div class="state-item">
+                                    <div class="state-label">Shader ID</div>
+                                    <div class="state-value">${bindings.shader_resource_id}</div>
+                                </div>
+                                ${bindings.shader_name ? `
+                                    <div class="state-item">
+                                        <div class="state-label">Name</div>
+                                        <div class="state-value">${bindings.shader_name}</div>
+                                    </div>
+                                ` : ''}
+                            </div>
+                            ${renderBindingsTable('Constant Buffers', bindings.constant_buffers)}
+                            ${renderBindingsTable('Shader Resources', bindings.shader_resources)}
+                            ${renderBindingsTable('UAVs', bindings.uavs)}
+                        </div>
+                    `;
+                }
+            });
+            
+            // Output Merger
+            if (ps.output_merger) {
+                const om = ps.output_merger;
+                html += `
+                    <div class="state-section">
+                        <h3>Output Merger</h3>
+                        ${om.render_targets && om.render_targets.length > 0 ? `
+                            <table class="binding-table">
+                                <thead>
+                                    <tr>
+                                        <th>Slot</th>
+                                        <th>Resource</th>
+                                        <th>Format</th>
+                                        <th>Size</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${om.render_targets.map(rt => `
+                                        <tr>
+                                            <td>${rt.slot}</td>
+                                            <td>${rt.resource_name || rt.resource_id}</td>
+                                            <td>${rt.format}</td>
+                                            <td>${rt.width}x${rt.height}</td>
+                                        </tr>
+                                    `).join('')}
+                                </tbody>
+                            </table>
+                        ` : ''}
+                        ${om.depth_stencil ? `
+                            <div style="margin-top: 16px;">
+                                <strong>Depth Stencil:</strong> ${om.depth_stencil.resource_name || om.depth_stencil.resource_id}
+                                (${om.depth_stencil.format}, ${om.depth_stencil.width}x${om.depth_stencil.height})
+                            </div>
+                        ` : ''}
+                    </div>
+                `;
+            }
+            
+            container.innerHTML = html;
+        }
+        
+        function renderBindingsTable(title, bindings) {
+            if (!bindings || bindings.length === 0) return '';
+            
+            return `
+                <div style="margin-top: 12px;">
+                    <strong style="font-size: 13px; color: var(--text-secondary);">${title}</strong>
+                    <table class="binding-table" style="margin-top: 8px;">
+                        <thead>
+                            <tr>
+                                <th>Slot</th>
+                                <th>Resource</th>
+                                <th>Type</th>
+                                <th>Size</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${bindings.map(b => `
+                                <tr>
+                                    <td>${b.slot}</td>
+                                    <td>${b.resource_name || b.resource_id}</td>
+                                    <td>${b.resource_type || 'N/A'}</td>
+                                    <td>${b.width ? `${b.width}x${b.height}` : formatBytes(b.size_bytes)}</td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                </div>
+            `;
+        }
+        
+        function updateIssuesBadge(eventId) {
+            const issues = analysisData.issues.filter(i => i.event_id === eventId);
+            const badge = document.getElementById('issues-badge');
+            badge.textContent = issues.length > 0 ? `(${issues.length})` : '';
+        }
+        
+        function filterCallList() {
+            const searchTerm = searchInput.value.toLowerCase();
+            let visibleCount = 0;
+            
+            document.querySelectorAll('.call-item').forEach(item => {
+                const eventId = parseInt(item.dataset.eventId);
+                const call = analysisData.draw_calls.find(d => d.event_id === eventId);
+                const hasIssues = analysisData.issues.some(i => i.event_id === eventId);
+                const hasDeps = analysisData.dependencies.some(d => 
+                    d.source_event === eventId || d.target_event === eventId
+                );
+                
+                let visible = true;
+                
+                // Filter by type
+                if (currentFilter === 'issues' && !hasIssues) visible = false;
+                if (currentFilter === 'deps' && !hasDeps) visible = false;
+                
+                // Filter by search
+                if (searchTerm && visible) {
+                    const searchText = `${eventId} ${call?.name || ''}`.toLowerCase();
+                    visible = searchText.includes(searchTerm);
+                }
+                
+                item.style.display = visible ? 'flex' : 'none';
+                if (visible) visibleCount++;
+            });
+            
+            callCount.textContent = visibleCount;
+        }
+        
+        // Utilities
+        function formatBytes(bytes) {
+            if (!bytes) return 'N/A';
+            if (bytes < 1024) return bytes + ' B';
+            if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+            return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+        }
+        
+        function debounce(func, wait) {
+            let timeout;
+            return function executedFunction(...args) {
+                const later = () => {
+                    clearTimeout(timeout);
+                    func(...args);
+                };
+                clearTimeout(timeout);
+                timeout = setTimeout(later, wait);
+            };
+        }
+        
+        // =====================================================
+        // Resource Modal Functions
+        // =====================================================
+        
+        let currentResourceData = null;
+        
+        // Open resource modal with resource info
+        function openResourceModal(resourceId, resourceName, resourceType) {
+            const modal = document.getElementById('resource-modal');
+            const modalName = document.getElementById('modal-resource-name');
+            const modalType = document.getElementById('modal-resource-type');
+            const modalBody = document.getElementById('modal-body');
+            
+            modalName.textContent = resourceName || `Resource_${resourceId}`;
+            modalType.textContent = resourceType || 'UNKNOWN';
+            
+            // Find resource data from lifetimes
+            const resourceLifetime = analysisData.resource_lifetimes?.find(
+                r => r.resource_id === resourceId || r.resource_name === resourceName
+            );
+            
+            currentResourceData = {
+                id: resourceId,
+                name: resourceName,
+                type: resourceType,
+                lifetime: resourceLifetime
+            };
+            
+            // Render modal content
+            let bodyHtml = '';
+            
+            // Resource Info Grid
+            bodyHtml += `<div class="resource-info-grid">`;
+            bodyHtml += `
+                <div class="resource-info-item">
+                    <div class="resource-info-label">Resource ID</div>
+                    <div class="resource-info-value">${resourceId}</div>
+                </div>
+            `;
+            
+            if (resourceLifetime) {
+                bodyHtml += `
+                    <div class="resource-info-item">
+                        <div class="resource-info-label">First Access</div>
+                        <div class="resource-info-value">#${resourceLifetime.first_access_event}</div>
+                    </div>
+                    <div class="resource-info-item">
+                        <div class="resource-info-label">Last Access</div>
+                        <div class="resource-info-value">#${resourceLifetime.last_access_event}</div>
+                    </div>
+                    <div class="resource-info-item">
+                        <div class="resource-info-label">Read Count</div>
+                        <div class="resource-info-value">${resourceLifetime.read_count || 0}</div>
+                    </div>
+                    <div class="resource-info-item">
+                        <div class="resource-info-label">Write Count</div>
+                        <div class="resource-info-value">${resourceLifetime.write_count || 0}</div>
+                    </div>
+                `;
+            }
+            bodyHtml += `</div>`;
+            
+            // Data Preview Section
+            bodyHtml += `
+                <div class="data-preview">
+                    <div class="data-preview-header">
+                        <span class="data-preview-title">📊 Data Preview</span>
+                        <div class="data-preview-tabs">
+                            <button class="preview-tab active" onclick="switchPreviewTab(this, 'structured')">Structured</button>
+                            <button class="preview-tab" onclick="switchPreviewTab(this, 'hex')">Hex Dump</button>
+                            <button class="preview-tab" onclick="switchPreviewTab(this, 'raw')">Raw</button>
+                        </div>
+                    </div>
+                    <div class="data-preview-content" id="preview-content">
+                        ${renderResourcePreview(resourceId, resourceType, resourceLifetime)}
+                    </div>
+                </div>
+            `;
+            
+            // Access Timeline
+            if (resourceLifetime) {
+                bodyHtml += renderAccessTimeline(resourceLifetime);
+            }
+            
+            modalBody.innerHTML = bodyHtml;
+            modal.classList.add('active');
+            
+            // Close on overlay click
+            modal.onclick = function(e) {
+                if (e.target === modal) {
+                    closeResourceModal();
+                }
+            };
+            
+            // Close on Escape key
+            document.addEventListener('keydown', handleModalEscape);
+        }
+        
+        function closeResourceModal() {
+            const modal = document.getElementById('resource-modal');
+            modal.classList.remove('active');
+            document.removeEventListener('keydown', handleModalEscape);
+        }
+        
+        function handleModalEscape(e) {
+            if (e.key === 'Escape') {
+                closeResourceModal();
+            }
+        }
+        
+        function switchPreviewTab(btn, tabType) {
+            // Update active tab
+            btn.parentElement.querySelectorAll('.preview-tab').forEach(t => t.classList.remove('active'));
+            btn.classList.add('active');
+            
+            // Update content
+            const content = document.getElementById('preview-content');
+            if (currentResourceData) {
+                content.innerHTML = renderResourcePreview(
+                    currentResourceData.id,
+                    currentResourceData.type,
+                    currentResourceData.lifetime,
+                    tabType
+                );
+            }
+        }
+        
+        function renderResourcePreview(resourceId, resourceType, lifetime, viewType = 'structured') {
+            // Check if we have sample data embedded
+            // Note: resource_samples keys are strings, so convert resourceId to string
+            const sampleData = analysisData.resource_samples?.[String(resourceId)];
+            
+            if (!sampleData) {
+                return `
+                    <div style="text-align: center; padding: 40px; color: var(--text-secondary);">
+                        <div style="font-size: 32px; margin-bottom: 12px;">📭</div>
+                        <p>No preview data available for this resource.</p>
+                        <p style="font-size: 12px; margin-top: 8px;">
+                            Use the CLI tool to extract data:<br>
+                            <code style="background: var(--bg-primary); padding: 4px 8px; border-radius: 4px;">
+                                python inspect_resource.py --resource ${resourceId}
+                            </code>
+                        </p>
+                    </div>
+                `;
+            }
+            
+            if (viewType === 'hex') {
+                return renderHexDump(sampleData.bytes || []);
+            } else if (viewType === 'raw') {
+                return `<pre>${JSON.stringify(sampleData, null, 2)}</pre>`;
+            } else {
+                // Structured view
+                return renderStructuredData(sampleData, resourceType);
+            }
+        }
+        
+        function renderHexDump(bytes) {
+            if (!bytes || bytes.length === 0) {
+                return '<div style="color: var(--text-secondary);">No byte data available</div>';
+            }
+            
+            let html = '<div class="hex-dump">';
+            const bytesPerRow = 16;
+            
+            for (let offset = 0; offset < Math.min(bytes.length, 512); offset += bytesPerRow) {
+                const rowBytes = bytes.slice(offset, offset + bytesPerRow);
+                
+                // Offset column
+                html += `<span class="hex-dump-offset">${offset.toString(16).padStart(8, '0')}</span>`;
+                
+                // Hex bytes
+                const hexParts = rowBytes.map(b => b.toString(16).padStart(2, '0')).join(' ');
+                html += `<span class="hex-dump-bytes">${hexParts.padEnd(47, ' ')}</span>`;
+                
+                // ASCII representation
+                const asciiParts = rowBytes.map(b => (b >= 32 && b <= 126) ? String.fromCharCode(b) : '.').join('');
+                html += `<span class="hex-dump-ascii">${asciiParts}</span>`;
+            }
+            
+            html += '</div>';
+            
+            if (bytes.length > 512) {
+                html += `<div style="margin-top: 12px; color: var(--text-secondary); font-size: 12px;">
+                    Showing first 512 of ${bytes.length} bytes
+                </div>`;
+            }
+            
+            return html;
+        }
+        
+        function renderStructuredData(sampleData, resourceType) {
+            // Check if this is a texture/image type
+            if (resourceType === 'TEXTURE' || resourceType === 'RENDER_TARGET' || 
+                resourceType === 'DEPTH_STENCIL' || sampleData.image_base64 || sampleData.thumbnail) {
+                return renderTexturePreview(sampleData, resourceType);
+            }
+            
+            if (sampleData.vertices) {
+                // Vertex buffer
+                return renderVertexTable(sampleData.vertices, sampleData.layout);
+            } else if (sampleData.indices) {
+                // Index buffer
+                return renderIndexTable(sampleData.indices);
+            } else if (sampleData.constants) {
+                // Constant buffer
+                return renderConstantTable(sampleData.constants);
+            } else if (sampleData.floats) {
+                // Generic float array
+                return renderFloatTable(sampleData.floats);
+            }
+            
+            return '<div style="color: var(--text-secondary);">Unknown data format</div>';
+        }
+        
+        function renderTexturePreview(sampleData, resourceType) {
+            let html = '<div class="texture-preview-container">';
+            
+            // Texture metadata
+            const width = sampleData.width || 'Unknown';
+            const height = sampleData.height || 'Unknown';
+            const format = sampleData.format || 'Unknown';
+            const mipLevels = sampleData.mip_levels || 1;
+            const arraySize = sampleData.array_size || 1;
+            
+            html += `
+                <div class="texture-info-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 12px; margin-bottom: 16px;">
+                    <div class="texture-info-item" style="background: var(--bg-tertiary); padding: 10px; border-radius: 6px;">
+                        <div style="font-size: 11px; color: var(--text-secondary);">Dimensions</div>
+                        <div style="font-size: 14px; font-weight: 600;">${width} × ${height}</div>
+                    </div>
+                    <div class="texture-info-item" style="background: var(--bg-tertiary); padding: 10px; border-radius: 6px;">
+                        <div style="font-size: 11px; color: var(--text-secondary);">Format</div>
+                        <div style="font-size: 14px; font-weight: 600;">${format}</div>
+                    </div>
+                    <div class="texture-info-item" style="background: var(--bg-tertiary); padding: 10px; border-radius: 6px;">
+                        <div style="font-size: 11px; color: var(--text-secondary);">Mip Levels</div>
+                        <div style="font-size: 14px; font-weight: 600;">${mipLevels}</div>
+                    </div>
+                    <div class="texture-info-item" style="background: var(--bg-tertiary); padding: 10px; border-radius: 6px;">
+                        <div style="font-size: 11px; color: var(--text-secondary);">Array Size</div>
+                        <div style="font-size: 14px; font-weight: 600;">${arraySize}</div>
+                    </div>
+                </div>
+            `;
+            
+            // Image preview
+            if (sampleData.image_base64) {
+                // Real image data available
+                html += `
+                    <div class="texture-image-preview" style="text-align: center; background: var(--bg-tertiary); padding: 20px; border-radius: 8px;">
+                        <img src="data:image/png;base64,${sampleData.image_base64}" 
+                             alt="Texture Preview" 
+                             style="max-width: 100%; max-height: 400px; border-radius: 4px; image-rendering: pixelated;">
+                    </div>
+                `;
+            } else if (sampleData.thumbnail) {
+                // Thumbnail available
+                html += `
+                    <div class="texture-image-preview" style="text-align: center; background: var(--bg-tertiary); padding: 20px; border-radius: 8px;">
+                        <img src="data:image/png;base64,${sampleData.thumbnail}" 
+                             alt="Texture Thumbnail" 
+                             style="max-width: 100%; max-height: 200px; border-radius: 4px;">
+                        <div style="margin-top: 8px; font-size: 12px; color: var(--text-secondary);">Thumbnail preview</div>
+                    </div>
+                `;
+            } else {
+                // Generate placeholder based on type
+                const colors = {
+                    'RENDER_TARGET': ['#4a9eff', '#69db7c'],
+                    'DEPTH_STENCIL': ['#868e96', '#495057'],
+                    'TEXTURE': ['#ffa94d', '#ff6b6b']
+                };
+                const [c1, c2] = colors[resourceType] || ['#4a9eff', '#69db7c'];
+                
+                html += `
+                    <div class="texture-image-preview" style="text-align: center; background: var(--bg-tertiary); padding: 20px; border-radius: 8px;">
+                        <svg width="200" height="150" viewBox="0 0 200 150" style="border-radius: 4px;">
+                            <defs>
+                                <linearGradient id="texGrad_${Date.now()}" x1="0%" y1="0%" x2="100%" y2="100%">
+                                    <stop offset="0%" style="stop-color:${c1};stop-opacity:0.8" />
+                                    <stop offset="100%" style="stop-color:${c2};stop-opacity:0.8" />
+                                </linearGradient>
+                                <pattern id="grid_${Date.now()}" width="20" height="20" patternUnits="userSpaceOnUse">
+                                    <rect width="10" height="10" fill="rgba(255,255,255,0.1)"/>
+                                    <rect x="10" y="10" width="10" height="10" fill="rgba(255,255,255,0.1)"/>
+                                </pattern>
+                            </defs>
+                            <rect width="200" height="150" fill="url(#texGrad_${Date.now()})"/>
+                            <rect width="200" height="150" fill="url(#grid_${Date.now()})"/>
+                            <text x="100" y="70" text-anchor="middle" fill="white" font-size="14" font-weight="600">
+                                ${width} × ${height}
+                            </text>
+                            <text x="100" y="90" text-anchor="middle" fill="rgba(255,255,255,0.7)" font-size="11">
+                                ${format}
+                            </text>
+                        </svg>
+                        <div style="margin-top: 12px; font-size: 12px; color: var(--text-secondary);">
+                            📷 Placeholder - Run analysis with texture export to see actual image
+                        </div>
+                    </div>
+                `;
+            }
+            
+            html += '</div>';
+            return html;
+        }
+        
+        function renderVertexTable(vertices, layout) {
+            if (!vertices || vertices.length === 0) return '';
+            
+            // Get headers from first vertex or layout
+            const headers = layout?.elements?.map(e => e.semantic) || Object.keys(vertices[0] || {});
+            
+            let html = `
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th class="index-col">#</th>
+                            ${headers.map(h => `<th>${h}</th>`).join('')}
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
+            
+            vertices.slice(0, 100).forEach((v, i) => {
+                html += `<tr><td class="index-col">${i}</td>`;
+                headers.forEach(h => {
+                    const val = v[h];
+                    if (Array.isArray(val)) {
+                        html += `<td>${val.map(x => x.toFixed(3)).join(', ')}</td>`;
+                    } else if (typeof val === 'number') {
+                        html += `<td>${val.toFixed(3)}</td>`;
+                    } else {
+                        html += `<td>${val}</td>`;
+                    }
+                });
+                html += `</tr>`;
+            });
+            
+            html += '</tbody></table>';
+            
+            if (vertices.length > 100) {
+                html += `<div style="margin-top: 12px; color: var(--text-secondary); font-size: 12px;">
+                    Showing first 100 of ${vertices.length} vertices
+                </div>`;
+            }
+            
+            return html;
+        }
+        
+        function renderIndexTable(indices) {
+            let html = `
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th class="index-col">Triangle</th>
+                            <th>v0</th>
+                            <th>v1</th>
+                            <th>v2</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
+            
+            for (let i = 0; i < Math.min(indices.length, 300); i += 3) {
+                const triIdx = Math.floor(i / 3);
+                html += `<tr>
+                    <td class="index-col">${triIdx}</td>
+                    <td>${indices[i] ?? '-'}</td>
+                    <td>${indices[i + 1] ?? '-'}</td>
+                    <td>${indices[i + 2] ?? '-'}</td>
+                </tr>`;
+            }
+            
+            html += '</tbody></table>';
+            
+            if (indices.length > 300) {
+                html += `<div style="margin-top: 12px; color: var(--text-secondary); font-size: 12px;">
+                    Showing first 100 triangles of ${Math.floor(indices.length / 3)} total
+                </div>`;
+            }
+            
+            return html;
+        }
+        
+        function renderConstantTable(constants) {
+            let html = `
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th>Type</th>
+                            <th>Value</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
+            
+            Object.entries(constants).forEach(([name, data]) => {
+                const type = data.type || 'float4';
+                const value = Array.isArray(data.value) 
+                    ? data.value.map(v => typeof v === 'number' ? v.toFixed(4) : v).join(', ')
+                    : data.value;
+                html += `<tr>
+                    <td>${name}</td>
+                    <td>${type}</td>
+                    <td>${value}</td>
+                </tr>`;
+            });
+            
+            html += '</tbody></table>';
+            return html;
+        }
+        
+        function renderFloatTable(floats) {
+            let html = '<div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; font-family: monospace; font-size: 12px;">';
+            
+            floats.slice(0, 256).forEach((f, i) => {
+                html += `<div style="background: var(--bg-primary); padding: 4px 8px; border-radius: 4px;">
+                    <span style="color: var(--text-secondary);">[${i}]</span> ${f.toFixed(6)}
+                </div>`;
+            });
+            
+            html += '</div>';
+            
+            if (floats.length > 256) {
+                html += `<div style="margin-top: 12px; color: var(--text-secondary); font-size: 12px;">
+                    Showing first 256 of ${floats.length} values
+                </div>`;
+            }
+            
+            return html;
+        }
+        
+        function renderAccessTimeline(lifetime) {
+            if (!lifetime) return '';
+            
+            const reads = lifetime.read_events || [];
+            const writes = lifetime.write_events || [];
+            
+            if (reads.length === 0 && writes.length === 0) return '';
+            
+            let html = `
+                <div class="access-timeline">
+                    <div class="access-timeline-title">📍 Access Timeline</div>
+                    <div class="access-list">
+            `;
+            
+            // Combine and sort all events
+            const allEvents = [
+                ...reads.map(e => ({ event: e, type: 'read' })),
+                ...writes.map(e => ({ event: e, type: 'write' }))
+            ].sort((a, b) => a.event - b.event);
+            
+            // Show first 20 events
+            allEvents.slice(0, 20).forEach(e => {
+                const typeClass = e.type === 'read' ? 'read' : 'write';
+                const icon = e.type === 'read' ? '📖' : '✏️';
+                html += `<span class="access-marker ${typeClass}" onclick="selectCall(${e.event})">${icon} #${e.event}</span>`;
+            });
+            
+            if (allEvents.length > 20) {
+                html += `<span style="color: var(--text-secondary); padding: 6px;">+${allEvents.length - 20} more</span>`;
+            }
+            
+            html += '</div></div>';
+            return html;
+        }
+        
+        // Export functions
+        function exportResourceJSON() {
+            if (!currentResourceData) return;
+            
+            const dataStr = JSON.stringify(currentResourceData, null, 2);
+            downloadFile(dataStr, `resource_${currentResourceData.id}.json`, 'application/json');
+        }
+        
+        function exportResourceHex() {
+            if (!currentResourceData) return;
+            
+            const sampleData = analysisData.resource_samples?.[String(currentResourceData.id)];
+            if (!sampleData?.bytes) {
+                alert('No byte data available for export');
+                return;
+            }
+            
+            let hexStr = '';
+            sampleData.bytes.forEach((b, i) => {
+                hexStr += b.toString(16).padStart(2, '0');
+                hexStr += (i % 16 === 15) ? '\n' : ' ';
+            });
+            
+            downloadFile(hexStr, `resource_${currentResourceData.id}.hex`, 'text/plain');
+        }
+        
+        function downloadFile(content, filename, mimeType) {
+            const blob = new Blob([content], { type: mimeType });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+        
+        // Make resource IDs clickable
+        function makeResourceLinksClickable() {
+            // Find all resource references in the page
+            document.querySelectorAll('[data-resource-id]').forEach(el => {
+                el.classList.add('resource-link');
+                el.onclick = function() {
+                    const id = parseInt(this.dataset.resourceId);
+                    const name = this.dataset.resourceName || this.textContent;
+                    const type = this.dataset.resourceType || 'BUFFER';
+                    openResourceModal(id, name, type);
+                };
+            });
+        }
+        
+        // Initialize resource links on page load
+        document.addEventListener('DOMContentLoaded', () => {
+            makeResourceLinksClickable();
+        });
+    </script>
+</body>
+</html>

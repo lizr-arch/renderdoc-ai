@@ -1,0 +1,888 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mali Shader Analysis Report V2</title>
+    
+    <!-- jQuery + DataTables -->
+    <link rel="stylesheet" href="https://cdn.datatables.net/1.13.7/css/jquery.dataTables.min.css">
+    <link rel="stylesheet" href="https://cdn.datatables.net/buttons/2.4.2/css/buttons.dataTables.min.css">
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <script src="https://cdn.datatables.net/1.13.7/js/jquery.dataTables.min.js"></script>
+    <script src="https://cdn.datatables.net/buttons/2.4.2/js/dataTables.buttons.min.js"></script>
+    <script src="https://cdn.datatables.net/buttons/2.4.2/js/buttons.html5.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    
+    <style>
+        :root {
+            --bg-primary: #1a1a2e;
+            --bg-secondary: #16213e;
+            --bg-card: #1f2940;
+            --bg-hover: #2a3f5f;
+            --text-primary: #e8e8e8;
+            --text-secondary: #94a3b8;
+            --accent: #7c3aed;
+            --accent-light: #a78bfa;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --danger: #ef4444;
+            --info: #3b82f6;
+        }
+        
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body {
+            font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, sans-serif;
+            background: linear-gradient(135deg, var(--bg-primary) 0%, var(--bg-secondary) 100%);
+            color: var(--text-primary);
+            line-height: 1.6;
+            min-height: 100vh;
+        }
+        
+        .container {
+            max-width: 1600px;
+            margin: 0 auto;
+            padding: 24px;
+        }
+        
+        /* Header */
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 24px;
+            padding-bottom: 16px;
+            border-bottom: 1px solid rgba(124, 58, 237, 0.3);
+        }
+        
+        .header h1 {
+            font-size: 1.75rem;
+            font-weight: 600;
+            background: linear-gradient(135deg, var(--accent) 0%, var(--accent-light) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        
+        .header-meta {
+            color: var(--text-secondary);
+            font-size: 0.875rem;
+        }
+        
+        /* Tabs */
+        .tabs {
+            display: flex;
+            gap: 4px;
+            margin-bottom: 20px;
+            background: var(--bg-card);
+            padding: 4px;
+            border-radius: 12px;
+            width: fit-content;
+        }
+        
+        .tab {
+            padding: 10px 20px;
+            border: none;
+            background: transparent;
+            color: var(--text-secondary);
+            cursor: pointer;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+        
+        .tab:hover {
+            background: var(--bg-hover);
+            color: var(--text-primary);
+        }
+        
+        .tab.active {
+            background: var(--accent);
+            color: white;
+        }
+        
+        .tab-content {
+            display: none;
+        }
+        
+        .tab-content.active {
+            display: block;
+        }
+        
+        /* Cards */
+        .card {
+            background: var(--bg-card);
+            border-radius: 16px;
+            padding: 24px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 24px rgba(0,0,0,0.2);
+            border: 1px solid rgba(255,255,255,0.05);
+        }
+        
+        .card-title {
+            font-size: 1.1rem;
+            font-weight: 600;
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        /* Summary Grid */
+        .summary-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 16px;
+        }
+        
+        .stat-card {
+            background: linear-gradient(135deg, var(--bg-secondary) 0%, var(--bg-hover) 100%);
+            padding: 20px;
+            border-radius: 12px;
+            text-align: center;
+            border: 1px solid rgba(255,255,255,0.05);
+        }
+        
+        .stat-value {
+            font-size: 2rem;
+            font-weight: 700;
+            color: var(--accent-light);
+            line-height: 1.2;
+        }
+        
+        .stat-value.success { color: var(--success); }
+        .stat-value.warning { color: var(--warning); }
+        .stat-value.danger { color: var(--danger); }
+        
+        .stat-label {
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-top: 4px;
+        }
+        
+        /* DataTables Overrides */
+        table.dataTable {
+            border-collapse: collapse !important;
+        }
+        
+        .dataTables_wrapper {
+            color: var(--text-primary);
+        }
+        
+        .dataTables_wrapper .dataTables_filter input,
+        .dataTables_wrapper .dataTables_length select {
+            background: var(--bg-secondary);
+            border: 1px solid rgba(255,255,255,0.1);
+            color: var(--text-primary);
+            padding: 8px 12px;
+            border-radius: 6px;
+        }
+        
+        .dataTables_wrapper .dataTables_paginate .paginate_button {
+            color: var(--text-secondary) !important;
+            background: var(--bg-secondary) !important;
+            border: 1px solid rgba(255,255,255,0.1) !important;
+            border-radius: 4px !important;
+            margin: 0 2px;
+        }
+        
+        .dataTables_wrapper .dataTables_paginate .paginate_button.current {
+            background: var(--accent) !important;
+            color: white !important;
+            border-color: var(--accent) !important;
+        }
+        
+        .dataTables_wrapper .dataTables_paginate .paginate_button:hover {
+            background: var(--bg-hover) !important;
+            color: var(--text-primary) !important;
+        }
+        
+        .dataTables_wrapper .dataTables_info {
+            color: var(--text-secondary);
+        }
+        
+        table.dataTable thead th {
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+            font-weight: 600;
+            padding: 14px 12px;
+            border-bottom: 2px solid var(--accent) !important;
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        table.dataTable tbody td {
+            padding: 12px;
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+            vertical-align: middle;
+        }
+        
+        table.dataTable tbody tr:hover {
+            background: var(--bg-hover) !important;
+        }
+        
+        table.dataTable tbody tr.selected {
+            background: rgba(124, 58, 237, 0.2) !important;
+        }
+        
+        /* Badges */
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+        }
+        
+        .badge-vs { background: linear-gradient(135deg, #3b82f6, #1d4ed8); color: white; }
+        .badge-fs { background: linear-gradient(135deg, #8b5cf6, #6d28d9); color: white; }
+        .badge-cs { background: linear-gradient(135deg, #06b6d4, #0891b2); color: white; }
+        .badge-error { background: linear-gradient(135deg, #6b7280, #4b5563); color: white; }
+        
+        /* Cycles Bar */
+        .cycles-cell {
+            min-width: 120px;
+        }
+        
+        .cycles-value {
+            font-weight: 600;
+            font-size: 0.95rem;
+        }
+        
+        .cycles-bar {
+            height: 6px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 3px;
+            overflow: hidden;
+            margin-top: 4px;
+        }
+        
+        .cycles-fill {
+            height: 100%;
+            border-radius: 3px;
+            transition: width 0.3s;
+        }
+        
+        .cycles-fill.low { background: var(--success); }
+        .cycles-fill.medium { background: var(--warning); }
+        .cycles-fill.high { background: var(--danger); }
+        
+        /* Comparison View */
+        .comparison-header {
+            display: grid;
+            grid-template-columns: 2fr 1fr 1fr 1fr;
+            gap: 12px;
+            padding: 12px 16px;
+            background: var(--bg-secondary);
+            border-radius: 8px;
+            margin-bottom: 12px;
+            font-weight: 600;
+            font-size: 0.85rem;
+        }
+        
+        .comparison-row {
+            display: grid;
+            grid-template-columns: 2fr 1fr 1fr 1fr;
+            gap: 12px;
+            padding: 12px 16px;
+            background: var(--bg-card);
+            border-radius: 8px;
+            margin-bottom: 8px;
+            align-items: center;
+            cursor: pointer;
+            transition: all 0.2s;
+            border: 1px solid transparent;
+        }
+        
+        .comparison-row:hover {
+            background: var(--bg-hover);
+            border-color: var(--accent);
+        }
+        
+        .diff-badge {
+            display: inline-flex;
+            align-items: center;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            font-weight: 600;
+        }
+        
+        .diff-same { background: rgba(255,255,255,0.1); color: var(--text-secondary); }
+        .diff-better { background: rgba(16, 185, 129, 0.2); color: var(--success); }
+        .diff-worse { background: rgba(239, 68, 68, 0.2); color: var(--danger); }
+        .diff-new { background: rgba(59, 130, 246, 0.2); color: var(--info); }
+        .diff-removed { background: rgba(107, 114, 128, 0.2); color: var(--text-secondary); }
+        
+        /* Detail Panel */
+        .detail-panel {
+            display: none;
+            background: var(--bg-secondary);
+            border-radius: 12px;
+            padding: 20px;
+            margin-top: 16px;
+            border: 1px solid var(--accent);
+        }
+        
+        .detail-panel.show {
+            display: block;
+            animation: slideDown 0.3s ease;
+        }
+        
+        @keyframes slideDown {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .detail-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+        }
+        
+        .detail-item {
+            background: var(--bg-card);
+            padding: 12px;
+            border-radius: 8px;
+        }
+        
+        .detail-label {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            margin-bottom: 4px;
+        }
+        
+        .detail-value {
+            font-size: 1.1rem;
+            font-weight: 600;
+        }
+        
+        /* Buttons */
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 8px 16px;
+            border: none;
+            border-radius: 6px;
+            font-size: 0.875rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .btn-primary {
+            background: var(--accent);
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background: var(--accent-light);
+        }
+        
+        .btn-secondary {
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+        
+        .btn-secondary:hover {
+            background: var(--bg-hover);
+        }
+        
+        /* Footer */
+        footer {
+            text-align: center;
+            padding: 24px;
+            color: var(--text-secondary);
+            font-size: 0.85rem;
+            border-top: 1px solid rgba(255,255,255,0.05);
+            margin-top: 40px;
+        }
+        
+        /* DataTables Buttons */
+        .dt-buttons {
+            margin-bottom: 16px;
+        }
+        
+        .dt-button {
+            background: var(--bg-secondary) !important;
+            color: var(--text-primary) !important;
+            border: 1px solid rgba(255,255,255,0.1) !important;
+            border-radius: 6px !important;
+            padding: 8px 16px !important;
+            font-size: 0.85rem !important;
+        }
+        
+        .dt-button:hover {
+            background: var(--bg-hover) !important;
+        }
+        
+        /* Hash/Name column */
+        .shader-name {
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 0.85rem;
+            color: var(--accent-light);
+        }
+        
+        .shader-hash {
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+        }
+        
+        /* Spill indicator */
+        .spill-ok { color: var(--success); }
+        .spill-warn { color: var(--danger); font-weight: 600; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polygon points="12 2 2 7 12 12 22 7 12 2"></polygon>
+                    <polyline points="2 17 12 22 22 17"></polyline>
+                    <polyline points="2 12 12 17 22 12"></polyline>
+                </svg>
+                Mali Shader Analysis Report
+            </h1>
+            <div class="header-meta">
+                Generated: 2026-01-16 22:43:46
+            </div>
+        </div>
+
+        <div class="tabs">
+            <button class="tab active" data-tab="comparison">📊 Comparison</button>
+            <button class="tab" data-tab="file0">📁 g145.rdc</button>
+            <button class="tab" data-tab="file1">📁 g145-battle-2.rdc</button>
+            <button class="tab" data-tab="textures">🖼️ Textures</button>
+        </div>
+
+        <div id="comparison" class="tab-content active">
+            <div class="card">
+                <div class="card-title">📊 Files Overview</div>
+                <div class="summary-grid">
+
+                    <div class="stat-card">
+                        <div class="stat-label">g145.rdc...</div>
+                        <div class="stat-value">79</div>
+                        <div class="stat-label">Shaders</div>
+                    </div>
+
+                    <div class="stat-card">
+                        <div class="stat-label">g145-battle-2.r...</div>
+                        <div class="stat-value">105</div>
+                        <div class="stat-label">Shaders</div>
+                    </div>
+
+                </div>
+            </div>
+            
+            <div class="card">
+                <div class="card-title">🔍 Shader Comparison (by Hash)</div>
+                <table id="comparison-table" class="display" style="width:100%">
+                    <thead>
+                        <tr>
+                            <th>Index</th>
+                            <th>Stage</th>
+                            <th>Hash</th>
+                            <th>Resource Hint</th>
+                            <th>Size</th>
+                            <th>g145.rdc Cycles</th>
+                            <th>g145-battle- Cycles</th>
+                            <th>Diff</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div id="file0" class="tab-content">
+            <div class="card">
+                <div class="card-title">📈 Summary - g145.rdc</div>
+                <div class="summary-grid">
+                    <div class="stat-card">
+                        <div class="stat-value">79</div>
+                        <div class="stat-label">Shaders</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value">11.4</div>
+                        <div class="stat-label">Avg Cycles</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value warning">63.0</div>
+                        <div class="stat-label">Max Cycles</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value danger">9</div>
+                        <div class="stat-label">Spilling</div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="card">
+                <div class="card-title">📋 Shader Details</div>
+                <table id="shader-table-0" class="display" style="width:100%">
+                    <thead>
+                        <tr>
+                            <th>Index</th>
+                            <th>Stage</th>
+                            <th>Hash</th>
+                            <th>Resource Hint</th>
+                            <th>Size (B)</th>
+                            <th>Work Reg</th>
+                            <th>Uniform Reg</th>
+                            <th>Cycles</th>
+                            <th>FMA</th>
+                            <th>CVT</th>
+                            <th>SFU</th>
+                            <th>LS</th>
+                            <th>Tex</th>
+                            <th>Spill</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div id="file1" class="tab-content">
+            <div class="card">
+                <div class="card-title">📈 Summary - g145-battle-2.rdc</div>
+                <div class="summary-grid">
+                    <div class="stat-card">
+                        <div class="stat-value">105</div>
+                        <div class="stat-label">Shaders</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value">10.7</div>
+                        <div class="stat-label">Avg Cycles</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value warning">63.0</div>
+                        <div class="stat-label">Max Cycles</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value danger">9</div>
+                        <div class="stat-label">Spilling</div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="card">
+                <div class="card-title">📋 Shader Details</div>
+                <table id="shader-table-1" class="display" style="width:100%">
+                    <thead>
+                        <tr>
+                            <th>Index</th>
+                            <th>Stage</th>
+                            <th>Hash</th>
+                            <th>Resource Hint</th>
+                            <th>Size (B)</th>
+                            <th>Work Reg</th>
+                            <th>Uniform Reg</th>
+                            <th>Cycles</th>
+                            <th>FMA</th>
+                            <th>CVT</th>
+                            <th>SFU</th>
+                            <th>LS</th>
+                            <th>Tex</th>
+                            <th>Spill</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div id="textures" class="tab-content">
+            <div class="card">
+                <div class="card-title">🖼️ Texture Overview</div>
+                <div class="summary-grid">
+
+                    <div class="stat-card">
+                        <div class="stat-label">g145.rdc...</div>
+                        <div class="stat-value">38</div>
+                        <div class="stat-label">Textures</div>
+                    </div>
+
+                    <div class="stat-card">
+                        <div class="stat-label">g145-battle-2.r...</div>
+                        <div class="stat-value">51</div>
+                        <div class="stat-label">Textures</div>
+                    </div>
+
+                </div>
+            </div>
+            
+            <div class="card">
+                <div class="card-title">📋 Texture Details</div>
+                <table id="texture-table" class="display" style="width:100%">
+                    <thead>
+                        <tr>
+                            <th>File</th>
+                            <th>Resource ID</th>
+                            <th>Type</th>
+                            <th>Dimensions</th>
+                            <th>Format</th>
+                            <th>Mips</th>
+                            <th>Layers</th>
+                            <th>Samples</th>
+                            <th>Usage</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <footer>
+            RenderDoc Mali Analyzer v2.0 | Powered by Mali Offline Compiler
+        </footer>
+    </div>
+    
+    <script>
+        // Analysis data
+        const analysisData = [{"summary": {"file": "D:\\renderdoc\\goog pixel-9\\g145.rdc", "file_name": "g145.rdc", "driver": "Vulkan", "gpu_core": "Mali-G715", "total_shaders": 84, "analyzed_shaders": 79, "failed_analyses": 5, "shader_types": {"Compute": 8, "Vertex": 34, "Fragment": 37}, "cycles": {"total": 904.0609374642372, "average": 11.443809334990345, "max": 63.0, "min": 0.015625}, "spilling_shaders": 9, "timestamp": "2026-01-16T22:43:34.247663", "total_textures": 38}, "shaders": [{"index": 0, "hash": "daf6df24286b9a7c", "name": "CS:main_00000224_9c2dedcd", "entry_name": "main_00000224_9c2dedcd", "stage": "CS", "friendly_label": "GPUMessageDataBuffer", "size": 604, "spirv_version": "1.3", "valid": true, "type": "Compute", "work_registers": 1, "uniform_registers": 2, "total_cycles": 0.0625, "shortest_path": 1.0, "longest_path": 1.0, "fma_cycles": 0.0, "cvt_cycles": 0.015625, "sfu_cycles": 0.0, "load_store_cycles": 1.0, "texture_cycles": 0.0, "varying_cycles": 0.0, "has_spilling": false, "spill_count": 0}, {"index": 1, "hash": "3df62f43637f64c5", "name": "CS:main_000000e0_624b1826", "entry_name": "main_000000e0_624b1826", "stage": "CS", "friendly_label": "", "size": 280, "spirv_version": "1.3", "valid": true, "type": "Compute", "work_registers": 0, "uniform_registers": 0, "total_cycles": 0.015625, "shortest_path": 0.015625, "longest_path": 0.015625, "fma_cycles": 0.0, "cvt_cycles": 0.015625, "sfu_cycles": 0.0, "load_store_cycles": 0.0, "texture_cycles": 0.0, "varying_cycles": 0.0, "has_spilling": false, "spill_count": 0}, {"index": 2, "hash": "9a1d81d2548ecbcb", "name": "CS:main_000029e8_103bbcf0", "entry_name": "main_000029e8_103bbcf0", "stage": "CS", "friendly_label": "ReflectionCaptureES31", "size": 10784, "spirv_version": "1.3", "valid": false, "error": "JSON parse error: float() argument must be a string or a real number, not 'NoneType'"}, {"index": 3, "hash": "b300a805eaabc836", "name": "VS:main_000008e0_9e531da2", "entry_name": "main_000008e0_9e531da2", "stage": "VS", "friendly_label": "", "size": 2328, "spirv_version": "1.3", "valid": true, "type": "Vertex", "work_registers": 13, "uniform_registers": 26, "total_cycles": 3.0, "shortest_path": 3.0, "longest_path": 3.0, "fma_cycles": 0.1328125, "cvt_cycles": 0.078125, "sfu_cycles": 0.0625, "load_store_cycles": 3.0, "texture_cycles": 0.0, "varying_cycles": 0.0, "has_spilling": false, "spill_count": 0}, {"index": 4, "hash": "6e587a38337a26a0", "name": "PS:main_00000f3c_6409666b", "entry_name": "main_00000f3c_6409666b", "stage": "PS", "friendly_label": "SceneColorTexture", "size": 3956, "spirv_version": "1.3", "valid": true, "type": "Fragment", "work_registers": 22, "uniform_registers": 14, "total_cycles": 0.5, "shortest_path": 0.5, "longest_path": 0.5, "fma_cycles": 0.3187499940395355, "cvt_cycles": 0.09375, "sfu_cycles": 0.375, "load_store_cycles": 0.0, "texture_cycles": 0.5, "varying_cycles": 0.25, "has_spilling": false, "spill_count": 0}, {"index": 5, "hash": "da3f417d56aef0d6", "name": "CS:main_00000f74_e3e428e1", "entry_name": "main_00000f74_e3e428e1", "stage": "CS", "friendly_label": "EyeAdaptation_MeterMaskTexture", "size": 4012, "spirv_version": "1.3", "valid": true, "type": "Compute", "work_registers": 15, "uniform_registers": 8, "total_cycles": 25.100000381469727, "shortest_path": 1.0, "longest_path": 26.0, "fma_cycles": 0.2421875, "cvt_cycles": 0.84375, "sfu_cycles": 0.0, "load_store_cycles": 26.0, "texture_cycles": 1.0, "varying_cycles": 0.0, "has_spilling": false, "spill_count": 0}, {"index": 6, "hash": "e8b23fc45c4ccae7", "name": "CS:main_00001048_d50b6e79", "entry_name": "main_00001048_d50b6e79", "stage": "CS", "friendly_label": "EyeAdaptationBuffer", "size": 4224, "spirv_version": "1.3", "valid": true, "type": "Compute", "work_registers": 10, "uniform_registers": 20, "total_cycles": 4.119999885559082, "shortest_path": 6.0, "longest_path": 6.0, "fma_cycles": 0.140625, "cvt_cycles": 0.421875, "sfu_cycles": 0.4375, "load_store_cycles": 6.0, "texture_cycles": 0.0, "varying_cycles": 0.0, "has_spilling": false, "spill_count": 0}, {"index": 7, "hash": "f2b94456d64c93f6", "name": "VS:main_00000ee8_d158872b", "entry_name": "main_00000ee8_d158872b", "stage": "VS", "friendly_label": "", "size": 3876, "spirv_version": "1.3", "valid": true, "type": "Vertex", "work_registers": 13, "uniform_registers": 38, "total_cycles": 3.0, "shortest_path": 3.0, "longest_path": 3.0, "fma_cycles": 0.1484375, "cvt_cycles": 0.078125, "sfu_cycles": 0.0625, "load_store_cycles": 3.0, "texture_cycles": 0.0, "varying_cycles": 0.0, "has_spilling": false, "spill_count": 0}, {"index": 8, "hash": "fb52d0af0df9b93b", "name": "CS:main_0000c384_5676c44b", "entry_name": "main_0000c384_5676c44b", "stage": "CS", "friendly_label": "InputTexture", "size": 50112, "spirv_version": "1.3", "valid": true, "type": "Compute", "work_registers": 64, "uniform_registers": 30, "total_cycles": 9.681249618530273, "shortest_path": 8.0, "longest_path": 9.681249618530273, "fma_cycles": 8.21875, "cvt_cycles": 2.549999952316284, "sfu_cycles": 1.5, "load_store_cycles": 8.0, "texture_cycles": 8.5, "varying_cycles": 0.0, "has_spilling": false, "spill_count": 0}, {"index": 9, "hash": "577f0d7dfeae6fdb", "name": "VS:main_000006dc_c9e1aec0", "entry_name": "main_000006dc_c9e1aec0", "stage": "VS", "friendly_label": "", "size": 1816, "spirv_version": "1.3", "valid": true, "type": "Vertex", "work_registers": 13, "uniform_registers": 22, "total_cycles": 3.0, "shortest_path": 3.0, "longest_path": 3.0, "fma_cycles": 0.1484375, "cvt_cycles": 0.078125, "sfu_cycles": 0.0625, "load_store_cycles": 3.0, "texture_cycles": 0.0, "varying_cycles": 0.0, "has_spilling": false, "spill_count": 0}, {"index": 10, "hash": "80c4fab3379fd22d", "name": "PS:main_00001794_e2d089b2", "entry_name": "main_00001794_e2d089b2", "stage": "PS", "friendly_label": "InputTexture", "size": 6096, "spirv_version": "1.3", "valid": true, "type": "Fragment", "work_registers": 18, "uniform_registers": 4, "total_cycles": 0.793749988079071, "shortest_path": 0.793749988079071, "longest_path": 0.793749988079071, "fma_cycles": 0.2265625, "cvt_cycles": 0.699999988079071, "sfu_cycles": 0.375, "load_store_cycles": 0.0, "texture_cycles": 0.625, "varying_cycles": 0.0, "has_spilling": false, "spill_count": 0}, {"index": 11, "hash": "056104157ef4f2d4", "name": "CS:main_0000047c_98fdb92c", "entry_name": "main_0000047c_98fdb92c", "stage": "CS", "friendly_label": "ClearResource", "size": 1208, "spirv_version": "1.3", "valid": true, "type": "Compute", "work_registers": 7, "uniform_registers": 8, "total_cycles": 2.0, "shortest_path": 0.0625, "longest_path": 2.0, "fma_cycles": 0.0, "cvt_cycles": 0.125, "sfu_cycles": 0.0, "load_store_cycles": 2.0, "texture_cycles": 0.0, "varying_cycles": 0.0, "has_spilling": false, "spill_count": 0}, {"index": 12, "hash": "8a416535e6c189fc", "name": "VS:main_00000c90_768261d5", "entry_name": "main_00000c90_768261d5", "stage": "VS", "friendly_label": "", "size": 3280, "spirv_version": "1.3", "valid": true, "type": "Vertex", "work_registers": 16, "uniform_registers": 26, "total_cycles": 3.0, "shortest_path": 3.0, "longest_path": 3.0, "fma_cycles": 0.1796875, "cvt_cycles": 0.078125, "sfu_cycles": 0.0625, "load_store_cycles": 3.0, "texture_cycles": 0.0, "varying_cycles": 0.0, "has_spilling": false, "spill_count": 0}, {"index": 13, "hash": "f311382e5ecc9a47", "name": "PS:main_00000bdc_074e18a4", "entry_name": "main_00000bdc_074e18a4", "stage": "PS", "friendly_label": "ElementTextureSampler", "size": 3100, "spirv_version": "1.3", "valid": true, "type": "Fragment", "work_registers": 26, "uniform_registers": 18, "total_cycles": 0.75, "shortest_path": 0.1875, "longest_path": 0.75, "fma_cycles": 0.265625, "cvt_cycles": 0.421875, "sfu_cycles": 0.75, "load_store_cycles": 0.0, "texture_cycles": 0.125, "varying_cycles": 0.1875, "has_spilling": false, "spill_count": 0}, {"index": 14, "hash": "b2f1f305c39016f8", "name": "PS:main_00000c04_f1880dd2", "entry_name": "main_00000c04_f1880dd2", "stage": "PS", "friendly_label": "ElementTextureSampler", "size": 3140, "spirv_version": "1.3", "valid": true, "type": "Fragment", "work_registers": 23, "uniform_registers": 18, "total_cycles": 0.75, "shortest_path": 0.125, "longest_path": 0.75, "fma_cycles": 0.25, "cvt_cycles": 0.453125, "sfu_cycles": 0.75, "load_store_cycles": 0.0, "texture_cycles": 0.125, "varying_cycles": 0.125, "has_spilling": false, "spill_count": 0}, {"index": 15, "hash": "6faa50caea1de0d4", "name": "VS:main_00000284_251097ed", "entry_name": "main_00000284_251097ed", "stage": "VS", "friendly_label": "", "size": 1308, "spirv_version": "1.3", "valid": true, "type": "Vertex", "work_registers": 11, "uniform_registers": 6, "total_cycles": 3.0, "shortest_path": 3.0, "longest_path": 3.0, "fma_cycles": 0.0625, "cvt_cycles": 0.03125, "sfu_cycles": 0.0625, "load_store_cycles": 3.0, "texture_cycles": 0.0, "varying_cycles": 0.0, "has_spilling": false, "spill_count": 0}, {"index": 16, "hash": "7f5e5eeba43b9641", "name": "PS:main_000029e0_2a94a009", "entry_name": "main_000029e0_2a94a009", "stage": "PS", "friendly_label": "Input_Texture", "size": 11384, "spirv_version": "1.3", "valid": true, "type": "Fragment", "work_registers": 32, "uniform_registers": 44, "total_cycles": 1.75, "shortest_path": 1.0, "longest_path": 1.75, "fma_cycles": 0.7875000238418579, "cvt_cycles": 1.4375, "sfu_cycles": 0.1875, "load_store_cycles": 1.0, "texture_cycles": 1.75, "varying_cycles": 0.0, "has_spilling": false, "spill_count": 0}, {"index": 17, "hash": "2b317f9ba669cf2c", "name": "VS:main_000002e8_38b4e28a", "entry_name": "main_000002e8_38b4e28a", "stage": "VS", "friendly_label": "", "size": 1416, "spirv_version": "1.3", "valid": true, "type": "Vertex", "work_registers": 15, "uniform_registers": 22, "total_cycles": 3.0, "shortest_path": 3.0, "longest_path": 3.0, "fma_cycles": 0.2109375, "cvt_cycles": 0.078125, "sfu_cycles": 0.0625, "load_store_cycles": 3.0, "texture_cycles": 0.0, "varying_cycles": 0.0, "has_spilling": false, "spill_count": 0}, {"index": 18, "hash": "5cc9662301ef0a7f", "name": "PS:main_00000f5c_423f7ef7", "entry_name": "main_00000f5c_423f7ef7", "stage": "PS", "friendly_label": "Material_Texture2D_0Sampler", "size": 4608, "spirv_version": "1.3", "valid": true, "type": "Fragment", "work_registers": 18, "uniform_registers": 28, "total_cycles": 1.0, "shortest_path": 1.0, "longest_path": 1.0, "fma_cycles": 0.2265625, "cvt_cycles": 0.25, "sfu_cycles": 0.0625, "load_store_cycles": 1.0, "texture_cycles": 0.25, "varying_cycles": 0.0, "has_spilling": false, "spill_count": 0}, {"index": 19, "hash": "7862b264a4988374", "name": "VS:main_000023ac_24c77707", "entry_name": "main_000023ac_24c77707", "stage": "VS", "friendly_label": "BoneMatrices", "size": 9808, "spirv_version": "1.3", "valid": true, "type": "Vertex", "work_registers": 64, "uniform_registers": 46, "total_cycles": 55.20000076293945, "shortest_path": 29.0, "longest_path": 59.0, "fma_cycles": 1.962499976158142, "cvt_cycles": 0.484375, "sfu_cycles": 0.5625, "load_store_cycles": 59.0, "texture_cycles": 0.0, "varying_cycles": 0.0, "has_spilling": true, "spill_count": 8}, {"index": 20, "hash": "9447244f6d34c8d3", "name": "PS:main_000004b4_516891b7", "entry_name": "main_000004b4_516891b7", "stage": "PS", "friendly_label": "Material_Texture2D_0Sampler", "size": 1880, "spirv_version": "1.3", "valid": true, "type": "Fragment", "work_registers": 3, "uniform_registers": 4, "total_cycles": 0.125, "shortest_path": 0.125, "longest_path": 0.125, "fma_cycles": 0.0, "cvt_cycles": 0.046875, "sfu_cycles": 0.0, "load_store_cycles": 0.0, "texture_cycles": 0.125, "varying_cycles": 0.0625, "has_spilling": false, "spill_count": 0}, {"index": 21, "hash": "3c87f67779cadc8a", "name": "VS:main_000023ac_24c77707", "entry_name": "main_000023ac_24c77707", "stage": "VS", "friendly_label": "BoneMatrices", "size": 9808, "spirv_version": "1.3", "valid": true, "type": "Vertex", "work_registers": 64, "uniform_registers": 46, "total_cycles": 55.20000076293945, "shortest_path": 29.0, "longest_path": 59.0, "fma_cycles": 1.962499976158142, "cvt_cycles": 0.484375, "sfu_cycles": 0.5625, "load_store_cycles": 59.0, "texture_cycles": 0.0, "varying_cycles": 0.0, "has_spilling": true, "spill_count": 8}, {"index": 22, "hash": "fe4b8b92b1294747", "name": "PS:main_000004b4_516891b7", "entry_name": "main_000004b4_516891b7", "stage": "PS", "friendly_label": "Material_Texture2D_0Sampler", "size": 1880, "spirv_version": "1.3", "valid": true, "type": "Fragment", "work_registers": 3, "uniform_registers": 4, "total_cycles": 0.125, "shortest_path": 0.125, "longest_path": 0.125, "fma_cycles": 0.0, "cvt_cycles": 0.046875, "sfu_cycles": 0.0, "load_store_cycles": 0.0, "texture_cycles": 0.125, "varying_cycles": 0.0625, "has_spilling": false, "spill_count": 0}, {"index": 23, "hash": "cc31b16096f583d4", "name": "VS:main_00000cb4_2a635b4a", "entry_name": "main_00000cb4_2a635b4a", "stage": "VS", "friendly_label": "", "size": 3960, "spirv_version": "1.3", "valid": true, "type": "Vertex", "work_registers": 16, "uniform_registers": 26, "total_cycles": 3.0, "shortest_path": 3.0, "longest_path": 3.0, "fma_cycles": 0.1796875, "cvt_cycles": 0.078125, "sfu_cycles": 0.0625, "load_store_cycles": 3.0, "texture_cycles": 0.0, "varying_cycles": 0.0, "has_spilling": false, "spill_count": 0}, {"index": 24, "hash": "84de6388d2c4cf7f", "name": "PS:main_000023e0_8299ed57", "entry_name": "main_000023e0_8299ed57", "stage": "PS", "friendly_label": "Material_Texture2D_0Sampler", "size": 9892, "spirv_version": "1.3", "valid": false, "error": "JSON parse error: float() argument must be a string or a real number, not 'NoneType'"}, {"index": 25, "hash": "260aa4ee6f09c968", "name": "CS:main_000004f4_57fbcf84", "entry_name": "main_000004f4_57fbcf84", "stage": "CS", "friendly_label": "DrawIndirectArgsBufferOut", "size": 2068, "spirv_version": "1.3", "valid": true, "type": "Compute", "work_registers": 7, "uniform_registers": 2, "total_cycles": 2.0, "shortest_path": 0.140625, "longest_path": 2.0, "fma_cycles": 0.0, "cvt_cycles": 0.171875, "sfu_cycles": 0.0625, "load_store_cycles": 2.0, "texture_cycles": 0.0, "varying_cycles": 0.0, "has_spilling": false, "spill_count": 0}, {"index": 26, "hash": "83cb821a68061f46", "name": "CS:main_00003698_8764628a", "entry_name": "main_00003698_8764628a", "stage": "CS", "friendly_label": "InstanceIdOffsetBuffer", "size": 14776, "spirv_version": "1.3", "valid": false, "error": "JSON parse error: float() argument must be a string or a real number, not 'NoneType'"}, {"index": 27, "hash": "aa2caf81096e89eb", "name": "PS:main_00001e2c_6f2ae356", "entry_name": "main_00001e2c_6f2ae356", "stage": "PS", "friendly_label": "EyeAdaptationBuffer", "size": 8556, "spirv_version": "1.3", "valid": true, "type": "Fragment", "work_registers": 32, "uniform_registers": 38, "total_cycles": 1.009374976158142, "shortest_path": 1.009374976158142, "longest_path": 1.009374976158142, "fma_cycles": 0.7437499761581421, "cvt_cycles": 0.4375, "sfu_cycles": 0.375, "load_store_cycles": 0.0, "texture_cycles": 1.0, "varying_cycles": 0.28125, "has_spilling": false, "spill_count": 0}, {"index": 28, "hash": "4dc64891c3375f15", "name": "VS:main_000005a4_82f61bcd", "entry_name": "main_000005a4_82f61bcd", "stage": "VS", "friendly_label": "", "size": 2280, "spirv_version": "1.3", "valid": true, "type": "Vertex", "work_registers": 13, "uniform_registers": 16, "total_cycles": 3.0, "shortest_path": 3.0, "longest_path": 3.0, "fma_cycles": 0.1328125, "cvt_cycles": 0.078125, "sfu_cycles": 0.0625, "load_store_cycles": 3.0, "texture_cycles": 0.0, "varying_cycles": 0.0, "has_spilling": false, "spill_count": 0}, {"index": 29, "hash": "73bbe8684a80d589", "name": "PS:main_000039fc_97998aa7", "entry_name": "main_000039fc_97998aa7", "stage": "PS", "friendly_label": "Material_Texture2D_0Sampler", "size": 15680, "spirv_version": "1.3", "valid": true, "type": "Fragment", "work_registers": 32, "uniform_registers": 108, "total_cycles": 2.1812500953674316, "shortest_path": 2.1812500953674316, "longest_path": 2.1812500953674316, "fma_cycles": 1.806249976158142, "cvt_cycles": 0.3125, "sfu_cycles": 1.75, "load_store_cycles": 1.0, "texture_cycles": 0.625, "varying_cycles": 0.0, "has_spilling": false, "spill_count": 0}, {"index": 30, "hash": "7e2b4f76a905195c", "name": "CS:main_00002ef8_ebc40454", "entry_name": "main_00002ef8_ebc40454", "stage": "CS", "friendly_label": "SceneDepthTextureSampler", "size": 13492, "spirv_version": "1.3", "valid": false, "error": "JSON parse error: float() argument must be a string or a real number, not 'NoneType'"}, {"index": 31, "hash": "d10a9b3e09788dec", "name": "VS:main_00000bac_cb9f8c03", "entry_name": "main_00000bac_cb9f8c03", "stage": "VS", "friendly_label": "SSAMTextureSampler", "size": 4456, "spirv_version": "1.3", "valid": true, "type": "Vertex", "work_registers": 14, "uniform_registers": 20, "total_cycles": 2.0, "shortest_path": 2.0, "longest_path": 2.0, "fma_cycles": 0.1328125, "cvt_cycles": 0.546875, "sfu_cycles": 0.3125, "load_store_cycles": 2.0, "texture_cycles": 0.125, "varying_cycles": 0.0, "has_spilling": false, "spill_count": 0}, {"index": 32, "hash": "9c7c032b204a75d8", "name": "PS:main_00000780_1ba1e085", "entry_name": "main_00000780_1ba1e085", "stage": "PS", "friendly_label": "SceneColorTextureSampler", "size": 3388, "spirv_version": "1.3", "valid": true, "type": "Fragment", "work_registers": 18, "uniform_registers": 10, "total_cycles": 0.25, "shortest_path": 0.25, "longest_path": 0.25, "fma_cycles": 0.0703125, "cvt_cycles": 0.078125, "sfu_cycles": 0.0625, "load_store_cycles": 0.0, "texture_cycles": 0.25, "varying_cycles": 0.0625, "has_spilling": false, "spill_count": 0}, {"index": 33, "hash": "86fc569131beaa6e", "name": "VS:main_00000cb4_2a635b4a", "entry_name": "main_00000cb4_2a635b4a", "stage": "VS", "friendly_label": "", "size": 4744, "spirv_version": "1.3", "valid": true, "type": "Vertex", "work_registers": 16, "uniform_registers": 26, "total_cycles": 3.0, "shortest_path": 3.0, "longest_path": 3.0, "fma_cycles": 0.1796875, "cvt_cycles": 0.078125, "sfu_cycles": 0.0625, "load_store_cycles": 3.0, "texture_cycles": 0.0, "varying_cycles": 0.0, "has_spilling": false, "spill_count": 0}, {"index": 34, "hash": "6a5b74b0da056126", "name": "PS:main_00003ae4_60f5b39e", "entry_name": "main_00003ae4_60f5b39e", "stage": "PS", "friendly_label": "Material_Texture2D_0Sampler", "size": 16568, "spirv_version": "1.3", "valid": true, "type": "Fragment", "work_registers": 32, "uniform_registers": 110, "total_cycles": 1.59375, "shortest_path": 1.0859375, "longest_path": 1.59375, "fma_cycles": 1.046875, "cvt_cycles": 0.90625, "sfu_cycles": 0.75, "load_store_cycles": 0.0, "texture_cycles": 0.875, "varying_cycles": 0.1875, "has_spilling": false, "spill_count": 0}, {"index": 35, "hash": "4221545f854dbd11", "name": "VS:main_00000cb4_2a635b4a", "entry_name": "main_00000cb4_2a635b4a", "stage": "VS", "friendly_label": "", "size": 4744, "spirv_version": "1.3", "valid": true, "type": "Vertex", "work_registers": 16, "uniform_registers": 26, "total_cycles": 3.0, "shortest_path": 3.0, "longest_path": 3.0, "fma_cycles": 0.1796875, "cvt_cycles": 0.078125, "sfu_cycles": 0.0625, "load_store_cycles": 3.0, "texture_cycles": 0.0, "varying_cycles": 0.0, "has_spilling": false, "spill_count": 0}, {"index": 36, "hash": "bb09c0b009815c68", "name": "PS:main_000028e0_a4c8c5b7", "entry_name": "main_000028e0_a4c8c5b7", "stage": "PS", "friendly_label": "Material", "size": 11956, "spirv_version": "1.3", "valid": true, "type": "Fragment", "work_registers": 32, "uniform_registers": 56, "total_cycles": 2.125, "shortest_path": 1.482812523841858, "longest_path": 2.125, "fma_cycles": 1.225000023841858, "cvt_cycles": 0.987500011920929, "sfu_cycles": 2.125, "load_store_cycles": 0.0, "texture_cycles": 0.0, "varying_cycles": 0.1875, "has_spilling": false, "spill_count": 0}, {"index": 37, "hash": "ff3cf04a026d086f", "name": "VS:main_00000cb4_2a635b4a", "entry_name": "main_00000cb4_2a635b4a", "stage": "VS", "friendly_label": "", "size": 4744, "spirv_version": "1.3", "valid": true, "type": "Vertex", "work_registers": 16, "uniform_registers": 26, "total_cycles": 3.0, "shortest_path": 3.0, "longest_path": 3.0, "fma_cycles": 0.1796875, "cvt_cycles": 0.078125, "sfu_cycles": 0.0625, "load_store_cycles": 3.0, "texture_cycles": 0.0, "varying_cycles": 0.0, "has_spilling": false, "spill_count": 0}, {"index": 38, "hash": "3c34b74399e240f2", "name": "PS:main_000024c0_ca5fad5f", "entry_name": "main_000024c0_ca5fad5f", "stage": "PS", "friendly_label": "Material_Texture2D_0Sampler", "size": 10900, "spirv_version": "1.3", "valid": true, "type": "Fragment", "work_registers": 32, "uniform_registers": 54, "total_cycles": 1.767187476158142, "shortest_path": 1.265625, "longest_path": 1.767187476158142, "fma_cycles": 1.078125, "cvt_cycles": 0.987500011920929, "sfu_cycles": 1.5625, "load_store_cycles": 0.0, "texture_cycles": 0.25, "varying_cycles": 0.1875, "has_spilling": false, "spill_count": 0}, {"index": 39, "hash": "c003e2041634985e", "name": "PS:main_00001374_0c4c9957", "entry_name": "main_00001374_0c4c9957", "stage": "PS", "friendly_label": "ElementTextureSampler", "size": 6472, "spirv_version": "1.3", "valid": true, "type": "Fragment", "work_registers": 32, "uniform_registers": 32, "total_cycles": 1.1640625, "shortest_path": 0.6578124761581421, "longest_path": 1.142187476158142, "fma_cycles": 0.7124999761581421, "cvt_cycles": 0.609375, "sfu_cycles": 1.0, "load_store_cycles": 0.0, "texture_cycles": 0.125, "varying_cycles": 0.3125, "has_spilling": false, "spill_count": 0}, {"index": 40, "hash": "9d5201d75443aadf", "name": "CS:main_00002c58_f35cccdc", "entry_name": "main_00002c58_f35cccdc", "stage": "CS", "friendly_label": "IndirectArgsBufferOut", "size": 12860, "spirv_version": "1.3", "valid": true, "type": "Compute", "work_registers": 64, "uniform_registers": 18, "total_cycles": 17.0, "shortest_path": 0.046875, "longest_path": 17.0, "fma_cycles": 0.9312499761581421, "cvt_cycles": 1.5499999523162842, "sfu_cycles": 0.5, "load_store_cycles": 17.0, "texture_cycles": 0.0, "varying_cycles": 0.0, "has_spilling": false, "spill_count": 0}, {"index": 41, "hash": "7ef84906a27eda2e", "name": "VS:main_00001534_06ba849b", "entry_name": "main_00001534_06ba849b", "stage": "VS", "friendly_label": "BatchedPrimitive", "size": 6936, "spirv_version": "1.3", "valid": true, "type": "Vertex", "work_registers": 24, "uniform_registers": 30, "total_cycles": 7.0, "shortest_path": 7.0, "longest_path": 7.0, "fma_cycles": 0.484375, "cvt_cycles": 0.15625, "sfu_cycles": 0.0625, "load_store_cycles": 7.0, "texture_cycles": 0.0, "varying_cycles": 0.0, "has_spilling": false, "spill_count": 0}, {"index": 42, "hash": "1043b00a077ab3dc", "name": "PS:main_00004788_4fe75370", "entry_name": "main_00004788_4fe75370", "stage": "PS", "friendly_label": "MobileDirectionalLight_DirectionalLightShadowTexture", "size": 19820, "spirv_version": "1.3", "valid": true, "type": "Fragment", "work_registers": 32, "uniform_registers": 112, "total_cycles": 5.0, "shortest_path": 1.451562523841858, "longest_path": 5.0, "fma_cycles": 1.71875, "cvt_cycles": 0.609375, "sfu_cycles": 0.5625, "load_store_cycles": 5.0, "texture_cycles": 0.625, "varying_cycles": 0.25, "has_spilling": false, "spill_count": 0}, {"index": 43, "hash": "5a079e2ea103de75", "name": "VS:main_00001534_06ba849b", "entry_name": "main_00001534_06ba849b", "stage": "VS", "friendly_label": "BatchedPrimitive", "size": 6936, "spirv_version": "1.3", "valid": true, "type": "Vertex", "work_registers": 24, "uniform_registers": 30, "total_cycles": 7.0, "shortest_path": 7.0, "longest_path": 7.0, "fma_cycles": 0.484375, "cvt_cycles": 0.15625, "sfu_cycles": 0.0625, "load_store_cycles": 7.0, "texture_cycles": 0.0, "varying_cycles": 0.0, "has_spilling": false, "spill_count": 0}, {"index": 44, "hash": "c7686c04e1abd8ff", "name": "PS:main_00004848_39f53455", "entry_name": "main_00004848_39f53455", "stage": "PS", "friendly_label": "MobileDirectionalLight_DirectionalLightShadowTexture", "size": 20012, "spirv_version": "1.3", "valid": true, "type": "Fragment", "work_registers": 32, "uniform_registers": 114, "total_cycles": 5.0, "shortest_path": 0.2578125, "longest_path": 5.0, "fma_cycles": 1.725000023841858, "cvt_cycles": 0.625, "sfu_cycles": 0.5625, "load_store_cycles": 5.0, "texture_cycles": 0.625, "varying_cycles": 0.25, "has_spilling": false, "spill_count": 0}, {"index": 45, "hash": "8f723bdd9b17db3c", "name": "CS:main_00006e70_e59e9a4e", "entry_name": "main_00006e70_e59e9a4e", "stage": "CS", "friendly_label": "InstanceIdOffsetBuffer", "size": 29828, "spirv_version": "1.3", "valid": false, "error": "JSON parse error: float() argument must be a string or a real number, not 'NoneType'"}, {"index": 46, "hash": "2acb78e951045243", "name": "VS:main_000023d8_0d128418", "entry_name": "main_000023d8_0d128418", "stage": "VS", "friendly_label": "BoneMatrices", "size": 11004, "spirv_version": "1.3", "valid": true, "type": "Vertex", "work_registers": 64, "uniform_registers": 46, "total_cycles": 55.20000076293945, "shortest_path": 29.0, "longest_path": 59.0, "fma_cycles": 1.962499976158142, "cvt_cycles": 0.484375, "sfu_cycles": 0.5625, "load_store_cycles": 59.0, "texture_cycles": 0.0, "varying_cycles": 0.0, "has_spilling": true, "spill_count": 8}, {"index": 47, "hash": "d0a6f26bc5c8de93", "name": "PS:main_00005b6c_697beb3b", "entry_name": "main_00005b6c_697beb3b", "stage": "PS", "friendly_label": "MobileReflectionCapture_TextureSampler", "size": 25232, "spirv_version": "1.3", "valid": true, "type": "Fragment", "work_registers": 32, "uniform_registers": 128, "total_cycles": 2.7109375, "shortest_path": 0.125, "longest_path": 2.6953125, "fma_cycles": 2.34375, "cvt_cycles": 0.546875, "sfu_cycles": 0.625, "load_store_cycles": 0.0, "texture_cycles": 0.875, "varying_cycles": 0.21875, "has_spilling": false, "spill_count": 0}, {"index": 48, "hash": "e921031df75b2ec7", "name": "VS:main_000023d8_0d128418", "entry_name": "main_000023d8_0d128418", "stage": "VS", "friendly_label": "BoneMatrices", "size": 11004, "spirv_version": "1.3", "valid": true, "type": "Vertex", "work_registers": 64, "uniform_registers": 46, "total_cycles": 55.20000076293945, "shortest_path": 29.0, "longest_path": 59.0, "fma_cycles": 1.962499976158142, "cvt_cycles": 0.484375, "sfu_cycles": 0.5625, "load_store_cycles": 59.0, "texture_cycles": 0.0, "varying_cycles": 0.0, "has_spilling": true, "spill_count": 8}, {"index": 49, "hash": "d0b131a9646fe461", "name": "PS:main_00005574_2214d48c", "entry_name": "main_00005574_2214d48c", "stage": "PS", "friendly_label": "MobileReflectionCapture_TextureSampler", "size": 23704, "spirv_version": "1.3", "valid": true, "type": "Fragment", "work_registers": 32, "uniform_registers": 122, "total_cycles": 5.0, "shortest_path": 0.125, "longest_path": 5.0, "fma_cycles": 1.8125, "cvt_cycles": 0.609375, "sfu_cycles": 0.25, "load_store_cycles": 5.0, "texture_cycles": 1.125, "varying_cycles": 0.25, "has_spilling": false, "spill_count": 0}, {"index": 50, "hash": "c759ade0ca147139", "name": "VS:main_00004504_bb710f88", "entry_name": "main_00004504_bb710f88", "stage": "VS", "friendly_label": "View_DistantSkyLightLutTextureSampler", "size": 19496, "spirv_version": "1.3", "valid": true, "type": "Vertex", "work_registers": 24, "uniform_registers": 104, "total_cycles": 7.0, "shortest_path": 7.0, "longest_path": 7.0, "fma_cycles": 0.484375, "cvt_cycles": 0.15625, "sfu_cycles": 0.0625, "load_store_cycles": 7.0, "texture_cycles": 0.0, "varying_cycles": 0.0, "has_spilling": false, "spill_count": 0}, {"index": 51, "hash": "0ac1a880b957451a", "name": "PS:main_000015f8_e787bb4e", "entry_name": "main_000015f8_e787bb4e", "stage": "PS", "friendly_label": "Material_Texture2D_0Sampler", "size": 7452, "spirv_version": "1.3", "valid": true, "type": "Fragment", "work_registers": 16, "uniform_registers": 24, "total_cycles": 1.0, "shortest_path": 1.0, "longest_path": 1.0, "fma_cycles": 0.1640625, "cvt_cycles": 0.21875, "sfu_cycles": 0.0, "load_store_cycles": 1.0, "texture_cycles": 0.25, "varying_cycles": 0.125, "has_spilling": false, "spill_count": 0}, {"index": 52, "hash": "490b37c6b41d1163", "name": "VS:main_00000cb4_2a635b4a", "entry_name": "main_00000cb4_2a635b4a", "stage": "VS", "friendly_label": "", "size": 5084, "spirv_version": "1.3", "valid": true, "type": "Vertex", "work_registers": 16, "uniform_registers": 26, "total_cycles": 3.0, "shortest_path": 3.0, "longest_path": 3.0, "fma_cycles": 0.1796875, "cvt_cycles": 0.078125, "sfu_cycles": 0.0625, "load_store_cycles": 3.0, "texture_cycles": 0.0, "varying_cycles": 0.0, "has_spilling": false, "spill_count": 0}, {"index": 53, "hash": "242f7208f50bd435", "name": "PS:main_00001518_b909e338", "entry_name": "main_00001518_b909e338", "stage": "PS", "friendly_label": "Material_Texture2D_0Sampler", "size": 7232, "spirv_version": "1.3", "valid": true, "type": "Fragment", "work_registers": 32, "uniform_registers": 34, "total_cycles": 1.03125, "shortest_path": 0.53125, "longest_path": 1.03125, "fma_cycles": 0.65625, "cvt_cycles": 0.53125, "sfu_cycles": 0.875, "load_store_cycles": 0.0, "texture_cycles": 0.125, "varying_cycles": 0.1875, "has_spilling": false, "spill_count": 0}, {"index": 54, "hash": "d2cf68b232eff636", "name": "VS:main_00000cb4_2a635b4a", "entry_name": "main_00000cb4_2a635b4a", "stage": "VS", "friendly_label": "", "size": 5084, "spirv_version": "1.3", "valid": true, "type": "Vertex", "work_registers": 16, "uniform_registers": 26, "total_cycles": 3.0, "shortest_path": 3.0, "longest_path": 3.0, "fma_cycles": 0.1796875, "cvt_cycles": 0.078125, "sfu_cycles": 0.0625, "load_store_cycles": 3.0, "texture_cycles": 0.0, "varying_cycles": 0.0, "has_spilling": false, "spill_count": 0}, {"index": 55, "hash": "584d8d1662e7f7b7", "name": "PS:main_00001558_1b0b29f3", "entry_name": "main_00001558_1b0b29f3", "stage": "PS", "friendly_label": "Material_Texture2D_0Sampler", "size": 7296, "spirv_version": "1.3", "valid": true, "type": "Fragment", "work_registers": 29, "uniform_registers": 32, "total_cycles": 1.046875, "shortest_path": 0.546875, "longest_path": 1.046875, "fma_cycles": 0.6875, "cvt_cycles": 0.5, "sfu_cycles": 0.875, "load_store_cycles": 0.0, "texture_cycles": 0.125, "varying_cycles": 0.1875, "has_spilling": false, "spill_count": 0}, {"index": 56, "hash": "0eb89a041e3fbe1a", "name": "VS:main_00001508_81573c17", "entry_name": "main_00001508_81573c17", "stage": "VS", "friendly_label": "BatchedPrimitive", "size": 7400, "spirv_version": "1.3", "valid": true, "type": "Vertex", "work_registers": 24, "uniform_registers": 30, "total_cycles": 7.0, "shortest_path": 7.0, "longest_path": 7.0, "fma_cycles": 0.484375, "cvt_cycles": 0.15625, "sfu_cycles": 0.0625, "load_store_cycles": 7.0, "texture_cycles": 0.0, "varying_cycles": 0.0, "has_spilling": false, "spill_count": 0}, {"index": 57, "hash": "b76c454012d6100b", "name": "PS:main_000004b4_516891b7", "entry_name": "main_000004b4_516891b7", "stage": "PS", "friendly_label": "Material_Texture2D_0Sampler", "size": 3220, "spirv_version": "1.3", "valid": true, "type": "Fragment", "work_registers": 3, "uniform_registers": 4, "total_cycles": 0.125, "shortest_path": 0.125, "longest_path": 0.125, "fma_cycles": 0.0, "cvt_cycles": 0.046875, "sfu_cycles": 0.0, "load_store_cycles": 0.0, "texture_cycles": 0.125, "varying_cycles": 0.0625, "has_spilling": false, "spill_count": 0}, {"index": 58, "hash": "4ec29438767825c0", "name": "VS:main_00001534_06ba849b", "entry_name": "main_00001534_06ba849b", "stage": "VS", "friendly_label": "BatchedPrimitive", "size": 7444, "spirv_version": "1.3", "valid": true, "type": "Vertex", "work_registers": 24, "uniform_registers": 30, "total_cycles": 7.0, "shortest_path": 7.0, "longest_path": 7.0, "fma_cycles": 0.484375, "cvt_cycles": 0.15625, "sfu_cycles": 0.0625, "load_store_cycles": 7.0, "texture_cycles": 0.0, "varying_cycles": 0.0, "has_spilling": false, "spill_count": 0}, {"index": 59, "hash": "0716fde96651c16c", "name": "PS:main_00004c64_f838ad6d", "entry_name": "main_00004c64_f838ad6d", "stage": "PS", "friendly_label": "MobileReflectionCapture_TextureSampler", "size": 21572, "spirv_version": "1.3", "valid": true, "type": "Fragment", "work_registers": 32, "uniform_registers": 100, "total_cycles": 5.0, "shortest_path": 0.125, "longest_path": 5.0, "fma_cycles": 1.524999976158142, "cvt_cycles": 0.609375, "sfu_cycles": 0.25, "load_store_cycles": 5.0, "texture_cycles": 0.875, "varying_cycles": 0.25, "has_spilling": false, "spill_count": 0}, {"index": 60, "hash": "c9f2941829e1292d", "name": "VS:main_000048bc_55d16f58", "entry_name": "main_000048bc_55d16f58", "stage": "VS", "friendly_label": "View_DistantSkyLightLutTextureSampler", "size": 20636, "spirv_version": "1.3", "valid": true, "type": "Vertex", "work_registers": 32, "uniform_registers": 112, "total_cycles": 9.0, "shortest_path": 9.0, "longest_path": 9.0, "fma_cycles": 0.8687499761581421, "cvt_cycles": 0.171875, "sfu_cycles": 0.1875, "load_store_cycles": 9.0, "texture_cycles": 0.0, "varying_cycles": 0.0, "has_spilling": false, "spill_count": 0}, {"index": 61, "hash": "1b52cf498185944b", "name": "PS:main_00000e48_31b68fa4", "entry_name": "main_00000e48_31b68fa4", "stage": "PS", "friendly_label": "MobileBasePass_SceneTextures_CustomStencilTexture", "size": 5672, "spirv_version": "1.3", "valid": true, "type": "Fragment", "work_registers": 12, "uniform_registers": 12, "total_cycles": 2.0, "shortest_path": 2.0, "longest_path": 2.0, "fma_cycles": 0.1015625, "cvt_cycles": 0.28125, "sfu_cycles": 0.0, "load_store_cycles": 2.0, "texture_cycles": 0.125, "varying_cycles": 0.09375, "has_spilling": false, "spill_count": 0}, {"index": 62, "hash": "b89e9edcfe991779", "name": "VS:main_00004ed0_be89373d", "entry_name": "main_00004ed0_be89373d", "stage": "VS", "friendly_label": "View_DistantSkyLightLutTextureSampler", "size": 22192, "spirv_version": "1.3", "valid": true, "type": "Vertex", "work_registers": 32, "uniform_registers": 124, "total_cycles": 12.0, "shortest_path": 12.0, "longest_path": 12.0, "fma_cycles": 1.015625, "cvt_cycles": 0.203125, "sfu_cycles": 0.1875, "load_store_cycles": 12.0, "texture_cycles": 0.125, "varying_cycles": 0.0, "has_spilling": false, "spill_count": 0}, {"index": 63, "hash": "6560e5c6024e398c", "name": "PS:main_000019a0_d1530898", "entry_name": "main_000019a0_d1530898", "stage": "PS", "friendly_label": "Material_Texture2D_0Sampler", "size": 8576, "spirv_version": "1.3", "valid": true, "type": "Fragment", "work_registers": 29, "uniform_registers": 42, "total_cycles": 3.0, "shortest_path": 3.0, "longest_path": 3.0, "fma_cycles": 0.5687500238418579, "cvt_cycles": 0.25, "sfu_cycles": 0.25, "load_store_cycles": 3.0, "texture_cycles": 0.25, "varying_cycles": 0.1875, "has_spilling": false, "spill_count": 0}, {"index": 64, "hash": "5d7b4a392969b819", "name": "VS:main_0000c3b4_f838055d", "entry_name": "main_0000c3b4_f838055d", "stage": "VS", "friendly_label": "View_DistantSkyLightLutTextureSampler", "size": 52136, "spirv_version": "1.3", "valid": true, "type": "Vertex", "work_registers": 64, "uniform_registers": 128, "total_cycles": 97.0999984741211, "shortest_path": 17.0, "longest_path": 55.0, "fma_cycles": 2.4312500953674316, "cvt_cycles": 1.9375, "sfu_cycles": 1.0625, "load_store_cycles": 55.0, "texture_cycles": 0.0, "varying_cycles": 0.0, "has_spilling": false, "spill_count": 0}, {"index": 65, "hash": "fffea45371d14984", "name": "PS:main_000039f4_f231b94b", "entry_name": "main_000039f4_f231b94b", "stage": "PS", "friendly_label": "Material_Texture2D_0Sampler", "size": 16876, "spirv_version": "1.3", "valid": true, "type": "Fragment", "work_registers": 32, "uniform_registers": 96, "total_cycles": 1.8453125953674316, "shortest_path": 1.8062500953674316, "longest_path": 1.8453125953674316, "fma_cycles": 1.359375, "cvt_cycles": 0.675000011920929, "sfu_cycles": 1.1875, "load_store_cycles": 0.0, "texture_cycles": 0.25, "varying_cycles": 0.59375, "has_spilling": false, "spill_count": 0}, {"index": 66, "hash": "289f2c329fdc5438", "name": "VS:main_000023ac_24c77707", "entry_name": "main_000023ac_24c77707", "stage": "VS", "friendly_label": "BoneMatrices", "size": 11200, "spirv_version": "1.3", "valid": true, "type": "Vertex", "work_registers": 64, "uniform_registers": 46, "total_cycles": 55.20000076293945, "shortest_path": 29.0, "longest_path": 59.0, "fma_cycles": 1.962499976158142, "cvt_cycles": 0.484375, "sfu_cycles": 0.5625, "load_store_cycles": 59.0, "texture_cycles": 0.0, "varying_cycles": 0.0, "has_spilling": true, "spill_count": 8}, {"index": 67, "hash": "3996b2884c0495f6", "name": "PS:main_000004b4_516891b7", "entry_name": "main_000004b4_516891b7", "stage": "PS", "friendly_label": "Material_Texture2D_0Sampler", "size": 3272, "spirv_version": "1.3", "valid": true, "type": "Fragment", "work_registers": 3, "uniform_registers": 4, "total_cycles": 0.125, "shortest_path": 0.125, "longest_path": 0.125, "fma_cycles": 0.0, "cvt_cycles": 0.046875, "sfu_cycles": 0.0, "load_store_cycles": 0.0, "texture_cycles": 0.125, "varying_cycles": 0.0625, "has_spilling": false, "spill_count": 0}, {"index": 68, "hash": "68a96cfb0e471d74", "name": "VS:main_000023d8_0d128418", "entry_name": "main_000023d8_0d128418", "stage": "VS", "friendly_label": "BoneMatrices", "size": 11244, "spirv_version": "1.3", "valid": true, "type": "Vertex", "work_registers": 64, "uniform_registers": 46, "total_cycles": 55.20000076293945, "shortest_path": 29.0, "longest_path": 59.0, "fma_cycles": 1.962499976158142, "cvt_cycles": 0.484375, "sfu_cycles": 0.5625, "load_store_cycles": 59.0, "texture_cycles": 0.0, "varying_cycles": 0.0, "has_spilling": true, "spill_count": 8}, {"index": 69, "hash": "66b9baefdf54c1af", "name": "PS:main_00004c70_9a7ab58a", "entry_name": "main_00004c70_9a7ab58a", "stage": "PS", "friendly_label": "MobileReflectionCapture_TextureSampler", "size": 21636, "spirv_version": "1.3", "valid": true, "type": "Fragment", "work_registers": 32, "uniform_registers": 100, "total_cycles": 5.0, "shortest_path": 0.125, "longest_path": 5.0, "fma_cycles": 1.524999976158142, "cvt_cycles": 0.609375, "sfu_cycles": 0.25, "load_store_cycles": 5.0, "texture_cycles": 0.875, "varying_cycles": 0.25, "has_spilling": false, "spill_count": 0}, {"index": 70, "hash": "b4165d68587638b3", "name": "PS:main_00003d68_7bd7edbd", "entry_name": "main_00003d68_7bd7edbd", "stage": "PS", "friendly_label": "Material_Texture2D_0Sampler", "size": 17808, "spirv_version": "1.3", "valid": true, "type": "Fragment", "work_registers": 32, "uniform_registers": 108, "total_cycles": 1.9921875, "shortest_path": 1.953125, "longest_path": 1.9921875, "fma_cycles": 1.493749976158142, "cvt_cycles": 0.699999988079071, "sfu_cycles": 1.1875, "load_store_cycles": 0.0, "texture_cycles": 0.25, "varying_cycles": 0.59375, "has_spilling": false, "spill_count": 0}, {"index": 71, "hash": "ab22127d803c6e92", "name": "PS:main_000004b4_516891b7", "entry_name": "main_000004b4_516891b7", "stage": "PS", "friendly_label": "Material_Texture2D_0Sampler", "size": 3292, "spirv_version": "1.3", "valid": true, "type": "Fragment", "work_registers": 3, "uniform_registers": 4, "total_cycles": 0.125, "shortest_path": 0.125, "longest_path": 0.125, "fma_cycles": 0.0, "cvt_cycles": 0.046875, "sfu_cycles": 0.0, "load_store_cycles": 0.0, "texture_cycles": 0.125, "varying_cycles": 0.0625, "has_spilling": false, "spill_count": 0}, {"index": 72, "hash": "02548863f3ebc325", "name": "VS:main_000023d8_0d128418", "entry_name": "main_000023d8_0d128418", "stage": "VS", "friendly_label": "BoneMatrices", "size": 11264, "spirv_version": "1.3", "valid": true, "type": "Vertex", "work_registers": 64, "uniform_registers": 46, "total_cycles": 55.20000076293945, "shortest_path": 29.0, "longest_path": 59.0, "fma_cycles": 1.962499976158142, "cvt_cycles": 0.484375, "sfu_cycles": 0.5625, "load_store_cycles": 59.0, "texture_cycles": 0.0, "varying_cycles": 0.0, "has_spilling": true, "spill_count": 8}, {"index": 73, "hash": "fc6bea0c0ec2a0c5", "name": "PS:main_00004eb0_3bf0a134", "entry_name": "main_00004eb0_3bf0a134", "stage": "PS", "friendly_label": "MobileReflectionCapture_TextureSampler", "size": 22232, "spirv_version": "1.3", "valid": true, "type": "Fragment", "work_registers": 32, "uniform_registers": 104, "total_cycles": 5.0, "shortest_path": 0.125, "longest_path": 5.0, "fma_cycles": 1.53125, "cvt_cycles": 0.637499988079071, "sfu_cycles": 0.25, "load_store_cycles": 5.0, "texture_cycles": 0.875, "varying_cycles": 0.25, "has_spilling": false, "spill_count": 0}, {"index": 74, "hash": "a00e81c1bf5f3d10", "name": "VS:main_00005134_3c38c702", "entry_name": "main_00005134_3c38c702", "stage": "VS", "friendly_label": "View_DistantSkyLightLutTextureSampler", "size": 22884, "spirv_version": "1.3", "valid": true, "type": "Vertex", "work_registers": 32, "uniform_registers": 126, "total_cycles": 11.0, "shortest_path": 11.0, "longest_path": 11.0, "fma_cycles": 1.5, "cvt_cycles": 0.25, "sfu_cycles": 0.5, "load_store_cycles": 11.0, "texture_cycles": 0.0, "varying_cycles": 0.0, "has_spilling": false, "spill_count": 0}, {"index": 75, "hash": "d3fe531ab1179c04", "name": "PS:main_00003cb4_8519f1c0", "entry_name": "main_00003cb4_8519f1c0", "stage": "PS", "friendly_label": "Material_Texture2D_0Sampler", "size": 17640, "spirv_version": "1.3", "valid": true, "type": "Fragment", "work_registers": 32, "uniform_registers": 116, "total_cycles": 6.0, "shortest_path": 6.0, "longest_path": 6.0, "fma_cycles": 1.59375, "cvt_cycles": 0.887499988079071, "sfu_cycles": 1.25, "load_store_cycles": 6.0, "texture_cycles": 0.375, "varying_cycles": 0.40625, "has_spilling": false, "spill_count": 0}, {"index": 76, "hash": "dc4c62e4f365730f", "name": "VS:main_00004ba8_6d114942", "entry_name": "main_00004ba8_6d114942", "stage": "VS", "friendly_label": "View_DistantSkyLightLutTextureSampler", "size": 23172, "spirv_version": "1.3", "valid": true, "type": "Vertex", "work_registers": 32, "uniform_registers": 118, "total_cycles": 10.0, "shortest_path": 10.0, "longest_path": 10.0, "fma_cycles": 0.90625, "cvt_cycles": 0.203125, "sfu_cycles": 0.375, "load_store_cycles": 10.0, "texture_cycles": 0.0, "varying_cycles": 0.0, "has_spilling": false, "spill_count": 0}, {"index": 77, "hash": "0be59440b306cc13", "name": "PS:main_00000e34_f5a64356", "entry_name": "main_00000e34_f5a64356", "stage": "PS", "friendly_label": "Material_Texture2D_0Sampler", "size": 7440, "spirv_version": "1.3", "valid": true, "type": "Fragment", "work_registers": 19, "uniform_registers": 16, "total_cycles": 0.25, "shortest_path": 0.25, "longest_path": 0.25, "fma_cycles": 0.2421875, "cvt_cycles": 0.0, "sfu_cycles": 0.0, "load_store_cycles": 0.0, "texture_cycles": 0.25, "varying_cycles": 0.125, "has_spilling": false, "spill_count": 0}, {"index": 78, "hash": "eaef580c99154c75", "name": "VS:main_0000d484_7217afa3", "entry_name": "main_0000d484_7217afa3", "stage": "VS", "friendly_label": "View_DistantSkyLightLutTextureSampler", "size": 58208, "spirv_version": "1.3", "valid": true, "type": "Vertex", "work_registers": 64, "uniform_registers": 128, "total_cycles": 87.69999694824219, "shortest_path": 22.0, "longest_path": 63.0, "fma_cycles": 4.875, "cvt_cycles": 2.512500047683716, "sfu_cycles": 0.875, "load_store_cycles": 63.0, "texture_cycles": 0.0, "varying_cycles": 0.0, "has_spilling": true, "spill_count": 20}, {"index": 79, "hash": "8b77c004675cb9a8", "name": "PS:main_00004708_0a571611", "entry_name": "main_00004708_0a571611", "stage": "PS", "friendly_label": "Material_Texture2D_0Sampler", "size": 21992, "spirv_version": "1.3", "valid": true, "type": "Fragment", "work_registers": 32, "uniform_registers": 128, "total_cycles": 2.395312547683716, "shortest_path": 2.356250047683716, "longest_path": 2.395312547683716, "fma_cycles": 1.818750023841858, "cvt_cycles": 0.824999988079071, "sfu_cycles": 1.3125, "load_store_cycles": 0.0, "texture_cycles": 0.375, "varying_cycles": 1.0625, "has_spilling": false, "spill_count": 0}, {"index": 80, "hash": "3dd3beae97bc6706", "name": "VS:main_0000d204_d6809e05", "entry_name": "main_0000d204_d6809e05", "stage": "VS", "friendly_label": "View_DistantSkyLightLutTextureSampler", "size": 57568, "spirv_version": "1.3", "valid": true, "type": "Vertex", "work_registers": 64, "uniform_registers": 128, "total_cycles": 101.0, "shortest_path": 21.0, "longest_path": 57.0, "fma_cycles": 2.4312500953674316, "cvt_cycles": 1.9375, "sfu_cycles": 1.0625, "load_store_cycles": 57.0, "texture_cycles": 0.0, "varying_cycles": 0.0, "has_spilling": false, "spill_count": 0}, {"index": 81, "hash": "28f40bfcd57f31f9", "name": "PS:main_00005254_4a7cd750", "entry_name": "main_00005254_4a7cd750", "stage": "PS", "friendly_label": "Material_Texture2D_0Sampler", "size": 24884, "spirv_version": "1.3", "valid": true, "type": "Fragment", "work_registers": 32, "uniform_registers": 128, "total_cycles": 2.8703126907348633, "shortest_path": 2.831249952316284, "longest_path": 2.8703126907348633, "fma_cycles": 2.0250000953674316, "cvt_cycles": 1.2999999523162842, "sfu_cycles": 1.5625, "load_store_cycles": 0.0, "texture_cycles": 0.5, "varying_cycles": 0.71875, "has_spilling": false, "spill_count": 0}, {"index": 82, "hash": "b954b1aaf9a39302", "name": "VS:main_00005ecc_753a35f1", "entry_name": "main_00005ecc_753a35f1", "stage": "VS", "friendly_label": "View_DistantSkyLightLutTextureSampler", "size": 28076, "spirv_version": "1.3", "valid": true, "type": "Vertex", "work_registers": 64, "uniform_registers": 128, "total_cycles": 57.20000076293945, "shortest_path": 31.0, "longest_path": 61.0, "fma_cycles": 2.375, "cvt_cycles": 0.625, "sfu_cycles": 0.625, "load_store_cycles": 61.0, "texture_cycles": 0.125, "varying_cycles": 0.0, "has_spilling": true, "spill_count": 8}, {"index": 83, "hash": "bb29eae39c257391", "name": "PS:main_0000189c_e2468779", "entry_name": "main_0000189c_e2468779", "stage": "PS", "friendly_label": "Material_Texture2D_0Sampler", "size": 10108, "spirv_version": "1.3", "valid": true, "type": "Fragment", "work_registers": 18, "uniform_registers": 34, "total_cycles": 1.0, "shortest_path": 1.0, "longest_path": 1.0, "fma_cycles": 0.4937500059604645, "cvt_cycles": 0.203125, "sfu_cycles": 0.1875, "load_store_cycles": 1.0, "texture_cycles": 0.25, "varying_cycles": 0.15625, "has_spilling": false, "spill_count": 0}], "textures": [{"resource_id": 119808, "width": 1, "height": 1, "depth": 1, "format": 37, "format_name": "R8G8B8A8_UNORM", "mip_levels": 1, "array_layers": 1, "samples": 1, "usage": 7, "image_type": 1}, {"resource_id": 121344, "width": 1, "height": 1, "depth": 1, "format": 37, "format_name": "R8G8B8A8_UNORM", "mip_levels": 1, "array_layers": 1, "samples": 1, "usage": 7, "image_type": 1}, {"resource_id": 129280, "width": 1, "height": 1, "depth": 1, "format": 44, "format_name": "B8G8R8A8_UNORM", "mip_levels": 1, "array_layers": 1, "samples": 1, "usage": 7, "image_type": 2}, {"resource_id": 132352, "width": 1, "height": 1, "depth": 1, "format": 44, "format_name": "B8G8R8A8_UNORM", "mip_levels": 1, "array_layers": 6, "samples": 1, "usage": 7, "image_type": 1}, {"resource_id": 140800, "width": 1, "height": 1, "depth": 1, "format": 44, "format_name": "B8G8R8A8_UNORM", "mip_levels": 1, "array_layers": 6, "samples": 1, "usage": 7, "image_type": 1}, {"resource_id": 240640, "width": 1, "height": 1, "depth": 1, "format": 44, "format_name": "B8G8R8A8_UNORM", "mip_levels": 1, "array_layers": 1, "samples": 1, "usage": 7, "image_type": 1}, {"resource_id": 357120, "width": 1, "height": 1, "depth": 1, "format": 44, "format_name": "B8G8R8A8_UNORM", "mip_levels": 1, "array_layers": 1, "samples": 1, "usage": 7, "image_type": 1}, {"resource_id": 959232, "width": 1024, "height": 32, "depth": 1, "format": 64, "format_name": "A2B10G10R10_UNORM_PACK32", "mip_levels": 1, "array_layers": 1, "samples": 1, "usage": 23, "image_type": 1}, {"resource_id": 1049088, "width": 1024, "height": 1024, "depth": 1, "format": 9, "format_name": "R8_UNORM", "mip_levels": 1, "array_layers": 1, "samples": 1, "usage": 7, "image_type": 1}, {"resource_id": 11636480, "width": 2424, "height": 1080, "depth": 1, "format": 37, "format_name": "R8G8B8A8_UNORM", "mip_levels": 1, "array_layers": 1, "samples": 1, "usage": 23, "image_type": 1}, {"resource_id": 23690752, "width": 360, "height": 1, "depth": 1, "format": 100, "format_name": "R32_SFLOAT", "mip_levels": 1, "array_layers": 1, "samples": 1, "usage": 7, "image_type": 1}, {"resource_id": 23695360, "width": 360, "height": 1, "depth": 1, "format": 100, "format_name": "R32_SFLOAT", "mip_levels": 1, "array_layers": 1, "samples": 1, "usage": 7, "image_type": 1}, {"resource_id": 23699712, "width": 360, "height": 1, "depth": 1, "format": 100, "format_name": "R32_SFLOAT", "mip_levels": 1, "array_layers": 1, "samples": 1, "usage": 7, "image_type": 1}, {"resource_id": 23776000, "width": 1785, "height": 794, "depth": 1, "format": 122, "format_name": "B10G11R11_UFLOAT_PACK32", "mip_levels": 1, "array_layers": 1, "samples": 1, "usage": 23, "image_type": 1}, {"resource_id": 23780352, "width": 1785, "height": 794, "depth": 1, "format": 76, "format_name": "R16_SFLOAT", "mip_levels": 1, "array_layers": 1, "samples": 1, "usage": 23, "image_type": 1}, {"resource_id": 23781632, "width": 1700, "height": 756, "depth": 1, "format": 122, "format_name": "B10G11R11_UFLOAT_PACK32", "mip_levels": 1, "array_layers": 1, "samples": 2, "usage": 80, "image_type": 1}, {"resource_id": 23782144, "width": 1700, "height": 756, "depth": 1, "format": 122, "format_name": "B10G11R11_UFLOAT_PACK32", "mip_levels": 1, "array_layers": 1, "samples": 1, "usage": 23, "image_type": 1}, {"resource_id": 23783168, "width": 1700, "height": 756, "depth": 1, "format": 76, "format_name": "R16_SFLOAT", "mip_levels": 1, "array_layers": 1, "samples": 2, "usage": 208, "image_type": 1}, {"resource_id": 23783680, "width": 1700, "height": 756, "depth": 1, "format": 76, "format_name": "R16_SFLOAT", "mip_levels": 1, "array_layers": 1, "samples": 1, "usage": 23, "image_type": 1}, {"resource_id": 23784192, "width": 1700, "height": 756, "depth": 1, "format": 129, "format_name": "D24_UNORM_S8_UINT", "mip_levels": 1, "array_layers": 1, "samples": 2, "usage": 224, "image_type": 1}, {"resource_id": 23784960, "width": 425, "height": 189, "depth": 1, "format": 76, "format_name": "R16_SFLOAT", "mip_levels": 1, "array_layers": 1, "samples": 1, "usage": 23, "image_type": 1}, {"resource_id": 23785472, "width": 1700, "height": 756, "depth": 1, "format": 37, "format_name": "R8G8B8A8_UNORM", "mip_levels": 1, "array_layers": 1, "samples": 1, "usage": 23, "image_type": 1}, {"resource_id": 23785984, "width": 1700, "height": 756, "depth": 1, "format": 37, "format_name": "R8G8B8A8_UNORM", "mip_levels": 1, "array_layers": 1, "samples": 1, "usage": 23, "image_type": 1}, {"resource_id": 23787008, "width": 2424, "height": 1080, "depth": 1, "format": 37, "format_name": "R8G8B8A8_UNORM", "mip_levels": 1, "array_layers": 1, "samples": 1, "usage": 31, "image_type": 1}, {"resource_id": 24043264, "width": 28, "height": 13, "depth": 1, "format": 109, "format_name": "R32G32B32A32_SFLOAT", "mip_levels": 1, "array_layers": 1, "samples": 1, "usage": 15, "image_type": 1}, {"resource_id": 24044800, "width": 425, "height": 189, "depth": 1, "format": 76, "format_name": "R16_SFLOAT", "mip_levels": 1, "array_layers": 1, "samples": 1, "usage": 23, "image_type": 1}, {"resource_id": 24045312, "width": 1700, "height": 756, "depth": 1, "format": 9, "format_name": "R8_UNORM", "mip_levels": 1, "array_layers": 1, "samples": 1, "usage": 23, "image_type": 1}, {"resource_id": 24263424, "width": 64, "height": 64, "depth": 1, "format": 9, "format_name": "R8_UNORM", "mip_levels": 7, "array_layers": 1, "samples": 1, "usage": 7, "image_type": 1}, {"resource_id": 24722688, "width": 1700, "height": 756, "depth": 1, "format": 122, "format_name": "B10G11R11_UFLOAT_PACK32", "mip_levels": 1, "array_layers": 1, "samples": 1, "usage": 23, "image_type": 1}, {"resource_id": 25291520, "width": 1, "height": 1, "depth": 1, "format": 44, "format_name": "B8G8R8A8_UNORM", "mip_levels": 1, "array_layers": 1, "samples": 1, "usage": 7, "image_type": 1}, {"resource_id": 29311744, "width": 64, "height": 64, "depth": 1, "format": 9, "format_name": "R8_UNORM", "mip_levels": 7, "array_layers": 1, "samples": 1, "usage": 7, "image_type": 1}, {"resource_id": 29938944, "width": 1700, "height": 756, "depth": 1, "format": 129, "format_name": "D24_UNORM_S8_UINT", "mip_levels": 1, "array_layers": 1, "samples": 1, "usage": 39, "image_type": 1}, {"resource_id": 30333696, "width": 128, "height": 128, "depth": 1, "format": 171, "format_name": "ASTC_8x8_UNORM_BLOCK", "mip_levels": 8, "array_layers": 1, "samples": 1, "usage": 7, "image_type": 1}, {"resource_id": 30515712, "width": 256, "height": 256, "depth": 1, "format": 171, "format_name": "ASTC_8x8_UNORM_BLOCK", "mip_levels": 9, "array_layers": 1, "samples": 1, "usage": 7, "image_type": 1}, {"resource_id": 33297152, "width": 512, "height": 512, "depth": 1, "format": 9, "format_name": "R8_UNORM", "mip_levels": 10, "array_layers": 1, "samples": 1, "usage": 7, "image_type": 1}, {"resource_id": 34093056, "width": 64, "height": 64, "depth": 1, "format": 171, "format_name": "ASTC_8x8_UNORM_BLOCK", "mip_levels": 7, "array_layers": 1, "samples": 1, "usage": 7, "image_type": 1}, {"resource_id": 34095872, "width": 64, "height": 64, "depth": 1, "format": 171, "format_name": "ASTC_8x8_UNORM_BLOCK", "mip_levels": 7, "array_layers": 1, "samples": 1, "usage": 7, "image_type": 1}, {"resource_id": 35415040, "width": 256, "height": 256, "depth": 1, "format": 171, "format_name": "ASTC_8x8_UNORM_BLOCK", "mip_levels": 9, "array_layers": 1, "samples": 1, "usage": 7, "image_type": 1}]}, {"summary": {"file": "D:\\renderdoc\\goog pixel-9\\g145-battle-2.rdc", "file_name": "g145-battle-2.rdc", "driver": "Vulkan", "gpu_core": "Mali-G715", "total_shaders": 109, "analyzed_shaders": 105, "failed_analyses": 4, "shader_types": {"Compute": 8, "Vertex": 47, "Fragment": 50}, "cycles": {"total": 1120.504687488079, "average": 10.671473214172181, "max": 63.0, "min": 0.015625}, "spilling_shaders": 9, "timestamp": "2026-01-16T22:43:46.871400", "total_textures": 51}, "shaders": [{"index": 0, "hash": "daf6df24286b9a7c", "name": "CS:main_00000224_9c2dedcd", "entry_name": "main_00000224_9c2dedcd", "stage": "CS", "friendly_label": "GPUMessageDataBuffer", "size": 604, "spirv_version": "1.3", "valid": true, "type": "Compute", "work_registers": 1, "uniform_registers": 2, "total_cycles": 0.0625, "shortest_path": 1.0, "longest_path": 1.0, "fma_cycles": 0.0, "cvt_cycles": 0.015625, "sfu_cycles": 0.0, "load_store_cycles": 1.0, "texture_cycles": 0.0, "varying_cycles": 0.0, "has_spilling": false, "spill_count": 0}, {"index": 1, "hash": "3df62f43637f64c5", "name": "CS:main_000000e0_624b1826", "entry_name": "main_000000e0_624b1826", "stage": "CS", "friendly_label": "", "size": 280, "spirv_version": "1.3", "valid": true, "type": "Compute", "work_registers": 0, "uniform_registers": 0, "total_cycles": 0.015625, "shortest_path": 0.015625, "longest_path": 0.015625, "fma_cycles": 0.0, "cvt_cycles": 0.015625, "sfu_cycles": 0.0, "load_store_cycles": 0.0, "texture_cycles": 0.0, "varying_cycles": 0.0, "has_spilling": false, "spill_count": 0}, {"index": 2, "hash": "9a1d81d2548ecbcb", "name": "CS:main_000029e8_103bbcf0", "entry_name": "main_000029e8_103bbcf0", "stage": "CS", "friendly_label": "ReflectionCaptureES31", "size": 10784, "spirv_version": "1.3", "valid": false, "error": "JSON parse error: float() argument must be a string or a real number, not 'NoneType'"}, {"index": 3, "hash": "b300a805eaabc836", "name": "VS:main_000008e0_9e531da2", "entry_name": "main_000008e0_9e531da2", "stage": "VS", "friendly_label": "", "size": 2328, "spirv_version": "1.3", "valid": true, "type": "Vertex", "work_registers": 13, "uniform_registers": 26, "total_cycles": 3.0, "shortest_path": 3.0, "longest_path": 3.0, "fma_cycles": 0.1328125, "cvt_cycles": 0.078125, "sfu_cycles": 0.0625, "load_store_cycles": 3.0, "texture_cycles": 0.0, "varying_cycles": 0.0, "has_spilling": false, "spill_count": 0}, {"index": 4, "hash": "6e587a38337a26a0", "name": "PS:main_00000f3c_6409666b", "entry_name": "main_00000f3c_6409666b", "stage": "PS", "friendly_label": "SceneColorTexture", "size": 3956, "spirv_version": "1.3", "valid": true, "type": "Fragment", "work_registers": 22, "uniform_registers": 14, "total_cycles": 0.5, "shortest_path": 0.5, "longest_path": 0.5, "fma_cycles": 0.3187499940395355, "cvt_cycles": 0.09375, "sfu_cycles": 0.375, "load_store_cycles": 0.0, "texture_cycles": 0.5, "varying_cycles": 0.25, "has_spilling": false, "spill_count": 0}, {"index": 5, "hash": "da3f417d56aef0d6", "name": "CS:main_00000f74_e3e428e1", "entry_name": "main_00000f74_e3e428e1", "stage": "CS", "friendly_label": "EyeAdaptation_MeterMaskTexture", "size": 4012, "spirv_version": "1.3", "valid": true, "type": "Compute", "work_registers": 15, "uniform_registers": 8, "total_cycles": 25.100000381469727, "shortest_path": 1.0, "longest_path": 26.0, "fma_cycles": 0.2421875, "cvt_cycles": 0.84375, "sfu_cycles": 0.0, "load_store_cycles": 26.0, "texture_cycles": 1.0, "varying_cycles": 0.0, "has_spilling": false, "spill_count": 0}, {"index": 6, "hash": "e8b23fc45c4ccae7", "name": "CS:main_00001048_d50b6e79", "entry_name": "main_00001048_d50b6e79", "stage": "CS", "friendly_label": "EyeAdaptationBuffer", "size": 4224, "spirv_version": "1.3", "valid": true, "type": "Compute", "work_registers": 10, "uniform_registers": 20, "total_cycles": 4.119999885559082, "shortest_path": 6.0, "longest_path": 6.0, "fma_cycles": 0.140625, "cvt_cycles": 0.421875, "sfu_cycles": 0.4375, "load_store_cycles": 6.0, "texture_cycles": 0.0, "varying_cycles": 0.0, "has_spilling": false, "spill_count": 0}, {"index": 7, "hash": "f2b94456d64c93f6", "name": "VS:main_00000ee8_d158872b", "entry_name": "main_00000ee8_d158872b", "stage": "VS", "friendly_label": "", "size": 3876, "spirv_version": "1.3", "valid": true, "type": "Vertex", "work_registers": 13, "uniform_registers": 38, "total_cycles": 3.0, "shortest_path": 3.0, "longest_path": 3.0, "fma_cycles": 0.1484375, "cvt_cycles": 0.078125, "sfu_cycles": 0.0625, "load_store_cycles": 3.0, "texture_cycles": 0.0, "varying_cycles": 0.0, "has_spilling": false, "spill_count": 0}, {"index": 8, "hash": "fb52d0af0df9b93b", "name": "CS:main_0000c384_5676c44b", "entry_name": "main_0000c384_5676c44b", "stage": "CS", "friendly_label": "InputTexture", "size": 50112, "spirv_version": "1.3", "valid": true, "type": "Compute", "work_registers": 64, "uniform_registers": 30, "total_cycles": 9.681249618530273, "shortest_path": 8.0, "longest_path": 9.681249618530273, "fma_cycles": 8.21875, "cvt_cycles": 2.549999952316284, "sfu_cycles": 1.5, "load_store_cycles": 8.0, "texture_cycles": 8.5, "varying_cycles": 0.0, "has_spilling": false, "spill_count": 0}, {"index": 9, "hash": "577f0d7dfeae6fdb", "name": "VS:main_000006dc_c9e1aec0", "entry_name": "main_000006dc_c9e1aec0", "stage": "VS", "friendly_label": "", "size": 1816, "spirv_version": "1.3", "valid": true, "type": "Vertex", "work_registers": 13, "uniform_registers": 22, "total_cycles": 3.0, "shortest_path": 3.0, "longest_path": 3.0, "fma_cycles": 0.1484375, "cvt_cycles": 0.078125, "sfu_cycles": 0.0625, "load_store_cycles": 3.0, "texture_cycles": 0.0, "varying_cycles": 0.0, "has_spilling": false, "spill_count": 0}, {"index": 10, "hash": "80c4fab3379fd22d", "name": "PS:main_00001794_e2d089b2", "entry_name": "main_00001794_e2d089b2", "stage": "PS", "friendly_label": "InputTexture", "size": 6096, "spirv_version": "1.3", "valid": true, "type": "Fragment", "work_registers": 18, "uniform_registers": 4, "total_cycles": 0.793749988079071, "shortest_path": 0.793749988079071, "longest_path": 0.793749988079071, "fma_cycles": 0.2265625, "cvt_cycles": 0.699999988079071, "sfu_cycles": 0.375, "load_store_cycles": 0.0, "texture_cycles": 0.625, "varying_cycles": 0.0, "has_spilling": false, "spill_count": 0}, {"index": 11, "hash": "056104157ef4f2d4", "name": "CS:main_0000047c_98fdb92c", "entry_name": "main_0000047c_98fdb92c", "stage": "CS", "friendly_label": "ClearResource", "size": 1208, "spirv_version": "1.3", "valid": true, "type": "Compute", "work_registers": 7, "uniform_registers": 8, "total_cycles": 2.0, "shortest_path": 0.0625, "longest_path": 2.0, "fma_cycles": 0.0, "cvt_cycles": 0.125, "sfu_cycles": 0.0, "load_store_cycles": 2.0, "texture_cycles": 0.0, "varying_cycles": 0.0, "has_spilling": false, "spill_count": 0}, {"index": 12, "hash": "8a416535e6c189fc", "name": "VS:main_00000c90_768261d5", "entry_name": "main_00000c90_768261d5", "stage": "VS", "friendly_label": "", "size": 3280, "spirv_version": "1.3", "valid": true, "type": "Vertex", "work_registers": 16, "uniform_registers": 26, "total_cycles": 3.0, "shortest_path": 3.0, "longest_path": 3.0, "fma_cycles": 0.1796875, "cvt_cycles": 0.078125, "sfu_cycles": 0.0625, "load_store_cycles": 3.0, "texture_cycles": 0.0, "varying_cycles": 0.0, "has_spilling": false, "spill_count": 0}, {"index": 13, "hash": "f311382e5ecc9a47", "name": "PS:main_00000bdc_074e18a4", "entry_name": "main_00000bdc_074e18a4", "stage": "PS", "friendly_label": "ElementTextureSampler", "size": 3100, "spirv_version": "1.3", "valid": true, "type": "Fragment", "work_registers": 26, "uniform_registers": 18, "total_cycles": 0.75, "shortest_path": 0.1875, "longest_path": 0.75, "fma_cycles": 0.265625, "cvt_cycles": 0.421875, "sfu_cycles": 0.75, "load_store_cycles": 0.0, "texture_cycles": 0.125, "varying_cycles": 0.1875, "has_spilling": false, "spill_count": 0}, {"index": 14, "hash": "b2f1f305c39016f8", "name": "PS:main_00000c04_f1880dd2", "entry_name": "main_00000c04_f1880dd2", "stage": "PS", "friendly_label": "ElementTextureSampler", "size": 3140, "spirv_version": "1.3", "valid": true, "type": "Fragment", "work_registers": 23, "uniform_registers": 18, "total_cycles": 0.75, "shortest_path": 0.125, "longest_path": 0.75, "fma_cycles": 0.25, "cvt_cycles": 0.453125, "sfu_cycles": 0.75, "load_store_cycles": 0.0, "texture_cycles": 0.125, "varying_cycles": 0.125, "has_spilling": false, "spill_count": 0}, {"index": 15, "hash": "6faa50caea1de0d4", "name": "VS:main_00000284_251097ed", "entry_name": "main_00000284_251097ed", "stage": "VS", "friendly_label": "", "size": 1308, "spirv_version": "1.3", "valid": true, "type": "Vertex", "work_registers": 11, "uniform_registers": 6, "total_cycles": 3.0, "shortest_path": 3.0, "longest_path": 3.0, "fma_cycles": 0.0625, "cvt_cycles": 0.03125, "sfu_cycles": 0.0625, "load_store_cycles": 3.0, "texture_cycles": 0.0, "varying_cycles": 0.0, "has_spilling": false, "spill_count": 0}, {"index": 16, "hash": "7f5e5eeba43b9641", "name": "PS:main_000029e0_2a94a009", "entry_name": "main_000029e0_2a94a009", "stage": "PS", "friendly_label": "Input_Texture", "size": 11384, "spirv_version": "1.3", "valid": true, "type": "Fragment", "work_registers": 32, "uniform_registers": 44, "total_cycles": 1.75, "shortest_path": 1.0, "longest_path": 1.75, "fma_cycles": 0.7875000238418579, "cvt_cycles": 1.4375, "sfu_cycles": 0.1875, "load_store_cycles": 1.0, "texture_cycles": 1.75, "varying_cycles": 0.0, "has_spilling": false, "spill_count": 0}, {"index": 17, "hash": "2b317f9ba669cf2c", "name": "VS:main_000002e8_38b4e28a", "entry_name": "main_000002e8_38b4e28a", "stage": "VS", "friendly_label": "", "size": 1416, "spirv_version": "1.3", "valid": true, "type": "Vertex", "work_registers": 15, "uniform_registers": 22, "total_cycles": 3.0, "shortest_path": 3.0, "longest_path": 3.0, "fma_cycles": 0.2109375, "cvt_cycles": 0.078125, "sfu_cycles": 0.0625, "load_store_cycles": 3.0, "texture_cycles": 0.0, "varying_cycles": 0.0, "has_spilling": false, "spill_count": 0}, {"index": 18, "hash": "5cc9662301ef0a7f", "name": "PS:main_00000f5c_423f7ef7", "entry_name": "main_00000f5c_423f7ef7", "stage": "PS", "friendly_label": "Material_Texture2D_0Sampler", "size": 4608, "spirv_version": "1.3", "valid": true, "type": "Fragment", "work_registers": 18, "uniform_registers": 28, "total_cycles": 1.0, "shortest_path": 1.0, "longest_path": 1.0, "fma_cycles": 0.2265625, "cvt_cycles": 0.25, "sfu_cycles": 0.0625, "load_store_cycles": 1.0, "texture_cycles": 0.25, "varying_cycles": 0.0, "has_spilling": false, "spill_count": 0}, {"index": 19, "hash": "7862b264a4988374", "name": "VS:main_000023ac_24c77707", "entry_name": "main_000023ac_24c77707", "stage": "VS", "friendly_label": "BoneMatrices", "size": 9808, "spirv_version": "1.3", "valid": true, "type": "Vertex", "work_registers": 64, "uniform_registers": 46, "total_cycles": 55.20000076293945, "shortest_path": 29.0, "longest_path": 59.0, "fma_cycles": 1.962499976158142, "cvt_cycles": 0.484375, "sfu_cycles": 0.5625, "load_store_cycles": 59.0, "texture_cycles": 0.0, "varying_cycles": 0.0, "has_spilling": true, "spill_count": 8}, {"index": 20, "hash": "9447244f6d34c8d3", "name": "PS:main_000004b4_516891b7", "entry_name": "main_000004b4_516891b7", "stage": "PS", "friendly_label": "Material_Texture2D_0Sampler", "size": 1880, "spirv_version": "1.3", "valid": true, "type": "Fragment", "work_registers": 3, "uniform_registers": 4, "total_cycles": 0.125, "shortest_path": 0.125, "longest_path": 0.125, "fma_cycles": 0.0, "cvt_cycles": 0.046875, "sfu_cycles": 0.0, "load_store_cycles": 0.0, "texture_cycles": 0.125, "varying_cycles": 0.0625, "has_spilling": false, "spill_count": 0}, {"index": 21, "hash": "3c87f67779cadc8a", "name": "VS:main_000023ac_24c77707", "entry_name": "main_000023ac_24c77707", "stage": "VS", "friendly_label": "BoneMatrices", "size": 9808, "spirv_version": "1.3", "valid": true, "type": "Vertex", "work_registers": 64, "uniform_registers": 46, "total_cycles": 55.20000076293945, "shortest_path": 29.0, "longest_path": 59.0, "fma_cycles": 1.962499976158142, "cvt_cycles": 0.484375, "sfu_cycles": 0.5625, "load_store_cycles": 59.0, "texture_cycles": 0.0, "varying_cycles": 0.0, "has_spilling": true, "spill_count": 8}, {"index": 22, "hash": "fe4b8b92b1294747", "name": "PS:main_000004b4_516891b7", "entry_name": "main_000004b4_516891b7", "stage": "PS", "friendly_label": "Material_Texture2D_0Sampler", "size": 1880, "spirv_version": "1.3", "valid": true, "type": "Fragment", "work_registers": 3, "uniform_registers": 4, "total_cycles": 0.125, "shortest_path": 0.125, "longest_path": 0.125, "fma_cycles": 0.0, "cvt_cycles": 0.046875, "sfu_cycles": 0.0, "load_store_cycles": 0.0, "texture_cycles": 0.125, "varying_cycles": 0.0625, "has_spilling": false, "spill_count": 0}, {"index": 23, "hash": "cc31b16096f583d4", "name": "VS:main_00000cb4_2a635b4a", "entry_name": "main_00000cb4_2a635b4a", "stage": "VS", "friendly_label": "", "size": 3960, "spirv_version": "1.3", "valid": true, "type": "Vertex", "work_registers": 16, "uniform_registers": 26, "total_cycles": 3.0, "shortest_path": 3.0, "longest_path": 3.0, "fma_cycles": 0.1796875, "cvt_cycles": 0.078125, "sfu_cycles": 0.0625, "load_store_cycles": 3.0, "texture_cycles": 0.0, "varying_cycles": 0.0, "has_spilling": false, "spill_count": 0}, {"index": 24, "hash": "84de6388d2c4cf7f", "name": "PS:main_000023e0_8299ed57", "entry_name": "main_000023e0_8299ed57", "stage": "PS", "friendly_label": "Material_Texture2D_0Sampler", "size": 9892, "spirv_version": "1.3", "valid": false, "error": "JSON parse error: float() argument must be a string or a real number, not 'NoneType'"}, {"index": 25, "hash": "260aa4ee6f09c968", "name": "CS:main_000004f4_57fbcf84", "entry_name": "main_000004f4_57fbcf84", "stage": "CS", "friendly_label": "DrawIndirectArgsBufferOut", "size": 2068, "spirv_version": "1.3", "valid": true, "type": "Compute", "work_registers": 7, "uniform_registers": 2, "total_cycles": 2.0, "shortest_path": 0.140625, "longest_path": 2.0, "fma_cycles": 0.0, "cvt_cycles": 0.171875, "sfu_cycles": 0.0625, "load_store_cycles": 2.0, "texture_cycles": 0.0, "varying_cycles": 0.0, "has_spilling": false, "spill_count": 0}, {"index": 26, "hash": "723e84af0ee2b418", "name": "CS:main_00003698_8764628a", "entry_name": "main_00003698_8764628a", "stage": "CS", "friendly_label": "InstanceIdOffsetBuffer", "size": 14776, "spirv_version": "1.3", "valid": false, "error": "JSON parse error: float() argument must be a string or a real number, not 'NoneType'"}, {"index": 27, "hash": "9e7a25efbf26bb51", "name": "VS:main_00001508_689c9512", "entry_name": "main_00001508_689c9512", "stage": "VS", "friendly_label": "BatchedPrimitive", "size": 6184, "spirv_version": "1.3", "valid": true, "type": "Vertex", "work_registers": 24, "uniform_registers": 30, "total_cycles": 7.0, "shortest_path": 7.0, "longest_path": 7.0, "fma_cycles": 0.484375, "cvt_cycles": 0.15625, "sfu_cycles": 0.0625, "load_store_cycles": 7.0, "texture_cycles": 0.0, "varying_cycles": 0.0, "has_spilling": false, "spill_count": 0}, {"index": 28, "hash": "7ade25d226fa5f26", "name": "PS:main_00002170_53ccd2a2", "entry_name": "main_00002170_53ccd2a2", "stage": "PS", "friendly_label": "Material_Texture2D_0Sampler", "size": 9360, "spirv_version": "1.3", "valid": true, "type": "Fragment", "work_registers": 32, "uniform_registers": 56, "total_cycles": 2.0, "shortest_path": 2.0, "longest_path": 2.0, "fma_cycles": 0.671875, "cvt_cycles": 0.328125, "sfu_cycles": 0.375, "load_store_cycles": 2.0, "texture_cycles": 0.5, "varying_cycles": 0.25, "has_spilling": false, "spill_count": 0}, {"index": 29, "hash": "aa2caf81096e89eb", "name": "PS:main_00001e2c_6f2ae356", "entry_name": "main_00001e2c_6f2ae356", "stage": "PS", "friendly_label": "EyeAdaptationBuffer", "size": 8556, "spirv_version": "1.3", "valid": true, "type": "Fragment", "work_registers": 32, "uniform_registers": 38, "total_cycles": 1.009374976158142, "shortest_path": 1.009374976158142, "longest_path": 1.009374976158142, "fma_cycles": 0.7437499761581421, "cvt_cycles": 0.4375, "sfu_cycles": 0.375, "load_store_cycles": 0.0, "texture_cycles": 1.0, "varying_cycles": 0.28125, "has_spilling": false, "spill_count": 0}, {"index": 30, "hash": "4dc64891c3375f15", "name": "VS:main_000005a4_82f61bcd", "entry_name": "main_000005a4_82f61bcd", "stage": "VS", "friendly_label": "", "size": 2280, "spirv_version": "1.3", "valid": true, "type": "Vertex", "work_registers": 13, "uniform_registers": 16, "total_cycles": 3.0, "shortest_path": 3.0, "longest_path": 3.0, "fma_cycles": 0.1328125, "cvt_cycles": 0.078125, "sfu_cycles": 0.0625, "load_store_cycles": 3.0, "texture_cycles": 0.0, "varying_cycles": 0.0, "has_spilling": false, "spill_count": 0}, {"index": 31, "hash": "73bbe8684a80d589", "name": "PS:main_000039fc_97998aa7", "entry_name": "main_000039fc_97998aa7", "stage": "PS", "friendly_label": "Material_Texture2D_0Sampler", "size": 15680, "spirv_version": "1.3", "valid": true, "type": "Fragment", "work_registers": 32, "uniform_registers": 108, "total_cycles": 2.1812500953674316, "shortest_path": 2.1812500953674316, "longest_path": 2.1812500953674316, "fma_cycles": 1.806249976158142, "cvt_cycles": 0.3125, "sfu_cycles": 1.75, "load_store_cycles": 1.0, "texture_cycles": 0.625, "varying_cycles": 0.0, "has_spilling": false, "spill_count": 0}, {"index": 32, "hash": "ab296f6cde47658c", "name": "VS:main_000015f0_d307b8e9", "entry_name": "main_000015f0_d307b8e9", "stage": "VS", "friendly_label": "BatchedPrimitive", "size": 7068, "spirv_version": "1.3", "valid": true, "type": "Vertex", "work_registers": 24, "uniform_registers": 30, "total_cycles": 7.0, "shortest_path": 7.0, "longest_path": 7.0, "fma_cycles": 0.484375, "cvt_cycles": 0.15625, "sfu_cycles": 0.0625, "load_store_cycles": 7.0, "texture_cycles": 0.0, "varying_cycles": 0.0, "has_spilling": false, "spill_count": 0}, {"index": 33, "hash": "294f9c13367b41af", "name": "PS:main_00004974_a703bdeb", "entry_name": "main_00004974_a703bdeb", "stage": "PS", "friendly_label": "MobileReflectionCapture_TextureSampler", "size": 20256, "spirv_version": "1.3", "valid": true, "type": "Fragment", "work_registers": 32, "uniform_registers": 106, "total_cycles": 6.0, "shortest_path": 0.125, "longest_path": 6.0, "fma_cycles": 1.59375, "cvt_cycles": 0.824999988079071, "sfu_cycles": 0.375, "load_store_cycles": 6.0, "texture_cycles": 0.75, "varying_cycles": 0.34375, "has_spilling": false, "spill_count": 0}, {"index": 34, "hash": "1c18e49438cdf7f5", "name": "VS:main_0000070c_600aea88", "entry_name": "main_0000070c_600aea88", "stage": "VS", "friendly_label": "", "size": 3256, "spirv_version": "1.3", "valid": true, "type": "Vertex", "work_registers": 13, "uniform_registers": 22, "total_cycles": 3.0, "shortest_path": 3.0, "longest_path": 3.0, "fma_cycles": 0.109375, "cvt_cycles": 0.03125, "sfu_cycles": 0.0625, "load_store_cycles": 3.0, "texture_cycles": 0.0, "varying_cycles": 0.0, "has_spilling": false, "spill_count": 0}, {"index": 35, "hash": "e88f721fb10449a3", "name": "PS:main_0000050c_1c428ed6", "entry_name": "main_0000050c_1c428ed6", "stage": "PS", "friendly_label": "SceneColorTextureSampler", "size": 2744, "spirv_version": "1.3", "valid": true, "type": "Fragment", "work_registers": 10, "uniform_registers": 2, "total_cycles": 0.25, "shortest_path": 0.25, "longest_path": 0.25, "fma_cycles": 0.015625, "cvt_cycles": 0.046875, "sfu_cycles": 0.0, "load_store_cycles": 0.0, "texture_cycles": 0.25, "varying_cycles": 0.09375, "has_spilling": false, "spill_count": 0}, {"index": 36, "hash": "86fc569131beaa6e", "name": "VS:main_00000cb4_2a635b4a", "entry_name": "main_00000cb4_2a635b4a", "stage": "VS", "friendly_label": "", "size": 4744, "spirv_version": "1.3", "valid": true, "type": "Vertex", "work_registers": 16, "uniform_registers": 26, "total_cycles": 3.0, "shortest_path": 3.0, "longest_path": 3.0, "fma_cycles": 0.1796875, "cvt_cycles": 0.078125, "sfu_cycles": 0.0625, "load_store_cycles": 3.0, "texture_cycles": 0.0, "varying_cycles": 0.0, "has_spilling": false, "spill_count": 0}, {"index": 37, "hash": "6a5b74b0da056126", "name": "PS:main_00003ae4_60f5b39e", "entry_name": "main_00003ae4_60f5b39e", "stage": "PS", "friendly_label": "Material_Texture2D_0Sampler", "size": 16568, "spirv_version": "1.3", "valid": true, "type": "Fragment", "work_registers": 32, "uniform_registers": 110, "total_cycles": 1.59375, "shortest_path": 1.0859375, "longest_path": 1.59375, "fma_cycles": 1.046875, "cvt_cycles": 0.90625, "sfu_cycles": 0.75, "load_store_cycles": 0.0, "texture_cycles": 0.875, "varying_cycles": 0.1875, "has_spilling": false, "spill_count": 0}, {"index": 38, "hash": "4221545f854dbd11", "name": "VS:main_00000cb4_2a635b4a", "entry_name": "main_00000cb4_2a635b4a", "stage": "VS", "friendly_label": "", "size": 4744, "spirv_version": "1.3", "valid": true, "type": "Vertex", "work_registers": 16, "uniform_registers": 26, "total_cycles": 3.0, "shortest_path": 3.0, "longest_path": 3.0, "fma_cycles": 0.1796875, "cvt_cycles": 0.078125, "sfu_cycles": 0.0625, "load_store_cycles": 3.0, "texture_cycles": 0.0, "varying_cycles": 0.0, "has_spilling": false, "spill_count": 0}, {"index": 39, "hash": "bb09c0b009815c68", "name": "PS:main_000028e0_a4c8c5b7", "entry_name": "main_000028e0_a4c8c5b7", "stage": "PS", "friendly_label": "Material", "size": 11956, "spirv_version": "1.3", "valid": true, "type": "Fragment", "work_registers": 32, "uniform_registers": 56, "total_cycles": 2.125, "shortest_path": 1.482812523841858, "longest_path": 2.125, "fma_cycles": 1.225000023841858, "cvt_cycles": 0.987500011920929, "sfu_cycles": 2.125, "load_store_cycles": 0.0, "texture_cycles": 0.0, "varying_cycles": 0.1875, "has_spilling": false, "spill_count": 0}, {"index": 40, "hash": "ff3cf04a026d086f", "name": "VS:main_00000cb4_2a635b4a", "entry_name": "main_00000cb4_2a635b4a", "stage": "VS", "friendly_label": "", "size": 4744, "spirv_version": "1.3", "valid": true, "type": "Vertex", "work_registers": 16, "uniform_registers": 26, "total_cycles": 3.0, "shortest_path": 3.0, "longest_path": 3.0, "fma_cycles": 0.1796875, "cvt_cycles": 0.078125, "sfu_cycles": 0.0625, "load_store_cycles": 3.0, "texture_cycles": 0.0, "varying_cycles": 0.0, "has_spilling": false, "spill_count": 0}, {"index": 41, "hash": "3c34b74399e240f2", "name": "PS:main_000024c0_ca5fad5f", "entry_name": "main_000024c0_ca5fad5f", "stage": "PS", "friendly_label": "Material_Texture2D_0Sampler", "size": 10900, "spirv_version": "1.3", "valid": true, "type": "Fragment", "work_registers": 32, "uniform_registers": 54, "total_cycles": 1.767187476158142, "shortest_path": 1.265625, "longest_path": 1.767187476158142, "fma_cycles": 1.078125, "cvt_cycles": 0.987500011920929, "sfu_cycles": 1.5625, "load_store_cycles": 0.0, "texture_cycles": 0.25, "varying_cycles": 0.1875, "has_spilling": false, "spill_count": 0}, {"index": 42, "hash": "c003e2041634985e", "name": "PS:main_00001374_0c4c9957", "entry_name": "main_00001374_0c4c9957", "stage": "PS", "friendly_label": "ElementTextureSampler", "size": 6472, "spirv_version": "1.3", "valid": true, "type": "Fragment", "work_registers": 32, "uniform_registers": 32, "total_cycles": 1.1640625, "shortest_path": 0.6578124761581421, "longest_path": 1.142187476158142, "fma_cycles": 0.7124999761581421, "cvt_cycles": 0.609375, "sfu_cycles": 1.0, "load_store_cycles": 0.0, "texture_cycles": 0.125, "varying_cycles": 0.3125, "has_spilling": false, "spill_count": 0}, {"index": 43, "hash": "9d5201d75443aadf", "name": "CS:main_00002c58_f35cccdc", "entry_name": "main_00002c58_f35cccdc", "stage": "CS", "friendly_label": "IndirectArgsBufferOut", "size": 12860, "spirv_version": "1.3", "valid": true, "type": "Compute", "work_registers": 64, "uniform_registers": 18, "total_cycles": 17.0, "shortest_path": 0.046875, "longest_path": 17.0, "fma_cycles": 0.9312499761581421, "cvt_cycles": 1.5499999523162842, "sfu_cycles": 0.5, "load_store_cycles": 17.0, "texture_cycles": 0.0, "varying_cycles": 0.0, "has_spilling": false, "spill_count": 0}, {"index": 44, "hash": "7ef84906a27eda2e", "name": "VS:main_00001534_06ba849b", "entry_name": "main_00001534_06ba849b", "stage": "VS", "friendly_label": "BatchedPrimitive", "size": 6936, "spirv_version": "1.3", "valid": true, "type": "Vertex", "work_registers": 24, "uniform_registers": 30, "total_cycles": 7.0, "shortest_path": 7.0, "longest_path": 7.0, "fma_cycles": 0.484375, "cvt_cycles": 0.15625, "sfu_cycles": 0.0625, "load_store_cycles": 7.0, "texture_cycles": 0.0, "varying_cycles": 0.0, "has_spilling": false, "spill_count": 0}, {"index": 45, "hash": "1043b00a077ab3dc", "name": "PS:main_00004788_4fe75370", "entry_name": "main_00004788_4fe75370", "stage": "PS", "friendly_label": "MobileDirectionalLight_DirectionalLightShadowTexture", "size": 19820, "spirv_version": "1.3", "valid": true, "type": "Fragment", "work_registers": 32, "uniform_registers": 112, "total_cycles": 5.0, "shortest_path": 1.451562523841858, "longest_path": 5.0, "fma_cycles": 1.71875, "cvt_cycles": 0.609375, "sfu_cycles": 0.5625, "load_store_cycles": 5.0, "texture_cycles": 0.625, "varying_cycles": 0.25, "has_spilling": false, "spill_count": 0}, {"index": 46, "hash": "5a079e2ea103de75", "name": "VS:main_00001534_06ba849b", "entry_name": "main_00001534_06ba849b", "stage": "VS", "friendly_label": "BatchedPrimitive", "size": 6936, "spirv_version": "1.3", "valid": true, "type": "Vertex", "work_registers": 24, "uniform_registers": 30, "total_cycles": 7.0, "shortest_path": 7.0, "longest_path": 7.0, "fma_cycles": 0.484375, "cvt_cycles": 0.15625, "sfu_cycles": 0.0625, "load_store_cycles": 7.0, "texture_cycles": 0.0, "varying_cycles": 0.0, "has_spilling": false, "spill_count": 0}, {"index": 47, "hash": "ce452d35a5a6ff15", "name": "PS:main_00004848_39f53455", "entry_name": "main_00004848_39f53455", "stage": "PS", "friendly_label": "MobileDirectionalLight_DirectionalLightShadowTexture", "size": 20012, "spirv_version": "1.3", "valid": true, "type": "Fragment", "work_registers": 32, "uniform_registers": 114, "total_cycles": 5.0, "shortest_path": 0.2578125, "longest_path": 5.0, "fma_cycles": 1.725000023841858, "cvt_cycles": 0.625, "sfu_cycles": 0.5625, "load_store_cycles": 5.0, "texture_cycles": 0.625, "varying_cycles": 0.25, "has_spilling": false, "spill_count": 0}, {"index": 48, "hash": "4e3c00eb60ba56a3", "name": "VS:main_00002ad4_4d27cc49", "entry_name": "main_00002ad4_4d27cc49", "stage": "VS", "friendly_label": "LandscapeParameters_HeightmapTextureSampler", "size": 12472, "spirv_version": "1.3", "valid": true, "type": "Vertex", "work_registers": 32, "uniform_registers": 76, "total_cycles": 12.0, "shortest_path": 12.0, "longest_path": 12.0, "fma_cycles": 1.171875, "cvt_cycles": 0.800000011920929, "sfu_cycles": 0.4375, "load_store_cycles": 12.0, "texture_cycles": 0.25, "varying_cycles": 0.0, "has_spilling": false, "spill_count": 0}, {"index": 49, "hash": "3c1d4b96cabf2f61", "name": "PS:main_000051c0_12b0cf6e", "entry_name": "main_000051c0_12b0cf6e", "stage": "PS", "friendly_label": "MobileDirectionalLight_DirectionalLightShadowTexture", "size": 22436, "spirv_version": "1.3", "valid": true, "type": "Fragment", "work_registers": 63, "uniform_registers": 128, "total_cycles": 6.0, "shortest_path": 0.03125, "longest_path": 6.0, "fma_cycles": 2.7437500953674316, "cvt_cycles": 2.0625, "sfu_cycles": 0.4375, "load_store_cycles": 6.0, "texture_cycles": 1.125, "varying_cycles": 0.25, "has_spilling": false, "spill_count": 0}, {"index": 50, "hash": "31fa19dc3c21bfd8", "name": "CS:main_00006e70_e59e9a4e", "entry_name": "main_00006e70_e59e9a4e", "stage": "CS", "friendly_label": "InstanceIdOffsetBuffer", "size": 29828, "spirv_version": "1.3", "valid": false, "error": "JSON parse error: float() argument must be a string or a real number, not 'NoneType'"}, {"index": 51, "hash": "bacfef961b65af3c", "name": "VS:main_000028a0_68cbb9b7", "entry_name": "main_000028a0_68cbb9b7", "stage": "VS", "friendly_label": "Material_Texture2D_0", "size": 11968, "spirv_version": "1.3", "valid": true, "type": "Vertex", "work_registers": 31, "uniform_registers": 56, "total_cycles": 8.0, "shortest_path": 8.0, "longest_path": 8.0, "fma_cycles": 0.703125, "cvt_cycles": 0.21875, "sfu_cycles": 0.1875, "load_store_cycles": 8.0, "texture_cycles": 0.25, "varying_cycles": 0.0, "has_spilling": false, "spill_count": 0}, {"index": 52, "hash": "3840df8cbe0933f3", "name": "PS:main_00009098_6445862a", "entry_name": "main_00009098_6445862a", "stage": "PS", "friendly_label": "MobileReflectionCapture_TextureSampler", "size": 38584, "spirv_version": "1.3", "valid": true, "type": "Fragment", "work_registers": 64, "uniform_registers": 128, "total_cycles": 18.0, "shortest_path": 0.125, "longest_path": 18.0, "fma_cycles": 5.375, "cvt_cycles": 4.949999809265137, "sfu_cycles": 1.125, "load_store_cycles": 18.0, "texture_cycles": 2.0, "varying_cycles": 0.71875, "has_spilling": false, "spill_count": 0}, {"index": 53, "hash": "d29dac77c1c692fe", "name": "VS:main_00002164_00a7a8e9", "entry_name": "main_00002164_00a7a8e9", "stage": "VS", "friendly_label": "Material_Texture2D_1", "size": 10124, "spirv_version": "1.3", "valid": true, "type": "Vertex", "work_registers": 29, "uniform_registers": 50, "total_cycles": 8.0, "shortest_path": 8.0, "longest_path": 8.0, "fma_cycles": 0.71875, "cvt_cycles": 0.234375, "sfu_cycles": 0.1875, "load_store_cycles": 8.0, "texture_cycles": 0.25, "varying_cycles": 0.0, "has_spilling": false, "spill_count": 0}, {"index": 54, "hash": "eba576f5af0ba756", "name": "PS:main_00003d30_08421be4", "entry_name": "main_00003d30_08421be4", "stage": "PS", "friendly_label": "MobileDirectionalLight_DirectionalLightShadowTexture", "size": 17240, "spirv_version": "1.3", "valid": true, "type": "Fragment", "work_registers": 32, "uniform_registers": 94, "total_cycles": 5.0, "shortest_path": 0.125, "longest_path": 5.0, "fma_cycles": 1.462499976158142, "cvt_cycles": 0.421875, "sfu_cycles": 0.125, "load_store_cycles": 5.0, "texture_cycles": 0.625, "varying_cycles": 0.15625, "has_spilling": false, "spill_count": 0}, {"index": 55, "hash": "164655e908e292b0", "name": "VS:main_00002890_35fbef74", "entry_name": "main_00002890_35fbef74", "stage": "VS", "friendly_label": "Material_Texture2D_0", "size": 12012, "spirv_version": "1.3", "valid": true, "type": "Vertex", "work_registers": 31, "uniform_registers": 56, "total_cycles": 8.0, "shortest_path": 8.0, "longest_path": 8.0, "fma_cycles": 0.703125, "cvt_cycles": 0.21875, "sfu_cycles": 0.1875, "load_store_cycles": 8.0, "texture_cycles": 0.25, "varying_cycles": 0.0, "has_spilling": false, "spill_count": 0}, {"index": 56, "hash": "089e9ee2851b9fe1", "name": "PS:main_00008748_4e5cdbf4", "entry_name": "main_00008748_4e5cdbf4", "stage": "PS", "friendly_label": "MobileReflectionCapture_TextureSampler", "size": 36260, "spirv_version": "1.3", "valid": true, "type": "Fragment", "work_registers": 64, "uniform_registers": 128, "total_cycles": 14.0, "shortest_path": 0.125, "longest_path": 14.0, "fma_cycles": 4.6875, "cvt_cycles": 4.0625, "sfu_cycles": 1.0, "load_store_cycles": 14.0, "texture_cycles": 1.5, "varying_cycles": 0.71875, "has_spilling": false, "spill_count": 0}, {"index": 57, "hash": "fb5a52df1e64e4a2", "name": "VS:main_000028a0_2931a71e", "entry_name": "main_000028a0_2931a71e", "stage": "VS", "friendly_label": "Material_Texture2D_0", "size": 12224, "spirv_version": "1.3", "valid": true, "type": "Vertex", "work_registers": 31, "uniform_registers": 56, "total_cycles": 8.0, "shortest_path": 8.0, "longest_path": 8.0, "fma_cycles": 0.703125, "cvt_cycles": 0.21875, "sfu_cycles": 0.1875, "load_store_cycles": 8.0, "texture_cycles": 0.25, "varying_cycles": 0.0, "has_spilling": false, "spill_count": 0}, {"index": 58, "hash": "6711f6b698da3d39", "name": "PS:main_00008f18_80d08765", "entry_name": "main_00008f18_80d08765", "stage": "PS", "friendly_label": "MobileReflectionCapture_TextureSampler", "size": 38456, "spirv_version": "1.3", "valid": true, "type": "Fragment", "work_registers": 64, "uniform_registers": 128, "total_cycles": 17.100000381469727, "shortest_path": 0.03125, "longest_path": 18.0, "fma_cycles": 5.375, "cvt_cycles": 4.90625, "sfu_cycles": 1.125, "load_store_cycles": 18.0, "texture_cycles": 1.875, "varying_cycles": 0.71875, "has_spilling": false, "spill_count": 0}, {"index": 59, "hash": "7baeb62a6c4b590a", "name": "VS:main_00001fd8_25a03291", "entry_name": "main_00001fd8_25a03291", "stage": "VS", "friendly_label": "BatchedPrimitive", "size": 9976, "spirv_version": "1.3", "valid": true, "type": "Vertex", "work_registers": 24, "uniform_registers": 42, "total_cycles": 7.0, "shortest_path": 7.0, "longest_path": 7.0, "fma_cycles": 0.484375, "cvt_cycles": 0.15625, "sfu_cycles": 0.0625, "load_store_cycles": 7.0, "texture_cycles": 0.0, "varying_cycles": 0.0, "has_spilling": false, "spill_count": 0}, {"index": 60, "hash": "b6916e4d15b3cca8", "name": "PS:main_00003760_e650fa1b", "entry_name": "main_00003760_e650fa1b", "stage": "PS", "friendly_label": "MobileReflectionCapture_TextureSampler", "size": 16000, "spirv_version": "1.3", "valid": true, "type": "Fragment", "work_registers": 32, "uniform_registers": 80, "total_cycles": 1.490625023841858, "shortest_path": 1.321874976158142, "longest_path": 1.443750023841858, "fma_cycles": 1.193750023841858, "cvt_cycles": 0.4375, "sfu_cycles": 0.25, "load_store_cycles": 0.0, "texture_cycles": 0.5, "varying_cycles": 0.34375, "has_spilling": false, "spill_count": 0}, {"index": 61, "hash": "28c32a57d575b484", "name": "VS:main_00001418_e585bcaa", "entry_name": "main_00001418_e585bcaa", "stage": "VS", "friendly_label": "BatchedPrimitive", "size": 6968, "spirv_version": "1.3", "valid": true, "type": "Vertex", "work_registers": 24, "uniform_registers": 30, "total_cycles": 7.0, "shortest_path": 7.0, "longest_path": 7.0, "fma_cycles": 0.484375, "cvt_cycles": 0.15625, "sfu_cycles": 0.0625, "load_store_cycles": 7.0, "texture_cycles": 0.0, "varying_cycles": 0.0, "has_spilling": false, "spill_count": 0}, {"index": 62, "hash": "bf79ec48d7a2e217", "name": "PS:main_00004604_4367b64a", "entry_name": "main_00004604_4367b64a", "stage": "PS", "friendly_label": "MobileReflectionCapture_TextureSampler", "size": 19748, "spirv_version": "1.3", "valid": true, "type": "Fragment", "work_registers": 32, "uniform_registers": 104, "total_cycles": 6.0, "shortest_path": 1.2421875, "longest_path": 6.0, "fma_cycles": 1.537500023841858, "cvt_cycles": 0.762499988079071, "sfu_cycles": 0.375, "load_store_cycles": 6.0, "texture_cycles": 0.625, "varying_cycles": 0.21875, "has_spilling": false, "spill_count": 0}, {"index": 63, "hash": "70a64b516fbe4019", "name": "VS:main_000021b8_fdfbc460", "entry_name": "main_000021b8_fdfbc460", "stage": "VS", "friendly_label": "Material_Texture2D_1", "size": 10456, "spirv_version": "1.3", "valid": true, "type": "Vertex", "work_registers": 31, "uniform_registers": 50, "total_cycles": 8.0, "shortest_path": 8.0, "longest_path": 8.0, "fma_cycles": 0.71875, "cvt_cycles": 0.21875, "sfu_cycles": 0.1875, "load_store_cycles": 8.0, "texture_cycles": 0.25, "varying_cycles": 0.0, "has_spilling": false, "spill_count": 0}, {"index": 64, "hash": "467b2d7d66fda72e", "name": "PS:main_00003d30_08421be4", "entry_name": "main_00003d30_08421be4", "stage": "PS", "friendly_label": "MobileDirectionalLight_DirectionalLightShadowTexture", "size": 17488, "spirv_version": "1.3", "valid": true, "type": "Fragment", "work_registers": 32, "uniform_registers": 94, "total_cycles": 5.0, "shortest_path": 0.125, "longest_path": 5.0, "fma_cycles": 1.462499976158142, "cvt_cycles": 0.421875, "sfu_cycles": 0.125, "load_store_cycles": 5.0, "texture_cycles": 0.625, "varying_cycles": 0.15625, "has_spilling": false, "spill_count": 0}, {"index": 65, "hash": "5705dde73e69a91f", "name": "VS:main_00002ad4_4d27cc49", "entry_name": "main_00002ad4_4d27cc49", "stage": "VS", "friendly_label": "LandscapeParameters_HeightmapTextureSampler", "size": 12788, "spirv_version": "1.3", "valid": true, "type": "Vertex", "work_registers": 32, "uniform_registers": 76, "total_cycles": 12.0, "shortest_path": 12.0, "longest_path": 12.0, "fma_cycles": 1.171875, "cvt_cycles": 0.800000011920929, "sfu_cycles": 0.4375, "load_store_cycles": 12.0, "texture_cycles": 0.25, "varying_cycles": 0.0, "has_spilling": false, "spill_count": 0}, {"index": 66, "hash": "52a56b67f2340cd1", "name": "PS:main_000051b0_6d739277", "entry_name": "main_000051b0_6d739277", "stage": "PS", "friendly_label": "MobileDirectionalLight_DirectionalLightShadowTexture", "size": 22736, "spirv_version": "1.3", "valid": true, "type": "Fragment", "work_registers": 63, "uniform_registers": 128, "total_cycles": 6.0, "shortest_path": 0.03125, "longest_path": 6.0, "fma_cycles": 2.7437500953674316, "cvt_cycles": 2.0625, "sfu_cycles": 0.4375, "load_store_cycles": 6.0, "texture_cycles": 1.125, "varying_cycles": 0.25, "has_spilling": false, "spill_count": 0}, {"index": 67, "hash": "34441c78ec53c506", "name": "VS:main_00002ad4_4d27cc49", "entry_name": "main_00002ad4_4d27cc49", "stage": "VS", "friendly_label": "LandscapeParameters_HeightmapTextureSampler", "size": 12788, "spirv_version": "1.3", "valid": true, "type": "Vertex", "work_registers": 32, "uniform_registers": 76, "total_cycles": 12.0, "shortest_path": 12.0, "longest_path": 12.0, "fma_cycles": 1.171875, "cvt_cycles": 0.800000011920929, "sfu_cycles": 0.4375, "load_store_cycles": 12.0, "texture_cycles": 0.25, "varying_cycles": 0.0, "has_spilling": false, "spill_count": 0}, {"index": 68, "hash": "6931b2720b741a35", "name": "PS:main_000051c0_e6fe9538", "entry_name": "main_000051c0_e6fe9538", "stage": "PS", "friendly_label": "MobileDirectionalLight_DirectionalLightShadowTexture", "size": 22752, "spirv_version": "1.3", "valid": true, "type": "Fragment", "work_registers": 63, "uniform_registers": 128, "total_cycles": 6.0, "shortest_path": 0.03125, "longest_path": 6.0, "fma_cycles": 2.7437500953674316, "cvt_cycles": 2.0625, "sfu_cycles": 0.4375, "load_store_cycles": 6.0, "texture_cycles": 1.125, "varying_cycles": 0.25, "has_spilling": false, "spill_count": 0}, {"index": 69, "hash": "92e5114d45df829b", "name": "VS:main_00002ad4_4d27cc49", "entry_name": "main_00002ad4_4d27cc49", "stage": "VS", "friendly_label": "LandscapeParameters_HeightmapTextureSampler", "size": 12788, "spirv_version": "1.3", "valid": true, "type": "Vertex", "work_registers": 32, "uniform_registers": 76, "total_cycles": 12.0, "shortest_path": 12.0, "longest_path": 12.0, "fma_cycles": 1.171875, "cvt_cycles": 0.800000011920929, "sfu_cycles": 0.4375, "load_store_cycles": 12.0, "texture_cycles": 0.25, "varying_cycles": 0.0, "has_spilling": false, "spill_count": 0}, {"index": 70, "hash": "6521a4d425dabfd2", "name": "PS:main_000051c0_6a26d768", "entry_name": "main_000051c0_6a26d768", "stage": "PS", "friendly_label": "MobileDirectionalLight_DirectionalLightShadowTexture", "size": 22752, "spirv_version": "1.3", "valid": true, "type": "Fragment", "work_registers": 63, "uniform_registers": 128, "total_cycles": 6.0, "shortest_path": 0.03125, "longest_path": 6.0, "fma_cycles": 2.7437500953674316, "cvt_cycles": 2.0625, "sfu_cycles": 0.4375, "load_store_cycles": 6.0, "texture_cycles": 1.125, "varying_cycles": 0.25, "has_spilling": false, "spill_count": 0}, {"index": 71, "hash": "2acb78e951045243", "name": "VS:main_000023d8_0d128418", "entry_name": "main_000023d8_0d128418", "stage": "VS", "friendly_label": "BoneMatrices", "size": 11004, "spirv_version": "1.3", "valid": true, "type": "Vertex", "work_registers": 64, "uniform_registers": 46, "total_cycles": 55.20000076293945, "shortest_path": 29.0, "longest_path": 59.0, "fma_cycles": 1.962499976158142, "cvt_cycles": 0.484375, "sfu_cycles": 0.5625, "load_store_cycles": 59.0, "texture_cycles": 0.0, "varying_cycles": 0.0, "has_spilling": true, "spill_count": 8}, {"index": 72, "hash": "d0a6f26bc5c8de93", "name": "PS:main_00005b6c_697beb3b", "entry_name": "main_00005b6c_697beb3b", "stage": "PS", "friendly_label": "MobileReflectionCapture_TextureSampler", "size": 25232, "spirv_version": "1.3", "valid": true, "type": "Fragment", "work_registers": 32, "uniform_registers": 128, "total_cycles": 2.7109375, "shortest_path": 0.125, "longest_path": 2.6953125, "fma_cycles": 2.34375, "cvt_cycles": 0.546875, "sfu_cycles": 0.625, "load_store_cycles": 0.0, "texture_cycles": 0.875, "varying_cycles": 0.21875, "has_spilling": false, "spill_count": 0}, {"index": 73, "hash": "e921031df75b2ec7", "name": "VS:main_000023d8_0d128418", "entry_name": "main_000023d8_0d128418", "stage": "VS", "friendly_label": "BoneMatrices", "size": 11004, "spirv_version": "1.3", "valid": true, "type": "Vertex", "work_registers": 64, "uniform_registers": 46, "total_cycles": 55.20000076293945, "shortest_path": 29.0, "longest_path": 59.0, "fma_cycles": 1.962499976158142, "cvt_cycles": 0.484375, "sfu_cycles": 0.5625, "load_store_cycles": 59.0, "texture_cycles": 0.0, "varying_cycles": 0.0, "has_spilling": true, "spill_count": 8}, {"index": 74, "hash": "d0b131a9646fe461", "name": "PS:main_00005574_2214d48c", "entry_name": "main_00005574_2214d48c", "stage": "PS", "friendly_label": "MobileReflectionCapture_TextureSampler", "size": 23704, "spirv_version": "1.3", "valid": true, "type": "Fragment", "work_registers": 32, "uniform_registers": 122, "total_cycles": 5.0, "shortest_path": 0.125, "longest_path": 5.0, "fma_cycles": 1.8125, "cvt_cycles": 0.609375, "sfu_cycles": 0.25, "load_store_cycles": 5.0, "texture_cycles": 1.125, "varying_cycles": 0.25, "has_spilling": false, "spill_count": 0}, {"index": 75, "hash": "c759ade0ca147139", "name": "VS:main_00004504_bb710f88", "entry_name": "main_00004504_bb710f88", "stage": "VS", "friendly_label": "View_DistantSkyLightLutTextureSampler", "size": 19496, "spirv_version": "1.3", "valid": true, "type": "Vertex", "work_registers": 24, "uniform_registers": 104, "total_cycles": 7.0, "shortest_path": 7.0, "longest_path": 7.0, "fma_cycles": 0.484375, "cvt_cycles": 0.15625, "sfu_cycles": 0.0625, "load_store_cycles": 7.0, "texture_cycles": 0.0, "varying_cycles": 0.0, "has_spilling": false, "spill_count": 0}, {"index": 76, "hash": "0ac1a880b957451a", "name": "PS:main_000015f8_e787bb4e", "entry_name": "main_000015f8_e787bb4e", "stage": "PS", "friendly_label": "Material_Texture2D_0Sampler", "size": 7452, "spirv_version": "1.3", "valid": true, "type": "Fragment", "work_registers": 16, "uniform_registers": 24, "total_cycles": 1.0, "shortest_path": 1.0, "longest_path": 1.0, "fma_cycles": 0.1640625, "cvt_cycles": 0.21875, "sfu_cycles": 0.0, "load_store_cycles": 1.0, "texture_cycles": 0.25, "varying_cycles": 0.125, "has_spilling": false, "spill_count": 0}, {"index": 77, "hash": "490b37c6b41d1163", "name": "VS:main_00000cb4_2a635b4a", "entry_name": "main_00000cb4_2a635b4a", "stage": "VS", "friendly_label": "", "size": 5084, "spirv_version": "1.3", "valid": true, "type": "Vertex", "work_registers": 16, "uniform_registers": 26, "total_cycles": 3.0, "shortest_path": 3.0, "longest_path": 3.0, "fma_cycles": 0.1796875, "cvt_cycles": 0.078125, "sfu_cycles": 0.0625, "load_store_cycles": 3.0, "texture_cycles": 0.0, "varying_cycles": 0.0, "has_spilling": false, "spill_count": 0}, {"index": 78, "hash": "242f7208f50bd435", "name": "PS:main_00001518_b909e338", "entry_name": "main_00001518_b909e338", "stage": "PS", "friendly_label": "Material_Texture2D_0Sampler", "size": 7232, "spirv_version": "1.3", "valid": true, "type": "Fragment", "work_registers": 32, "uniform_registers": 34, "total_cycles": 1.03125, "shortest_path": 0.53125, "longest_path": 1.03125, "fma_cycles": 0.65625, "cvt_cycles": 0.53125, "sfu_cycles": 0.875, "load_store_cycles": 0.0, "texture_cycles": 0.125, "varying_cycles": 0.1875, "has_spilling": false, "spill_count": 0}, {"index": 79, "hash": "d2cf68b232eff636", "name": "VS:main_00000cb4_2a635b4a", "entry_name": "main_00000cb4_2a635b4a", "stage": "VS", "friendly_label": "", "size": 5084, "spirv_version": "1.3", "valid": true, "type": "Vertex", "work_registers": 16, "uniform_registers": 26, "total_cycles": 3.0, "shortest_path": 3.0, "longest_path": 3.0, "fma_cycles": 0.1796875, "cvt_cycles": 0.078125, "sfu_cycles": 0.0625, "load_store_cycles": 3.0, "texture_cycles": 0.0, "varying_cycles": 0.0, "has_spilling": false, "spill_count": 0}, {"index": 80, "hash": "584d8d1662e7f7b7", "name": "PS:main_00001558_1b0b29f3", "entry_name": "main_00001558_1b0b29f3", "stage": "PS", "friendly_label": "Material_Texture2D_0Sampler", "size": 7296, "spirv_version": "1.3", "valid": true, "type": "Fragment", "work_registers": 29, "uniform_registers": 32, "total_cycles": 1.046875, "shortest_path": 0.546875, "longest_path": 1.046875, "fma_cycles": 0.6875, "cvt_cycles": 0.5, "sfu_cycles": 0.875, "load_store_cycles": 0.0, "texture_cycles": 0.125, "varying_cycles": 0.1875, "has_spilling": false, "spill_count": 0}, {"index": 81, "hash": "0eb89a041e3fbe1a", "name": "VS:main_00001508_81573c17", "entry_name": "main_00001508_81573c17", "stage": "VS", "friendly_label": "BatchedPrimitive", "size": 7400, "spirv_version": "1.3", "valid": true, "type": "Vertex", "work_registers": 24, "uniform_registers": 30, "total_cycles": 7.0, "shortest_path": 7.0, "longest_path": 7.0, "fma_cycles": 0.484375, "cvt_cycles": 0.15625, "sfu_cycles": 0.0625, "load_store_cycles": 7.0, "texture_cycles": 0.0, "varying_cycles": 0.0, "has_spilling": false, "spill_count": 0}, {"index": 82, "hash": "b76c454012d6100b", "name": "PS:main_000004b4_516891b7", "entry_name": "main_000004b4_516891b7", "stage": "PS", "friendly_label": "Material_Texture2D_0Sampler", "size": 3220, "spirv_version": "1.3", "valid": true, "type": "Fragment", "work_registers": 3, "uniform_registers": 4, "total_cycles": 0.125, "shortest_path": 0.125, "longest_path": 0.125, "fma_cycles": 0.0, "cvt_cycles": 0.046875, "sfu_cycles": 0.0, "load_store_cycles": 0.0, "texture_cycles": 0.125, "varying_cycles": 0.0625, "has_spilling": false, "spill_count": 0}, {"index": 83, "hash": "4ec29438767825c0", "name": "VS:main_00001534_06ba849b", "entry_name": "main_00001534_06ba849b", "stage": "VS", "friendly_label": "BatchedPrimitive", "size": 7444, "spirv_version": "1.3", "valid": true, "type": "Vertex", "work_registers": 24, "uniform_registers": 30, "total_cycles": 7.0, "shortest_path": 7.0, "longest_path": 7.0, "fma_cycles": 0.484375, "cvt_cycles": 0.15625, "sfu_cycles": 0.0625, "load_store_cycles": 7.0, "texture_cycles": 0.0, "varying_cycles": 0.0, "has_spilling": false, "spill_count": 0}, {"index": 84, "hash": "0716fde96651c16c", "name": "PS:main_00004c64_f838ad6d", "entry_name": "main_00004c64_f838ad6d", "stage": "PS", "friendly_label": "MobileReflectionCapture_TextureSampler", "size": 21572, "spirv_version": "1.3", "valid": true, "type": "Fragment", "work_registers": 32, "uniform_registers": 100, "total_cycles": 5.0, "shortest_path": 0.125, "longest_path": 5.0, "fma_cycles": 1.524999976158142, "cvt_cycles": 0.609375, "sfu_cycles": 0.25, "load_store_cycles": 5.0, "texture_cycles": 0.875, "varying_cycles": 0.25, "has_spilling": false, "spill_count": 0}, {"index": 85, "hash": "c9f2941829e1292d", "name": "VS:main_000048bc_55d16f58", "entry_name": "main_000048bc_55d16f58", "stage": "VS", "friendly_label": "View_DistantSkyLightLutTextureSampler", "size": 20636, "spirv_version": "1.3", "valid": true, "type": "Vertex", "work_registers": 32, "uniform_registers": 112, "total_cycles": 9.0, "shortest_path": 9.0, "longest_path": 9.0, "fma_cycles": 0.8687499761581421, "cvt_cycles": 0.171875, "sfu_cycles": 0.1875, "load_store_cycles": 9.0, "texture_cycles": 0.0, "varying_cycles": 0.0, "has_spilling": false, "spill_count": 0}, {"index": 86, "hash": "1b52cf498185944b", "name": "PS:main_00000e48_31b68fa4", "entry_name": "main_00000e48_31b68fa4", "stage": "PS", "friendly_label": "MobileBasePass_SceneTextures_CustomStencilTexture", "size": 5672, "spirv_version": "1.3", "valid": true, "type": "Fragment", "work_registers": 12, "uniform_registers": 12, "total_cycles": 2.0, "shortest_path": 2.0, "longest_path": 2.0, "fma_cycles": 0.1015625, "cvt_cycles": 0.28125, "sfu_cycles": 0.0, "load_store_cycles": 2.0, "texture_cycles": 0.125, "varying_cycles": 0.09375, "has_spilling": false, "spill_count": 0}, {"index": 87, "hash": "b89e9edcfe991779", "name": "VS:main_00004ed0_be89373d", "entry_name": "main_00004ed0_be89373d", "stage": "VS", "friendly_label": "View_DistantSkyLightLutTextureSampler", "size": 22192, "spirv_version": "1.3", "valid": true, "type": "Vertex", "work_registers": 32, "uniform_registers": 124, "total_cycles": 12.0, "shortest_path": 12.0, "longest_path": 12.0, "fma_cycles": 1.015625, "cvt_cycles": 0.203125, "sfu_cycles": 0.1875, "load_store_cycles": 12.0, "texture_cycles": 0.125, "varying_cycles": 0.0, "has_spilling": false, "spill_count": 0}, {"index": 88, "hash": "c50e069b2ee2df4a", "name": "PS:main_000019a0_d1530898", "entry_name": "main_000019a0_d1530898", "stage": "PS", "friendly_label": "Material_Texture2D_0Sampler", "size": 8576, "spirv_version": "1.3", "valid": true, "type": "Fragment", "work_registers": 29, "uniform_registers": 42, "total_cycles": 3.0, "shortest_path": 3.0, "longest_path": 3.0, "fma_cycles": 0.5687500238418579, "cvt_cycles": 0.25, "sfu_cycles": 0.25, "load_store_cycles": 3.0, "texture_cycles": 0.25, "varying_cycles": 0.1875, "has_spilling": false, "spill_count": 0}, {"index": 89, "hash": "5d7b4a392969b819", "name": "VS:main_0000c3b4_f838055d", "entry_name": "main_0000c3b4_f838055d", "stage": "VS", "friendly_label": "View_DistantSkyLightLutTextureSampler", "size": 52136, "spirv_version": "1.3", "valid": true, "type": "Vertex", "work_registers": 64, "uniform_registers": 128, "total_cycles": 97.0999984741211, "shortest_path": 17.0, "longest_path": 55.0, "fma_cycles": 2.4312500953674316, "cvt_cycles": 1.9375, "sfu_cycles": 1.0625, "load_store_cycles": 55.0, "texture_cycles": 0.0, "varying_cycles": 0.0, "has_spilling": false, "spill_count": 0}, {"index": 90, "hash": "68d7bb72c8c6c2e8", "name": "PS:main_000039f4_f231b94b", "entry_name": "main_000039f4_f231b94b", "stage": "PS", "friendly_label": "Material_Texture2D_0Sampler", "size": 16876, "spirv_version": "1.3", "valid": true, "type": "Fragment", "work_registers": 32, "uniform_registers": 96, "total_cycles": 1.8453125953674316, "shortest_path": 1.8062500953674316, "longest_path": 1.8453125953674316, "fma_cycles": 1.359375, "cvt_cycles": 0.675000011920929, "sfu_cycles": 1.1875, "load_store_cycles": 0.0, "texture_cycles": 0.25, "varying_cycles": 0.59375, "has_spilling": false, "spill_count": 0}, {"index": 91, "hash": "289f2c329fdc5438", "name": "VS:main_000023ac_24c77707", "entry_name": "main_000023ac_24c77707", "stage": "VS", "friendly_label": "BoneMatrices", "size": 11200, "spirv_version": "1.3", "valid": true, "type": "Vertex", "work_registers": 64, "uniform_registers": 46, "total_cycles": 55.20000076293945, "shortest_path": 29.0, "longest_path": 59.0, "fma_cycles": 1.962499976158142, "cvt_cycles": 0.484375, "sfu_cycles": 0.5625, "load_store_cycles": 59.0, "texture_cycles": 0.0, "varying_cycles": 0.0, "has_spilling": true, "spill_count": 8}, {"index": 92, "hash": "3996b2884c0495f6", "name": "PS:main_000004b4_516891b7", "entry_name": "main_000004b4_516891b7", "stage": "PS", "friendly_label": "Material_Texture2D_0Sampler", "size": 3272, "spirv_version": "1.3", "valid": true, "type": "Fragment", "work_registers": 3, "uniform_registers": 4, "total_cycles": 0.125, "shortest_path": 0.125, "longest_path": 0.125, "fma_cycles": 0.0, "cvt_cycles": 0.046875, "sfu_cycles": 0.0, "load_store_cycles": 0.0, "texture_cycles": 0.125, "varying_cycles": 0.0625, "has_spilling": false, "spill_count": 0}, {"index": 93, "hash": "68a96cfb0e471d74", "name": "VS:main_000023d8_0d128418", "entry_name": "main_000023d8_0d128418", "stage": "VS", "friendly_label": "BoneMatrices", "size": 11244, "spirv_version": "1.3", "valid": true, "type": "Vertex", "work_registers": 64, "uniform_registers": 46, "total_cycles": 55.20000076293945, "shortest_path": 29.0, "longest_path": 59.0, "fma_cycles": 1.962499976158142, "cvt_cycles": 0.484375, "sfu_cycles": 0.5625, "load_store_cycles": 59.0, "texture_cycles": 0.0, "varying_cycles": 0.0, "has_spilling": true, "spill_count": 8}, {"index": 94, "hash": "66b9baefdf54c1af", "name": "PS:main_00004c70_9a7ab58a", "entry_name": "main_00004c70_9a7ab58a", "stage": "PS", "friendly_label": "MobileReflectionCapture_TextureSampler", "size": 21636, "spirv_version": "1.3", "valid": true, "type": "Fragment", "work_registers": 32, "uniform_registers": 100, "total_cycles": 5.0, "shortest_path": 0.125, "longest_path": 5.0, "fma_cycles": 1.524999976158142, "cvt_cycles": 0.609375, "sfu_cycles": 0.25, "load_store_cycles": 5.0, "texture_cycles": 0.875, "varying_cycles": 0.25, "has_spilling": false, "spill_count": 0}, {"index": 95, "hash": "b4165d68587638b3", "name": "PS:main_00003d68_7bd7edbd", "entry_name": "main_00003d68_7bd7edbd", "stage": "PS", "friendly_label": "Material_Texture2D_0Sampler", "size": 17808, "spirv_version": "1.3", "valid": true, "type": "Fragment", "work_registers": 32, "uniform_registers": 108, "total_cycles": 1.9921875, "shortest_path": 1.953125, "longest_path": 1.9921875, "fma_cycles": 1.493749976158142, "cvt_cycles": 0.699999988079071, "sfu_cycles": 1.1875, "load_store_cycles": 0.0, "texture_cycles": 0.25, "varying_cycles": 0.59375, "has_spilling": false, "spill_count": 0}, {"index": 96, "hash": "ab22127d803c6e92", "name": "PS:main_000004b4_516891b7", "entry_name": "main_000004b4_516891b7", "stage": "PS", "friendly_label": "Material_Texture2D_0Sampler", "size": 3292, "spirv_version": "1.3", "valid": true, "type": "Fragment", "work_registers": 3, "uniform_registers": 4, "total_cycles": 0.125, "shortest_path": 0.125, "longest_path": 0.125, "fma_cycles": 0.0, "cvt_cycles": 0.046875, "sfu_cycles": 0.0, "load_store_cycles": 0.0, "texture_cycles": 0.125, "varying_cycles": 0.0625, "has_spilling": false, "spill_count": 0}, {"index": 97, "hash": "02548863f3ebc325", "name": "VS:main_000023d8_0d128418", "entry_name": "main_000023d8_0d128418", "stage": "VS", "friendly_label": "BoneMatrices", "size": 11264, "spirv_version": "1.3", "valid": true, "type": "Vertex", "work_registers": 64, "uniform_registers": 46, "total_cycles": 55.20000076293945, "shortest_path": 29.0, "longest_path": 59.0, "fma_cycles": 1.962499976158142, "cvt_cycles": 0.484375, "sfu_cycles": 0.5625, "load_store_cycles": 59.0, "texture_cycles": 0.0, "varying_cycles": 0.0, "has_spilling": true, "spill_count": 8}, {"index": 98, "hash": "fc6bea0c0ec2a0c5", "name": "PS:main_00004eb0_3bf0a134", "entry_name": "main_00004eb0_3bf0a134", "stage": "PS", "friendly_label": "MobileReflectionCapture_TextureSampler", "size": 22232, "spirv_version": "1.3", "valid": true, "type": "Fragment", "work_registers": 32, "uniform_registers": 104, "total_cycles": 5.0, "shortest_path": 0.125, "longest_path": 5.0, "fma_cycles": 1.53125, "cvt_cycles": 0.637499988079071, "sfu_cycles": 0.25, "load_store_cycles": 5.0, "texture_cycles": 0.875, "varying_cycles": 0.25, "has_spilling": false, "spill_count": 0}, {"index": 99, "hash": "a00e81c1bf5f3d10", "name": "VS:main_00005134_3c38c702", "entry_name": "main_00005134_3c38c702", "stage": "VS", "friendly_label": "View_DistantSkyLightLutTextureSampler", "size": 22884, "spirv_version": "1.3", "valid": true, "type": "Vertex", "work_registers": 32, "uniform_registers": 126, "total_cycles": 11.0, "shortest_path": 11.0, "longest_path": 11.0, "fma_cycles": 1.5, "cvt_cycles": 0.25, "sfu_cycles": 0.5, "load_store_cycles": 11.0, "texture_cycles": 0.0, "varying_cycles": 0.0, "has_spilling": false, "spill_count": 0}, {"index": 100, "hash": "d3fe531ab1179c04", "name": "PS:main_00003cb4_8519f1c0", "entry_name": "main_00003cb4_8519f1c0", "stage": "PS", "friendly_label": "Material_Texture2D_0Sampler", "size": 17640, "spirv_version": "1.3", "valid": true, "type": "Fragment", "work_registers": 32, "uniform_registers": 116, "total_cycles": 6.0, "shortest_path": 6.0, "longest_path": 6.0, "fma_cycles": 1.59375, "cvt_cycles": 0.887499988079071, "sfu_cycles": 1.25, "load_store_cycles": 6.0, "texture_cycles": 0.375, "varying_cycles": 0.40625, "has_spilling": false, "spill_count": 0}, {"index": 101, "hash": "dc4c62e4f365730f", "name": "VS:main_00004ba8_6d114942", "entry_name": "main_00004ba8_6d114942", "stage": "VS", "friendly_label": "View_DistantSkyLightLutTextureSampler", "size": 23172, "spirv_version": "1.3", "valid": true, "type": "Vertex", "work_registers": 32, "uniform_registers": 118, "total_cycles": 10.0, "shortest_path": 10.0, "longest_path": 10.0, "fma_cycles": 0.90625, "cvt_cycles": 0.203125, "sfu_cycles": 0.375, "load_store_cycles": 10.0, "texture_cycles": 0.0, "varying_cycles": 0.0, "has_spilling": false, "spill_count": 0}, {"index": 102, "hash": "0be59440b306cc13", "name": "PS:main_00000e34_f5a64356", "entry_name": "main_00000e34_f5a64356", "stage": "PS", "friendly_label": "Material_Texture2D_0Sampler", "size": 7440, "spirv_version": "1.3", "valid": true, "type": "Fragment", "work_registers": 19, "uniform_registers": 16, "total_cycles": 0.25, "shortest_path": 0.25, "longest_path": 0.25, "fma_cycles": 0.2421875, "cvt_cycles": 0.0, "sfu_cycles": 0.0, "load_store_cycles": 0.0, "texture_cycles": 0.25, "varying_cycles": 0.125, "has_spilling": false, "spill_count": 0}, {"index": 103, "hash": "eaef580c99154c75", "name": "VS:main_0000d484_7217afa3", "entry_name": "main_0000d484_7217afa3", "stage": "VS", "friendly_label": "View_DistantSkyLightLutTextureSampler", "size": 58208, "spirv_version": "1.3", "valid": true, "type": "Vertex", "work_registers": 64, "uniform_registers": 128, "total_cycles": 87.69999694824219, "shortest_path": 22.0, "longest_path": 63.0, "fma_cycles": 4.875, "cvt_cycles": 2.512500047683716, "sfu_cycles": 0.875, "load_store_cycles": 63.0, "texture_cycles": 0.0, "varying_cycles": 0.0, "has_spilling": true, "spill_count": 20}, {"index": 104, "hash": "8b77c004675cb9a8", "name": "PS:main_00004708_0a571611", "entry_name": "main_00004708_0a571611", "stage": "PS", "friendly_label": "Material_Texture2D_0Sampler", "size": 21992, "spirv_version": "1.3", "valid": true, "type": "Fragment", "work_registers": 32, "uniform_registers": 128, "total_cycles": 2.395312547683716, "shortest_path": 2.356250047683716, "longest_path": 2.395312547683716, "fma_cycles": 1.818750023841858, "cvt_cycles": 0.824999988079071, "sfu_cycles": 1.3125, "load_store_cycles": 0.0, "texture_cycles": 0.375, "varying_cycles": 1.0625, "has_spilling": false, "spill_count": 0}, {"index": 105, "hash": "3dd3beae97bc6706", "name": "VS:main_0000d204_d6809e05", "entry_name": "main_0000d204_d6809e05", "stage": "VS", "friendly_label": "View_DistantSkyLightLutTextureSampler", "size": 57568, "spirv_version": "1.3", "valid": true, "type": "Vertex", "work_registers": 64, "uniform_registers": 128, "total_cycles": 101.0, "shortest_path": 21.0, "longest_path": 57.0, "fma_cycles": 2.4312500953674316, "cvt_cycles": 1.9375, "sfu_cycles": 1.0625, "load_store_cycles": 57.0, "texture_cycles": 0.0, "varying_cycles": 0.0, "has_spilling": false, "spill_count": 0}, {"index": 106, "hash": "28f40bfcd57f31f9", "name": "PS:main_00005254_4a7cd750", "entry_name": "main_00005254_4a7cd750", "stage": "PS", "friendly_label": "Material_Texture2D_0Sampler", "size": 24884, "spirv_version": "1.3", "valid": true, "type": "Fragment", "work_registers": 32, "uniform_registers": 128, "total_cycles": 2.8703126907348633, "shortest_path": 2.831249952316284, "longest_path": 2.8703126907348633, "fma_cycles": 2.0250000953674316, "cvt_cycles": 1.2999999523162842, "sfu_cycles": 1.5625, "load_store_cycles": 0.0, "texture_cycles": 0.5, "varying_cycles": 0.71875, "has_spilling": false, "spill_count": 0}, {"index": 107, "hash": "b954b1aaf9a39302", "name": "VS:main_00005ecc_753a35f1", "entry_name": "main_00005ecc_753a35f1", "stage": "VS", "friendly_label": "View_DistantSkyLightLutTextureSampler", "size": 28076, "spirv_version": "1.3", "valid": true, "type": "Vertex", "work_registers": 64, "uniform_registers": 128, "total_cycles": 57.20000076293945, "shortest_path": 31.0, "longest_path": 61.0, "fma_cycles": 2.375, "cvt_cycles": 0.625, "sfu_cycles": 0.625, "load_store_cycles": 61.0, "texture_cycles": 0.125, "varying_cycles": 0.0, "has_spilling": true, "spill_count": 8}, {"index": 108, "hash": "bb29eae39c257391", "name": "PS:main_0000189c_e2468779", "entry_name": "main_0000189c_e2468779", "stage": "PS", "friendly_label": "Material_Texture2D_0Sampler", "size": 10108, "spirv_version": "1.3", "valid": true, "type": "Fragment", "work_registers": 18, "uniform_registers": 34, "total_cycles": 1.0, "shortest_path": 1.0, "longest_path": 1.0, "fma_cycles": 0.4937500059604645, "cvt_cycles": 0.203125, "sfu_cycles": 0.1875, "load_store_cycles": 1.0, "texture_cycles": 0.25, "varying_cycles": 0.15625, "has_spilling": false, "spill_count": 0}], "textures": [{"resource_id": 119808, "width": 1, "height": 1, "depth": 1, "format": 37, "format_name": "R8G8B8A8_UNORM", "mip_levels": 1, "array_layers": 1, "samples": 1, "usage": 7, "image_type": 1}, {"resource_id": 121344, "width": 1, "height": 1, "depth": 1, "format": 37, "format_name": "R8G8B8A8_UNORM", "mip_levels": 1, "array_layers": 1, "samples": 1, "usage": 7, "image_type": 1}, {"resource_id": 129280, "width": 1, "height": 1, "depth": 1, "format": 44, "format_name": "B8G8R8A8_UNORM", "mip_levels": 1, "array_layers": 1, "samples": 1, "usage": 7, "image_type": 2}, {"resource_id": 132352, "width": 1, "height": 1, "depth": 1, "format": 44, "format_name": "B8G8R8A8_UNORM", "mip_levels": 1, "array_layers": 6, "samples": 1, "usage": 7, "image_type": 1}, {"resource_id": 140800, "width": 1, "height": 1, "depth": 1, "format": 44, "format_name": "B8G8R8A8_UNORM", "mip_levels": 1, "array_layers": 6, "samples": 1, "usage": 7, "image_type": 1}, {"resource_id": 240640, "width": 1, "height": 1, "depth": 1, "format": 44, "format_name": "B8G8R8A8_UNORM", "mip_levels": 1, "array_layers": 1, "samples": 1, "usage": 7, "image_type": 1}, {"resource_id": 269056, "width": 512, "height": 256, "depth": 1, "format": 9, "format_name": "R8_UNORM", "mip_levels": 1, "array_layers": 1, "samples": 1, "usage": 7, "image_type": 1}, {"resource_id": 357120, "width": 1, "height": 1, "depth": 1, "format": 44, "format_name": "B8G8R8A8_UNORM", "mip_levels": 1, "array_layers": 1, "samples": 1, "usage": 7, "image_type": 1}, {"resource_id": 959232, "width": 1024, "height": 32, "depth": 1, "format": 64, "format_name": "A2B10G10R10_UNORM_PACK32", "mip_levels": 1, "array_layers": 1, "samples": 1, "usage": 23, "image_type": 1}, {"resource_id": 1049088, "width": 1024, "height": 1024, "depth": 1, "format": 9, "format_name": "R8_UNORM", "mip_levels": 1, "array_layers": 1, "samples": 1, "usage": 7, "image_type": 1}, {"resource_id": 10925824, "width": 1700, "height": 756, "depth": 1, "format": 9, "format_name": "R8_UNORM", "mip_levels": 1, "array_layers": 1, "samples": 1, "usage": 23, "image_type": 1}, {"resource_id": 11636480, "width": 2424, "height": 1080, "depth": 1, "format": 37, "format_name": "R8G8B8A8_UNORM", "mip_levels": 1, "array_layers": 1, "samples": 1, "usage": 23, "image_type": 1}, {"resource_id": 14100736, "width": 512, "height": 512, "depth": 1, "format": 171, "format_name": "ASTC_8x8_UNORM_BLOCK", "mip_levels": 10, "array_layers": 1, "samples": 1, "usage": 7, "image_type": 1}, {"resource_id": 23690752, "width": 360, "height": 1, "depth": 1, "format": 100, "format_name": "R32_SFLOAT", "mip_levels": 1, "array_layers": 1, "samples": 1, "usage": 7, "image_type": 1}, {"resource_id": 23695360, "width": 360, "height": 1, "depth": 1, "format": 100, "format_name": "R32_SFLOAT", "mip_levels": 1, "array_layers": 1, "samples": 1, "usage": 7, "image_type": 1}, {"resource_id": 23699712, "width": 360, "height": 1, "depth": 1, "format": 100, "format_name": "R32_SFLOAT", "mip_levels": 1, "array_layers": 1, "samples": 1, "usage": 7, "image_type": 1}, {"resource_id": 23768576, "width": 64, "height": 64, "depth": 1, "format": 74, "format_name": "R16_UINT", "mip_levels": 7, "array_layers": 1, "samples": 1, "usage": 23, "image_type": 1}, {"resource_id": 23769088, "width": 128, "height": 128, "depth": 1, "format": 74, "format_name": "R16_UINT", "mip_levels": 8, "array_layers": 1, "samples": 1, "usage": 23, "image_type": 1}, {"resource_id": 23774976, "width": 1785, "height": 794, "depth": 1, "format": 122, "format_name": "B10G11R11_UFLOAT_PACK32", "mip_levels": 1, "array_layers": 1, "samples": 2, "usage": 80, "image_type": 1}, {"resource_id": 23776000, "width": 1785, "height": 794, "depth": 1, "format": 122, "format_name": "B10G11R11_UFLOAT_PACK32", "mip_levels": 1, "array_layers": 1, "samples": 1, "usage": 23, "image_type": 1}, {"resource_id": 23776768, "width": 1785, "height": 794, "depth": 1, "format": 76, "format_name": "R16_SFLOAT", "mip_levels": 1, "array_layers": 1, "samples": 2, "usage": 208, "image_type": 1}, {"resource_id": 23780352, "width": 1785, "height": 794, "depth": 1, "format": 76, "format_name": "R16_SFLOAT", "mip_levels": 1, "array_layers": 1, "samples": 1, "usage": 23, "image_type": 1}, {"resource_id": 23780864, "width": 1785, "height": 794, "depth": 1, "format": 129, "format_name": "D24_UNORM_S8_UINT", "mip_levels": 1, "array_layers": 1, "samples": 2, "usage": 224, "image_type": 1}, {"resource_id": 23781632, "width": 1700, "height": 756, "depth": 1, "format": 122, "format_name": "B10G11R11_UFLOAT_PACK32", "mip_levels": 1, "array_layers": 1, "samples": 2, "usage": 80, "image_type": 1}, {"resource_id": 23782144, "width": 1700, "height": 756, "depth": 1, "format": 122, "format_name": "B10G11R11_UFLOAT_PACK32", "mip_levels": 1, "array_layers": 1, "samples": 1, "usage": 23, "image_type": 1}, {"resource_id": 23783168, "width": 1700, "height": 756, "depth": 1, "format": 76, "format_name": "R16_SFLOAT", "mip_levels": 1, "array_layers": 1, "samples": 2, "usage": 208, "image_type": 1}, {"resource_id": 23783680, "width": 1700, "height": 756, "depth": 1, "format": 76, "format_name": "R16_SFLOAT", "mip_levels": 1, "array_layers": 1, "samples": 1, "usage": 23, "image_type": 1}, {"resource_id": 23784192, "width": 1700, "height": 756, "depth": 1, "format": 129, "format_name": "D24_UNORM_S8_UINT", "mip_levels": 1, "array_layers": 1, "samples": 2, "usage": 224, "image_type": 1}, {"resource_id": 23784960, "width": 425, "height": 189, "depth": 1, "format": 76, "format_name": "R16_SFLOAT", "mip_levels": 1, "array_layers": 1, "samples": 1, "usage": 23, "image_type": 1}, {"resource_id": 23785472, "width": 1700, "height": 756, "depth": 1, "format": 37, "format_name": "R8G8B8A8_UNORM", "mip_levels": 1, "array_layers": 1, "samples": 1, "usage": 23, "image_type": 1}, {"resource_id": 23785984, "width": 1700, "height": 756, "depth": 1, "format": 37, "format_name": "R8G8B8A8_UNORM", "mip_levels": 1, "array_layers": 1, "samples": 1, "usage": 23, "image_type": 1}, {"resource_id": 23787008, "width": 2424, "height": 1080, "depth": 1, "format": 37, "format_name": "R8G8B8A8_UNORM", "mip_levels": 1, "array_layers": 1, "samples": 1, "usage": 31, "image_type": 1}, {"resource_id": 24044800, "width": 425, "height": 189, "depth": 1, "format": 76, "format_name": "R16_SFLOAT", "mip_levels": 1, "array_layers": 1, "samples": 1, "usage": 23, "image_type": 1}, {"resource_id": 24263424, "width": 64, "height": 64, "depth": 1, "format": 9, "format_name": "R8_UNORM", "mip_levels": 7, "array_layers": 1, "samples": 1, "usage": 7, "image_type": 1}, {"resource_id": 24632064, "width": 64, "height": 64, "depth": 1, "format": 44, "format_name": "B8G8R8A8_UNORM", "mip_levels": 7, "array_layers": 1, "samples": 1, "usage": 7, "image_type": 1}, {"resource_id": 24636672, "width": 64, "height": 64, "depth": 1, "format": 44, "format_name": "B8G8R8A8_UNORM", "mip_levels": 7, "array_layers": 1, "samples": 1, "usage": 7, "image_type": 1}, {"resource_id": 24722688, "width": 1700, "height": 756, "depth": 1, "format": 122, "format_name": "B10G11R11_UFLOAT_PACK32", "mip_levels": 1, "array_layers": 1, "samples": 1, "usage": 23, "image_type": 1}, {"resource_id": 25291520, "width": 1, "height": 1, "depth": 1, "format": 44, "format_name": "B8G8R8A8_UNORM", "mip_levels": 1, "array_layers": 1, "samples": 1, "usage": 7, "image_type": 1}, {"resource_id": 26543104, "width": 256, "height": 256, "depth": 1, "format": 171, "format_name": "ASTC_8x8_UNORM_BLOCK", "mip_levels": 9, "array_layers": 1, "samples": 1, "usage": 7, "image_type": 1}, {"resource_id": 29311744, "width": 64, "height": 64, "depth": 1, "format": 9, "format_name": "R8_UNORM", "mip_levels": 7, "array_layers": 1, "samples": 1, "usage": 7, "image_type": 1}, {"resource_id": 29372672, "width": 64, "height": 64, "depth": 1, "format": 44, "format_name": "B8G8R8A8_UNORM", "mip_levels": 7, "array_layers": 1, "samples": 1, "usage": 7, "image_type": 1}, {"resource_id": 29374976, "width": 64, "height": 64, "depth": 1, "format": 44, "format_name": "B8G8R8A8_UNORM", "mip_levels": 7, "array_layers": 1, "samples": 1, "usage": 7, "image_type": 1}, {"resource_id": 29400320, "width": 64, "height": 64, "depth": 1, "format": 44, "format_name": "B8G8R8A8_UNORM", "mip_levels": 7, "array_layers": 1, "samples": 1, "usage": 7, "image_type": 1}, {"resource_id": 29430272, "width": 64, "height": 64, "depth": 1, "format": 44, "format_name": "B8G8R8A8_UNORM", "mip_levels": 7, "array_layers": 1, "samples": 1, "usage": 7, "image_type": 1}, {"resource_id": 29938944, "width": 1700, "height": 756, "depth": 1, "format": 129, "format_name": "D24_UNORM_S8_UINT", "mip_levels": 1, "array_layers": 1, "samples": 1, "usage": 39, "image_type": 1}, {"resource_id": 30333696, "width": 128, "height": 128, "depth": 1, "format": 171, "format_name": "ASTC_8x8_UNORM_BLOCK", "mip_levels": 8, "array_layers": 1, "samples": 1, "usage": 7, "image_type": 1}, {"resource_id": 30515712, "width": 256, "height": 256, "depth": 1, "format": 171, "format_name": "ASTC_8x8_UNORM_BLOCK", "mip_levels": 9, "array_layers": 1, "samples": 1, "usage": 7, "image_type": 1}, {"resource_id": 33297152, "width": 512, "height": 512, "depth": 1, "format": 9, "format_name": "R8_UNORM", "mip_levels": 10, "array_layers": 1, "samples": 1, "usage": 7, "image_type": 1}, {"resource_id": 34093056, "width": 64, "height": 64, "depth": 1, "format": 171, "format_name": "ASTC_8x8_UNORM_BLOCK", "mip_levels": 7, "array_layers": 1, "samples": 1, "usage": 7, "image_type": 1}, {"resource_id": 34095872, "width": 64, "height": 64, "depth": 1, "format": 171, "format_name": "ASTC_8x8_UNORM_BLOCK", "mip_levels": 7, "array_layers": 1, "samples": 1, "usage": 7, "image_type": 1}, {"resource_id": 35415040, "width": 256, "height": 256, "depth": 1, "format": 171, "format_name": "ASTC_8x8_UNORM_BLOCK", "mip_levels": 9, "array_layers": 1, "samples": 1, "usage": 7, "image_type": 1}]}];
+        
+        // Tab switching
+        document.querySelectorAll('.tab').forEach(tab => {
+            tab.addEventListener('click', () => {
+                document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+                document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+                tab.classList.add('active');
+                document.getElementById(tab.dataset.tab).classList.add('active');
+            });
+        });
+        
+        // Initialize DataTables
+        $(document).ready(function() {
+            // Per-file tables
+            analysisData.forEach((fileData, fileIdx) => {
+                const tableId = `#shader-table-${fileIdx}`;
+                const maxCycles = fileData.summary.cycles.max || 1;
+                
+                const tableData = fileData.shaders.map(shader => {
+                    // Stage badge
+                    const stage = shader.stage || '??';
+                    const stageClass = stage === 'VS' ? 'vs' : 
+                                       stage === 'PS' ? 'fs' : 
+                                       stage === 'CS' ? 'cs' : 'error';
+                    const stageHtml = `<span class="badge badge-${stageClass}">${stage}</span>`;
+                    
+                    // Hash
+                    const hashHtml = `<span class="shader-hash">${shader.hash || '-'}</span>`;
+                    
+                    // Resource Hint (friendly_label from OpName)
+                    const hint = shader.friendly_label || '';
+                    const hintHtml = hint 
+                        ? `<span class="shader-name" title="${hint}">${hint.substring(0, 25)}${hint.length > 25 ? '...' : ''}</span>`
+                        : '<span style="color: var(--text-secondary);">-</span>';
+                    
+                    if (!shader.valid) {
+                        return [
+                            shader.index,
+                            stageHtml,
+                            hashHtml,
+                            hintHtml,
+                            shader.size,
+                            '-', '-', '-', '-', '-', '-', '-', '-',
+                            '<span class="spill-ok">-</span>'
+                        ];
+                    }
+                    
+                    const cyclesPct = Math.min(100, (shader.longest_path / maxCycles) * 100);
+                    const cycleClass = cyclesPct < 33 ? 'low' : cyclesPct < 66 ? 'medium' : 'high';
+                    
+                    const cyclesHtml = `<div class="cycles-cell">
+                        <span class="cycles-value">${shader.longest_path.toFixed(1)}</span>
+                        <div class="cycles-bar"><div class="cycles-fill ${cycleClass}" style="width:${cyclesPct}%"></div></div>
+                    </div>`;
+                    
+                    const spillHtml = shader.has_spilling 
+                        ? `<span class="spill-warn">! ${shader.spill_count}</span>`
+                        : '<span class="spill-ok">OK</span>';
+                    
+                    return [
+                        shader.index,
+                        stageHtml,
+                        hashHtml,
+                        hintHtml,
+                        shader.size,
+                        shader.work_registers,
+                        shader.uniform_registers,
+                        cyclesHtml,
+                        shader.fma_cycles?.toFixed(2) || '-',
+                        shader.cvt_cycles?.toFixed(2) || '-',
+                        shader.sfu_cycles?.toFixed(2) || '-',
+                        shader.load_store_cycles?.toFixed(2) || '-',
+                        shader.texture_cycles?.toFixed(2) || '-',
+                        spillHtml
+                    ];
+                });
+                
+                $(tableId).DataTable({
+                    data: tableData,
+                    pageLength: 25,
+                    order: [[6, 'desc']], // Sort by cycles descending
+                    dom: 'Bfrtip',
+                    buttons: ['copy', 'csv', 'excel'],
+                    language: {
+                        search: "Search:",
+                        lengthMenu: "Show _MENU_ shaders",
+                        info: "Showing _START_ to _END_ of _TOTAL_ shaders"
+                    }
+                });
+            });
+            
+            // Comparison table (if multiple files)
+            if (analysisData.length > 1) {
+                // Build hash map with shader info (改进版：分离各字段)
+                const hashMap = new Map();
+                
+                analysisData.forEach((fileData, fileIdx) => {
+                    fileData.shaders.forEach(shader => {
+                        if (shader.valid && shader.hash) {
+                            if (!hashMap.has(shader.hash)) {
+                                hashMap.set(shader.hash, {
+                                    hash: shader.hash,
+                                    index: shader.index,
+                                    stage: shader.stage || '??',
+                                    entry_name: shader.entry_name || 'main',
+                                    friendly_label: shader.friendly_label || '',
+                                    size: shader.size,
+                                    cycles: new Array(analysisData.length).fill(null)
+                                });
+                            }
+                            hashMap.get(shader.hash).cycles[fileIdx] = shader.longest_path;
+                        }
+                    });
+                });
+                
+                const comparisonData = [];
+                hashMap.forEach(item => {
+                    // 新的列结构: Index, Stage, Hash, Resource Hint, Size, [Cycles...], Diff
+                    const stageClass = item.stage === 'VS' ? 'vs' : 
+                                       item.stage === 'PS' ? 'fs' : 
+                                       item.stage === 'CS' ? 'cs' : 'error';
+                    const stageHtml = `<span class="badge badge-${stageClass}">${item.stage}</span>`;
+                    const hashHtml = `<span class="shader-hash">${item.hash}</span>`;
+                    const hintHtml = item.friendly_label 
+                        ? `<span class="shader-name" title="${item.friendly_label}">${item.friendly_label.substring(0, 25)}${item.friendly_label.length > 25 ? '...' : ''}</span>`
+                        : '<span class="text-muted">-</span>';
+                    
+                    const row = [
+                        item.index,
+                        stageHtml,
+                        hashHtml,
+                        hintHtml,
+                        item.size
+                    ];
+                    
+                    item.cycles.forEach(c => {
+                        row.push(c !== null ? c.toFixed(1) : '-');
+                    });
+                    
+                    // Calculate diff
+                    const validCycles = item.cycles.filter(c => c !== null);
+                    let diffHtml = '-';
+                    if (validCycles.length === analysisData.length) {
+                        const diff = item.cycles[1] - item.cycles[0];
+                        if (Math.abs(diff) < 0.1) {
+                            diffHtml = '<span class="diff-badge diff-same">=</span>';
+                        } else if (diff > 0) {
+                            diffHtml = `<span class="diff-badge diff-worse">+${diff.toFixed(1)}</span>`;
+                        } else {
+                            diffHtml = `<span class="diff-badge diff-better">${diff.toFixed(1)}</span>`;
+                        }
+                    } else if (item.cycles[0] === null) {
+                        diffHtml = '<span class="diff-badge diff-new">NEW</span>';
+                    } else if (item.cycles[1] === null) {
+                        diffHtml = '<span class="diff-badge diff-removed">GONE</span>';
+                    }
+                    row.push(diffHtml);
+                    
+                    comparisonData.push(row);
+                });
+                
+                $('#comparison-table').DataTable({
+                    data: comparisonData,
+                    pageLength: 50,
+                    order: [[0, 'asc']], // Sort by index ascending
+                    dom: 'Bfrtip',
+                    buttons: ['copy', 'csv', 'excel']
+                });
+            }
+            
+            // Texture table
+            const textureData = [];
+            analysisData.forEach((fileData, fileIdx) => {
+                const fileName = fileData.summary.file_name.substring(0, 15) + '...';
+                const textures = fileData.textures || [];
+                
+                textures.forEach(tex => {
+                    // Image type badge
+                    const typeNames = ['1D', '2D', '3D'];
+                    const typeName = typeNames[tex.image_type] || '2D';
+                    const typeClass = typeName === '2D' ? 'fs' : typeName === '3D' ? 'cs' : 'vs';
+                    const typeHtml = `<span class="badge badge-${typeClass}">${typeName}</span>`;
+                    
+                    // Dimensions
+                    let dimStr = `${tex.width}×${tex.height}`;
+                    if (tex.depth > 1) {
+                        dimStr += `×${tex.depth}`;
+                    }
+                    
+                    // Format - show short name
+                    const formatName = tex.format_name.replace('VK_FORMAT_', '');
+                    const formatHtml = `<span class="shader-hash" title="${tex.format_name}">${formatName}</span>`;
+                    
+                    // Usage flags as hex
+                    const usageHex = '0x' + tex.usage.toString(16).toUpperCase();
+                    
+                    textureData.push([
+                        fileName,
+                        tex.resource_id,
+                        typeHtml,
+                        dimStr,
+                        formatHtml,
+                        tex.mip_levels,
+                        tex.array_layers,
+                        tex.samples,
+                        usageHex
+                    ]);
+                });
+            });
+            
+            $('#texture-table').DataTable({
+                data: textureData,
+                pageLength: 50,
+                order: [[3, 'desc']], // Sort by dimensions descending
+                dom: 'Bfrtip',
+                buttons: ['copy', 'csv', 'excel'],
+                language: {
+                    search: "Search:",
+                    info: "Showing _START_ to _END_ of _TOTAL_ textures"
+                }
+            });
+        });
+    </script>
+</body>
+</html>

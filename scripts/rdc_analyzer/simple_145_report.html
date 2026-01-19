@@ -1,0 +1,1331 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>纹理报告 - Game_x64h.rdc</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            background: #0d1117;
+            color: #e6edf3;
+            padding: 20px;
+        }
+        .header {
+            background: #161b22;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        .header h1 { color: #58a6ff; margin-bottom: 10px; }
+        .header .meta { color: #8b949e; font-size: 14px; }
+        
+        .summary {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+        .summary-card {
+            background: #161b22;
+            padding: 15px 20px;
+            border-radius: 8px;
+            border-left: 4px solid #58a6ff;
+            min-width: 200px;
+        }
+        .summary-card.warning { border-left-color: #f0883e; }
+        .summary-card.danger { border-left-color: #e94560; }
+        .summary-card h3 { font-size: 14px; color: #8b949e; margin-bottom: 8px; }
+        .summary-card .stat { font-size: 28px; font-weight: bold; }
+        .summary-card .detail { font-size: 12px; color: #8b949e; margin-top: 5px; }
+        
+        .texture-list {
+            background: #161b22;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        .list-header {
+            display: grid;
+            grid-template-columns: 80px 1fr 120px 150px 100px;
+            gap: 10px;
+            padding: 12px 15px;
+            background: #21262d;
+            font-weight: bold;
+            color: #8b949e;
+            font-size: 12px;
+            text-transform: uppercase;
+        }
+        .tex-item {
+            display: grid;
+            grid-template-columns: 80px 1fr 120px 150px 100px;
+            gap: 10px;
+            padding: 12px 15px;
+            border-bottom: 1px solid #30363d;
+            cursor: pointer;
+            transition: background 0.15s;
+        }
+        .tex-item:hover { background: #21262d; }
+        .tex-item:nth-child(odd) { background: #0d1117; }
+        .tex-item:nth-child(odd):hover { background: #21262d; }
+        
+        .tex-id { color: #58a6ff; font-weight: bold; }
+        .tex-name { color: #e6edf3; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .tex-size { color: #8b949e; }
+        .tex-format { 
+            color: #3fb950; 
+            font-family: monospace;
+            font-size: 12px;
+        }
+        .tex-vram { color: #f0883e; text-align: right; }
+        
+        .search-bar {
+            margin-bottom: 15px;
+        }
+        .search-bar input {
+            width: 100%;
+            max-width: 400px;
+            padding: 10px 15px;
+            border: 1px solid #30363d;
+            border-radius: 6px;
+            background: #0d1117;
+            color: #e6edf3;
+            font-size: 14px;
+        }
+        .search-bar input:focus {
+            outline: none;
+            border-color: #58a6ff;
+        }
+        
+        .count { color: #8b949e; margin-bottom: 10px; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>📊 RDC 纹理分析报告</h1>
+        <div class="meta">
+            文件: Game_x64h.rdc | 生成时间: 2026-01-18 19:29:00
+        </div>
+    </div>
+    
+    <div class="summary">
+        <div class="summary-card">
+            <h3>📦 纹理总数</h3>
+            <div class="stat">145</div>
+        </div>
+        <div class="summary-card">
+            <h3>💾 VRAM 占用</h3>
+            <div class="stat">1543.4 MB</div>
+        </div>
+        
+        <div class="summary-card warning">
+            <h3>🔁 重复纹理</h3>
+            <div class="stat">2 组重复</div>
+            <div class="detail">浪费 73.0 MB VRAM</div>
+        </div>
+        
+            <div class="summary-card danger">
+                <h3>⚠️ 未使用纹理</h3>
+                <div class="stat">8 个</div>
+                <div class="detail">占用 2.8 MB VRAM</div>
+            </div>
+    </div>
+    
+    <div class="search-bar">
+        <input type="text" id="searchInput" placeholder="搜索纹理名称或格式..." onkeyup="filterTextures()">
+    </div>
+    
+    <div class="count" id="countDisplay">显示 145 个纹理</div>
+    
+    <div class="texture-list">
+        <div class="list-header">
+            <div>ID</div>
+            <div>名称</div>
+            <div>尺寸</div>
+            <div>格式</div>
+            <div>VRAM</div>
+        </div>
+        <div id="textureContainer">
+            
+        <div class="tex-item" data-id="1000">
+            <div class="tex-id">#1000</div>
+            <div class="tex-name">T_UI_00</div>
+            <div class="tex-size">2048x2048</div>
+            <div class="tex-format">R8G8B8A8_UNORM</div>
+            <div class="tex-vram">16.00 MB</div>
+        </div>
+
+        <div class="tex-item" data-id="1001">
+            <div class="tex-id">#1001</div>
+            <div class="tex-name">T_Terrain_01</div>
+            <div class="tex-size">4096x4096</div>
+            <div class="tex-format">R8G8B8A8_UNORM</div>
+            <div class="tex-vram">64.00 MB</div>
+        </div>
+
+        <div class="tex-item" data-id="1002">
+            <div class="tex-id">#1002</div>
+            <div class="tex-name">T_Env_02</div>
+            <div class="tex-size">2048x2048</div>
+            <div class="tex-format">BC6H_UF16</div>
+            <div class="tex-vram">4.00 MB</div>
+        </div>
+
+        <div class="tex-item" data-id="1003">
+            <div class="tex-id">#1003</div>
+            <div class="tex-name">T_Env_03</div>
+            <div class="tex-size">256x256</div>
+            <div class="tex-format">BC6H_UF16</div>
+            <div class="tex-vram">0.06 MB</div>
+        </div>
+
+        <div class="tex-item" data-id="1004">
+            <div class="tex-id">#1004</div>
+            <div class="tex-name">T_VFX_04</div>
+            <div class="tex-size">4096x4096</div>
+            <div class="tex-format">D32_FLOAT</div>
+            <div class="tex-vram">64.00 MB</div>
+        </div>
+
+        <div class="tex-item" data-id="1005">
+            <div class="tex-id">#1005</div>
+            <div class="tex-name">T_Shadow_05</div>
+            <div class="tex-size">512x512</div>
+            <div class="tex-format">BC5_UNORM</div>
+            <div class="tex-vram">0.25 MB</div>
+        </div>
+
+        <div class="tex-item" data-id="1006">
+            <div class="tex-id">#1006</div>
+            <div class="tex-name">T_Terrain_06</div>
+            <div class="tex-size">1024x1024</div>
+            <div class="tex-format">R8G8B8A8_UNORM</div>
+            <div class="tex-vram">4.00 MB</div>
+        </div>
+
+        <div class="tex-item" data-id="1007">
+            <div class="tex-id">#1007</div>
+            <div class="tex-name">T_Env_07</div>
+            <div class="tex-size">4096x4096</div>
+            <div class="tex-format">BC6H_UF16</div>
+            <div class="tex-vram">16.00 MB</div>
+        </div>
+
+        <div class="tex-item" data-id="1008">
+            <div class="tex-id">#1008</div>
+            <div class="tex-name">T_VFX_08</div>
+            <div class="tex-size">2048x2048</div>
+            <div class="tex-format">R8G8B8A8_UNORM</div>
+            <div class="tex-vram">16.00 MB</div>
+        </div>
+
+        <div class="tex-item" data-id="1009">
+            <div class="tex-id">#1009</div>
+            <div class="tex-name">T_ORM_09</div>
+            <div class="tex-size">256x256</div>
+            <div class="tex-format">BC7_UNORM</div>
+            <div class="tex-vram">0.06 MB</div>
+        </div>
+
+        <div class="tex-item" data-id="1010">
+            <div class="tex-id">#1010</div>
+            <div class="tex-name">T_UI_10</div>
+            <div class="tex-size">4096x4096</div>
+            <div class="tex-format">BC3_UNORM_SRGB</div>
+            <div class="tex-vram">16.00 MB</div>
+        </div>
+
+        <div class="tex-item" data-id="1011">
+            <div class="tex-id">#1011</div>
+            <div class="tex-name">T_Character_11</div>
+            <div class="tex-size">512x512</div>
+            <div class="tex-format">BC6H_UF16</div>
+            <div class="tex-vram">0.25 MB</div>
+        </div>
+
+        <div class="tex-item" data-id="1012">
+            <div class="tex-id">#1012</div>
+            <div class="tex-name">T_VFX_12</div>
+            <div class="tex-size">1024x1024</div>
+            <div class="tex-format">D32_FLOAT</div>
+            <div class="tex-vram">4.00 MB</div>
+        </div>
+
+        <div class="tex-item" data-id="1013">
+            <div class="tex-id">#1013</div>
+            <div class="tex-name">T_Terrain_13</div>
+            <div class="tex-size">512x512</div>
+            <div class="tex-format">BC7_UNORM</div>
+            <div class="tex-vram">0.25 MB</div>
+        </div>
+
+        <div class="tex-item" data-id="1014">
+            <div class="tex-id">#1014</div>
+            <div class="tex-name">T_VFX_14</div>
+            <div class="tex-size">4096x4096</div>
+            <div class="tex-format">BC7_UNORM</div>
+            <div class="tex-vram">16.00 MB</div>
+        </div>
+
+        <div class="tex-item" data-id="1015">
+            <div class="tex-id">#1015</div>
+            <div class="tex-name">T_VFX_15</div>
+            <div class="tex-size">4096x4096</div>
+            <div class="tex-format">R8G8B8A8_UNORM</div>
+            <div class="tex-vram">64.00 MB</div>
+        </div>
+
+        <div class="tex-item" data-id="1016">
+            <div class="tex-id">#1016</div>
+            <div class="tex-name">T_Terrain_16</div>
+            <div class="tex-size">1024x1024</div>
+            <div class="tex-format">BC7_UNORM</div>
+            <div class="tex-vram">1.00 MB</div>
+        </div>
+
+        <div class="tex-item" data-id="1017">
+            <div class="tex-id">#1017</div>
+            <div class="tex-name">T_VFX_17</div>
+            <div class="tex-size">512x512</div>
+            <div class="tex-format">BC7_UNORM</div>
+            <div class="tex-vram">0.25 MB</div>
+        </div>
+
+        <div class="tex-item" data-id="1018">
+            <div class="tex-id">#1018</div>
+            <div class="tex-name">T_Terrain_18</div>
+            <div class="tex-size">512x512</div>
+            <div class="tex-format">D32_FLOAT</div>
+            <div class="tex-vram">1.00 MB</div>
+        </div>
+
+        <div class="tex-item" data-id="1019">
+            <div class="tex-id">#1019</div>
+            <div class="tex-name">T_Env_19</div>
+            <div class="tex-size">4096x4096</div>
+            <div class="tex-format">BC3_UNORM_SRGB</div>
+            <div class="tex-vram">16.00 MB</div>
+        </div>
+
+        <div class="tex-item" data-id="1020">
+            <div class="tex-id">#1020</div>
+            <div class="tex-name">T_Env_20</div>
+            <div class="tex-size">256x256</div>
+            <div class="tex-format">R8G8B8A8_UNORM</div>
+            <div class="tex-vram">0.25 MB</div>
+        </div>
+
+        <div class="tex-item" data-id="1021">
+            <div class="tex-id">#1021</div>
+            <div class="tex-name">T_Normal_21</div>
+            <div class="tex-size">2048x2048</div>
+            <div class="tex-format">BC3_UNORM_SRGB</div>
+            <div class="tex-vram">4.00 MB</div>
+        </div>
+
+        <div class="tex-item" data-id="1022">
+            <div class="tex-id">#1022</div>
+            <div class="tex-name">T_Shadow_22</div>
+            <div class="tex-size">1024x1024</div>
+            <div class="tex-format">BC7_UNORM_SRGB</div>
+            <div class="tex-vram">1.00 MB</div>
+        </div>
+
+        <div class="tex-item" data-id="1023">
+            <div class="tex-id">#1023</div>
+            <div class="tex-name">T_Env_23</div>
+            <div class="tex-size">4096x4096</div>
+            <div class="tex-format">BC7_UNORM_SRGB</div>
+            <div class="tex-vram">16.00 MB</div>
+        </div>
+
+        <div class="tex-item" data-id="1024">
+            <div class="tex-id">#1024</div>
+            <div class="tex-name">T_Normal_24</div>
+            <div class="tex-size">256x256</div>
+            <div class="tex-format">BC6H_UF16</div>
+            <div class="tex-vram">0.06 MB</div>
+        </div>
+
+        <div class="tex-item" data-id="1025">
+            <div class="tex-id">#1025</div>
+            <div class="tex-name">T_Terrain_25</div>
+            <div class="tex-size">512x512</div>
+            <div class="tex-format">BC6H_UF16</div>
+            <div class="tex-vram">0.25 MB</div>
+        </div>
+
+        <div class="tex-item" data-id="1026">
+            <div class="tex-id">#1026</div>
+            <div class="tex-name">T_LightMap_26</div>
+            <div class="tex-size">2048x2048</div>
+            <div class="tex-format">BC3_UNORM_SRGB</div>
+            <div class="tex-vram">4.00 MB</div>
+        </div>
+
+        <div class="tex-item" data-id="1027">
+            <div class="tex-id">#1027</div>
+            <div class="tex-name">T_UI_27</div>
+            <div class="tex-size">4096x4096</div>
+            <div class="tex-format">D32_FLOAT</div>
+            <div class="tex-vram">64.00 MB</div>
+        </div>
+
+        <div class="tex-item" data-id="1028">
+            <div class="tex-id">#1028</div>
+            <div class="tex-name">T_Character_28</div>
+            <div class="tex-size">512x512</div>
+            <div class="tex-format">BC7_UNORM</div>
+            <div class="tex-vram">0.25 MB</div>
+        </div>
+
+        <div class="tex-item" data-id="1029">
+            <div class="tex-id">#1029</div>
+            <div class="tex-name">T_Terrain_29</div>
+            <div class="tex-size">2048x2048</div>
+            <div class="tex-format">BC7_UNORM_SRGB</div>
+            <div class="tex-vram">4.00 MB</div>
+        </div>
+
+        <div class="tex-item" data-id="1030">
+            <div class="tex-id">#1030</div>
+            <div class="tex-name">T_Character_30</div>
+            <div class="tex-size">2048x2048</div>
+            <div class="tex-format">BC5_UNORM</div>
+            <div class="tex-vram">4.00 MB</div>
+        </div>
+
+        <div class="tex-item" data-id="1031">
+            <div class="tex-id">#1031</div>
+            <div class="tex-name">T_Normal_31</div>
+            <div class="tex-size">256x256</div>
+            <div class="tex-format">BC6H_UF16</div>
+            <div class="tex-vram">0.06 MB</div>
+        </div>
+
+        <div class="tex-item" data-id="1032">
+            <div class="tex-id">#1032</div>
+            <div class="tex-name">T_Character_32</div>
+            <div class="tex-size">512x512</div>
+            <div class="tex-format">BC5_UNORM</div>
+            <div class="tex-vram">0.25 MB</div>
+        </div>
+
+        <div class="tex-item" data-id="1033">
+            <div class="tex-id">#1033</div>
+            <div class="tex-name">T_Terrain_33</div>
+            <div class="tex-size">4096x4096</div>
+            <div class="tex-format">BC3_UNORM_SRGB</div>
+            <div class="tex-vram">16.00 MB</div>
+        </div>
+
+        <div class="tex-item" data-id="1034">
+            <div class="tex-id">#1034</div>
+            <div class="tex-name">T_LightMap_34</div>
+            <div class="tex-size">256x256</div>
+            <div class="tex-format">R8G8B8A8_UNORM</div>
+            <div class="tex-vram">0.25 MB</div>
+        </div>
+
+        <div class="tex-item" data-id="1035">
+            <div class="tex-id">#1035</div>
+            <div class="tex-name">T_Normal_35</div>
+            <div class="tex-size">1024x1024</div>
+            <div class="tex-format">BC3_UNORM_SRGB</div>
+            <div class="tex-vram">1.00 MB</div>
+        </div>
+
+        <div class="tex-item" data-id="1036">
+            <div class="tex-id">#1036</div>
+            <div class="tex-name">T_Normal_36</div>
+            <div class="tex-size">4096x4096</div>
+            <div class="tex-format">R8G8B8A8_UNORM</div>
+            <div class="tex-vram">64.00 MB</div>
+        </div>
+
+        <div class="tex-item" data-id="1037">
+            <div class="tex-id">#1037</div>
+            <div class="tex-name">T_VFX_37</div>
+            <div class="tex-size">1024x1024</div>
+            <div class="tex-format">BC5_UNORM</div>
+            <div class="tex-vram">1.00 MB</div>
+        </div>
+
+        <div class="tex-item" data-id="1038">
+            <div class="tex-id">#1038</div>
+            <div class="tex-name">T_LightMap_38</div>
+            <div class="tex-size">256x256</div>
+            <div class="tex-format">D32_FLOAT</div>
+            <div class="tex-vram">0.25 MB</div>
+        </div>
+
+        <div class="tex-item" data-id="1039">
+            <div class="tex-id">#1039</div>
+            <div class="tex-name">T_Terrain_39</div>
+            <div class="tex-size">256x256</div>
+            <div class="tex-format">R8G8B8A8_UNORM</div>
+            <div class="tex-vram">0.25 MB</div>
+        </div>
+
+        <div class="tex-item" data-id="1040">
+            <div class="tex-id">#1040</div>
+            <div class="tex-name">T_Env_40</div>
+            <div class="tex-size">1024x1024</div>
+            <div class="tex-format">BC5_UNORM</div>
+            <div class="tex-vram">1.00 MB</div>
+        </div>
+
+        <div class="tex-item" data-id="1041">
+            <div class="tex-id">#1041</div>
+            <div class="tex-name">T_LightMap_41</div>
+            <div class="tex-size">2048x2048</div>
+            <div class="tex-format">BC5_UNORM</div>
+            <div class="tex-vram">4.00 MB</div>
+        </div>
+
+        <div class="tex-item" data-id="1042">
+            <div class="tex-id">#1042</div>
+            <div class="tex-name">T_LightMap_42</div>
+            <div class="tex-size">4096x4096</div>
+            <div class="tex-format">R8G8B8A8_UNORM</div>
+            <div class="tex-vram">64.00 MB</div>
+        </div>
+
+        <div class="tex-item" data-id="1043">
+            <div class="tex-id">#1043</div>
+            <div class="tex-name">T_Normal_43</div>
+            <div class="tex-size">256x256</div>
+            <div class="tex-format">D32_FLOAT</div>
+            <div class="tex-vram">0.25 MB</div>
+        </div>
+
+        <div class="tex-item" data-id="1044">
+            <div class="tex-id">#1044</div>
+            <div class="tex-name">T_Character_44</div>
+            <div class="tex-size">2048x2048</div>
+            <div class="tex-format">D32_FLOAT</div>
+            <div class="tex-vram">16.00 MB</div>
+        </div>
+
+        <div class="tex-item" data-id="1045">
+            <div class="tex-id">#1045</div>
+            <div class="tex-name">T_Misc_45</div>
+            <div class="tex-size">1024x1024</div>
+            <div class="tex-format">BC6H_UF16</div>
+            <div class="tex-vram">1.00 MB</div>
+        </div>
+
+        <div class="tex-item" data-id="1046">
+            <div class="tex-id">#1046</div>
+            <div class="tex-name">T_Character_46</div>
+            <div class="tex-size">4096x4096</div>
+            <div class="tex-format">BC3_UNORM_SRGB</div>
+            <div class="tex-vram">16.00 MB</div>
+        </div>
+
+        <div class="tex-item" data-id="1047">
+            <div class="tex-id">#1047</div>
+            <div class="tex-name">T_VFX_47</div>
+            <div class="tex-size">512x512</div>
+            <div class="tex-format">BC7_UNORM_SRGB</div>
+            <div class="tex-vram">0.25 MB</div>
+        </div>
+
+        <div class="tex-item" data-id="1048">
+            <div class="tex-id">#1048</div>
+            <div class="tex-name">T_Misc_48</div>
+            <div class="tex-size">1024x1024</div>
+            <div class="tex-format">BC6H_UF16</div>
+            <div class="tex-vram">1.00 MB</div>
+        </div>
+
+        <div class="tex-item" data-id="1049">
+            <div class="tex-id">#1049</div>
+            <div class="tex-name">T_Misc_49</div>
+            <div class="tex-size">4096x4096</div>
+            <div class="tex-format">BC3_UNORM_SRGB</div>
+            <div class="tex-vram">16.00 MB</div>
+        </div>
+
+        <div class="tex-item" data-id="1050">
+            <div class="tex-id">#1050</div>
+            <div class="tex-name">T_Env_50</div>
+            <div class="tex-size">512x512</div>
+            <div class="tex-format">BC3_UNORM_SRGB</div>
+            <div class="tex-vram">0.25 MB</div>
+        </div>
+
+        <div class="tex-item" data-id="1051">
+            <div class="tex-id">#1051</div>
+            <div class="tex-name">T_ORM_51</div>
+            <div class="tex-size">1024x1024</div>
+            <div class="tex-format">D32_FLOAT</div>
+            <div class="tex-vram">4.00 MB</div>
+        </div>
+
+        <div class="tex-item" data-id="1052">
+            <div class="tex-id">#1052</div>
+            <div class="tex-name">T_ORM_52</div>
+            <div class="tex-size">1024x1024</div>
+            <div class="tex-format">D32_FLOAT</div>
+            <div class="tex-vram">4.00 MB</div>
+        </div>
+
+        <div class="tex-item" data-id="1053">
+            <div class="tex-id">#1053</div>
+            <div class="tex-name">T_Terrain_53</div>
+            <div class="tex-size">256x256</div>
+            <div class="tex-format">D32_FLOAT</div>
+            <div class="tex-vram">0.25 MB</div>
+        </div>
+
+        <div class="tex-item" data-id="1054">
+            <div class="tex-id">#1054</div>
+            <div class="tex-name">T_VFX_54</div>
+            <div class="tex-size">512x512</div>
+            <div class="tex-format">D32_FLOAT</div>
+            <div class="tex-vram">1.00 MB</div>
+        </div>
+
+        <div class="tex-item" data-id="1055">
+            <div class="tex-id">#1055</div>
+            <div class="tex-name">T_VFX_55</div>
+            <div class="tex-size">1024x1024</div>
+            <div class="tex-format">BC5_UNORM</div>
+            <div class="tex-vram">1.00 MB</div>
+        </div>
+
+        <div class="tex-item" data-id="1056">
+            <div class="tex-id">#1056</div>
+            <div class="tex-name">T_Normal_56</div>
+            <div class="tex-size">256x256</div>
+            <div class="tex-format">BC3_UNORM_SRGB</div>
+            <div class="tex-vram">0.06 MB</div>
+        </div>
+
+        <div class="tex-item" data-id="1057">
+            <div class="tex-id">#1057</div>
+            <div class="tex-name">T_Normal_57</div>
+            <div class="tex-size">512x512</div>
+            <div class="tex-format">BC6H_UF16</div>
+            <div class="tex-vram">0.25 MB</div>
+        </div>
+
+        <div class="tex-item" data-id="1058">
+            <div class="tex-id">#1058</div>
+            <div class="tex-name">T_Shadow_58</div>
+            <div class="tex-size">256x256</div>
+            <div class="tex-format">D32_FLOAT</div>
+            <div class="tex-vram">0.25 MB</div>
+        </div>
+
+        <div class="tex-item" data-id="1059">
+            <div class="tex-id">#1059</div>
+            <div class="tex-name">T_Env_59</div>
+            <div class="tex-size">256x256</div>
+            <div class="tex-format">R8G8B8A8_UNORM</div>
+            <div class="tex-vram">0.25 MB</div>
+        </div>
+
+        <div class="tex-item" data-id="1060">
+            <div class="tex-id">#1060</div>
+            <div class="tex-name">T_ORM_60</div>
+            <div class="tex-size">1024x1024</div>
+            <div class="tex-format">BC7_UNORM_SRGB</div>
+            <div class="tex-vram">1.00 MB</div>
+        </div>
+
+        <div class="tex-item" data-id="1061">
+            <div class="tex-id">#1061</div>
+            <div class="tex-name">T_Misc_61</div>
+            <div class="tex-size">2048x2048</div>
+            <div class="tex-format">D32_FLOAT</div>
+            <div class="tex-vram">16.00 MB</div>
+        </div>
+
+        <div class="tex-item" data-id="1062">
+            <div class="tex-id">#1062</div>
+            <div class="tex-name">T_VFX_62</div>
+            <div class="tex-size">512x512</div>
+            <div class="tex-format">BC6H_UF16</div>
+            <div class="tex-vram">0.25 MB</div>
+        </div>
+
+        <div class="tex-item" data-id="1063">
+            <div class="tex-id">#1063</div>
+            <div class="tex-name">T_Shadow_63</div>
+            <div class="tex-size">4096x4096</div>
+            <div class="tex-format">BC3_UNORM_SRGB</div>
+            <div class="tex-vram">16.00 MB</div>
+        </div>
+
+        <div class="tex-item" data-id="1064">
+            <div class="tex-id">#1064</div>
+            <div class="tex-name">T_Shadow_64</div>
+            <div class="tex-size">512x512</div>
+            <div class="tex-format">BC7_UNORM</div>
+            <div class="tex-vram">0.25 MB</div>
+        </div>
+
+        <div class="tex-item" data-id="1065">
+            <div class="tex-id">#1065</div>
+            <div class="tex-name">T_UI_65</div>
+            <div class="tex-size">2048x2048</div>
+            <div class="tex-format">R8G8B8A8_UNORM</div>
+            <div class="tex-vram">16.00 MB</div>
+        </div>
+
+        <div class="tex-item" data-id="1066">
+            <div class="tex-id">#1066</div>
+            <div class="tex-name">T_Terrain_66</div>
+            <div class="tex-size">1024x1024</div>
+            <div class="tex-format">R8G8B8A8_UNORM</div>
+            <div class="tex-vram">4.00 MB</div>
+        </div>
+
+        <div class="tex-item" data-id="1067">
+            <div class="tex-id">#1067</div>
+            <div class="tex-name">T_LightMap_67</div>
+            <div class="tex-size">2048x2048</div>
+            <div class="tex-format">BC6H_UF16</div>
+            <div class="tex-vram">4.00 MB</div>
+        </div>
+
+        <div class="tex-item" data-id="1068">
+            <div class="tex-id">#1068</div>
+            <div class="tex-name">T_ORM_68</div>
+            <div class="tex-size">512x512</div>
+            <div class="tex-format">D32_FLOAT</div>
+            <div class="tex-vram">1.00 MB</div>
+        </div>
+
+        <div class="tex-item" data-id="1069">
+            <div class="tex-id">#1069</div>
+            <div class="tex-name">T_Normal_69</div>
+            <div class="tex-size">2048x2048</div>
+            <div class="tex-format">BC6H_UF16</div>
+            <div class="tex-vram">4.00 MB</div>
+        </div>
+
+        <div class="tex-item" data-id="1070">
+            <div class="tex-id">#1070</div>
+            <div class="tex-name">T_Normal_70</div>
+            <div class="tex-size">1024x1024</div>
+            <div class="tex-format">BC3_UNORM_SRGB</div>
+            <div class="tex-vram">1.00 MB</div>
+        </div>
+
+        <div class="tex-item" data-id="1071">
+            <div class="tex-id">#1071</div>
+            <div class="tex-name">T_Character_71</div>
+            <div class="tex-size">2048x2048</div>
+            <div class="tex-format">R8G8B8A8_UNORM</div>
+            <div class="tex-vram">16.00 MB</div>
+        </div>
+
+        <div class="tex-item" data-id="1072">
+            <div class="tex-id">#1072</div>
+            <div class="tex-name">T_Shadow_72</div>
+            <div class="tex-size">256x256</div>
+            <div class="tex-format">R8G8B8A8_UNORM</div>
+            <div class="tex-vram">0.25 MB</div>
+        </div>
+
+        <div class="tex-item" data-id="1073">
+            <div class="tex-id">#1073</div>
+            <div class="tex-name">T_Misc_73</div>
+            <div class="tex-size">512x512</div>
+            <div class="tex-format">BC6H_UF16</div>
+            <div class="tex-vram">0.25 MB</div>
+        </div>
+
+        <div class="tex-item" data-id="1074">
+            <div class="tex-id">#1074</div>
+            <div class="tex-name">T_LightMap_74</div>
+            <div class="tex-size">4096x4096</div>
+            <div class="tex-format">R8G8B8A8_UNORM</div>
+            <div class="tex-vram">64.00 MB</div>
+        </div>
+
+        <div class="tex-item" data-id="1075">
+            <div class="tex-id">#1075</div>
+            <div class="tex-name">T_VFX_75</div>
+            <div class="tex-size">256x256</div>
+            <div class="tex-format">R8G8B8A8_UNORM</div>
+            <div class="tex-vram">0.25 MB</div>
+        </div>
+
+        <div class="tex-item" data-id="1076">
+            <div class="tex-id">#1076</div>
+            <div class="tex-name">T_Env_76</div>
+            <div class="tex-size">2048x2048</div>
+            <div class="tex-format">R8G8B8A8_UNORM</div>
+            <div class="tex-vram">16.00 MB</div>
+        </div>
+
+        <div class="tex-item" data-id="1077">
+            <div class="tex-id">#1077</div>
+            <div class="tex-name">T_Terrain_77</div>
+            <div class="tex-size">4096x4096</div>
+            <div class="tex-format">BC6H_UF16</div>
+            <div class="tex-vram">16.00 MB</div>
+        </div>
+
+        <div class="tex-item" data-id="1078">
+            <div class="tex-id">#1078</div>
+            <div class="tex-name">T_Shadow_78</div>
+            <div class="tex-size">2048x2048</div>
+            <div class="tex-format">R8G8B8A8_UNORM</div>
+            <div class="tex-vram">16.00 MB</div>
+        </div>
+
+        <div class="tex-item" data-id="1079">
+            <div class="tex-id">#1079</div>
+            <div class="tex-name">T_Terrain_79</div>
+            <div class="tex-size">256x256</div>
+            <div class="tex-format">BC7_UNORM_SRGB</div>
+            <div class="tex-vram">0.06 MB</div>
+        </div>
+
+        <div class="tex-item" data-id="1080">
+            <div class="tex-id">#1080</div>
+            <div class="tex-name">T_VFX_80</div>
+            <div class="tex-size">4096x4096</div>
+            <div class="tex-format">BC7_UNORM_SRGB</div>
+            <div class="tex-vram">16.00 MB</div>
+        </div>
+
+        <div class="tex-item" data-id="1081">
+            <div class="tex-id">#1081</div>
+            <div class="tex-name">T_Misc_81</div>
+            <div class="tex-size">4096x4096</div>
+            <div class="tex-format">R8G8B8A8_UNORM</div>
+            <div class="tex-vram">64.00 MB</div>
+        </div>
+
+        <div class="tex-item" data-id="1082">
+            <div class="tex-id">#1082</div>
+            <div class="tex-name">T_Terrain_82</div>
+            <div class="tex-size">2048x2048</div>
+            <div class="tex-format">D32_FLOAT</div>
+            <div class="tex-vram">16.00 MB</div>
+        </div>
+
+        <div class="tex-item" data-id="1083">
+            <div class="tex-id">#1083</div>
+            <div class="tex-name">T_Normal_83</div>
+            <div class="tex-size">4096x4096</div>
+            <div class="tex-format">D32_FLOAT</div>
+            <div class="tex-vram">64.00 MB</div>
+        </div>
+
+        <div class="tex-item" data-id="1084">
+            <div class="tex-id">#1084</div>
+            <div class="tex-name">T_Shadow_84</div>
+            <div class="tex-size">256x256</div>
+            <div class="tex-format">BC6H_UF16</div>
+            <div class="tex-vram">0.06 MB</div>
+        </div>
+
+        <div class="tex-item" data-id="1085">
+            <div class="tex-id">#1085</div>
+            <div class="tex-name">T_Shadow_85</div>
+            <div class="tex-size">1024x1024</div>
+            <div class="tex-format">BC3_UNORM_SRGB</div>
+            <div class="tex-vram">1.00 MB</div>
+        </div>
+
+        <div class="tex-item" data-id="1086">
+            <div class="tex-id">#1086</div>
+            <div class="tex-name">T_Normal_86</div>
+            <div class="tex-size">4096x4096</div>
+            <div class="tex-format">BC6H_UF16</div>
+            <div class="tex-vram">16.00 MB</div>
+        </div>
+
+        <div class="tex-item" data-id="1087">
+            <div class="tex-id">#1087</div>
+            <div class="tex-name">T_Shadow_87</div>
+            <div class="tex-size">1024x1024</div>
+            <div class="tex-format">BC7_UNORM</div>
+            <div class="tex-vram">1.00 MB</div>
+        </div>
+
+        <div class="tex-item" data-id="1088">
+            <div class="tex-id">#1088</div>
+            <div class="tex-name">T_VFX_88</div>
+            <div class="tex-size">1024x1024</div>
+            <div class="tex-format">BC7_UNORM</div>
+            <div class="tex-vram">1.00 MB</div>
+        </div>
+
+        <div class="tex-item" data-id="1089">
+            <div class="tex-id">#1089</div>
+            <div class="tex-name">T_Env_89</div>
+            <div class="tex-size">256x256</div>
+            <div class="tex-format">BC5_UNORM</div>
+            <div class="tex-vram">0.06 MB</div>
+        </div>
+
+        <div class="tex-item" data-id="1090">
+            <div class="tex-id">#1090</div>
+            <div class="tex-name">T_Terrain_90</div>
+            <div class="tex-size">1024x1024</div>
+            <div class="tex-format">R8G8B8A8_UNORM</div>
+            <div class="tex-vram">4.00 MB</div>
+        </div>
+
+        <div class="tex-item" data-id="1091">
+            <div class="tex-id">#1091</div>
+            <div class="tex-name">T_ORM_91</div>
+            <div class="tex-size">4096x4096</div>
+            <div class="tex-format">BC7_UNORM_SRGB</div>
+            <div class="tex-vram">16.00 MB</div>
+        </div>
+
+        <div class="tex-item" data-id="1092">
+            <div class="tex-id">#1092</div>
+            <div class="tex-name">T_Character_92</div>
+            <div class="tex-size">512x512</div>
+            <div class="tex-format">BC7_UNORM_SRGB</div>
+            <div class="tex-vram">0.25 MB</div>
+        </div>
+
+        <div class="tex-item" data-id="1093">
+            <div class="tex-id">#1093</div>
+            <div class="tex-name">T_LightMap_93</div>
+            <div class="tex-size">2048x2048</div>
+            <div class="tex-format">D32_FLOAT</div>
+            <div class="tex-vram">16.00 MB</div>
+        </div>
+
+        <div class="tex-item" data-id="1094">
+            <div class="tex-id">#1094</div>
+            <div class="tex-name">T_Character_94</div>
+            <div class="tex-size">512x512</div>
+            <div class="tex-format">BC3_UNORM_SRGB</div>
+            <div class="tex-vram">0.25 MB</div>
+        </div>
+
+        <div class="tex-item" data-id="1095">
+            <div class="tex-id">#1095</div>
+            <div class="tex-name">T_Env_95</div>
+            <div class="tex-size">4096x4096</div>
+            <div class="tex-format">D32_FLOAT</div>
+            <div class="tex-vram">64.00 MB</div>
+        </div>
+
+        <div class="tex-item" data-id="1096">
+            <div class="tex-id">#1096</div>
+            <div class="tex-name">T_VFX_96</div>
+            <div class="tex-size">256x256</div>
+            <div class="tex-format">D32_FLOAT</div>
+            <div class="tex-vram">0.25 MB</div>
+        </div>
+
+        <div class="tex-item" data-id="1097">
+            <div class="tex-id">#1097</div>
+            <div class="tex-name">T_Normal_97</div>
+            <div class="tex-size">256x256</div>
+            <div class="tex-format">D32_FLOAT</div>
+            <div class="tex-vram">0.25 MB</div>
+        </div>
+
+        <div class="tex-item" data-id="1098">
+            <div class="tex-id">#1098</div>
+            <div class="tex-name">T_Normal_98</div>
+            <div class="tex-size">2048x2048</div>
+            <div class="tex-format">D32_FLOAT</div>
+            <div class="tex-vram">16.00 MB</div>
+        </div>
+
+        <div class="tex-item" data-id="1099">
+            <div class="tex-id">#1099</div>
+            <div class="tex-name">T_Normal_99</div>
+            <div class="tex-size">256x256</div>
+            <div class="tex-format">D32_FLOAT</div>
+            <div class="tex-vram">0.25 MB</div>
+        </div>
+
+        <div class="tex-item" data-id="1100">
+            <div class="tex-id">#1100</div>
+            <div class="tex-name">T_Normal_100</div>
+            <div class="tex-size">1024x1024</div>
+            <div class="tex-format">BC5_UNORM</div>
+            <div class="tex-vram">1.00 MB</div>
+        </div>
+
+        <div class="tex-item" data-id="1101">
+            <div class="tex-id">#1101</div>
+            <div class="tex-name">T_Misc_101</div>
+            <div class="tex-size">4096x4096</div>
+            <div class="tex-format">BC7_UNORM</div>
+            <div class="tex-vram">16.00 MB</div>
+        </div>
+
+        <div class="tex-item" data-id="1102">
+            <div class="tex-id">#1102</div>
+            <div class="tex-name">T_LightMap_102</div>
+            <div class="tex-size">2048x2048</div>
+            <div class="tex-format">BC7_UNORM</div>
+            <div class="tex-vram">4.00 MB</div>
+        </div>
+
+        <div class="tex-item" data-id="1103">
+            <div class="tex-id">#1103</div>
+            <div class="tex-name">T_VFX_103</div>
+            <div class="tex-size">1024x1024</div>
+            <div class="tex-format">BC6H_UF16</div>
+            <div class="tex-vram">1.00 MB</div>
+        </div>
+
+        <div class="tex-item" data-id="1104">
+            <div class="tex-id">#1104</div>
+            <div class="tex-name">T_LightMap_104</div>
+            <div class="tex-size">256x256</div>
+            <div class="tex-format">R8G8B8A8_UNORM</div>
+            <div class="tex-vram">0.25 MB</div>
+        </div>
+
+        <div class="tex-item" data-id="1105">
+            <div class="tex-id">#1105</div>
+            <div class="tex-name">T_Terrain_105</div>
+            <div class="tex-size">256x256</div>
+            <div class="tex-format">R8G8B8A8_UNORM</div>
+            <div class="tex-vram">0.25 MB</div>
+        </div>
+
+        <div class="tex-item" data-id="1106">
+            <div class="tex-id">#1106</div>
+            <div class="tex-name">T_Shadow_106</div>
+            <div class="tex-size">256x256</div>
+            <div class="tex-format">BC6H_UF16</div>
+            <div class="tex-vram">0.06 MB</div>
+        </div>
+
+        <div class="tex-item" data-id="1107">
+            <div class="tex-id">#1107</div>
+            <div class="tex-name">T_Normal_107</div>
+            <div class="tex-size">1024x1024</div>
+            <div class="tex-format">BC5_UNORM</div>
+            <div class="tex-vram">1.00 MB</div>
+        </div>
+
+        <div class="tex-item" data-id="1108">
+            <div class="tex-id">#1108</div>
+            <div class="tex-name">T_UI_108</div>
+            <div class="tex-size">2048x2048</div>
+            <div class="tex-format">D32_FLOAT</div>
+            <div class="tex-vram">16.00 MB</div>
+        </div>
+
+        <div class="tex-item" data-id="1109">
+            <div class="tex-id">#1109</div>
+            <div class="tex-name">T_UI_109</div>
+            <div class="tex-size">4096x4096</div>
+            <div class="tex-format">BC7_UNORM_SRGB</div>
+            <div class="tex-vram">16.00 MB</div>
+        </div>
+
+        <div class="tex-item" data-id="1110">
+            <div class="tex-id">#1110</div>
+            <div class="tex-name">T_VFX_110</div>
+            <div class="tex-size">1024x1024</div>
+            <div class="tex-format">BC7_UNORM_SRGB</div>
+            <div class="tex-vram">1.00 MB</div>
+        </div>
+
+        <div class="tex-item" data-id="1111">
+            <div class="tex-id">#1111</div>
+            <div class="tex-name">T_ORM_111</div>
+            <div class="tex-size">4096x4096</div>
+            <div class="tex-format">R8G8B8A8_UNORM</div>
+            <div class="tex-vram">64.00 MB</div>
+        </div>
+
+        <div class="tex-item" data-id="1112">
+            <div class="tex-id">#1112</div>
+            <div class="tex-name">T_Misc_112</div>
+            <div class="tex-size">1024x1024</div>
+            <div class="tex-format">BC6H_UF16</div>
+            <div class="tex-vram">1.00 MB</div>
+        </div>
+
+        <div class="tex-item" data-id="1113">
+            <div class="tex-id">#1113</div>
+            <div class="tex-name">T_UI_113</div>
+            <div class="tex-size">512x512</div>
+            <div class="tex-format">BC3_UNORM_SRGB</div>
+            <div class="tex-vram">0.25 MB</div>
+        </div>
+
+        <div class="tex-item" data-id="1114">
+            <div class="tex-id">#1114</div>
+            <div class="tex-name">T_Misc_114</div>
+            <div class="tex-size">2048x2048</div>
+            <div class="tex-format">D32_FLOAT</div>
+            <div class="tex-vram">16.00 MB</div>
+        </div>
+
+        <div class="tex-item" data-id="1115">
+            <div class="tex-id">#1115</div>
+            <div class="tex-name">T_Character_115</div>
+            <div class="tex-size">4096x4096</div>
+            <div class="tex-format">R8G8B8A8_UNORM</div>
+            <div class="tex-vram">64.00 MB</div>
+        </div>
+
+        <div class="tex-item" data-id="1116">
+            <div class="tex-id">#1116</div>
+            <div class="tex-name">T_LightMap_116</div>
+            <div class="tex-size">2048x2048</div>
+            <div class="tex-format">BC3_UNORM_SRGB</div>
+            <div class="tex-vram">4.00 MB</div>
+        </div>
+
+        <div class="tex-item" data-id="1117">
+            <div class="tex-id">#1117</div>
+            <div class="tex-name">T_Normal_117</div>
+            <div class="tex-size">2048x2048</div>
+            <div class="tex-format">BC7_UNORM</div>
+            <div class="tex-vram">4.00 MB</div>
+        </div>
+
+        <div class="tex-item" data-id="1118">
+            <div class="tex-id">#1118</div>
+            <div class="tex-name">T_UI_118</div>
+            <div class="tex-size">1024x1024</div>
+            <div class="tex-format">BC5_UNORM</div>
+            <div class="tex-vram">1.00 MB</div>
+        </div>
+
+        <div class="tex-item" data-id="1119">
+            <div class="tex-id">#1119</div>
+            <div class="tex-name">T_ORM_119</div>
+            <div class="tex-size">1024x1024</div>
+            <div class="tex-format">D32_FLOAT</div>
+            <div class="tex-vram">4.00 MB</div>
+        </div>
+
+        <div class="tex-item" data-id="1120">
+            <div class="tex-id">#1120</div>
+            <div class="tex-name">T_LightMap_120</div>
+            <div class="tex-size">1024x1024</div>
+            <div class="tex-format">BC7_UNORM</div>
+            <div class="tex-vram">1.00 MB</div>
+        </div>
+
+        <div class="tex-item" data-id="1121">
+            <div class="tex-id">#1121</div>
+            <div class="tex-name">T_Shadow_121</div>
+            <div class="tex-size">2048x2048</div>
+            <div class="tex-format">BC6H_UF16</div>
+            <div class="tex-vram">4.00 MB</div>
+        </div>
+
+        <div class="tex-item" data-id="1122">
+            <div class="tex-id">#1122</div>
+            <div class="tex-name">T_VFX_122</div>
+            <div class="tex-size">4096x4096</div>
+            <div class="tex-format">R8G8B8A8_UNORM</div>
+            <div class="tex-vram">64.00 MB</div>
+        </div>
+
+        <div class="tex-item" data-id="1123">
+            <div class="tex-id">#1123</div>
+            <div class="tex-name">T_Misc_123</div>
+            <div class="tex-size">2048x2048</div>
+            <div class="tex-format">BC5_UNORM</div>
+            <div class="tex-vram">4.00 MB</div>
+        </div>
+
+        <div class="tex-item" data-id="1124">
+            <div class="tex-id">#1124</div>
+            <div class="tex-name">T_Env_124</div>
+            <div class="tex-size">4096x4096</div>
+            <div class="tex-format">BC7_UNORM</div>
+            <div class="tex-vram">16.00 MB</div>
+        </div>
+
+        <div class="tex-item" data-id="1125">
+            <div class="tex-id">#1125</div>
+            <div class="tex-name">T_Character_125</div>
+            <div class="tex-size">256x256</div>
+            <div class="tex-format">BC7_UNORM</div>
+            <div class="tex-vram">0.06 MB</div>
+        </div>
+
+        <div class="tex-item" data-id="1126">
+            <div class="tex-id">#1126</div>
+            <div class="tex-name">T_Terrain_126</div>
+            <div class="tex-size">256x256</div>
+            <div class="tex-format">BC3_UNORM_SRGB</div>
+            <div class="tex-vram">0.06 MB</div>
+        </div>
+
+        <div class="tex-item" data-id="1127">
+            <div class="tex-id">#1127</div>
+            <div class="tex-name">T_LightMap_127</div>
+            <div class="tex-size">256x256</div>
+            <div class="tex-format">BC5_UNORM</div>
+            <div class="tex-vram">0.06 MB</div>
+        </div>
+
+        <div class="tex-item" data-id="1128">
+            <div class="tex-id">#1128</div>
+            <div class="tex-name">T_Env_128</div>
+            <div class="tex-size">256x256</div>
+            <div class="tex-format">BC3_UNORM_SRGB</div>
+            <div class="tex-vram">0.06 MB</div>
+        </div>
+
+        <div class="tex-item" data-id="1129">
+            <div class="tex-id">#1129</div>
+            <div class="tex-name">T_ORM_129</div>
+            <div class="tex-size">2048x2048</div>
+            <div class="tex-format">BC6H_UF16</div>
+            <div class="tex-vram">4.00 MB</div>
+        </div>
+
+        <div class="tex-item" data-id="1130">
+            <div class="tex-id">#1130</div>
+            <div class="tex-name">T_Misc_130</div>
+            <div class="tex-size">1024x1024</div>
+            <div class="tex-format">D32_FLOAT</div>
+            <div class="tex-vram">4.00 MB</div>
+        </div>
+
+        <div class="tex-item" data-id="1131">
+            <div class="tex-id">#1131</div>
+            <div class="tex-name">T_Env_131</div>
+            <div class="tex-size">512x512</div>
+            <div class="tex-format">BC3_UNORM_SRGB</div>
+            <div class="tex-vram">0.25 MB</div>
+        </div>
+
+        <div class="tex-item" data-id="1132">
+            <div class="tex-id">#1132</div>
+            <div class="tex-name">T_Terrain_132</div>
+            <div class="tex-size">256x256</div>
+            <div class="tex-format">R8G8B8A8_UNORM</div>
+            <div class="tex-vram">0.25 MB</div>
+        </div>
+
+        <div class="tex-item" data-id="1133">
+            <div class="tex-id">#1133</div>
+            <div class="tex-name">T_Misc_133</div>
+            <div class="tex-size">2048x2048</div>
+            <div class="tex-format">BC5_UNORM</div>
+            <div class="tex-vram">4.00 MB</div>
+        </div>
+
+        <div class="tex-item" data-id="1134">
+            <div class="tex-id">#1134</div>
+            <div class="tex-name">T_Shadow_134</div>
+            <div class="tex-size">2048x2048</div>
+            <div class="tex-format">D32_FLOAT</div>
+            <div class="tex-vram">16.00 MB</div>
+        </div>
+
+        <div class="tex-item" data-id="1135">
+            <div class="tex-id">#1135</div>
+            <div class="tex-name">T_Terrain_135</div>
+            <div class="tex-size">4096x4096</div>
+            <div class="tex-format">BC5_UNORM</div>
+            <div class="tex-vram">16.00 MB</div>
+        </div>
+
+        <div class="tex-item" data-id="1136">
+            <div class="tex-id">#1136</div>
+            <div class="tex-name">T_Character_136</div>
+            <div class="tex-size">512x512</div>
+            <div class="tex-format">D32_FLOAT</div>
+            <div class="tex-vram">1.00 MB</div>
+        </div>
+
+        <div class="tex-item" data-id="1137">
+            <div class="tex-id">#1137</div>
+            <div class="tex-name">T_Misc_137</div>
+            <div class="tex-size">4096x4096</div>
+            <div class="tex-format">D32_FLOAT</div>
+            <div class="tex-vram">64.00 MB</div>
+        </div>
+
+        <div class="tex-item" data-id="1138">
+            <div class="tex-id">#1138</div>
+            <div class="tex-name">T_ORM_138</div>
+            <div class="tex-size">2048x2048</div>
+            <div class="tex-format">BC6H_UF16</div>
+            <div class="tex-vram">4.00 MB</div>
+        </div>
+
+        <div class="tex-item" data-id="1139">
+            <div class="tex-id">#1139</div>
+            <div class="tex-name">T_VFX_139</div>
+            <div class="tex-size">4096x4096</div>
+            <div class="tex-format">BC6H_UF16</div>
+            <div class="tex-vram">16.00 MB</div>
+        </div>
+
+        <div class="tex-item" data-id="1140">
+            <div class="tex-id">#1140</div>
+            <div class="tex-name">T_VFX_140</div>
+            <div class="tex-size">2048x2048</div>
+            <div class="tex-format">BC5_UNORM</div>
+            <div class="tex-vram">4.00 MB</div>
+        </div>
+
+        <div class="tex-item" data-id="1141">
+            <div class="tex-id">#1141</div>
+            <div class="tex-name">T_VFX_141</div>
+            <div class="tex-size">1024x1024</div>
+            <div class="tex-format">BC6H_UF16</div>
+            <div class="tex-vram">1.00 MB</div>
+        </div>
+
+        <div class="tex-item" data-id="1142">
+            <div class="tex-id">#1142</div>
+            <div class="tex-name">T_ORM_142</div>
+            <div class="tex-size">1024x1024</div>
+            <div class="tex-format">BC6H_UF16</div>
+            <div class="tex-vram">1.00 MB</div>
+        </div>
+
+        <div class="tex-item" data-id="1143">
+            <div class="tex-id">#1143</div>
+            <div class="tex-name">T_Env_143</div>
+            <div class="tex-size">256x256</div>
+            <div class="tex-format">BC7_UNORM</div>
+            <div class="tex-vram">0.06 MB</div>
+        </div>
+
+        <div class="tex-item" data-id="1144">
+            <div class="tex-id">#1144</div>
+            <div class="tex-name">T_Normal_144</div>
+            <div class="tex-size">512x512</div>
+            <div class="tex-format">BC3_UNORM_SRGB</div>
+            <div class="tex-vram">0.25 MB</div>
+        </div>
+        </div>
+    </div>
+    
+    <script>
+        function filterTextures() {
+            const query = document.getElementById('searchInput').value.toLowerCase();
+            const items = document.querySelectorAll('.tex-item');
+            let visible = 0;
+            
+            items.forEach(item => {
+                const text = item.textContent.toLowerCase();
+                if (text.includes(query)) {
+                    item.style.display = 'grid';
+                    visible++;
+                } else {
+                    item.style.display = 'none';
+                }
+            });
+            
+            document.getElementById('countDisplay').textContent = `显示 ${visible} 个纹理`;
+        }
+    </script>
+</body>
+</html>
