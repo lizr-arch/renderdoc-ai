@@ -795,6 +795,40 @@ def parse_rdc_xml(xml_path):
     textures_list = list(textures.values())
     buffers_list = list(buffers.values())
     
+    # ========== 收集全局 Shader 列表 ==========
+    # 从所有事件的 pipelineState.shaders 中提取唯一 shader
+    shaders_dict = {}  # key: shader_id, value: shader_info
+    for event in events:
+        pipeline_state = event.get("pipelineState")
+        if not pipeline_state:
+            continue
+        shaders_info = pipeline_state.get("shaders")
+        if not shaders_info:
+            continue
+        for stage, shader_data in shaders_info.items():
+            if shader_data is None:
+                continue
+            # 提取 shader ID (支持多种格式)
+            shader_id = None
+            if isinstance(shader_data, dict):
+                shader_id = shader_data.get("id") or shader_data.get("resourceId") or shader_data.get("raw")
+            elif isinstance(shader_data, str):
+                shader_id = shader_data
+            if shader_id and shader_id not in shaders_dict:
+                shaders_dict[shader_id] = {
+                    "id": shader_id,
+                    "stage": stage.upper(),
+                    "type": stage.upper(),
+                    "name": shader_data.get("name", f"Shader_{shader_id}") if isinstance(shader_data, dict) else f"Shader_{shader_id}",
+                    "firstSeenEvent": event.get("eventId", 0),
+                }
+                # 合并其他属性
+                if isinstance(shader_data, dict):
+                    for k, v in shader_data.items():
+                        if k not in shaders_dict[shader_id]:
+                            shaders_dict[shader_id][k] = v
+    shaders_list = list(shaders_dict.values())
+    
     # 计算纹理统计
     total_texture_memory = sum(t.get("memorySize", 0) for t in textures_list)
     
@@ -803,6 +837,7 @@ def parse_rdc_xml(xml_path):
     print(f"  Render passes: {len(render_passes)}")
     print(f"  Textures/Images: {len(textures_list)}")
     print(f"  Buffers: {len(buffers_list)}")
+    print(f"  Shaders: {len(shaders_list)}")
     print(f"  Total texture memory: {total_texture_memory / (1024*1024):.2f} MB")
     
     return {
@@ -811,6 +846,7 @@ def parse_rdc_xml(xml_path):
         "renderPasses": render_passes,
         "textures": textures_list,
         "buffers": buffers_list,
+        "shaders": shaders_list,
         "header": {
             "driver": api_type,
         },
@@ -821,6 +857,7 @@ def parse_rdc_xml(xml_path):
             "totalCopies": sum(1 for e in events if e.get('type') == 'copy'),
             "totalTextures": len(textures_list),
             "totalBuffers": len(buffers_list),
+            "totalShaders": len(shaders_list),
             "totalTextureMemory": total_texture_memory,
         }
     }
