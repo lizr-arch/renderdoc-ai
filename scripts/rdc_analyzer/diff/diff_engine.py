@@ -584,8 +584,8 @@ class DiffEngine:
             t_ps = t.get('pipelineState', {})
             
             # Viewport 差异
-            b_vp = b_ps.get('viewport', {})
-            t_vp = t_ps.get('viewport', {})
+            b_vp = b_ps.get('viewport') or {}
+            t_vp = t_ps.get('viewport') or {}
             vp_changes = {}
             for f in ['width', 'height', 'x', 'y']:
                 if b_vp.get(f) != t_vp.get(f):
