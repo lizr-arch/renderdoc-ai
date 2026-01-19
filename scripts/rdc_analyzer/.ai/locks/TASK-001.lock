@@ -1,7 +1,0 @@
-{
-  "task_id": "TASK-001",
-  "claimed_by": "Agent-20260119-170000",
-  "claimed_at": "2026-01-19T17:00:00+08:00",
-  "expires_at": "2026-01-19T19:00:00+08:00",
-  "description": "Pipeline 选项卡数据解析"
-}
