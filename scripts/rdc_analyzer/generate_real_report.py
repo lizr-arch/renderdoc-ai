@@ -32,6 +32,261 @@ def load_rdc_data(json_path):
         return json.load(f)
 
 
+def convert_mesh_info_to_mesh_data(mesh_info, event):
+    """
+    将 parse_rdc_xml 生成的 meshInfo 转换为 HTML 模板期望的 meshData 格式
+    
+    meshInfo 结构:
+        - vertexBuffers: [{slot, buffer, stride, offset}, ...]
+        - indexBuffer: {buffer, offset, format}
+        - inputLayout: str
+        - primitiveTopology: str
+    
+    meshData 结构 (模板期望):
+        - statistics: {vertexCount, indexCount, triangleCount, topology, ...}
+        - inputLayout: [{semantic, index, format, slot, offset, size}, ...]
+        - vertexBuffers: [{index, buffer, stride, offset, elements}, ...]
+        - indexBuffer: {buffer, offset, format, count}
+    """
+    if not mesh_info:
+        return None
+    
+    vbs = mesh_info.get("vertexBuffers", [])
+    ib = mesh_info.get("indexBuffer")
+    topology = mesh_info.get("primitiveTopology", "UNKNOWN")
+    
+    # 获取事件中的顶点/索引计数
+    vertex_count = event.get("vertexCount", 0)
+    index_count = event.get("indexCount", 0)
+    instance_count = event.get("instanceCount", 1)
+    
+    # 计算三角形数（假设 TriangleList）
+    triangle_count = index_count // 3 if index_count > 0 else vertex_count // 3
+    
+    # 计算顶点复用率
+    if triangle_count > 0 and index_count > 0:
+        # 理想情况：每个顶点被多个三角形共享
+        # 复用率 = 1 - (唯一顶点数 / 索引数)
+        # 简化估算：使用 vertex_count / index_count
+        reuse_ratio = 1.0 - (vertex_count / index_count) if index_count > vertex_count else 0.0
+    else:
+        reuse_ratio = 0.0
+    
+    # 估算缓冲区大小
+    vb_sizes = {}
+    for vb in vbs:
+        stride = vb.get("stride", 0)
+        # 估算：stride * vertex_count
+        vb_sizes[str(vb.get("slot", 0))] = stride * vertex_count if stride > 0 else 0
+    
+    # 估算 IB 大小
+    ib_format = ib.get("format", "") if ib else ""
+    if "16" in ib_format or "UINT16" in ib_format or ib_format == "0":
+        ib_elem_size = 2
+    else:
+        ib_elem_size = 4
+    ib_size = index_count * ib_elem_size
+    
+    total_mesh_size = sum(vb_sizes.values()) + ib_size
+    
+    # 构建 meshData
+    mesh_data = {
+        "statistics": {
+            "vertexCount": vertex_count,
+            "indexCount": index_count,
+            "triangleCount": triangle_count,
+            "instanceCount": instance_count,
+            "topology": simplify_topology(topology),
+            "vertexBufferSizes": vb_sizes,
+            "indexBufferSize": ib_size,
+            "totalMeshSize": total_mesh_size,
+            "vertexReuseRatio": max(0, min(1, reuse_ratio)),
+        },
+        "vertexBuffers": [
+            {
+                "index": vb.get("slot", i),
+                "buffer": vb.get("buffer", ""),
+                "stride": vb.get("stride", 0),
+                "offset": vb.get("offset", 0),
+                "elements": [],  # 需要 Input Layout 详情才能填充
+            }
+            for i, vb in enumerate(vbs)
+        ],
+    }
+    
+    # 添加 Index Buffer
+    if ib:
+        mesh_data["indexBuffer"] = {
+            "buffer": ib.get("buffer", ""),
+            "offset": ib.get("offset", 0),
+            "format": simplify_index_format(ib.get("format", "")),
+            "count": index_count,
+        }
+    
+    # 如果有 input layout ID，添加引用
+    if mesh_info.get("inputLayout"):
+        mesh_data["inputLayoutId"] = mesh_info.get("inputLayout")
+    
+    return mesh_data
+
+
+def simplify_topology(topology):
+    """简化拓扑名称"""
+    if not topology:
+        return "Unknown"
+    
+    # 移除前缀
+    topology = str(topology)
+    topology = topology.replace("D3D11_PRIMITIVE_TOPOLOGY_", "")
+    topology = topology.replace("D3D_PRIMITIVE_TOPOLOGY_", "")
+    topology = topology.replace("VK_PRIMITIVE_TOPOLOGY_", "")
+    
+    return topology
+
+
+def convert_resource_bindings_to_template_format(resource_bindings):
+    """
+    将 parse_rdc_xml 生成的 resourceBindings 转换为 HTML 模板期望的 bindings 格式
+    
+    输入格式 (from parse_rdc_xml.py):
+        {
+            "shaderResources": [{"stage": "PS", "slot": 0, "resourceId": "123"}, ...],
+            "constantBuffers": [{"stage": "VS", "slot": 0, "resourceId": "456"}, ...],
+            "samplers": [...],
+            "descriptorSets": [...],
+            "unorderedAccessViews": [...]
+        }
+    
+    输出格式 (HTML template expects pipelineState.bindings):
+        {
+            "VS": {
+                "textures": [{"slot": 0, "id": 123, "name": "..."}],
+                "constantBuffers": [{"slot": 0, "resourceId": "456"}],
+                "vertexBuffers": [],
+                "indexBuffer": null
+            },
+            "PS": {
+                "textures": [{"slot": 0, "id": 123}],
+                "constantBuffers": [...],
+                ...
+            }
+        }
+    """
+    if not resource_bindings:
+        return {}
+    
+    # 按阶段分组的结构
+    bindings_by_stage = {}
+    
+    def get_stage_dict(stage):
+        """获取或创建指定阶段的绑定字典"""
+        if stage not in bindings_by_stage:
+            bindings_by_stage[stage] = {
+                "textures": [],
+                "constantBuffers": [],
+                "samplers": [],
+                "uavs": [],
+                "vertexBuffers": [],
+                "indexBuffer": None,
+            }
+        return bindings_by_stage[stage]
+    
+    # 处理 Shader Resources (SRVs) -> textures
+    for srv in resource_bindings.get("shaderResources", []):
+        stage = srv.get("stage", "PS")
+        stage_dict = get_stage_dict(stage)
+        
+        # 尝试解析 resourceId 为整数
+        res_id = srv.get("resourceId", "")
+        try:
+            id_num = int(res_id)
+        except (ValueError, TypeError):
+            id_num = res_id  # 保持字符串
+        
+        stage_dict["textures"].append({
+            "slot": srv.get("slot", 0),
+            "id": id_num,
+            "name": f"Resource_{res_id}",
+            "type": srv.get("type", "SRV"),
+        })
+    
+    # 处理 Constant Buffers
+    for cb in resource_bindings.get("constantBuffers", []):
+        stage = cb.get("stage", "PS")
+        stage_dict = get_stage_dict(stage)
+        
+        stage_dict["constantBuffers"].append({
+            "slot": cb.get("slot", 0),
+            "resourceId": cb.get("resourceId", ""),
+            "name": f"cb{cb.get('slot', 0)}",
+            "size": cb.get("size"),  # 可能为 None
+        })
+    
+    # 处理 Samplers
+    for sampler in resource_bindings.get("samplers", []):
+        stage = sampler.get("stage", "PS")
+        stage_dict = get_stage_dict(stage)
+        
+        stage_dict["samplers"].append({
+            "slot": sampler.get("slot", 0),
+            "resourceId": sampler.get("resourceId", ""),
+        })
+    
+    # 处理 UAVs
+    for uav in resource_bindings.get("unorderedAccessViews", []):
+        stage = uav.get("stage", "CS")  # UAV 通常在 CS 或 PS
+        stage_dict = get_stage_dict(stage)
+        
+        stage_dict["uavs"].append({
+            "slot": uav.get("slot", 0),
+            "resourceId": uav.get("resourceId", ""),
+        })
+    
+    # 处理 Vulkan/D3D12 Descriptor Sets (放入特殊阶段)
+    for desc_set in resource_bindings.get("descriptorSets", []):
+        # Vulkan 的 bindPoint 决定阶段
+        bind_point = desc_set.get("bindPoint", "GRAPHICS")
+        if "COMPUTE" in str(bind_point).upper():
+            stage = "CS"
+        else:
+            stage = "ALL"  # Graphics pipeline, 适用于所有阶段
+        
+        stage_dict = get_stage_dict(stage)
+        
+        # 描述符集作为特殊的纹理/资源条目
+        stage_dict["textures"].append({
+            "slot": desc_set.get("setIndex", 0),
+            "id": desc_set.get("layout", "DescriptorSet"),
+            "name": f"DescriptorSet[{desc_set.get('setIndex', 0)}]",
+            "type": "DescriptorSet",
+            "descriptorSetInfo": desc_set,  # 保留原始信息
+        })
+    
+    return bindings_by_stage
+
+
+def simplify_index_format(fmt):
+    """简化索引格式名称"""
+    if not fmt:
+        return "UNKNOWN"
+    
+    fmt = str(fmt)
+    
+    # Vulkan: VK_INDEX_TYPE_UINT16 / VK_INDEX_TYPE_UINT32
+    if "UINT16" in fmt or fmt == "0":
+        return "R16_UINT"
+    elif "UINT32" in fmt or fmt == "1":
+        return "R32_UINT"
+    
+    # D3D11: DXGI_FORMAT_R16_UINT / DXGI_FORMAT_R32_UINT
+    if "R16" in fmt:
+        return "R16_UINT"
+    elif "R32" in fmt:
+        return "R32_UINT"
+    
+    return fmt
+
+
 def convert_to_report_format(rdc_data):
     """
     将 RDC 解析数据转换为报告生成器期望的格式
@@ -85,11 +340,28 @@ def convert_to_report_format(rdc_data):
             
             converted_event["apiCall"] = api_call
             
-            # 从 relatedCalls 解析 Pipeline State
-            related_calls = event.get("relatedCalls", [])
-            if related_calls:
-                pipeline_state = parse_pipeline_state_from_related_calls(related_calls)
-                converted_event["pipelineState"] = pipeline_state
+            # 优先使用已解析的 pipelineState（从 parse_rdc_xml 中获取）
+            if "pipelineState" in event:
+                converted_event["pipelineState"] = event["pipelineState"]
+            else:
+                # 回退：从 relatedCalls 解析 Pipeline State（旧方式，可能丢失部分数据）
+                related_calls = event.get("relatedCalls", [])
+                if related_calls:
+                    pipeline_state = parse_pipeline_state_from_related_calls(related_calls)
+                    converted_event["pipelineState"] = pipeline_state
+            
+            # 集成 resourceBindings 到 pipelineState.bindings (TASK-003)
+            if "resourceBindings" in event:
+                resource_bindings = event["resourceBindings"]
+                bindings_by_stage = convert_resource_bindings_to_template_format(resource_bindings)
+                
+                # 确保 pipelineState 存在
+                if "pipelineState" not in converted_event:
+                    converted_event["pipelineState"] = {}
+                
+                # 合并到 pipelineState.bindings
+                if bindings_by_stage:
+                    converted_event["pipelineState"]["bindings"] = bindings_by_stage
             
             # 添加顶点/索引计数
             if "vertexCount" in event:
@@ -98,6 +370,13 @@ def convert_to_report_format(rdc_data):
                 converted_event["indexCount"] = event["indexCount"]
             if "instanceCount" in event:
                 converted_event["instanceCount"] = event["instanceCount"]
+            
+            # 转换 meshInfo 为 meshData (匹配 HTML 模板期望的格式)
+            if "meshInfo" in event:
+                mesh_info = event["meshInfo"]
+                mesh_data = convert_mesh_info_to_mesh_data(mesh_info, event)
+                if mesh_data:
+                    converted_event["meshData"] = mesh_data
             
             # Pass 分组逻辑
             if current_pass is None or draws_in_pass >= max_draws_per_pass:

@@ -229,15 +229,13 @@ def parse_rdc_xml(xml_path):
     current_pass_events = []
     event_id = 0
     
-    # Vulkan draw/dispatch/copy calls
+    # Vulkan draw/dispatch calls (真正的渲染调用，会清空 binding_records)
     vk_draw_calls = [
         "vkCmdDraw", "vkCmdDrawIndexed", "vkCmdDrawIndirect", "vkCmdDrawIndexedIndirect",
         "vkCmdDrawMeshTasksEXT", "vkCmdDispatch", "vkCmdDispatchIndirect",
-        "vkCmdClearColorImage", "vkCmdClearDepthStencilImage", "vkCmdBlitImage",
-        "vkCmdCopyBuffer", "vkCmdCopyImage", "vkCmdCopyBufferToImage"
     ]
     
-    # D3D11 draw/dispatch/copy calls
+    # D3D11 draw/dispatch calls (真正的渲染调用，会清空 binding_records)
     d3d11_draw_calls = [
         "ID3D11DeviceContext::Draw",
         "ID3D11DeviceContext::DrawIndexed",
@@ -248,18 +246,28 @@ def parse_rdc_xml(xml_path):
         "ID3D11DeviceContext::DrawAuto",
         "ID3D11DeviceContext::Dispatch",
         "ID3D11DeviceContext::DispatchIndirect",
+    ]
+    
+    # D3D12 draw/dispatch calls (真正的渲染调用，会清空 binding_records)
+    d3d12_draw_calls = [
+        "ID3D12GraphicsCommandList::DrawInstanced",
+        "ID3D12GraphicsCommandList::DrawIndexedInstanced",
+        "ID3D12GraphicsCommandList::Dispatch",
+    ]
+    
+    # Clear/Copy/Resolve 调用 - 记录为事件但不清空 binding_records
+    # 因为这些调用不需要完整的 pipeline state，而且 binding 应该延续到下一个 Draw
+    auxiliary_calls = [
+        # Vulkan
+        "vkCmdClearColorImage", "vkCmdClearDepthStencilImage", "vkCmdBlitImage",
+        "vkCmdCopyBuffer", "vkCmdCopyImage", "vkCmdCopyBufferToImage",
+        # D3D11
         "ID3D11DeviceContext::CopyResource",
         "ID3D11DeviceContext::CopySubresourceRegion",
         "ID3D11DeviceContext::ClearRenderTargetView",
         "ID3D11DeviceContext::ClearDepthStencilView",
         "ID3D11DeviceContext::ResolveSubresource",
-    ]
-    
-    # D3D12 draw/dispatch/copy calls
-    d3d12_draw_calls = [
-        "ID3D12GraphicsCommandList::DrawInstanced",
-        "ID3D12GraphicsCommandList::DrawIndexedInstanced",
-        "ID3D12GraphicsCommandList::Dispatch",
+        # D3D12
         "ID3D12GraphicsCommandList::CopyResource",
         "ID3D12GraphicsCommandList::CopyBufferRegion",
         "ID3D12GraphicsCommandList::CopyTextureRegion",
@@ -267,7 +275,7 @@ def parse_rdc_xml(xml_path):
         "ID3D12GraphicsCommandList::ClearDepthStencilView",
     ]
     
-    # Combined draw call names
+    # Combined draw call names (会清空 binding_records)
     draw_call_names = vk_draw_calls + d3d11_draw_calls + d3d12_draw_calls
     
     # Vulkan markers
@@ -399,8 +407,11 @@ def parse_rdc_xml(xml_path):
             # 解析 Mesh 信息
             event["meshInfo"] = parse_mesh_info(current_binding_records)
             
-            # 解析 Pipeline State
-            event["pipelineState"] = parse_pipeline_state_from_related_calls(current_bindings)
+            # 解析 Pipeline State（使用结构化数据以获取完整参数）
+            event["pipelineState"] = parse_pipeline_state_from_binding_records(current_binding_records)
+            
+            # 解析资源绑定（SRVs, CBVs, Samplers, DescriptorSets）
+            event["resourceBindings"] = parse_resource_bindings(current_binding_records)
             
             current_bindings = []  # 清空，为下一个 draw 准备
             current_binding_records = []  # 清空结构化记录
@@ -428,6 +439,30 @@ def parse_rdc_xml(xml_path):
             current_bindings.append(binding_str)
             # 同时保存结构化记录用于 meshInfo/pipelineState 解析
             current_binding_records.append({"name": chunk_name, "params": params})
+            
+        elif chunk_name in auxiliary_calls:
+            # 辅助调用 (Clear/Copy/Resolve)：记录为事件但不清空 binding_records
+            # 因为这些调用通常不改变 pipeline state，且 binding 应该延续到下一个 Draw
+            if "Clear" in chunk_name:
+                event["type"] = "clear"
+            elif "Copy" in chunk_name or "Blit" in chunk_name:
+                event["type"] = "copy"
+            else:
+                event["type"] = "resolve"
+            event["flags"] = []
+            
+            # 关联当前的绑定调用（但不清空）
+            event["relatedCalls"] = current_bindings.copy()
+            
+            # 解析 Pipeline State（使用当前 binding_records 快照，但不清空）
+            event["pipelineState"] = parse_pipeline_state_from_binding_records(current_binding_records)
+            
+            # 注意：不清空 current_bindings 和 current_binding_records
+            # 这样下一个 Draw 调用仍然可以获取正确的 shader 绑定
+            
+            events.append(event)
+            current_pass_events.append(event)
+            event_id += 1
             
         elif chunk_name in render_pass_begin:
             if current_render_pass:
@@ -688,9 +723,716 @@ def parse_vulkan_index_buffer(params):
     return ib_info if ib_info.get("buffer") else None
 
 
+def parse_pipeline_state_from_binding_records(binding_records):
+    """
+    从结构化绑定记录中解析 Pipeline State 数据
+    
+    Args:
+        binding_records: 结构化的绑定调用列表 [{"name": "...", "params": [...]}]
+    
+    返回:
+        dict: 包含 viewport, blendState, depthState, shaders 等信息
+    """
+    pipeline_state = {
+        "viewport": None,
+        "scissor": None,
+        "blendState": None,
+        "depthState": None,
+        "rasterizerState": None,
+        "shaders": {
+            "vs": None,
+            "ps": None,
+            "gs": None,
+            "hs": None,
+            "ds": None,
+            "cs": None,
+        },
+        "primitiveTopology": None,
+        "inputLayout": None,
+    }
+    
+    for record in binding_records:
+        name = record.get("name", "")
+        params = record.get("params", [])
+        
+        # 解析 Viewport (D3D11: RSSetViewports, D3D12: RSSetViewports)
+        if "RSSetViewports" in name:
+            viewport = parse_viewport_from_params(params)
+            if viewport:
+                pipeline_state["viewport"] = viewport
+                
+        # 解析 Viewport (Vulkan: vkCmdSetViewport)
+        elif "vkCmdSetViewport" in name:
+            viewport = parse_vulkan_viewport_from_params(params)
+            if viewport:
+                pipeline_state["viewport"] = viewport
+                
+        # 解析 Scissor (D3D11/D3D12)
+        elif "RSSetScissorRects" in name:
+            scissor = parse_scissor_from_params(params)
+            if scissor:
+                pipeline_state["scissor"] = scissor
+                
+        # 解析 Scissor (Vulkan)
+        elif "vkCmdSetScissor" in name:
+            scissor = parse_vulkan_scissor_from_params(params)
+            if scissor:
+                pipeline_state["scissor"] = scissor
+                
+        # 解析 Blend State (D3D11)
+        elif "OMSetBlendState" in name:
+            blend = parse_blend_state_from_params(params)
+            if blend:
+                pipeline_state["blendState"] = blend
+                
+        # 解析 Depth Stencil State (D3D11)
+        elif "OMSetDepthStencilState" in name:
+            depth = parse_depth_state_from_params(params)
+            if depth:
+                pipeline_state["depthState"] = depth
+                
+        # 解析 Rasterizer State (D3D11)
+        elif "RSSetState" in name:
+            rasterizer = parse_rasterizer_state_from_params(params)
+            if rasterizer:
+                pipeline_state["rasterizerState"] = rasterizer
+                
+        # 解析 Shaders (D3D11)
+        elif "VSSetShader" in name:
+            pipeline_state["shaders"]["vs"] = parse_shader_from_params(params, "VS")
+        elif "PSSetShader" in name:
+            pipeline_state["shaders"]["ps"] = parse_shader_from_params(params, "PS")
+        elif "GSSetShader" in name:
+            pipeline_state["shaders"]["gs"] = parse_shader_from_params(params, "GS")
+        elif "HSSetShader" in name:
+            pipeline_state["shaders"]["hs"] = parse_shader_from_params(params, "HS")
+        elif "DSSetShader" in name:
+            pipeline_state["shaders"]["ds"] = parse_shader_from_params(params, "DS")
+        elif "CSSetShader" in name:
+            pipeline_state["shaders"]["cs"] = parse_shader_from_params(params, "CS")
+            
+        # 解析 Vulkan Pipeline
+        elif "vkCmdBindPipeline" in name:
+            pipeline_state["shaders"]["pipeline"] = parse_vulkan_pipeline_from_params(params)
+            
+        # 解析 Primitive Topology (D3D11)
+        elif "IASetPrimitiveTopology" in name:
+            topology = parse_topology_from_params(params)
+            if topology:
+                pipeline_state["primitiveTopology"] = topology
+                
+        # 解析 Input Layout (D3D11)
+        elif "IASetInputLayout" in name:
+            pipeline_state["inputLayout"] = parse_input_layout_from_params(params)
+    
+    return pipeline_state
+
+
+def parse_viewport_from_params(params):
+    """从 RSSetViewports 结构化参数解析 viewport 数据"""
+    viewport = {
+        "x": 0.0,
+        "y": 0.0,
+        "width": 0.0,
+        "height": 0.0,
+        "minDepth": 0.0,
+        "maxDepth": 1.0,
+        "count": 1,
+    }
+    
+    for p in params:
+        name = p.get("name", "")
+        
+        if name == "NumViewports":
+            viewport["count"] = int(p.get("value", 1))
+            
+        elif name == "pViewports" and "elements" in p:
+            # 解析第一个 viewport（通常只有一个）
+            viewports = p["elements"]
+            if viewports:
+                vp = viewports[0]
+                if "fields" in vp:
+                    fields = vp["fields"]
+                    # D3D11: TopLeftX, TopLeftY, Width, Height, MinDepth, MaxDepth
+                    if "TopLeftX" in fields:
+                        viewport["x"] = float(fields["TopLeftX"].get("value", 0))
+                    if "TopLeftY" in fields:
+                        viewport["y"] = float(fields["TopLeftY"].get("value", 0))
+                    if "Width" in fields:
+                        viewport["width"] = float(fields["Width"].get("value", 0))
+                    if "Height" in fields:
+                        viewport["height"] = float(fields["Height"].get("value", 0))
+                    if "MinDepth" in fields:
+                        viewport["minDepth"] = float(fields["MinDepth"].get("value", 0))
+                    if "MaxDepth" in fields:
+                        viewport["maxDepth"] = float(fields["MaxDepth"].get("value", 1))
+    
+    return viewport
+
+
+def parse_vulkan_viewport_from_params(params):
+    """从 vkCmdSetViewport 结构化参数解析 viewport 数据"""
+    viewport = {
+        "x": 0.0,
+        "y": 0.0,
+        "width": 0.0,
+        "height": 0.0,
+        "minDepth": 0.0,
+        "maxDepth": 1.0,
+        "count": 1,
+    }
+    
+    for p in params:
+        name = p.get("name", "")
+        
+        if name == "viewportCount":
+            viewport["count"] = int(p.get("value", 1))
+            
+        elif name == "pViewports" and "elements" in p:
+            viewports = p["elements"]
+            if viewports:
+                vp = viewports[0]
+                if "fields" in vp:
+                    fields = vp["fields"]
+                    # Vulkan: x, y, width, height, minDepth, maxDepth
+                    if "x" in fields:
+                        viewport["x"] = float(fields["x"].get("value", 0))
+                    if "y" in fields:
+                        viewport["y"] = float(fields["y"].get("value", 0))
+                    if "width" in fields:
+                        viewport["width"] = float(fields["width"].get("value", 0))
+                    if "height" in fields:
+                        viewport["height"] = float(fields["height"].get("value", 0))
+                    if "minDepth" in fields:
+                        viewport["minDepth"] = float(fields["minDepth"].get("value", 0))
+                    if "maxDepth" in fields:
+                        viewport["maxDepth"] = float(fields["maxDepth"].get("value", 1))
+    
+    return viewport
+
+
+def parse_scissor_from_params(params):
+    """从 RSSetScissorRects 结构化参数解析 scissor 数据"""
+    scissor = {
+        "left": 0,
+        "top": 0,
+        "right": 0,
+        "bottom": 0,
+        "count": 1,
+    }
+    
+    for p in params:
+        name = p.get("name", "")
+        
+        if name == "NumRects":
+            scissor["count"] = int(p.get("value", 1))
+            
+        elif name == "pRects" and "elements" in p:
+            rects = p["elements"]
+            if rects:
+                rect = rects[0]
+                if "fields" in rect:
+                    fields = rect["fields"]
+                    # D3D11: left, top, right, bottom
+                    if "left" in fields:
+                        scissor["left"] = int(fields["left"].get("value", 0))
+                    if "top" in fields:
+                        scissor["top"] = int(fields["top"].get("value", 0))
+                    if "right" in fields:
+                        scissor["right"] = int(fields["right"].get("value", 0))
+                    if "bottom" in fields:
+                        scissor["bottom"] = int(fields["bottom"].get("value", 0))
+    
+    return scissor
+
+
+def parse_vulkan_scissor_from_params(params):
+    """从 vkCmdSetScissor 结构化参数解析 scissor 数据"""
+    scissor = {
+        "x": 0,
+        "y": 0,
+        "width": 0,
+        "height": 0,
+        "count": 1,
+    }
+    
+    for p in params:
+        name = p.get("name", "")
+        
+        if name == "scissorCount":
+            scissor["count"] = int(p.get("value", 1))
+            
+        elif name == "pScissors" and "elements" in p:
+            scissors = p["elements"]
+            if scissors:
+                sc = scissors[0]
+                if "fields" in sc:
+                    fields = sc["fields"]
+                    # Vulkan: offset (x, y), extent (width, height)
+                    if "offset" in fields and "fields" in fields["offset"]:
+                        offset = fields["offset"]["fields"]
+                        if "x" in offset:
+                            scissor["x"] = int(offset["x"].get("value", 0))
+                        if "y" in offset:
+                            scissor["y"] = int(offset["y"].get("value", 0))
+                    if "extent" in fields and "fields" in fields["extent"]:
+                        extent = fields["extent"]["fields"]
+                        if "width" in extent:
+                            scissor["width"] = int(extent["width"].get("value", 0))
+                        if "height" in extent:
+                            scissor["height"] = int(extent["height"].get("value", 0))
+    
+    return scissor
+
+
+def parse_blend_state_from_params(params):
+    """从 OMSetBlendState 结构化参数解析 blend state 数据"""
+    blend = {
+        "enabled": True,
+        "stateId": None,
+        "blendFactor": [1.0, 1.0, 1.0, 1.0],
+        "sampleMask": "0xFFFFFFFF",
+        "srcColor": "Unknown",
+        "dstColor": "Unknown",
+    }
+    
+    for p in params:
+        name = p.get("name", "")
+        
+        if name == "pBlendState":
+            value = p.get("value", "")
+            blend["stateId"] = value
+            blend["enabled"] = value and value != "0" and value.upper() != "NULL"
+            
+        elif name == "BlendFactor" and "elements" in p:
+            factors = []
+            for elem in p["elements"][:4]:
+                factors.append(float(elem.get("value", 1.0)))
+            if factors:
+                blend["blendFactor"] = factors
+                
+        elif name == "SampleMask":
+            blend["sampleMask"] = p.get("value", "0xFFFFFFFF")
+    
+    return blend
+
+
+def parse_depth_state_from_params(params):
+    """从 OMSetDepthStencilState 结构化参数解析 depth stencil state 数据"""
+    depth = {
+        "testEnabled": True,
+        "writeEnabled": True,
+        "compareFunc": "Unknown",
+        "stencilEnabled": False,
+        "stencilRef": 0,
+        "stateId": None,
+    }
+    
+    for p in params:
+        name = p.get("name", "")
+        
+        if name == "pDepthStencilState":
+            value = p.get("value", "")
+            depth["stateId"] = value
+            depth["testEnabled"] = value and value != "0" and value.upper() != "NULL"
+            depth["writeEnabled"] = depth["testEnabled"]
+            
+        elif name == "StencilRef":
+            depth["stencilRef"] = int(p.get("value", 0))
+    
+    return depth
+
+
+def parse_rasterizer_state_from_params(params):
+    """从 RSSetState 结构化参数解析 rasterizer state 数据"""
+    rasterizer = {
+        "stateId": None,
+        "fillMode": "Solid",
+        "cullMode": "Back",
+    }
+    
+    for p in params:
+        name = p.get("name", "")
+        
+        if name == "pRasterizerState":
+            rasterizer["stateId"] = p.get("value", "")
+    
+    return rasterizer
+
+
+def parse_shader_from_params(params, shader_type):
+    """从 SetShader 结构化参数解析 shader 信息"""
+    shader = {
+        "type": shader_type,
+        "id": None,
+        "valid": False,
+    }
+    
+    for p in params:
+        name = p.get("name", "")
+        
+        # D3D11: pShader, pVertexShader, pPixelShader, etc.
+        if name in ["pShader", "pVertexShader", "pPixelShader", "pGeometryShader",
+                    "pHullShader", "pDomainShader", "pComputeShader"]:
+            value = p.get("value", "")
+            shader["id"] = value
+            shader["valid"] = value and value != "0" and value.upper() != "NULL"
+    
+    return shader
+
+
+def parse_vulkan_pipeline_from_params(params):
+    """从 vkCmdBindPipeline 结构化参数解析 pipeline 信息"""
+    pipeline = {
+        "type": "Pipeline",
+        "id": None,
+        "valid": False,
+        "bindPoint": None,
+    }
+    
+    for p in params:
+        name = p.get("name", "")
+        
+        if name == "pipeline":
+            value = p.get("value", "")
+            pipeline["id"] = value
+            pipeline["valid"] = value and value != "0" and value.upper() != "NULL"
+            
+        elif name == "pipelineBindPoint":
+            pipeline["bindPoint"] = p.get("value", "")
+    
+    return pipeline
+
+
+def parse_topology_from_params(params):
+    """从 IASetPrimitiveTopology 结构化参数解析图元拓扑"""
+    for p in params:
+        name = p.get("name", "")
+        
+        if name == "Topology":
+            topo = p.get("value", "")
+            # 简化名称
+            topo = topo.replace("D3D11_PRIMITIVE_TOPOLOGY_", "")
+            topo = topo.replace("D3D_PRIMITIVE_TOPOLOGY_", "")
+            return topo
+    
+    return None
+
+
+def parse_input_layout_from_params(params):
+    """从 IASetInputLayout 结构化参数解析 input layout"""
+    layout = {
+        "id": None,
+        "valid": False,
+    }
+    
+    for p in params:
+        name = p.get("name", "")
+        
+        if name == "pInputLayout":
+            value = p.get("value", "")
+            layout["id"] = value
+            layout["valid"] = value and value != "0" and value.upper() != "NULL"
+    
+    return layout
+
+
+def parse_resource_bindings(binding_records):
+    """
+    从结构化绑定记录中解析资源绑定数据
+    
+    Args:
+        binding_records: 结构化的绑定调用列表 [{"name": "...", "params": [...]}]
+    
+    返回:
+        dict: 包含 shaderResources, constantBuffers, samplers, descriptorSets 等信息
+    """
+    bindings = {
+        "shaderResources": [],   # SRVs (纹理/缓冲区)
+        "constantBuffers": [],   # CBVs
+        "samplers": [],          # 采样器
+        "descriptorSets": [],    # Vulkan 描述符集
+        "unorderedAccessViews": [],  # UAVs
+    }
+    
+    for record in binding_records:
+        name = record.get("name", "")
+        params = record.get("params", [])
+        
+        # ============= D3D11 Shader Resources (SRVs) =============
+        if "SetShaderResources" in name:
+            srvs = parse_shader_resources_from_params(params, name)
+            if srvs:
+                bindings["shaderResources"].extend(srvs)
+                
+        # ============= D3D11 Constant Buffers =============
+        elif "SetConstantBuffers" in name:
+            cbs = parse_constant_buffers_from_params(params, name)
+            if cbs:
+                bindings["constantBuffers"].extend(cbs)
+                
+        # ============= D3D11 Samplers =============
+        elif "SetSamplers" in name:
+            samplers = parse_samplers_from_params(params, name)
+            if samplers:
+                bindings["samplers"].extend(samplers)
+                
+        # ============= D3D11 Unordered Access Views =============
+        elif "SetUnorderedAccessViews" in name:
+            uavs = parse_uavs_from_params(params, name)
+            if uavs:
+                bindings["unorderedAccessViews"].extend(uavs)
+                
+        # ============= Vulkan Descriptor Sets =============
+        elif "vkCmdBindDescriptorSets" in name:
+            desc_sets = parse_descriptor_sets_from_params(params)
+            if desc_sets:
+                bindings["descriptorSets"].extend(desc_sets)
+                
+        # ============= D3D12 Root Descriptor Table =============
+        elif "SetGraphicsRootDescriptorTable" in name:
+            desc_table = parse_d3d12_descriptor_table_from_params(params)
+            if desc_table:
+                bindings["descriptorSets"].append(desc_table)
+                
+        # ============= D3D12 Root Constant Buffer View =============
+        elif "SetGraphicsRootConstantBufferView" in name:
+            cbv = parse_d3d12_cbv_from_params(params)
+            if cbv:
+                bindings["constantBuffers"].append(cbv)
+    
+    return bindings
+
+
+def parse_shader_resources_from_params(params, call_name):
+    """解析 D3D11 *SetShaderResources 的资源绑定"""
+    resources = []
+    
+    # 确定着色器阶段
+    stage = "PS"
+    if "VS" in call_name:
+        stage = "VS"
+    elif "GS" in call_name:
+        stage = "GS"
+    elif "HS" in call_name:
+        stage = "HS"
+    elif "DS" in call_name:
+        stage = "DS"
+    elif "CS" in call_name:
+        stage = "CS"
+    
+    start_slot = 0
+    
+    for p in params:
+        name = p.get("name", "")
+        
+        if name == "StartSlot":
+            start_slot = int(p.get("value", 0))
+            
+        elif name == "ppShaderResourceViews" and "elements" in p:
+            elements = p["elements"]
+            for i, elem in enumerate(elements):
+                srv_id = elem.get("value", "")
+                if srv_id and srv_id != "0" and srv_id.upper() != "NULL":
+                    resources.append({
+                        "type": "SRV",
+                        "stage": stage,
+                        "slot": start_slot + i,
+                        "resourceId": srv_id,
+                    })
+    
+    return resources
+
+
+def parse_constant_buffers_from_params(params, call_name):
+    """解析 D3D11 *SetConstantBuffers 的常量缓冲区绑定"""
+    buffers = []
+    
+    # 确定着色器阶段
+    stage = "PS"
+    if "VS" in call_name:
+        stage = "VS"
+    elif "GS" in call_name:
+        stage = "GS"
+    elif "HS" in call_name:
+        stage = "HS"
+    elif "DS" in call_name:
+        stage = "DS"
+    elif "CS" in call_name:
+        stage = "CS"
+    
+    start_slot = 0
+    
+    for p in params:
+        name = p.get("name", "")
+        
+        if name == "StartSlot":
+            start_slot = int(p.get("value", 0))
+            
+        elif name == "ppConstantBuffers" and "elements" in p:
+            elements = p["elements"]
+            for i, elem in enumerate(elements):
+                cb_id = elem.get("value", "")
+                if cb_id and cb_id != "0" and cb_id.upper() != "NULL":
+                    buffers.append({
+                        "type": "CBV",
+                        "stage": stage,
+                        "slot": start_slot + i,
+                        "resourceId": cb_id,
+                    })
+    
+    return buffers
+
+
+def parse_samplers_from_params(params, call_name):
+    """解析 D3D11 *SetSamplers 的采样器绑定"""
+    samplers = []
+    
+    # 确定着色器阶段
+    stage = "PS"
+    if "VS" in call_name:
+        stage = "VS"
+    elif "GS" in call_name:
+        stage = "GS"
+    elif "CS" in call_name:
+        stage = "CS"
+    
+    start_slot = 0
+    
+    for p in params:
+        name = p.get("name", "")
+        
+        if name == "StartSlot":
+            start_slot = int(p.get("value", 0))
+            
+        elif name == "ppSamplers" and "elements" in p:
+            elements = p["elements"]
+            for i, elem in enumerate(elements):
+                sampler_id = elem.get("value", "")
+                if sampler_id and sampler_id != "0" and sampler_id.upper() != "NULL":
+                    samplers.append({
+                        "type": "Sampler",
+                        "stage": stage,
+                        "slot": start_slot + i,
+                        "resourceId": sampler_id,
+                    })
+    
+    return samplers
+
+
+def parse_uavs_from_params(params, call_name):
+    """解析 D3D11 *SetUnorderedAccessViews 的 UAV 绑定"""
+    uavs = []
+    
+    start_slot = 0
+    
+    for p in params:
+        name = p.get("name", "")
+        
+        if name == "StartSlot" or name == "UAVStartSlot":
+            start_slot = int(p.get("value", 0))
+            
+        elif name == "ppUnorderedAccessViews" and "elements" in p:
+            elements = p["elements"]
+            for i, elem in enumerate(elements):
+                uav_id = elem.get("value", "")
+                if uav_id and uav_id != "0" and uav_id.upper() != "NULL":
+                    uavs.append({
+                        "type": "UAV",
+                        "stage": "CS" if "CS" in call_name else "PS",
+                        "slot": start_slot + i,
+                        "resourceId": uav_id,
+                    })
+    
+    return uavs
+
+
+def parse_descriptor_sets_from_params(params):
+    """解析 Vulkan vkCmdBindDescriptorSets 的描述符集绑定"""
+    descriptor_sets = []
+    
+    first_set = 0
+    pipeline_bind_point = "GRAPHICS"
+    layout_id = ""
+    
+    for p in params:
+        name = p.get("name", "")
+        
+        if name == "firstSet":
+            first_set = int(p.get("value", 0))
+            
+        elif name == "pipelineBindPoint":
+            value = p.get("value", "")
+            if "COMPUTE" in value:
+                pipeline_bind_point = "COMPUTE"
+                
+        elif name == "layout":
+            layout_id = p.get("value", "")
+            
+        elif name == "pDescriptorSets" and "elements" in p:
+            elements = p["elements"]
+            for i, elem in enumerate(elements):
+                set_id = elem.get("value", "")
+                if set_id and set_id != "0":
+                    descriptor_sets.append({
+                        "type": "DescriptorSet",
+                        "bindPoint": pipeline_bind_point,
+                        "setIndex": first_set + i,
+                        "resourceId": set_id,
+                        "layout": layout_id,
+                    })
+    
+    return descriptor_sets
+
+
+def parse_d3d12_descriptor_table_from_params(params):
+    """解析 D3D12 SetGraphicsRootDescriptorTable 的描述符表绑定"""
+    for p in params:
+        name = p.get("name", "")
+        
+        if name == "RootParameterIndex":
+            root_index = int(p.get("value", 0))
+            
+        elif name == "BaseDescriptor":
+            descriptor_handle = p.get("value", "")
+            return {
+                "type": "DescriptorTable",
+                "rootIndex": root_index if 'root_index' in dir() else 0,
+                "baseDescriptor": descriptor_handle,
+            }
+    
+    return None
+
+
+def parse_d3d12_cbv_from_params(params):
+    """解析 D3D12 SetGraphicsRootConstantBufferView 的 CBV 绑定"""
+    root_index = 0
+    buffer_location = ""
+    
+    for p in params:
+        name = p.get("name", "")
+        
+        if name == "RootParameterIndex":
+            root_index = int(p.get("value", 0))
+            
+        elif name == "BufferLocation":
+            buffer_location = p.get("value", "")
+    
+    if buffer_location:
+        return {
+            "type": "CBV",
+            "stage": "Root",
+            "slot": root_index,
+            "resourceId": buffer_location,
+        }
+    
+    return None
+
+
 def parse_pipeline_state_from_related_calls(related_calls):
     """
     从 relatedCalls 字符串列表中解析 Pipeline State 数据
+    （向后兼容的旧实现，现在优先使用 parse_pipeline_state_from_binding_records）
     
     返回:
         dict: 包含 viewport, blendState, depthState, shaders 等信息
