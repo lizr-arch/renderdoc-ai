@@ -1022,33 +1022,38 @@ class AnalysisPipeline:
             })()
             draw_call_details.append(detail)
         
-        # 资源生命周期
-        resource_lifetimes = []
+        # 资源生命周期 - 构建为字典格式 {resource_id: ResourceLifetime}
+        from .analysis.resource_tracker import ResourceLifetime, ResourceType
+        
+        resource_lifetimes_dict = {}
+        
         for tex_id, tex_info in self._resources.get('textures', {}).items():
-            lifetime = type('ResourceLifetime', (), {
-                'resource_id': tex_id,
-                'resource_name': tex_info.get('name', f'Texture_{tex_id}'),
-                'resource_type': 'TEXTURE',
-                'created_at': 0,
-                'destroyed_at': None,
-                'read_events': [],
-                'write_events': [],
-                'get_active_range': lambda: (0, 9999)
-            })()
-            resource_lifetimes.append(lifetime)
+            lifetime = ResourceLifetime(
+                resource_id=tex_id,
+                resource_name=tex_info.get('name', f'Texture_{tex_id}'),
+                resource_type=ResourceType.TEXTURE_2D,
+                format=tex_info.get('format', ''),
+                width=tex_info.get('width', 0),
+                height=tex_info.get('height', 0),
+                depth=tex_info.get('depth', 1),
+            )
+            # 设置访问范围（假设整帧都活跃）
+            lifetime.first_access_event = 1
+            lifetime.last_access_event = len(self._events)
+            lifetime.read_count = 1  # 假设至少被读取一次
+            resource_lifetimes_dict[tex_id] = lifetime
         
         for buf_id, buf_info in self._resources.get('buffers', {}).items():
-            lifetime = type('ResourceLifetime', (), {
-                'resource_id': buf_id,
-                'resource_name': buf_info.get('name', f'Buffer_{buf_id}'),
-                'resource_type': 'BUFFER',
-                'created_at': 0,
-                'destroyed_at': None,
-                'read_events': [],
-                'write_events': [],
-                'get_active_range': lambda: (0, 9999)
-            })()
-            resource_lifetimes.append(lifetime)
+            lifetime = ResourceLifetime(
+                resource_id=buf_id,
+                resource_name=buf_info.get('name', f'Buffer_{buf_id}'),
+                resource_type=ResourceType.BUFFER,
+                size_bytes=buf_info.get('length', 0),
+            )
+            lifetime.first_access_event = 1
+            lifetime.last_access_event = len(self._events)
+            lifetime.read_count = 1
+            resource_lifetimes_dict[buf_id] = lifetime
         
         # 问题列表
         issues = []
@@ -1065,7 +1070,7 @@ class AnalysisPipeline:
         html_content = exporter.export(
             draws=draw_call_details,
             issues=issues,
-            lifetimes=None,  # 暂时不传递，后续完善
+            lifetimes=resource_lifetimes_dict,  # 传递资源生命周期数据
             performance_report=self._performance_report,
             mali_report=self._mali_report
         )
