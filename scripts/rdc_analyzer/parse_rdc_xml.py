@@ -14,6 +14,261 @@ from pathlib import Path
 from collections import defaultdict
 
 
+# ============================================================================
+# Vulkan DescriptorSet Content Mapping (vkUpdateDescriptorSets)
+# ============================================================================
+
+def parse_vk_update_descriptor_sets_chunk(chunk):
+    """解析单个 vkUpdateDescriptorSets chunk，提取描述符集内容
+    
+    Returns:
+        list: [{setId, bindings: [{binding, type, resource}]}]
+    """
+    results = []
+    
+    # 找 pDescriptorWrites 数组
+    for child in chunk:
+        if child.tag == "array" and child.get("name") == "pDescriptorWrites":
+            for write_struct in child.findall("struct"):
+                write_info = {
+                    "setId": None,
+                    "binding": 0,
+                    "descriptorType": "",
+                    "resources": []  # buffers, images, samplers
+                }
+                
+                for elem in write_struct:
+                    name = elem.get("name", "")
+                    
+                    if name == "dstSet" and elem.tag == "ResourceId":
+                        write_info["setId"] = elem.text.strip() if elem.text else None
+                        
+                    elif name == "dstBinding":
+                        write_info["binding"] = int(elem.text.strip()) if elem.text else 0
+                        
+                    elif name == "descriptorType" and elem.tag == "enum":
+                        # 使用 string 属性获取人类可读的类型
+                        write_info["descriptorType"] = elem.get("string", elem.text.strip() if elem.text else "")
+                        
+                    elif name == "pBufferInfo" and elem.tag == "array":
+                        # 解析 buffer 绑定
+                        for buf_struct in elem.findall("struct"):
+                            buf_info = {"type": "buffer"}
+                            for buf_elem in buf_struct:
+                                buf_name = buf_elem.get("name", "")
+                                if buf_name == "buffer" and buf_elem.tag == "ResourceId":
+                                    buf_info["resourceId"] = buf_elem.text.strip() if buf_elem.text else ""
+                                elif buf_name == "offset":
+                                    buf_info["offset"] = int(buf_elem.text.strip()) if buf_elem.text else 0
+                                elif buf_name == "range":
+                                    buf_info["range"] = int(buf_elem.text.strip()) if buf_elem.text else 0
+                            if buf_info.get("resourceId"):
+                                write_info["resources"].append(buf_info)
+                                
+                    elif name == "pImageInfo" and elem.tag == "array":
+                        # 解析 image/sampler 绑定
+                        for img_struct in elem.findall("struct"):
+                            img_info = {"type": "image"}
+                            for img_elem in img_struct:
+                                img_name = img_elem.get("name", "")
+                                if img_name == "imageView" and img_elem.tag == "ResourceId":
+                                    img_info["resourceId"] = img_elem.text.strip() if img_elem.text else ""
+                                elif img_name == "sampler" and img_elem.tag == "ResourceId":
+                                    sampler_id = img_elem.text.strip() if img_elem.text else "0"
+                                    if sampler_id and sampler_id != "0":
+                                        img_info["samplerId"] = sampler_id
+                                elif img_name == "imageLayout" and img_elem.tag == "enum":
+                                    img_info["layout"] = img_elem.get("string", "")
+                            if img_info.get("resourceId"):
+                                write_info["resources"].append(img_info)
+                
+                if write_info["setId"]:
+                    results.append(write_info)
+    
+    return results
+
+
+def collect_descriptor_set_contents(chunks):
+    """预扫描所有 vkUpdateDescriptorSets，建立描述符集内容映射表
+    
+    Args:
+        chunks: ET.Element - XML 中的 <chunks> 元素
+        
+    Returns:
+        dict: {setId -> [{binding, descriptorType, resources}]}
+    """
+    descriptor_set_contents = defaultdict(list)
+    
+    for chunk in chunks.findall("chunk"):
+        if chunk.get("name") == "vkUpdateDescriptorSets":
+            writes = parse_vk_update_descriptor_sets_chunk(chunk)
+            for write in writes:
+                set_id = write["setId"]
+                binding_info = {
+                    "binding": write["binding"],
+                    "descriptorType": write["descriptorType"],
+                    "resources": write["resources"]
+                }
+                # 合并到同一 setId（可能有多个 vkUpdateDescriptorSets 更新同一 set）
+                # 使用 binding 号去重
+                existing_bindings = {b["binding"] for b in descriptor_set_contents[set_id]}
+                if binding_info["binding"] not in existing_bindings:
+                    descriptor_set_contents[set_id].append(binding_info)
+                else:
+                    # 更新已有的 binding
+                    for i, b in enumerate(descriptor_set_contents[set_id]):
+                        if b["binding"] == binding_info["binding"]:
+                            descriptor_set_contents[set_id][i] = binding_info
+                            break
+    
+    return dict(descriptor_set_contents)
+
+
+# ============================================================================
+# State Object Parsing (CreateBlendState / CreateDepthStencilState)
+# ============================================================================
+
+def parse_create_blend_state_chunk(chunk):
+    """从 CreateBlendState chunk 解析 blend state 配置
+    
+    Returns:
+        dict: {
+            "stateId": "273",
+            "alphaToCoverageEnable": False,
+            "independentBlendEnable": False,
+            "renderTargets": [{ "BlendEnable": True, "SrcBlend": "D3D11_BLEND_SRC_ALPHA", ... }]
+        }
+    """
+    result = {
+        "stateId": None,
+        "alphaToCoverageEnable": False,
+        "independentBlendEnable": False,
+        "renderTargets": [],
+    }
+    
+    # 找 Descriptor struct
+    for child in chunk:
+        if child.tag == "struct" and child.get("name") == "Descriptor":
+            # 解析 D3D11_BLEND_DESC
+            for elem in child:
+                if elem.tag == "bool" and elem.get("name") == "AlphaToCoverageEnable":
+                    result["alphaToCoverageEnable"] = elem.text.strip().lower() == "true" if elem.text else False
+                elif elem.tag == "bool" and elem.get("name") == "IndependentBlendEnable":
+                    result["independentBlendEnable"] = elem.text.strip().lower() == "true" if elem.text else False
+                elif elem.tag == "array" and elem.get("name") == "RenderTarget":
+                    for rt_struct in elem:
+                        rt = {}
+                        for field in rt_struct:
+                            name = field.get("name")
+                            if field.tag == "bool":
+                                rt[name] = field.text.strip().lower() == "true" if field.text else False
+                            elif field.tag == "enum":
+                                # 优先使用 string 属性（人类可读）
+                                rt[name] = field.get("string", field.text.strip() if field.text else "Unknown")
+                        result["renderTargets"].append(rt)
+                        # 只取第一个 RenderTarget（如果不是 IndependentBlend）
+                        if not result["independentBlendEnable"]:
+                            break
+        elif child.tag == "ResourceId" and child.get("name") == "pState":
+            result["stateId"] = child.text.strip() if child.text else None
+    
+    return result
+
+
+def parse_create_depth_stencil_state_chunk(chunk):
+    """从 CreateDepthStencilState chunk 解析 depth stencil state 配置
+    
+    Returns:
+        dict: {
+            "stateId": "182",
+            "depthEnable": False,
+            "depthWriteMask": "D3D11_DEPTH_WRITE_MASK_ZERO",
+            "depthFunc": "D3D11_COMPARISON_LESS",
+            "stencilEnable": False,
+            ...
+        }
+    """
+    result = {
+        "stateId": None,
+        "depthEnable": True,
+        "depthWriteMask": "D3D11_DEPTH_WRITE_MASK_ALL",
+        "depthFunc": "D3D11_COMPARISON_LESS",
+        "stencilEnable": False,
+        "stencilReadMask": 255,
+        "stencilWriteMask": 255,
+        "frontFace": {},
+        "backFace": {},
+    }
+    
+    # 找 Descriptor struct
+    for child in chunk:
+        if child.tag == "struct" and child.get("name") == "Descriptor":
+            for elem in child:
+                name = elem.get("name")
+                if elem.tag == "bool" and name == "DepthEnable":
+                    result["depthEnable"] = elem.text.strip().lower() == "true" if elem.text else True
+                elif elem.tag == "enum" and name == "DepthWriteMask":
+                    result["depthWriteMask"] = elem.get("string", elem.text.strip() if elem.text else "Unknown")
+                elif elem.tag == "enum" and name == "DepthFunc":
+                    result["depthFunc"] = elem.get("string", elem.text.strip() if elem.text else "Unknown")
+                elif elem.tag == "bool" and name == "StencilEnable":
+                    result["stencilEnable"] = elem.text.strip().lower() == "true" if elem.text else False
+                elif elem.tag == "uint" and name == "StencilReadMask":
+                    result["stencilReadMask"] = int(elem.text.strip()) if elem.text else 255
+                elif elem.tag == "uint" and name == "StencilWriteMask":
+                    result["stencilWriteMask"] = int(elem.text.strip()) if elem.text else 255
+                elif elem.tag == "struct" and name in ("FrontFace", "BackFace"):
+                    face = {}
+                    for field in elem:
+                        fname = field.get("name")
+                        if field.tag == "enum":
+                            face[fname] = field.get("string", field.text.strip() if field.text else "Unknown")
+                    # 保持 Python 风格的命名
+                    key = "frontFace" if name == "FrontFace" else "backFace"
+                    result[key] = face
+        elif child.tag == "ResourceId" and child.get("name") == "pState":
+            result["stateId"] = child.text.strip() if child.text else None
+    
+    return result
+
+
+def collect_state_objects_from_xml(chunks):
+    """预处理阶段：从 XML 收集所有 state 对象的配置
+    
+    Args:
+        chunks: ET.Element - XML 中的 <chunks> 元素
+        
+    Returns:
+        dict: {
+            "blendStates": { stateId -> config },
+            "depthStencilStates": { stateId -> config },
+        }
+    """
+    state_objects = {
+        "blendStates": {},
+        "depthStencilStates": {},
+    }
+    
+    for chunk in chunks.findall("chunk"):
+        name = chunk.get("name", "")
+        
+        if "CreateBlendState" in name:
+            config = parse_create_blend_state_chunk(chunk)
+            if config["stateId"]:
+                state_objects["blendStates"][config["stateId"]] = config
+        
+        elif "CreateDepthStencilState" in name:
+            config = parse_create_depth_stencil_state_chunk(chunk)
+            if config["stateId"]:
+                state_objects["depthStencilStates"][config["stateId"]] = config
+    
+    return state_objects
+
+
+# ============================================================================
+# Chunk Params Parsing
+# ============================================================================
+
 def parse_chunk_params(chunk_elem):
     """解析 chunk 元素中的参数"""
     params = []
@@ -220,6 +475,19 @@ def parse_rdc_xml(xml_path):
     
     # 解析 chunks（API 调用）
     chunks = root.find("chunks")
+    
+    # ========== 预处理阶段：收集 State 对象配置 ==========
+    # 先遍历一次收集 CreateBlendState / CreateDepthStencilState 的配置
+    # 这样在后续解析 OMSetBlendState/OMSetDepthStencilState 时可以查找完整参数
+    state_objects = collect_state_objects_from_xml(chunks)
+    print(f"  Collected {len(state_objects['blendStates'])} BlendStates, {len(state_objects['depthStencilStates'])} DepthStencilStates")
+    
+    # ========== 预处理阶段：收集 Vulkan Descriptor Set 内容 ==========
+    # 先遍历一次收集 vkUpdateDescriptorSets 的绑定信息
+    # 这样在后续解析 vkCmdBindDescriptorSets 时可以展开为具体资源
+    descriptor_set_contents = collect_descriptor_set_contents(chunks)
+    print(f"  Collected {len(descriptor_set_contents)} Vulkan DescriptorSets with bindings")
+    
     events = []
     textures = {}
     buffers = {}
@@ -408,7 +676,7 @@ def parse_rdc_xml(xml_path):
             event["meshInfo"] = parse_mesh_info(current_binding_records)
             
             # 解析 Pipeline State（使用结构化数据以获取完整参数）
-            event["pipelineState"] = parse_pipeline_state_from_binding_records(current_binding_records)
+            event["pipelineState"] = parse_pipeline_state_from_binding_records(current_binding_records, state_objects)
             
             # 解析资源绑定（SRVs, CBVs, Samplers, DescriptorSets）
             event["resourceBindings"] = parse_resource_bindings(current_binding_records)
@@ -455,7 +723,7 @@ def parse_rdc_xml(xml_path):
             event["relatedCalls"] = current_bindings.copy()
             
             # 解析 Pipeline State（使用当前 binding_records 快照，但不清空）
-            event["pipelineState"] = parse_pipeline_state_from_binding_records(current_binding_records)
+            event["pipelineState"] = parse_pipeline_state_from_binding_records(current_binding_records, state_objects)
             
             # 注意：不清空 current_bindings 和 current_binding_records
             # 这样下一个 Draw 调用仍然可以获取正确的 shader 绑定
@@ -723,12 +991,13 @@ def parse_vulkan_index_buffer(params):
     return ib_info if ib_info.get("buffer") else None
 
 
-def parse_pipeline_state_from_binding_records(binding_records):
+def parse_pipeline_state_from_binding_records(binding_records, state_objects=None):
     """
     从结构化绑定记录中解析 Pipeline State 数据
     
     Args:
         binding_records: 结构化的绑定调用列表 [{"name": "...", "params": [...]}]
+        state_objects: 预收集的 state 对象配置 (来自 CreateBlendState/CreateDepthStencilState)
     
     返回:
         dict: 包含 viewport, blendState, depthState, shaders 等信息
@@ -781,13 +1050,13 @@ def parse_pipeline_state_from_binding_records(binding_records):
                 
         # 解析 Blend State (D3D11)
         elif "OMSetBlendState" in name:
-            blend = parse_blend_state_from_params(params)
+            blend = parse_blend_state_from_params(params, state_objects)
             if blend:
                 pipeline_state["blendState"] = blend
                 
         # 解析 Depth Stencil State (D3D11)
         elif "OMSetDepthStencilState" in name:
-            depth = parse_depth_state_from_params(params)
+            depth = parse_depth_state_from_params(params, state_objects)
             if depth:
                 pipeline_state["depthState"] = depth
                 
@@ -986,8 +1255,13 @@ def parse_vulkan_scissor_from_params(params):
     return scissor
 
 
-def parse_blend_state_from_params(params):
-    """从 OMSetBlendState 结构化参数解析 blend state 数据"""
+def parse_blend_state_from_params(params, state_objects=None):
+    """从 OMSetBlendState 结构化参数解析 blend state 数据
+    
+    Args:
+        params: OMSetBlendState 调用的参数列表
+        state_objects: 预收集的 state 对象配置 (来自 CreateBlendState)
+    """
     blend = {
         "enabled": True,
         "stateId": None,
@@ -995,13 +1269,20 @@ def parse_blend_state_from_params(params):
         "sampleMask": "0xFFFFFFFF",
         "srcColor": "Unknown",
         "dstColor": "Unknown",
+        "blendOp": "Unknown",
+        "srcAlpha": "Unknown",
+        "dstAlpha": "Unknown",
+        "blendOpAlpha": "Unknown",
     }
+    
+    state_id = None
     
     for p in params:
         name = p.get("name", "")
         
         if name == "pBlendState":
             value = p.get("value", "")
+            state_id = value
             blend["stateId"] = value
             blend["enabled"] = value and value != "0" and value.upper() != "NULL"
             
@@ -1015,31 +1296,66 @@ def parse_blend_state_from_params(params):
         elif name == "SampleMask":
             blend["sampleMask"] = p.get("value", "0xFFFFFFFF")
     
+    # 从 state_objects 查找完整的 blend 配置
+    if state_id and state_objects and "blendStates" in state_objects:
+        blend_config = state_objects["blendStates"].get(state_id)
+        if blend_config and blend_config.get("renderTargets"):
+            rt = blend_config["renderTargets"][0]  # 取第一个 RenderTarget
+            blend["srcColor"] = rt.get("SrcBlend", "Unknown")
+            blend["dstColor"] = rt.get("DestBlend", "Unknown")
+            blend["blendOp"] = rt.get("BlendOp", "Unknown")
+            blend["srcAlpha"] = rt.get("SrcBlendAlpha", "Unknown")
+            blend["dstAlpha"] = rt.get("DestBlendAlpha", "Unknown")
+            blend["blendOpAlpha"] = rt.get("BlendOpAlpha", "Unknown")
+            blend["enabled"] = rt.get("BlendEnable", True)
+    
     return blend
 
 
-def parse_depth_state_from_params(params):
-    """从 OMSetDepthStencilState 结构化参数解析 depth stencil state 数据"""
+def parse_depth_state_from_params(params, state_objects=None):
+    """从 OMSetDepthStencilState 结构化参数解析 depth stencil state 数据
+    
+    Args:
+        params: OMSetDepthStencilState 调用的参数列表
+        state_objects: 预收集的 state 对象配置 (来自 CreateDepthStencilState)
+    """
     depth = {
         "testEnabled": True,
         "writeEnabled": True,
         "compareFunc": "Unknown",
+        "depthWriteMask": "Unknown",
         "stencilEnabled": False,
         "stencilRef": 0,
         "stateId": None,
     }
+    
+    state_id = None
     
     for p in params:
         name = p.get("name", "")
         
         if name == "pDepthStencilState":
             value = p.get("value", "")
+            state_id = value
             depth["stateId"] = value
+            # 暂时使用简单逻辑，后面从 state_objects 获取准确值
             depth["testEnabled"] = value and value != "0" and value.upper() != "NULL"
             depth["writeEnabled"] = depth["testEnabled"]
             
         elif name == "StencilRef":
             depth["stencilRef"] = int(p.get("value", 0))
+    
+    # 从 state_objects 查找完整的 depth stencil 配置
+    if state_id and state_objects and "depthStencilStates" in state_objects:
+        depth_config = state_objects["depthStencilStates"].get(state_id)
+        if depth_config:
+            depth["testEnabled"] = depth_config.get("depthEnable", True)
+            depth["compareFunc"] = depth_config.get("depthFunc", "Unknown")
+            depth["depthWriteMask"] = depth_config.get("depthWriteMask", "Unknown")
+            depth["stencilEnabled"] = depth_config.get("stencilEnable", False)
+            # writeEnabled 基于 depthWriteMask
+            write_mask = depth_config.get("depthWriteMask", "")
+            depth["writeEnabled"] = "ALL" in write_mask if write_mask else True
     
     return depth
 
