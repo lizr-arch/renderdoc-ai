@@ -798,17 +798,18 @@ def parse_pipeline_state_from_binding_records(binding_records):
                 pipeline_state["rasterizerState"] = rasterizer
                 
         # 解析 Shaders (D3D11)
-        elif "VSSetShader" in name:
+        # 注意：需要排除 SetShaderResources，因为 "VSSetShader" in "VSSetShaderResources" 为 True
+        elif "VSSetShader" in name and "Resources" not in name:
             pipeline_state["shaders"]["vs"] = parse_shader_from_params(params, "VS")
-        elif "PSSetShader" in name:
+        elif "PSSetShader" in name and "Resources" not in name:
             pipeline_state["shaders"]["ps"] = parse_shader_from_params(params, "PS")
-        elif "GSSetShader" in name:
+        elif "GSSetShader" in name and "Resources" not in name:
             pipeline_state["shaders"]["gs"] = parse_shader_from_params(params, "GS")
-        elif "HSSetShader" in name:
+        elif "HSSetShader" in name and "Resources" not in name:
             pipeline_state["shaders"]["hs"] = parse_shader_from_params(params, "HS")
-        elif "DSSetShader" in name:
+        elif "DSSetShader" in name and "Resources" not in name:
             pipeline_state["shaders"]["ds"] = parse_shader_from_params(params, "DS")
-        elif "CSSetShader" in name:
+        elif "CSSetShader" in name and "Resources" not in name:
             pipeline_state["shaders"]["cs"] = parse_shader_from_params(params, "CS")
             
         # 解析 Vulkan Pipeline
