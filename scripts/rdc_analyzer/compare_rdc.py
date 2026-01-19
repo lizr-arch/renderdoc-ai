@@ -45,14 +45,88 @@ from diff import (
 )
 
 
+def _estimate_bytes_per_pixel(format_name: str) -> int:
+    """根据纹理格式名称估算每像素字节数
+    
+    Args:
+        format_name: 纹理格式名称 (如 "R8G8B8A8_UNORM", "BC1_UNORM", etc.)
+        
+    Returns:
+        每像素字节数估算值
+    """
+    fmt = format_name.upper()
+    
+    # 压缩格式 (BC/DXT/ASTC) - 返回平均每像素字节数
+    if "BC1" in fmt or "DXT1" in fmt:
+        return 0.5  # 4x4 block = 8 bytes = 0.5 bytes/pixel
+    if "BC2" in fmt or "BC3" in fmt or "DXT3" in fmt or "DXT5" in fmt:
+        return 1  # 4x4 block = 16 bytes = 1 byte/pixel
+    if "BC4" in fmt:
+        return 0.5
+    if "BC5" in fmt:
+        return 1
+    if "BC6" in fmt or "BC7" in fmt:
+        return 1
+    if "ASTC" in fmt:
+        # ASTC 块大小可变，假设 4x4
+        return 1
+    if "ETC" in fmt or "EAC" in fmt:
+        return 0.5
+    
+    # 非压缩格式
+    if "R32G32B32A32" in fmt:
+        return 16
+    if "R32G32B32" in fmt:
+        return 12
+    if "R32G32" in fmt:
+        return 8
+    if "R32" in fmt:
+        return 4
+    if "R16G16B16A16" in fmt:
+        return 8
+    if "R16G16B16" in fmt:
+        return 6
+    if "R16G16" in fmt:
+        return 4
+    if "R16" in fmt:
+        return 2
+    if "R8G8B8A8" in fmt or "B8G8R8A8" in fmt:
+        return 4
+    if "R8G8B8" in fmt or "B8G8R8" in fmt:
+        return 3
+    if "R8G8" in fmt:
+        return 2
+    if "R8" in fmt or "A8" in fmt:
+        return 1
+    if "R10G10B10A2" in fmt:
+        return 4
+    if "R11G11B10" in fmt:
+        return 4
+    if "D32" in fmt:
+        return 4
+    if "D24" in fmt:
+        return 4  # D24 通常是 D24S8 = 4 bytes
+    if "D16" in fmt:
+        return 2
+    if "S8" in fmt:
+        return 1
+    
+    # 默认假设 4 字节/像素 (RGBA8)
+    return 4
+
+
 def load_json_data(file_path: str) -> Dict[str, Any]:
     """加载 JSON 文件
+    
+    支持两种格式：
+    1. Phase 2 期望的字典格式: {summary, textures, shaders, buffers, draw_calls}
+    2. Phase 1 输出的列表格式: [{summary, shaders, textures}]
     
     Args:
         file_path: JSON 文件路径
         
     Returns:
-        解析后的 JSON 数据
+        解析后的 JSON 数据（统一转换为字典格式）
         
     Raises:
         FileNotFoundError: 文件不存在
@@ -63,7 +137,113 @@ def load_json_data(file_path: str) -> Dict[str, Any]:
         raise FileNotFoundError(f"文件不存在: {file_path}")
     
     with open(path, 'r', encoding='utf-8') as f:
-        return json.load(f)
+        data = json.load(f)
+    
+    # 处理 Phase 1 列表格式 -> Phase 2 字典格式
+    if isinstance(data, list) and len(data) > 0:
+        item = data[0]
+        
+        # 转换为 Phase 2 期望的格式
+        phase1_summary = item.get("summary", {})
+        
+        # DiffEngine 从 statistics 读取汇总数据
+        draw_count = phase1_summary.get("total_draw_events", 0)
+        texture_count = phase1_summary.get("total_textures", 0)
+        shader_count = phase1_summary.get("total_shaders", 0)
+        
+        result = {
+            "file_path": item.get("summary", {}).get("file", str(file_path)),
+            "summary": {
+                "draw_call_count": draw_count,
+                "total_vertices": 0,  # Phase 1 可能没有这个字段
+                "total_triangles": 0,  # Phase 1 可能没有这个字段
+                "texture_count": texture_count,
+                "shader_count": shader_count,
+                "pipeline_count": phase1_summary.get("total_pipelines", 0),
+                "driver": phase1_summary.get("driver", "Unknown"),
+                "gpu_core": phase1_summary.get("gpu_core", "Unknown"),
+            },
+            # DiffEngine 从 statistics 读取这些值
+            "statistics": {
+                "totalDrawCalls": draw_count,
+                "totalVertices": 0,
+                "totalTriangles": 0,
+                "dispatchCalls": 0,
+                "textureCount": texture_count,
+                "shaderCount": shader_count,
+            },
+            "textures": [],
+            "shaders": [],
+            "buffers": [],
+            "draw_calls": [],
+            "events": []  # 空事件列表
+        }
+        
+        # 提取纹理数据 (转换为 DiffEngine 期望的格式)
+        for tex in item.get("textures", []):
+            # Phase 1 使用 format_name 字符串，format 是数字 ID
+            format_str = tex.get("format_name", tex.get("format", "Unknown"))
+            if isinstance(format_str, int):
+                format_str = f"FORMAT_{format_str}"
+            
+            width = tex.get("width", 0)
+            height = tex.get("height", 0)
+            depth = tex.get("depth", 1)
+            mip_levels = tex.get("mip_levels", 1)
+            array_layers = tex.get("array_layers", 1)
+            
+            # 估算纹理内存 (基于格式)
+            bpp = _estimate_bytes_per_pixel(format_str)
+            estimated_size = width * height * depth * array_layers * bpp
+            # 考虑 mipmap (大约增加 1/3)
+            if mip_levels > 1:
+                estimated_size = int(estimated_size * 1.33)
+            
+            result["textures"].append({
+                # DiffEngine 使用 resourceId (camelCase)
+                "resourceId": str(tex.get("resource_id", "")),
+                "name": tex.get("custom_name", "") or f"Texture_{tex.get('resource_id', '')}",
+                "width": width,
+                "height": height,
+                "depth": depth,
+                "format": format_str,
+                "mipLevels": mip_levels,
+                "arraySize": array_layers,
+                "samples": tex.get("samples", 1),
+                "size_bytes": estimated_size,
+            })
+        
+        # 提取 Shader 数据 (转换为 DiffEngine 期望的格式)
+        for shader in item.get("shaders", []):
+            shader_hash = shader.get("hash", "")
+            # DiffEngine 用 resourceId 作为 key，我们用 hash 作为 resourceId
+            result["shaders"].append({
+                "resourceId": shader_hash,  # 用 hash 作为唯一标识
+                "hash": shader_hash,
+                "name": shader.get("name", "") or shader.get("friendly_label", "") or f"Shader_{shader_hash[:8]}",
+                "type": shader.get("stage", shader.get("type", "Unknown")),
+                "entry_point": shader.get("entry_name", "main"),
+                # Mali 分析数据
+                "total_cycles": shader.get("total_cycles", 0),
+                "shortest_path": shader.get("shortest_path", 0),
+                "longest_path": shader.get("longest_path", 0),
+                "work_registers": shader.get("work_registers", 0),
+                "uniform_registers": shader.get("uniform_registers", 0),
+                "has_spilling": shader.get("has_spilling", False),
+                "spill_count": shader.get("spill_count", 0),
+                # 周期详情
+                "fma_cycles": shader.get("fma_cycles", 0),
+                "cvt_cycles": shader.get("cvt_cycles", 0),
+                "sfu_cycles": shader.get("sfu_cycles", 0),
+                "load_store_cycles": shader.get("load_store_cycles", 0),
+                "texture_cycles": shader.get("texture_cycles", 0),
+                "varying_cycles": shader.get("varying_cycles", 0),
+            })
+        
+        return result
+    
+    # 已经是字典格式，直接返回
+    return data
 
 
 def run_comparison(
