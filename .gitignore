@@ -48,3 +48,11 @@ qrenderdoc/3rdparty/pyside
 .DS_Store
 plugins-*/
 __pycache__
+# Local data files  
+Resource/  
+output/  
+rdc_analyzer/  
+.codemaker/  
+*.rdc  
+__pycache__/  
+.pytest_cache/ 
