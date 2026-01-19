@@ -2206,6 +2206,15 @@ HTML_TEMPLATE = '''<!DOCTYPE html>
         function renderBindingsTable(title, bindings) {{
             if (!bindings || bindings.length === 0) return '';
             
+            // 检查是否是 Constant Buffers 且包含 members 数据
+            const isCB = title === 'Constant Buffers';
+            const hasCBMembers = isCB && bindings.some(b => b.members && b.members.length > 0);
+            
+            if (hasCBMembers) {{
+                // 渲染带展开功能的 CB 表格
+                return renderCBWithMembers(bindings);
+            }}
+            
             return `
                 <div style="margin-top: 12px;">
                     <strong style="font-size: 13px; color: var(--text-secondary);">${{title}}</strong>
@@ -2231,6 +2240,135 @@ HTML_TEMPLATE = '''<!DOCTYPE html>
                     </table>
                 </div>
             `;
+        }}
+        
+        // 渲染带成员展开的 Constant Buffer 表格
+        function renderCBWithMembers(cbs) {{
+            const cbId = 'cb-' + Math.random().toString(36).substr(2, 9);
+            
+            return `
+                <div style="margin-top: 12px;">
+                    <strong style="font-size: 13px; color: var(--text-secondary);">Constant Buffers</strong>
+                    <div class="cb-list" style="margin-top: 8px;">
+                        ${{cbs.map((cb, idx) => {{
+                            const hasMembers = cb.members && cb.members.length > 0;
+                            const cbItemId = cbId + '-' + idx;
+                            return `
+                                <div class="cb-item" style="border: 1px solid var(--border-color); border-radius: 6px; margin-bottom: 8px; overflow: hidden;">
+                                    <div class="cb-header" 
+                                         style="display: flex; justify-content: space-between; align-items: center; padding: 10px 12px; background: var(--bg-secondary); cursor: ${{hasMembers ? 'pointer' : 'default'}};"
+                                         ${{hasMembers ? `onclick="toggleCBMembers('${{cbItemId}}')"` : ''}}>
+                                        <div style="display: flex; align-items: center; gap: 12px;">
+                                            ${{hasMembers ? `<span class="cb-expand-icon" id="${{cbItemId}}-icon" style="font-size: 10px; transition: transform 0.2s;">▶</span>` : '<span style="width: 10px;"></span>'}}
+                                            <span style="font-weight: 600; color: var(--text-primary);">[${{cb.slot}}] ${{cb.name || 'cb' + cb.slot}}</span>
+                                        </div>
+                                        <div style="display: flex; gap: 16px; font-size: 12px; color: var(--text-secondary);">
+                                            <span>Size: ${{formatBytes(cb.size || 0)}}</span>
+                                            ${{hasMembers ? `<span style="color: var(--accent-color);">${{cb.members.length}} members</span>` : ''}}
+                                        </div>
+                                    </div>
+                                    ${{hasMembers ? `
+                                        <div class="cb-members" id="${{cbItemId}}-members" style="display: none; border-top: 1px solid var(--border-color);">
+                                            <table class="binding-table" style="margin: 0; font-size: 11px;">
+                                                <thead>
+                                                    <tr style="background: var(--bg-tertiary);">
+                                                        <th style="padding: 6px 10px;">Name</th>
+                                                        <th style="padding: 6px 10px;">Type</th>
+                                                        <th style="padding: 6px 10px;">Value</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    ${{renderCBMembers(cb.members)}}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    ` : ''}}
+                                </div>
+                            `;
+                        }}).join('')}}
+                    </div>
+                </div>
+            `;
+        }}
+        
+        // 递归渲染 CB 成员（支持嵌套结构）
+        function renderCBMembers(members, indent = 0) {{
+            if (!members || members.length === 0) return '';
+            
+            return members.map(m => {{
+                const hasChildren = m.members && m.members.length > 0;
+                const indentPx = indent * 16;
+                const typeStr = formatCBType(m);
+                const valueStr = formatCBValue(m);
+                
+                let html = `
+                    <tr>
+                        <td style="padding: 4px 10px; padding-left: ${{10 + indentPx}}px;">
+                            ${{hasChildren ? '<span style="color: var(--accent-color);">▸</span> ' : ''}}
+                            <span style="font-family: monospace;">${{m.name}}</span>
+                        </td>
+                        <td style="padding: 4px 10px; color: var(--text-secondary);">${{typeStr}}</td>
+                        <td style="padding: 4px 10px; font-family: monospace; font-size: 10px; max-width: 300px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${{valueStr}}">${{valueStr}}</td>
+                    </tr>
+                `;
+                
+                // 递归渲染子成员
+                if (hasChildren) {{
+                    html += renderCBMembers(m.members, indent + 1);
+                }}
+                
+                return html;
+            }}).join('');
+        }}
+        
+        // 格式化 CB 变量类型
+        function formatCBType(member) {{
+            const baseType = member.type || 'Unknown';
+            const rows = member.rows || 1;
+            const cols = member.columns || 1;
+            
+            if (rows > 1 && cols > 1) {{
+                return `${{baseType}}${{rows}}x${{cols}}`; // 矩阵
+            }} else if (rows > 1 || cols > 1) {{
+                return `${{baseType}}${{Math.max(rows, cols)}}`; // 向量
+            }}
+            return baseType;
+        }}
+        
+        // 格式化 CB 变量值
+        function formatCBValue(member) {{
+            if (member.members && member.members.length > 0) {{
+                return `[struct: ${{member.members.length}} fields]`;
+            }}
+            
+            const value = member.value;
+            if (!value || !Array.isArray(value)) return 'N/A';
+            
+            // 限制显示长度
+            const maxDisplay = 8;
+            const displayValues = value.slice(0, maxDisplay).map(v => {{
+                if (typeof v === 'number') {{
+                    return Math.abs(v) < 0.0001 ? '0' : v.toFixed(3);
+                }}
+                return String(v);
+            }});
+            
+            if (value.length > maxDisplay) {{
+                displayValues.push('...');
+            }}
+            
+            return '[' + displayValues.join(', ') + ']';
+        }}
+        
+        // 切换 CB 成员展开/折叠
+        function toggleCBMembers(cbId) {{
+            const membersDiv = document.getElementById(cbId + '-members');
+            const icon = document.getElementById(cbId + '-icon');
+            if (membersDiv && icon) {{
+                const isExpanded = membersDiv.style.display !== 'none';
+                membersDiv.style.display = isExpanded ? 'none' : 'block';
+                icon.style.transform = isExpanded ? 'rotate(0deg)' : 'rotate(90deg)';
+            }}
         }}
         
         function updateIssuesBadge(eventId) {{

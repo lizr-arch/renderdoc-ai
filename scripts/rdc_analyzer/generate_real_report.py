@@ -305,6 +305,7 @@ def convert_resource_bindings_to_template_format(resource_bindings):
                                 "name": f"UBO_{binding_index}",
                                 "setIndex": set_index,
                                 "offset": offset,
+                                "size": range_val,  # HTML 模板期望 size 字段
                                 "range": range_val,
                                 "descriptorType": descriptor_type,
                             })
@@ -386,6 +387,160 @@ def simplify_index_format(fmt):
     return fmt
 
 
+def convert_pipeline_state_to_bindings(pipeline_state):
+    """
+    将 parse_rdc_xml 输出的 pipelineState 新格式转换为 HTML 模板期望的 bindings 格式
+    
+    输入格式 (from parse_pipeline_state_from_binding_records):
+        {
+            "shaderResources": {"vs": [{slot, resourceId}], "ps": [...], ...},
+            "constantBuffers": {"vs": [...], "ps": [...], ...},
+            "samplers": {"vs": [...], "ps": [...], ...},
+            "renderTargets": {"views": [{slot, resourceId}], "depthStencil": str},
+            "vertexBuffers": [{slot, buffer, stride, offset}],
+            "indexBuffer": {buffer, format, offset},
+            ...
+        }
+    
+    输出格式 (HTML template expects):
+        {
+            "VS": {
+                "textures": [{slot, id, name, type}],
+                "constantBuffers": [{slot, resourceId, name}],
+                "samplers": [{slot, resourceId}],
+                "vertexBuffers": [{slot, id, stride, offset}],
+                "indexBuffer": {id, format, offset}
+            },
+            "PS": {...},
+            ...
+        }
+    """
+    if not pipeline_state:
+        return {}
+    
+    bindings_by_stage = {}
+    
+    # 阶段名称映射: parse_rdc_xml 使用小写 (vs, ps, ...)
+    # HTML 模板使用大写 (VS, PS, ...)
+    stage_map = {
+        "vs": "VS", "ps": "PS", "gs": "GS",
+        "hs": "HS", "ds": "DS", "cs": "CS"
+    }
+    
+    def get_stage_dict(stage_upper):
+        """获取或创建指定阶段的绑定字典"""
+        if stage_upper not in bindings_by_stage:
+            bindings_by_stage[stage_upper] = {
+                "textures": [],
+                "constantBuffers": [],
+                "samplers": [],
+                "uavs": [],
+                "vertexBuffers": [],
+                "indexBuffer": None,
+            }
+        return bindings_by_stage[stage_upper]
+    
+    # 1. 转换 shaderResources -> textures
+    shader_resources = pipeline_state.get("shaderResources", {})
+    for stage_lower, resources in shader_resources.items():
+        if not resources:
+            continue
+        stage_upper = stage_map.get(stage_lower, stage_lower.upper())
+        stage_dict = get_stage_dict(stage_upper)
+        
+        for res in resources:
+            res_id = res.get("resourceId", "")
+            stage_dict["textures"].append({
+                "slot": res.get("slot", 0),
+                "id": res_id,
+                "name": f"SRV_{res_id}",
+                "type": "SRV",
+            })
+    
+    # 2. 转换 constantBuffers
+    constant_buffers = pipeline_state.get("constantBuffers", {})
+    for stage_lower, buffers in constant_buffers.items():
+        if not buffers:
+            continue
+        stage_upper = stage_map.get(stage_lower, stage_lower.upper())
+        stage_dict = get_stage_dict(stage_upper)
+        
+        for buf in buffers:
+            stage_dict["constantBuffers"].append({
+                "slot": buf.get("slot", 0),
+                "resourceId": buf.get("resourceId", ""),
+                "name": f"cb{buf.get('slot', 0)}",
+            })
+    
+    # 3. 转换 samplers
+    samplers = pipeline_state.get("samplers", {})
+    for stage_lower, sampler_list in samplers.items():
+        if not sampler_list:
+            continue
+        stage_upper = stage_map.get(stage_lower, stage_lower.upper())
+        stage_dict = get_stage_dict(stage_upper)
+        
+        for sampler in sampler_list:
+            stage_dict["samplers"].append({
+                "slot": sampler.get("slot", 0),
+                "resourceId": sampler.get("resourceId", ""),
+            })
+    
+    # 4. 转换 vertexBuffers (放到 VS 阶段)
+    vertex_buffers = pipeline_state.get("vertexBuffers", [])
+    if vertex_buffers:
+        vs_dict = get_stage_dict("VS")
+        for vb in vertex_buffers:
+            vs_dict["vertexBuffers"].append({
+                "slot": vb.get("slot", 0),
+                "id": vb.get("buffer", ""),
+                "stride": vb.get("stride", 0),
+                "offset": vb.get("offset", 0),
+            })
+    
+    # 5. 转换 indexBuffer (放到 VS 阶段)
+    index_buffer = pipeline_state.get("indexBuffer")
+    if index_buffer and index_buffer.get("buffer"):
+        vs_dict = get_stage_dict("VS")
+        vs_dict["indexBuffer"] = {
+            "id": index_buffer.get("buffer", ""),
+            "format": simplify_index_format(index_buffer.get("format", "")),
+            "offset": index_buffer.get("offset", 0),
+        }
+    
+    return bindings_by_stage
+
+
+def merge_bindings(base_bindings, new_bindings):
+    """
+    合并两个 bindings 字典，new_bindings 覆盖 base_bindings
+    """
+    if not new_bindings:
+        return base_bindings
+    if not base_bindings:
+        return new_bindings
+    
+    result = dict(base_bindings)
+    
+    for stage, stage_data in new_bindings.items():
+        if stage not in result:
+            result[stage] = stage_data
+        else:
+            # 合并同阶段的资源
+            for key, value in stage_data.items():
+                if key == "indexBuffer":
+                    # indexBuffer 直接覆盖
+                    if value:
+                        result[stage][key] = value
+                elif isinstance(value, list) and value:
+                    # 列表类型：追加
+                    if key not in result[stage]:
+                        result[stage][key] = []
+                    result[stage][key].extend(value)
+    
+    return result
+
+
 def convert_to_report_format(rdc_data):
     """
     将 RDC 解析数据转换为报告生成器期望的格式
@@ -462,6 +617,18 @@ def convert_to_report_format(rdc_data):
                 if bindings_by_stage:
                     converted_event["pipelineState"]["bindings"] = bindings_by_stage
             
+            # 转换 pipelineState 新格式字段为 bindings (新增 SRV/CBV/Sampler 解析)
+            if "pipelineState" in converted_event:
+                ps = converted_event["pipelineState"]
+                # 检查是否有新格式字段 (shaderResources, constantBuffers, samplers 等)
+                if any(key in ps for key in ["shaderResources", "constantBuffers", "samplers", "vertexBuffers", "indexBuffer"]):
+                    # 转换新格式为 bindings
+                    new_bindings = convert_pipeline_state_to_bindings(ps)
+                    if new_bindings:
+                        # 合并到现有 bindings（如果有的话）
+                        existing_bindings = ps.get("bindings", {})
+                        ps["bindings"] = merge_bindings(existing_bindings, new_bindings)
+            
             # 添加顶点/索引计数
             if "vertexCount" in event:
                 converted_event["vertexCount"] = event["vertexCount"]
@@ -476,6 +643,51 @@ def convert_to_report_format(rdc_data):
                 mesh_data = convert_mesh_info_to_mesh_data(mesh_info, event)
                 if mesh_data:
                     converted_event["meshData"] = mesh_data
+                
+                # 从 meshInfo 提取 VB/IB 添加到 bindings (补充 Vulkan 数据)
+                mesh_vbs = mesh_info.get("vertexBuffers", [])
+                mesh_ib = mesh_info.get("indexBuffer")
+                if mesh_vbs or mesh_ib:
+                    # 确保 pipelineState.bindings 存在
+                    if "pipelineState" not in converted_event:
+                        converted_event["pipelineState"] = {}
+                    ps = converted_event["pipelineState"]
+                    if "bindings" not in ps:
+                        ps["bindings"] = {}
+                    
+                    # 选择目标阶段：优先 VS，否则 ALL
+                    target_stage = "VS" if "VS" in ps["bindings"] else "ALL"
+                    if target_stage not in ps["bindings"]:
+                        ps["bindings"][target_stage] = {
+                            "textures": [],
+                            "constantBuffers": [],
+                            "samplers": [],
+                            "uavs": [],
+                            "vertexBuffers": [],
+                            "indexBuffer": None,
+                        }
+                    
+                    stage_bindings = ps["bindings"][target_stage]
+                    
+                    # 添加 vertexBuffers（仅当当前为空时）
+                    if mesh_vbs and not stage_bindings.get("vertexBuffers"):
+                        stage_bindings["vertexBuffers"] = [
+                            {
+                                "slot": vb.get("slot", i),
+                                "id": vb.get("buffer", ""),
+                                "stride": vb.get("stride", 0),
+                                "offset": vb.get("offset", 0),
+                            }
+                            for i, vb in enumerate(mesh_vbs)
+                        ]
+                    
+                    # 添加 indexBuffer（仅当当前为空时）
+                    if mesh_ib and not stage_bindings.get("indexBuffer"):
+                        stage_bindings["indexBuffer"] = {
+                            "id": mesh_ib.get("buffer", ""),
+                            "format": simplify_index_format(mesh_ib.get("format", "")),
+                            "offset": mesh_ib.get("offset", 0),
+                        }
             
             # Pass 分组逻辑
             if current_pass is None or draws_in_pass >= max_draws_per_pass:
@@ -811,6 +1023,138 @@ def create_textures_from_export(texture_dir: Path) -> list:
     return textures
 
 
+def load_bindings_json(bindings_path: Path) -> dict:
+    """
+    加载 renderdoccmd export --bindings 生成的 bindings.json 文件
+    
+    格式:
+    {
+      "events": [
+        {
+          "eventId": 101,
+          "name": "",
+          "constantBuffers": [
+            {
+              "stage": "Vertex",
+              "slot": 0,
+              "name": "Batch",
+              "size": 96,
+              "members": [
+                {"name": "WorldViewProj", "type": "Float", "rows": 4, "columns": 4, "value": [...]},
+                {"name": "UVTransform", "type": "Float", "rows": 1, "columns": 4, "value": [...]},
+                ...
+              ]
+            }
+          ]
+        },
+        ...
+      ]
+    }
+    
+    Returns:
+        {eventId: [constantBuffer, ...], ...}  按 eventId 索引的字典
+    """
+    if not bindings_path.exists():
+        print(f"  [WARN] Bindings file not found: {bindings_path}")
+        return {}
+    
+    try:
+        with open(bindings_path, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+        
+        result = {}
+        events = data.get("events", [])
+        for evt in events:
+            eid = evt.get("eventId")
+            cbs = evt.get("constantBuffers", [])
+            if eid is not None and cbs:
+                result[eid] = cbs
+        
+        print(f"  Loaded CB data for {len(result)} events from bindings.json")
+        return result
+    
+    except (json.JSONDecodeError, IOError) as e:
+        print(f"  [ERROR] Failed to load bindings.json: {e}")
+        return {}
+
+
+def merge_cb_members_to_events(event_data: dict, cb_data_by_eid: dict) -> dict:
+    """
+    将 bindings.json 中的 CB 成员数据合并到 event_data 中
+    
+    目标：在每个 event 的 pipelineState.bindings.[STAGE].constantBuffers 中
+    添加 members 字段
+    """
+    if not cb_data_by_eid:
+        return event_data
+    
+    merged_count = 0
+    
+    for evt in event_data.get("events", []):
+        eid = evt.get("eid")
+        if eid not in cb_data_by_eid:
+            continue
+        
+        cb_list = cb_data_by_eid[eid]
+        
+        # 确保 pipelineState.bindings 存在
+        if "pipelineState" not in evt:
+            evt["pipelineState"] = {}
+        ps = evt["pipelineState"]
+        if "bindings" not in ps:
+            ps["bindings"] = {}
+        bindings = ps["bindings"]
+        
+        # 按 stage 分组处理
+        for cb in cb_list:
+            stage = cb.get("stage", "")
+            # 映射 stage 名称: "Vertex" -> "VS", "Pixel" -> "PS" 等
+            stage_map = {
+                "Vertex": "VS", "Pixel": "PS", "Geometry": "GS",
+                "Hull": "HS", "Domain": "DS", "Compute": "CS"
+            }
+            stage_key = stage_map.get(stage, stage)
+            
+            if stage_key not in bindings:
+                bindings[stage_key] = {
+                    "textures": [],
+                    "constantBuffers": [],
+                    "samplers": [],
+                    "uavs": [],
+                    "vertexBuffers": [],
+                    "indexBuffer": None,
+                }
+            
+            stage_bindings = bindings[stage_key]
+            
+            # 查找或创建对应 slot 的 CB 条目
+            slot = cb.get("slot", 0)
+            cb_entry = None
+            for existing_cb in stage_bindings.get("constantBuffers", []):
+                if existing_cb.get("slot") == slot:
+                    cb_entry = existing_cb
+                    break
+            
+            if cb_entry is None:
+                # 新建 CB 条目
+                cb_entry = {
+                    "slot": slot,
+                    "resourceId": "",
+                    "name": cb.get("name", f"cb{slot}"),
+                    "size": cb.get("size", 0),
+                }
+                stage_bindings["constantBuffers"].append(cb_entry)
+            
+            # 添加 members 数据
+            cb_entry["name"] = cb.get("name", cb_entry.get("name", f"cb{slot}"))
+            cb_entry["size"] = cb.get("size", cb_entry.get("size", 0))
+            cb_entry["members"] = cb.get("members", [])
+            merged_count += 1
+    
+    print(f"  Merged CB members into {merged_count} constant buffers")
+    return event_data
+
+
 def main():
     # 使用 argparse 解析命令行参数
     parser = argparse.ArgumentParser(
@@ -821,18 +1165,22 @@ def main():
   py -3 generate_real_report.py g145_data.json
   py -3 generate_real_report.py g145_data.json report.html
   py -3 generate_real_report.py g145_data.json report.html --textures ../output/g145_textures
+  py -3 generate_real_report.py g145_data.json report.html --textures ../output --bindings ../output/bindings.json
         """
     )
     parser.add_argument("json_path", help="RDC JSON 数据文件路径")
     parser.add_argument("output_path", nargs="?", help="输出 HTML 文件路径（默认与输入同名）")
     parser.add_argument("--textures", "-t", dest="texture_dir",
                         help="纹理导出目录路径（包含 textures.json 和 PNG 文件）")
+    parser.add_argument("--bindings", "-b", dest="bindings_path",
+                        help="CB 绑定数据文件路径（renderdoccmd export --bindings 生成的 bindings.json）")
     
     args = parser.parse_args()
     
     json_path = Path(args.json_path)
     output_path = Path(args.output_path) if args.output_path else json_path.with_suffix('.html')
     texture_dir = Path(args.texture_dir) if args.texture_dir else None
+    bindings_path = Path(args.bindings_path) if args.bindings_path else None
     
     if not json_path.exists():
         print(f"Error: File not found: {json_path}")
@@ -843,6 +1191,13 @@ def main():
     
     print("Converting to report format...")
     event_data = convert_to_report_format(rdc_data)
+    
+    # 加载并合并 CB 成员数据（如果提供了 bindings.json）
+    if bindings_path:
+        print(f"\nLoading CB bindings from {bindings_path}...")
+        cb_data = load_bindings_json(bindings_path)
+        if cb_data:
+            event_data = merge_cb_members_to_events(event_data, cb_data)
     
     print(f"  API: {event_data['apiType']}")
     print(f"  Events: {event_data['totalEvents']}")
