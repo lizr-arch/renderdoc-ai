@@ -1,0 +1,170 @@
+# 任务看板
+
+> **最后更新**: 2025-01-19 15:00
+>
+> 📋 **使用说明**: 
+> - 认领任务前检查 `locks/` 目录
+> - 认领后创建锁文件并更新此文档
+> - 完成后更新状态并删除锁文件
+
+---
+
+## 🔴 进行中 (In Progress)
+
+*当前无进行中的任务*
+
+---
+
+## 🟡 待认领 (Available)
+
+### TASK-001: Pipeline 选项卡数据解析
+- **优先级**: P1 (高)
+- **预计工时**: 45 分钟
+- **依赖**: 无
+- **涉及文件**: 
+  - `parse_rdc_xml.py` (修改)
+  - `generate_real_report.py` (修改)
+- **需求描述**:
+  从 `relatedCalls` 中解析 Pipeline State 数据：
+  - `RSSetViewports` → viewport (x, y, width, height)
+  - `OMSetBlendState` → blendState (enable, srcBlend, dstBlend)
+  - `OMSetDepthStencilState` → depthState (depthEnable, stencilRef)
+  - `VSSetShader`, `PSSetShader` → shaders
+- **验收标准**:
+  - [ ] HTML 报告 Pipeline 选项卡显示 Viewport 数据
+  - [ ] HTML 报告 Pipeline 选项卡显示 Blend State
+  - [ ] HTML 报告 Pipeline 选项卡显示 Depth State
+  - [ ] D3D11 和 Vulkan 均可正确解析
+
+---
+
+### TASK-002: Mesh Info 选项卡数据解析
+- **优先级**: P1 (高)
+- **预计工时**: 30 分钟
+- **依赖**: 无
+- **涉及文件**: 
+  - `parse_rdc_xml.py` (修改)
+  - `generate_real_report.py` (修改)
+- **需求描述**:
+  从 `relatedCalls` 和 Draw Call 参数中解析 Mesh 数据：
+  - `IASetVertexBuffers` → vertexBuffers, strides
+  - `IASetIndexBuffer` → indexBuffer, format
+  - `IASetInputLayout` → inputLayout
+  - Draw 参数 → vertexCount, indexCount, instanceCount
+- **验收标准**:
+  - [ ] HTML 报告 Mesh 选项卡显示顶点数/索引数
+  - [ ] HTML 报告 Mesh 选项卡显示 Input Layout
+  - [ ] D3D11 和 Vulkan 均可正确解析
+
+---
+
+### TASK-003: 资源绑定选项卡数据解析
+- **优先级**: P1 (高)
+- **预计工时**: 40 分钟
+- **依赖**: 无
+- **涉及文件**: 
+  - `parse_rdc_xml.py` (修改)
+  - `generate_real_report.py` (修改)
+- **需求描述**:
+  从 `relatedCalls` 中解析资源绑定数据：
+  - `PSSetShaderResources` → 纹理绑定
+  - `VSSetConstantBuffers`, `PSSetConstantBuffers` → Constant Buffer
+  - `PSSetSamplers` → 采样器
+- **验收标准**:
+  - [ ] HTML 报告 Bindings 选项卡显示纹理绑定列表
+  - [ ] HTML 报告 Bindings 选项卡显示 Constant Buffer
+  - [ ] 可关联到纹理列表中的实际纹理
+
+---
+
+### TASK-004: Pipeline State 脚本集成
+- **优先级**: P2 (中)
+- **预计工时**: 30 分钟
+- **依赖**: TASK-001
+- **涉及文件**: 
+  - `generate_real_report.py` (修改)
+  - `extract_pipeline_state.py` (参考)
+- **需求描述**:
+  将 `extract_pipeline_state.py` 的输出集成到报告生成流程
+- **验收标准**:
+  - [ ] 可选择使用 RenderDoc Python API 提取更详细的 Pipeline 数据
+  - [ ] 文档说明两种数据源的区别
+
+---
+
+### TASK-005: OpenGL API 支持测试
+- **优先级**: P3 (低)
+- **预计工时**: 20 分钟
+- **依赖**: 无
+- **涉及文件**: 
+  - `parse_rdc_xml.py` (可能修改)
+- **需求描述**:
+  使用 OpenGL 捕获文件测试解析器
+- **验收标准**:
+  - [ ] OpenGL RDC 可生成有效报告
+  - [ ] Draw Call 和状态调用正确识别
+
+---
+
+### TASK-006: D3D12 API 支持测试
+- **优先级**: P3 (低)
+- **预计工时**: 20 分钟
+- **依赖**: 无
+- **涉及文件**: 
+  - `parse_rdc_xml.py` (可能修改)
+- **需求描述**:
+  使用 D3D12 捕获文件测试解析器
+- **验收标准**:
+  - [ ] D3D12 RDC 可生成有效报告
+  - [ ] Draw Call 和状态调用正确识别
+
+---
+
+## 🟢 已完成 (Completed)
+
+### TASK-000: 核心功能实现
+- **完成时间**: 2025-01-19 14:54
+- **完成者**: Agent-Initial
+- **产出**:
+  - `renderdoccmd export` 命令 (commit 67320aa)
+  - `parse_rdc_xml.py` 支持 D3D11/D3D12/Vulkan
+  - `generate_offline_report.py` HTML 生成器
+  - `test_e2e_real_data.py` 端到端测试
+- **测试结果**:
+  - D3D11: 352 事件, 320 Draw Calls, 138 纹理, 204 MB 报告 ✅
+
+---
+
+## 📊 任务统计
+
+| 状态 | 数量 |
+|------|------|
+| 进行中 | 0 |
+| 待认领 | 6 |
+| 已完成 | 1 |
+
+---
+
+## 🔒 锁文件说明
+
+锁文件位于 `.ai/locks/` 目录，格式：
+
+```
+TASK-xxx.lock
+```
+
+锁文件内容示例：
+```json
+{
+  "task_id": "TASK-001",
+  "claimed_by": "Agent-A",
+  "session_id": "abc123",
+  "claimed_at": "2025-01-19T15:30:00Z",
+  "expires_at": "2025-01-19T17:30:00Z"
+}
+```
+
+**规则**:
+- 认领任务时创建锁文件
+- 完成或放弃任务时删除锁文件
+- 锁文件超过 2 小时视为过期，可被其他 Agent 接管
