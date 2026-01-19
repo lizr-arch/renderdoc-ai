@@ -229,23 +229,91 @@ def parse_rdc_xml(xml_path):
     current_pass_events = []
     event_id = 0
     
-    draw_call_names = [
+    # Vulkan draw/dispatch/copy calls
+    vk_draw_calls = [
         "vkCmdDraw", "vkCmdDrawIndexed", "vkCmdDrawIndirect", "vkCmdDrawIndexedIndirect",
         "vkCmdDrawMeshTasksEXT", "vkCmdDispatch", "vkCmdDispatchIndirect",
         "vkCmdClearColorImage", "vkCmdClearDepthStencilImage", "vkCmdBlitImage",
         "vkCmdCopyBuffer", "vkCmdCopyImage", "vkCmdCopyBufferToImage"
     ]
     
-    marker_names = ["vkCmdBeginDebugUtilsLabelEXT", "vkCmdEndDebugUtilsLabelEXT", 
-                    "vkCmdInsertDebugUtilsLabelEXT"]
+    # D3D11 draw/dispatch/copy calls
+    d3d11_draw_calls = [
+        "ID3D11DeviceContext::Draw",
+        "ID3D11DeviceContext::DrawIndexed",
+        "ID3D11DeviceContext::DrawInstanced",
+        "ID3D11DeviceContext::DrawIndexedInstanced",
+        "ID3D11DeviceContext::DrawIndexedInstancedIndirect",
+        "ID3D11DeviceContext::DrawInstancedIndirect",
+        "ID3D11DeviceContext::DrawAuto",
+        "ID3D11DeviceContext::Dispatch",
+        "ID3D11DeviceContext::DispatchIndirect",
+        "ID3D11DeviceContext::CopyResource",
+        "ID3D11DeviceContext::CopySubresourceRegion",
+        "ID3D11DeviceContext::ClearRenderTargetView",
+        "ID3D11DeviceContext::ClearDepthStencilView",
+        "ID3D11DeviceContext::ResolveSubresource",
+    ]
     
+    # D3D12 draw/dispatch/copy calls
+    d3d12_draw_calls = [
+        "ID3D12GraphicsCommandList::DrawInstanced",
+        "ID3D12GraphicsCommandList::DrawIndexedInstanced",
+        "ID3D12GraphicsCommandList::Dispatch",
+        "ID3D12GraphicsCommandList::CopyResource",
+        "ID3D12GraphicsCommandList::CopyBufferRegion",
+        "ID3D12GraphicsCommandList::CopyTextureRegion",
+        "ID3D12GraphicsCommandList::ClearRenderTargetView",
+        "ID3D12GraphicsCommandList::ClearDepthStencilView",
+    ]
+    
+    # Combined draw call names
+    draw_call_names = vk_draw_calls + d3d11_draw_calls + d3d12_draw_calls
+    
+    # Vulkan markers
+    vk_marker_names = ["vkCmdBeginDebugUtilsLabelEXT", "vkCmdEndDebugUtilsLabelEXT", 
+                       "vkCmdInsertDebugUtilsLabelEXT"]
+    
+    # D3D11/D3D12 markers (PIX events)
+    d3d_marker_names = [
+        "ID3D11DeviceContext::BeginEventInt",
+        "ID3D11DeviceContext::EndEvent",
+        "ID3D12GraphicsCommandList::BeginEvent",
+        "ID3D12GraphicsCommandList::EndEvent",
+    ]
+    
+    marker_names = vk_marker_names + d3d_marker_names
+    
+    # Render pass begin/end
     render_pass_begin = ["vkCmdBeginRenderPass", "vkCmdBeginRendering"]
     render_pass_end = ["vkCmdEndRenderPass", "vkCmdEndRendering"]
     
-    binding_calls = [
+    # Vulkan binding calls
+    vk_binding_calls = [
         "vkCmdBindPipeline", "vkCmdBindDescriptorSets", "vkCmdBindVertexBuffers",
         "vkCmdBindIndexBuffer", "vkCmdPushConstants", "vkCmdSetViewport", "vkCmdSetScissor"
     ]
+    
+    # D3D11 binding calls
+    d3d11_binding_calls = [
+        "ID3D11DeviceContext::IASetInputLayout",
+        "ID3D11DeviceContext::IASetVertexBuffers",
+        "ID3D11DeviceContext::IASetIndexBuffer",
+        "ID3D11DeviceContext::IASetPrimitiveTopology",
+        "ID3D11DeviceContext::VSSetShader",
+        "ID3D11DeviceContext::PSSetShader",
+        "ID3D11DeviceContext::GSSetShader",
+        "ID3D11DeviceContext::HSSetShader",
+        "ID3D11DeviceContext::DSSetShader",
+        "ID3D11DeviceContext::CSSetShader",
+        "ID3D11DeviceContext::RSSetViewports",
+        "ID3D11DeviceContext::RSSetScissorRects",
+        "ID3D11DeviceContext::OMSetRenderTargets",
+        "ID3D11DeviceContext::OMSetBlendState",
+        "ID3D11DeviceContext::OMSetDepthStencilState",
+    ]
+    
+    binding_calls = vk_binding_calls + d3d11_binding_calls
     
     # 跟踪当前绑定状态（用于关联到 Draw 调用）
     current_bindings = []
