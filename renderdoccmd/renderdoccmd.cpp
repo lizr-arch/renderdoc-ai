@@ -26,6 +26,7 @@
 #include "renderdoccmd.h"
 #include <app/renderdoc_app.h>
 #include <replay/version.h>
+#include <map>
 #include <string>
 
 rdcstr conv(const std::string &s)
@@ -652,6 +653,274 @@ public:
   }
 };
 
+struct ExportCommand : public Command
+{
+private:
+  std::string filename;
+  std::string outdir;
+  std::string format = "png";
+  std::string remote_host;
+  bool software_render = false;
+  bool export_metadata = false;
+  uint32_t max_dimension = 0;
+
+public:
+  ExportCommand() : Command() {}
+
+  virtual void AddOptions(cmdline::parser &parser)
+  {
+    parser.set_footer("<capture.rdc>");
+    parser.add<std::string>("out", 'o', "Output directory for exported textures.", true);
+    parser.add<std::string>("format", 'f', "Output format (png, jpg, dds, bmp, tga).", false, "png",
+                            cmdline::oneof<std::string>("png", "jpg", "dds", "bmp", "tga"));
+    parser.add<uint32_t>("max-size", 's', "Maximum dimension for exported textures (0 = original).",
+                         false, 0);
+    parser.add("software-render", '\0', "Force software rendering (SwiftShader/WARP).");
+    parser.add<std::string>("remote-host", '\0', "Replay on remote host instead of locally.", false);
+    parser.add("metadata", 'm', "Export texture metadata as JSON.");
+  }
+
+  virtual const char *Description() { return "Export all textures from a capture to image files."; }
+
+  virtual bool IsInternalOnly() { return false; }
+  virtual bool IsCaptureCommand() { return false; }
+
+  virtual bool Parse(cmdline::parser &parser, GlobalEnvironment &env)
+  {
+    std::vector<std::string> rest = parser.rest();
+    if(rest.empty())
+    {
+      std::cerr << "Error: export command requires a capture file." << std::endl
+                << std::endl
+                << parser.usage();
+      return false;
+    }
+
+    filename = rest[0];
+    rest.erase(rest.begin());
+    parser.set_rest(rest);
+
+    outdir = parser.get<std::string>("out");
+    format = parser.get<std::string>("format");
+    max_dimension = parser.get<uint32_t>("max-size");
+    software_render = parser.exist("software-render");
+    export_metadata = parser.exist("metadata");
+
+    if(parser.exist("remote-host"))
+      remote_host = parser.get<std::string>("remote-host");
+
+    if(software_render)
+      env.enumerateGPUs = true;
+
+    return true;
+  }
+
+  virtual int Execute(const CaptureOptions &)
+  {
+    FileType fileType = FileType::PNG;
+    if(format == "jpg")
+      fileType = FileType::JPG;
+    else if(format == "dds")
+      fileType = FileType::DDS;
+    else if(format == "bmp")
+      fileType = FileType::BMP;
+    else if(format == "tga")
+      fileType = FileType::TGA;
+
+    std::string ext = "." + format;
+
+    if(!remote_host.empty())
+      return ExecuteRemote(fileType, ext);
+    else
+      return ExecuteLocal(fileType, ext);
+  }
+
+private:
+  int ExecuteLocal(FileType fileType, const std::string &ext)
+  {
+    std::cout << "Exporting textures from '" << filename << "' locally..." << std::endl;
+
+    ICaptureFile *file = RENDERDOC_OpenCaptureFile();
+    ResultDetails res = file->OpenFile(conv(filename), "rdc", NULL);
+
+    if(res.code != ResultCode::Succeeded)
+    {
+      std::cerr << "Couldn't open '" << filename << "': " << res.Message() << std::endl;
+      return 1;
+    }
+
+    ReplayOptions opts;
+    if(software_render)
+    {
+      opts.forceGPUVendor = GPUVendor::Software;
+      std::cout << "Using software rendering..." << std::endl;
+    }
+
+    IReplayController *controller = NULL;
+    rdctie(res, controller) = file->OpenCapture(opts, NULL);
+
+    file->Shutdown();
+
+    if(!res.OK() || controller == NULL)
+    {
+      std::cerr << "Couldn't replay '" << filename << "': " << res.Message() << std::endl;
+      return 1;
+    }
+
+    int ret = ExportTextures(controller, fileType, ext);
+
+    controller->Shutdown();
+
+    return ret;
+  }
+
+  int ExecuteRemote(FileType fileType, const std::string &ext)
+  {
+    std::cout << "Exporting textures from '" << filename << "' via " << remote_host << "..."
+              << std::endl;
+
+    IRemoteServer *remote = NULL;
+    ResultDetails result = RENDERDOC_CreateRemoteServerConnection(conv(remote_host), &remote);
+
+    if(remote == NULL || result.code != ResultCode::Succeeded)
+    {
+      std::cerr << "Couldn't connect to " << remote_host << ": " << result.Message() << std::endl;
+      return 1;
+    }
+
+    std::cout << "Copying capture to remote server..." << std::endl;
+    rdcstr remotePath = remote->CopyCaptureToRemote(conv(filename), NULL);
+
+    ReplayOptions opts;
+    IReplayController *controller = NULL;
+    rdctie(result, controller) = remote->OpenCapture(~0U, remotePath, opts, NULL);
+
+    if(!result.OK() || controller == NULL)
+    {
+      std::cerr << "Couldn't replay on remote: " << result.Message() << std::endl;
+      remote->ShutdownConnection();
+      return 1;
+    }
+
+    int ret = ExportTextures(controller, fileType, ext);
+
+    remote->CloseCapture(controller);
+    remote->ShutdownConnection();
+
+    return ret;
+  }
+
+  int ExportTextures(IReplayController *controller, FileType fileType, const std::string &ext)
+  {
+    rdcarray<TextureDescription> textures = controller->GetTextures();
+    const rdcarray<ResourceDescription> &resources = controller->GetResources();
+
+    // Build resourceId -> name map
+    std::map<ResourceId, std::string> resourceNames;
+    for(size_t i = 0; i < resources.size(); i++)
+    {
+      resourceNames[resources[i].resourceId] = conv(resources[i].name);
+    }
+
+    std::cout << "Found " << textures.size() << " textures." << std::endl;
+
+    int exported = 0;
+    int failed = 0;
+
+    std::vector<std::string> metadataEntries;
+
+    for(size_t i = 0; i < textures.size(); i++)
+    {
+      const TextureDescription &tex = textures[i];
+
+      if(tex.resourceId == ResourceId())
+        continue;
+
+      // Get name from resource map
+      std::string texName;
+      auto it = resourceNames.find(tex.resourceId);
+      if(it != resourceNames.end() && !it->second.empty())
+        texName = it->second;
+      else
+        texName = "texture";
+
+      for(char &c : texName)
+      {
+        if(c == '/' || c == '\\' || c == ':' || c == '*' || c == '?' || c == '"' || c == '<' ||
+           c == '>' || c == '|')
+          c = '_';
+      }
+
+      // Use simple index as unique identifier (avoid linking issues with ToStr(ResourceId))
+      std::ostringstream oss;
+      oss << outdir << "/" << texName << "_" << i << ext;
+      std::string outpath = oss.str();
+
+      TextureSave save;
+      save.resourceId = tex.resourceId;
+      save.destType = fileType;
+      save.mip = 0;
+      save.alpha = AlphaMapping::Preserve;
+
+      std::cout << "\r[" << (i + 1) << "/" << textures.size() << "] Exporting: " << texName << "..."
+                << std::flush;
+
+      ResultDetails saveRes = controller->SaveTexture(save, conv(outpath));
+
+      if(saveRes.OK())
+      {
+        exported++;
+
+        if(export_metadata)
+        {
+          std::ostringstream meta;
+          meta << "  {";
+          meta << "\"id\": " << i << ", ";
+          meta << "\"name\": \"" << texName << "\", ";
+          meta << "\"width\": " << tex.width << ", ";
+          meta << "\"height\": " << tex.height << ", ";
+          meta << "\"depth\": " << tex.depth << ", ";
+          meta << "\"mips\": " << tex.mips << ", ";
+          meta << "\"format\": \"" << tex.format.Name() << "\", ";
+          meta << "\"file\": \"" << texName << "_" << i << ext << "\"";
+          meta << "}";
+          metadataEntries.push_back(meta.str());
+        }
+      }
+      else
+      {
+        failed++;
+        std::cerr << std::endl
+                  << "  Failed: " << outpath << " - " << saveRes.Message() << std::endl;
+      }
+    }
+
+    std::cout << std::endl;
+    std::cout << "Export complete: " << exported << " succeeded, " << failed << " failed."
+              << std::endl;
+
+    if(export_metadata && !metadataEntries.empty())
+    {
+      std::string metaPath = outdir + "/textures.json";
+      FILE *f = fopen(metaPath.c_str(), "w");
+      if(f)
+      {
+        fprintf(f, "{\n  \"textures\": [\n");
+        for(size_t i = 0; i < metadataEntries.size(); i++)
+        {
+          fprintf(f, "%s%s\n", metadataEntries[i].c_str(),
+                  (i < metadataEntries.size() - 1) ? "," : "");
+        }
+        fprintf(f, "  ]\n}\n");
+        fclose(f);
+        std::cout << "Metadata written to: " << metaPath << std::endl;
+      }
+    }
+
+    return (failed > 0) ? 1 : 0;
+  }
+};
+
 struct formats_reader
 {
   formats_reader(bool input)
@@ -855,10 +1124,22 @@ public:
     parser.add("help", '\0', "print this message");
     parser.stop_at_rest(true);
   }
-  virtual const char *Description() { return "Run internal tests such as unit tests."; }
-  virtual bool HandlesUsageManually() { return true; }
-  virtual bool IsInternalOnly() { return false; }
-  virtual bool IsCaptureCommand() { return false; }
+  virtual const char *Description()
+  {
+    return "Run internal tests such as unit tests.";
+  }
+  virtual bool HandlesUsageManually()
+  {
+    return true;
+  }
+  virtual bool IsInternalOnly()
+  {
+    return false;
+  }
+  virtual bool IsCaptureCommand()
+  {
+    return false;
+  }
   virtual bool Parse(cmdline::parser &parser, GlobalEnvironment &)
   {
     std::vector<std::string> rest = parser.rest();
@@ -1569,6 +1850,7 @@ int renderdoccmd(GlobalEnvironment &env, std::vector<std::string> &argv)
     add_command("thumb", new ThumbCommand());
     add_command("remoteserver", new RemoteServerCommand());
     add_command("replay", new ReplayCommand());
+    add_command("export", new ExportCommand());
     add_command("capaltbit", new CapAltBitCommand());
     add_command("test", new TestCommand());
     add_command("convert", new ConvertCommand());
