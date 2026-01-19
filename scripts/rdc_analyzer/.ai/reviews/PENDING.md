@@ -21,6 +21,67 @@
 - commit: Git commit hash 或信息
 -->
 
+### [TASK-010] DiffEngine 核心实现
+- **完成者**: Flux-0119
+- **完成时间**: 2026-01-19 21:00
+- **修改文件**:
+  - `diff/diff_engine.py` (新建, +350 行) - 核心对比引擎
+  - `diff/__init__.py` (新建, +10 行) - 模块初始化
+  - `diff/models.py` (新建, +150 行) - DiffReport/DiffSummary 数据模型
+- **Commit**: `feat(diff): implement DiffEngine core comparison`
+- **自评摘要**: 
+  - 实现了完整的对比引擎，支持 Draw Call、纹理、Buffer、Shader、状态差异检测
+  - 支持两种 Phase 1 输出格式（legacy list + modern dict）
+  - 添加内存估算算法处理缺失的 size_bytes 字段
+- **评分状态**: 🟡 待认领
+- **评审者**: -
+
+---
+
+### [TASK-011] 差异可视化 HTML
+- **完成者**: Flux-0119
+- **完成时间**: 2026-01-19 21:10
+- **修改文件**:
+  - `compare_rdc.py` (新建, +250 行) - 对比入口脚本及 HTML 生成
+- **Commit**: `feat(diff): add compare_rdc.py with HTML diff report`
+- **自评摘要**: 
+  - 生成独立 HTML 对比报告，含颜色编码差异
+  - Summary 面板显示关键指标变化百分比
+  - 支持 `--json` 输出纯 JSON 差异数据
+- **评分状态**: 🟡 待认领
+- **评审者**: -
+
+---
+
+### [TASK-012] CLI 对比入口
+- **完成者**: Flux-0119
+- **完成时间**: 2026-01-19 21:15
+- **修改文件**:
+  - `compare_rdc.py` (修改) - 集成 argparse 命令行参数
+- **Commit**: `feat(diff): add CLI argument parsing`
+- **自评摘要**: 
+  - 支持 `py -3 compare_rdc.py baseline.json target.json -o diff.html`
+  - 支持 `--json` 格式选项
+- **评分状态**: 🟡 待认领
+- **评审者**: -
+
+---
+
+### [TASK-013] 性能回归检测
+- **完成者**: Flux-0119
+- **完成时间**: 2026-01-19 21:20
+- **修改文件**:
+  - `diff/regression_detector.py` (新建, +120 行) - 回归检测器
+- **Commit**: `feat(diff): add RegressionDetector with 6 rules`
+- **自评摘要**: 
+  - 实现 REG001-006 回归检测规则
+  - 在 g145-battle-2 对比中检测到 4 个 CRITICAL 回归
+  - 回归摘要集成到 HTML 报告
+- **评分状态**: 🟡 待认领
+- **评审者**: -
+
+---
+
 ### [TASK-002] Mesh Info 选项卡数据解析
 - **完成者**: Echo-0119
 - **完成时间**: 2026-01-19 17:00
