@@ -10040,18 +10040,29 @@ def generate_offline_html(textures: list, rdc_name: str, output_path: str,
                                 ${{Object.entries(ps.shaders).map(([stage, shader]) => {{
                                     // TASK-216: 跳过 null shader 条目
                                     if (!shader) return '';
-                                    const name = shader.debugName || shader.entryPoint || shader.resourceId || 'N/A';
+                                    
+                                    // TASK-217: 适配 Vulkan Pipeline 对象（只有 type/id/valid/bindPoint）
+                                    const isPipeline = shader.type === 'Pipeline' || stage === 'pipeline';
+                                    const name = shader.debugName || shader.entryPoint || 
+                                                 (isPipeline ? `Pipeline #${{shader.id}}` : shader.resourceId) || 'N/A';
                                     const hasCode = shader.sourceAsm || shader.inputSignature;
                                     const shaderJson = JSON.stringify(shader).replace(/'/g, "\\\\'").replace(/"/g, '&quot;');
+                                    
+                                    // Pipeline 状态显示
+                                    const statusBadge = isPipeline ? 
+                                        `<span style="margin-left:8px;padding:2px 6px;background:${{shader.valid ? 'var(--accent-green)' : 'var(--accent-red)'}};color:#fff;border-radius:3px;font-size:9px;">${{shader.valid ? 'Valid' : 'Invalid'}}</span>` : '';
+                                    
                                     return `<tr>
-                                        <td><span style="font-weight:500;">${{stage}}</span></td>
-                                        <td style="font-family:monospace;font-size:11px;">${{name}}</td>
+                                        <td><span style="font-weight:500;">${{stage.toUpperCase()}}</span></td>
+                                        <td style="font-family:monospace;font-size:11px;">${{name}}${{statusBadge}}</td>
                                         <td>
                                             ${{hasCode ? 
                                                 `<button class="btn-view-shader" onclick="showShaderModal('${{stage}}', JSON.parse(this.dataset.shader.replace(/&quot;/g, '\\\"')))" data-shader="${{shaderJson}}">
                                                     📜 查看
                                                 </button>` : 
-                                                `<span style="color:var(--text-muted);font-size:10px;">无详情</span>`
+                                                (isPipeline ? 
+                                                    `<span style="color:var(--accent-blue);font-size:10px;">ID: ${{shader.id}}</span>` :
+                                                    `<span style="color:var(--text-muted);font-size:10px;">无详情</span>`)
                                             }}
                                         </td>
                                     </tr>`;
