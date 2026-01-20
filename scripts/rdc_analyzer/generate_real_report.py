@@ -30,8 +30,17 @@ from generate_offline_report import generate_offline_html
 # 导入 Pipeline State 解析函数
 from parse_rdc_xml import parse_pipeline_state_from_related_calls
 
-# 导入优化建议生成器
+# 导入纹理优化建议生成器
 from core.optimization_advisor import OptimizationAdvisor
+
+# 导入 Shader 优化建议生成器 (TASK-009)
+try:
+    from core.optimization_standalone import generate_optimization_from_context
+    SHADER_OPTIMIZATION_ENABLED = True
+except ImportError as e:
+    print(f"[WARN] Shader optimization analysis disabled: {e}")
+    generate_optimization_from_context = None
+    SHADER_OPTIMIZATION_ENABLED = False
 
 # 导入性能分析器 (TASK-008)
 # 使用独立版本避免 analyzers 包的相对导入问题
