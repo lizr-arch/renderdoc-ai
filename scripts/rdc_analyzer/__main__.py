@@ -31,12 +31,13 @@ def main():
         epilog="""
 子命令:
   analyze   分析 RDC 文件并生成报告
+  compare   对比两个 RDC/JSON 文件并生成回归报告
   rules     列出或管理分析规则
 
 示例:
   %(prog)s analyze capture.rdc
   %(prog)s analyze capture.rdc -o ./output --format html,json
-  %(prog)s analyze capture.rdc --sample-textures --sample-buffers
+  %(prog)s compare baseline.json target.json -o diff_report.html
   %(prog)s rules --list
         """
     )
@@ -131,6 +132,100 @@ def main():
         help="详细输出"
     )
     
+    # ========== compare 子命令 ==========
+    compare_parser = subparsers.add_parser(
+        'compare',
+        help='对比两个 RDC/JSON 文件并生成回归报告',
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+示例:
+  %(prog)s baseline.json target.json
+  %(prog)s baseline.json target.json -o diff_report.html
+  %(prog)s baseline.json target.json --html report.html --json diff.json
+  %(prog)s baseline.rdc target.rdc -o ./compare_output
+
+回归阈值说明:
+  --triangle-threshold 0.2   三角形增加超过 20%% 时警告
+  --draw-call-threshold 0.1  Draw Call 增加超过 10%% 时警告
+  --texture-mem-threshold 0.3 纹理内存增加超过 30%% 时警告
+        """
+    )
+    
+    compare_parser.add_argument(
+        "baseline",
+        help="基准文件 (RDC 或 JSON 格式)"
+    )
+    
+    compare_parser.add_argument(
+        "target",
+        help="目标文件 (RDC 或 JSON 格式)"
+    )
+    
+    compare_parser.add_argument(
+        "-o", "--output",
+        default="./compare_output",
+        help="输出目录或 HTML 文件路径 (默认: ./compare_output)"
+    )
+    
+    compare_parser.add_argument(
+        "--html",
+        dest="html_output",
+        help="指定 HTML 报告输出路径"
+    )
+    
+    compare_parser.add_argument(
+        "--json",
+        dest="json_output",
+        help="指定 JSON 差异文件输出路径"
+    )
+    
+    compare_parser.add_argument(
+        "--triangle-threshold",
+        type=float,
+        default=0.2,
+        help="三角形增加阈值 (默认: 0.2 = 20%%)"
+    )
+    
+    compare_parser.add_argument(
+        "--draw-call-threshold",
+        type=float,
+        default=0.1,
+        help="Draw Call 增加阈值 (默认: 0.1 = 10%%)"
+    )
+    
+    compare_parser.add_argument(
+        "--texture-mem-threshold",
+        type=float,
+        default=0.3,
+        help="纹理内存增加阈值 (默认: 0.3 = 30%%)"
+    )
+    
+    compare_parser.add_argument(
+        "--buffer-mem-threshold",
+        type=float,
+        default=0.3,
+        help="Buffer 内存增加阈值 (默认: 0.3 = 30%%)"
+    )
+    
+    compare_parser.add_argument(
+        "--theme",
+        choices=["dark", "light"],
+        default="dark",
+        help="HTML 报告主题 (默认: dark)"
+    )
+    
+    compare_parser.add_argument(
+        "-q", "--quiet",
+        action="store_true",
+        help="静默模式，不打印控制台摘要"
+    )
+    
+    compare_parser.add_argument(
+        "-v", "--verbose",
+        action="store_true",
+        help="详细输出"
+    )
+    
     # ========== rules 子命令 ==========
     rules_parser = subparsers.add_parser(
         'rules',
@@ -159,6 +254,8 @@ def main():
     # 处理子命令
     if args.command == 'analyze':
         return cmd_analyze(args)
+    elif args.command == 'compare':
+        return cmd_compare(args)
     elif args.command == 'rules':
         if args.list:
             return cmd_list_rules()
@@ -270,6 +367,183 @@ def cmd_analyze(args):
             import traceback
             traceback.print_exc()
         return 1
+
+
+def cmd_compare(args):
+    """执行对比命令"""
+    from datetime import datetime
+    import json
+    
+    # 检查文件存在
+    if not os.path.exists(args.baseline):
+        print(f"[!] 错误: 基准文件不存在: {args.baseline}")
+        return 1
+    
+    if not os.path.exists(args.target):
+        print(f"[!] 错误: 目标文件不存在: {args.target}")
+        return 1
+    
+    # 导入对比模块
+    try:
+        from .compare_rdc import (
+            load_json_data,
+            run_comparison,
+            export_html_report,
+            export_json_diff,
+            print_summary,
+        )
+        from .diff import RegressionRuleId, DiffHTMLConfig
+    except ImportError as e:
+        print(f"[!] 错误: 无法导入对比模块: {e}")
+        return 1
+    
+    # 确定输入文件类型和处理方式
+    baseline_path = Path(args.baseline)
+    target_path = Path(args.target)
+    baseline_ext = baseline_path.suffix.lower()
+    target_ext = target_path.suffix.lower()
+    
+    if not args.quiet:
+        print(f"[*] 基准文件: {args.baseline} ({baseline_ext})")
+        print(f"[*] 目标文件: {args.target} ({target_ext})")
+    
+    # RDC 文件需要先分析导出为 JSON
+    temp_files = []
+    try:
+        if baseline_ext == '.rdc':
+            if not args.quiet:
+                print("[*] 分析基准 RDC 文件...")
+            baseline_json_path = _analyze_rdc_to_json(args.baseline, args.verbose)
+            temp_files.append(baseline_json_path)
+            baseline_data = load_json_data(str(baseline_json_path))
+        else:
+            baseline_data = load_json_data(args.baseline)
+        
+        if target_ext == '.rdc':
+            if not args.quiet:
+                print("[*] 分析目标 RDC 文件...")
+            target_json_path = _analyze_rdc_to_json(args.target, args.verbose)
+            temp_files.append(target_json_path)
+            target_data = load_json_data(str(target_json_path))
+        else:
+            target_data = load_json_data(args.target)
+        
+        # 配置回归阈值
+        custom_thresholds = {
+            RegressionRuleId.REG001: args.draw_call_threshold * 100,
+            RegressionRuleId.REG004: args.buffer_mem_threshold * 100,
+            RegressionRuleId.REG005: args.triangle_threshold * 100,
+        }
+        
+        # 执行对比
+        if not args.quiet:
+            print("[*] 执行对比分析...")
+        
+        diff_result, regression_report = run_comparison(
+            baseline_data=baseline_data,
+            target_data=target_data,
+            baseline_name=baseline_path.name,
+            target_name=target_path.name,
+            custom_thresholds=custom_thresholds
+        )
+        
+        # 确定输出路径
+        output_path = Path(args.output)
+        html_output = args.html_output
+        json_output = args.json_output
+        
+        # 如果 -o 指定的是 .html 文件，直接作为 HTML 输出
+        if output_path.suffix.lower() == '.html':
+            html_output = str(output_path)
+        elif not html_output and not json_output:
+            # 默认在输出目录生成 HTML
+            output_path.mkdir(parents=True, exist_ok=True)
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            html_output = str(output_path / f"compare_{timestamp}.html")
+        
+        # 输出报告
+        output_files = []
+        
+        if html_output:
+            html_config = DiffHTMLConfig(theme=args.theme)
+            html_path = export_html_report(diff_result, regression_report, html_output, html_config)
+            output_files.append(html_path)
+            if not args.quiet:
+                print(f"[+] HTML 报告: {html_path}")
+        
+        if json_output:
+            json_path = export_json_diff(diff_result, regression_report, json_output)
+            output_files.append(json_path)
+            if not args.quiet:
+                print(f"[+] JSON 差异: {json_path}")
+        
+        # 打印摘要
+        if not args.quiet:
+            print_summary(diff_result, regression_report)
+        
+        # 返回值
+        if regression_report.has_critical:
+            return 2
+        elif regression_report.has_warning:
+            return 1
+        else:
+            return 0
+            
+    except FileNotFoundError as e:
+        print(f"[!] 错误: {e}")
+        return 1
+    except json.JSONDecodeError as e:
+        print(f"[!] JSON 解析错误: {e}")
+        return 1
+    except Exception as e:
+        print(f"[!] 对比失败: {e}")
+        if args.verbose:
+            import traceback
+            traceback.print_exc()
+        return 1
+    finally:
+        # 清理临时文件
+        for temp_file in temp_files:
+            try:
+                if temp_file.exists():
+                    temp_file.unlink()
+            except Exception:
+                pass
+
+
+def _analyze_rdc_to_json(rdc_path: str, verbose: bool = False) -> Path:
+    """分析 RDC 文件并返回 JSON 输出路径
+    
+    Args:
+        rdc_path: RDC 文件路径
+        verbose: 是否详细输出
+        
+    Returns:
+        生成的 JSON 文件路径
+    """
+    import tempfile
+    from .main import AnalysisPipeline, AnalysisOptions
+    
+    # 创建临时目录
+    temp_dir = Path(tempfile.mkdtemp(prefix="rdc_compare_"))
+    
+    options = AnalysisOptions(
+        output_formats=['json'],
+        output_dir=str(temp_dir),
+        sample_textures=False,
+        sample_buffers=False,
+        verbose=verbose,
+    )
+    
+    pipeline = AnalysisPipeline(rdc_path, options)
+    result = pipeline.run()
+    
+    # 查找生成的 JSON 文件
+    json_files = list(temp_dir.glob("*.json"))
+    if not json_files:
+        raise FileNotFoundError(f"未能生成 JSON 输出: {rdc_path}")
+    
+    return json_files[0]
 
 
 def cmd_list_rules():
