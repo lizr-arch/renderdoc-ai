@@ -5528,6 +5528,9 @@ def generate_offline_html(textures: list, rdc_name: str, output_path: str,
             
             // 渲染热度分析面板
             renderUsageAnalysis();
+            
+            // 渲染优化建议面板 (TASK-009)
+            renderOptimizationPanelInSidebar();
         }}
         
         // 渲染去重分析结果
@@ -6375,6 +6378,101 @@ def generate_offline_html(textures: list, rdc_name: str, output_path: str,
                     ${{item.estimated_savings_bytes > 0 ? `<span class="optimization-item-savings">-${{formatBytes(item.estimated_savings_bytes)}}</span>` : ''}}
                 </li>
             `).join('');
+        }}
+        
+        // 在左侧面板中渲染优化建议 (TASK-009)
+        function renderOptimizationPanelInSidebar() {{
+            if (!optimizationData || !optimizationData.items || optimizationData.items.length === 0) {{
+                return;
+            }}
+            
+            const statsSection = document.querySelector('#sectionStats .prop-section-content');
+            if (!statsSection) return;
+            
+            const items = optimizationData.items;
+            const totalSavings = optimizationData.total_savings_bytes || 0;
+            
+            // 格式化字节数
+            function formatBytes(bytes) {{
+                if (bytes < 1024) return bytes + ' B';
+                if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+                return (bytes / (1024 * 1024)).toFixed(2) + ' MB';
+            }}
+            
+            // 优先级样式
+            const priorityColors = {{
+                'CRITICAL': '#ff4444',
+                'HIGH': '#ff8800',
+                'MEDIUM': '#ffcc00',
+                'LOW': '#44aa44'
+            }};
+            
+            // 构建 HTML - 带可展开的资源列表
+            let itemsHtml = items.map((item, idx) => {{
+                const color = priorityColors[item.priority] || '#888';
+                const savings = item.estimated_savings_bytes > 0 ? 
+                    `<span style="color:#4CAF50;margin-left:8px;">-${{formatBytes(item.estimated_savings_bytes)}}</span>` : '';
+                
+                // 受影响的资源列表
+                const resources = item.affected_resources || [];
+                const hasResources = resources.length > 0;
+                const resourceCount = resources.length;
+                
+                // 构建资源列表 HTML
+                let resourcesHtml = '';
+                if (hasResources) {{
+                    const displayResources = resources.slice(0, 20);
+                    const moreCount = resources.length - 20;
+                    resourcesHtml = `
+                        <div id="optim-resources-${{idx}}" class="optim-resources" style="display:none; margin: 8px 0 8px 20px; padding: 8px; background: #1a1a1a; border-radius: 4px; max-height: 200px; overflow-y: auto;">
+                            ${{displayResources.map(r => `<div style="color:#ccc; font-size:11px; padding:2px 0; border-bottom:1px solid #333;">📄 ${{r}}</div>`).join('')}}
+                            ${{moreCount > 0 ? `<div style="color:#888; font-size:11px; padding:4px 0;">... 还有 ${{moreCount}} 个</div>` : ''}}
+                        </div>
+                    `;
+                }}
+                
+                return `
+                    <div class="optim-item" style="border-left: 3px solid ${{color}}; padding-left: 8px; margin: 4px 0;">
+                        <div class="optim-header" style="cursor: ${{hasResources ? 'pointer' : 'default'}};" onclick="${{hasResources ? `toggleOptimResources(${{idx}})` : ''}}">
+                            <span style="color:${{color}};">●</span> 
+                            <span style="color:#aaa;">[${{item.category}}]</span> 
+                            ${{item.title}}
+                            ${{hasResources ? `<span style="color:#888;font-size:11px;"> (${{resourceCount}}个)</span><span id="optim-toggle-${{idx}}" style="color:#888;margin-left:4px;">▶</span>` : ''}}
+                            ${{savings}}
+                        </div>
+                        ${{resourcesHtml}}
+                    </div>
+                `;
+            }}).join('');
+            
+            const optimHtml = `
+                <div class="optimization-suggestions" style="margin-top: 16px; border-top: 1px solid #444; padding-top: 12px;">
+                    <div class="issue-summary" style="color:#4CAF50; font-weight:bold; margin-bottom:8px;">
+                        🎯 优化建议 (${{items.length}})
+                    </div>
+                    <div style="color:#4CAF50; font-size:14px; margin-bottom:8px;">
+                        预计可节省: ${{formatBytes(totalSavings)}}
+                    </div>
+                    ${{itemsHtml}}
+                </div>
+            `;
+            
+            statsSection.insertAdjacentHTML('beforeend', optimHtml);
+        }}
+        
+        // 切换优化建议的资源列表展开/折叠
+        function toggleOptimResources(idx) {{
+            const resourcesDiv = document.getElementById(`optim-resources-${{idx}}`);
+            const toggleSpan = document.getElementById(`optim-toggle-${{idx}}`);
+            if (resourcesDiv) {{
+                if (resourcesDiv.style.display === 'none') {{
+                    resourcesDiv.style.display = 'block';
+                    if (toggleSpan) toggleSpan.textContent = '▼';
+                }} else {{
+                    resourcesDiv.style.display = 'none';
+                    if (toggleSpan) toggleSpan.textContent = '▶';
+                }}
+            }}
         }}
         
         function setupAppEventListeners() {{
