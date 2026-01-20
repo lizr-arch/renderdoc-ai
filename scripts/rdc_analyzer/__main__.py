@@ -22,6 +22,7 @@ from pathlib import Path
 
 from .pipeline import analyze_rdc
 from .rules import RuleRegistry, register_all_rules
+from .parsers.rdc_loader import load_capture_file
 
 def main():
     """命令行入口"""
@@ -407,26 +408,15 @@ def cmd_compare(args):
         print(f"[*] 基准文件: {args.baseline} ({baseline_ext})")
         print(f"[*] 目标文件: {args.target} ({target_ext})")
     
-    # RDC 文件需要先分析导出为 JSON
-    temp_files = []
+    # 使用统一的 load_capture_file 加载任意格式 (.rdc, .xml, .json)
     try:
-        if baseline_ext == '.rdc':
-            if not args.quiet:
-                print("[*] 分析基准 RDC 文件...")
-            baseline_json_path = _analyze_rdc_to_json(args.baseline, args.verbose)
-            temp_files.append(baseline_json_path)
-            baseline_data = load_json_data(str(baseline_json_path))
-        else:
-            baseline_data = load_json_data(args.baseline)
+        if not args.quiet:
+            print(f"[*] 加载基准文件 ({baseline_ext})...")
+        baseline_data = load_capture_file(args.baseline, verbose=args.verbose)
         
-        if target_ext == '.rdc':
-            if not args.quiet:
-                print("[*] 分析目标 RDC 文件...")
-            target_json_path = _analyze_rdc_to_json(args.target, args.verbose)
-            temp_files.append(target_json_path)
-            target_data = load_json_data(str(target_json_path))
-        else:
-            target_data = load_json_data(args.target)
+        if not args.quiet:
+            print(f"[*] 加载目标文件 ({target_ext})...")
+        target_data = load_capture_file(args.target, verbose=args.verbose)
         
         # 配置回归阈值
         custom_thresholds = {
@@ -501,18 +491,13 @@ def cmd_compare(args):
             import traceback
             traceback.print_exc()
         return 1
-    finally:
-        # 清理临时文件
-        for temp_file in temp_files:
-            try:
-                if temp_file.exists():
-                    temp_file.unlink()
-            except Exception:
-                pass
 
 
 def _analyze_rdc_to_json(rdc_path: str, verbose: bool = False) -> Path:
     """分析 RDC 文件并返回 JSON 输出路径
+    
+    .. deprecated:: 2.0.0
+        使用 `load_capture_file` 代替，它支持 .rdc, .xml, .json 格式统一加载。
     
     Args:
         rdc_path: RDC 文件路径
@@ -521,6 +506,12 @@ def _analyze_rdc_to_json(rdc_path: str, verbose: bool = False) -> Path:
     Returns:
         生成的 JSON 文件路径
     """
+    import warnings
+    warnings.warn(
+        "_analyze_rdc_to_json 已弃用，请使用 load_capture_file 代替",
+        DeprecationWarning,
+        stacklevel=2
+    )
     import tempfile
     from .main import AnalysisPipeline, AnalysisOptions
     

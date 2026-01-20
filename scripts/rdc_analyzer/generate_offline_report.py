@@ -7407,8 +7407,13 @@ def generate_offline_html(textures: list, rdc_name: str, output_path: str,
             // 从 eventPassData 中提取 Draw 事件，分析 relatedCalls 中的 vkCmdBindPipeline
             if (eventPassData && eventPassData.events) {{
                 eventPassData.events.forEach(event => {{
-                    // 只处理 Draw 类型事件
-                    if (event.type !== 'Draw' && event.type !== 'DrawIndexed') return;
+                    // 兼容 eid / eventId 字段名
+                    const eventId = event.eid || event.eventId;
+                    if (!eventId) return;
+                    
+                    // 只处理 Draw 类型事件（兼容大小写）
+                    const eventType = (event.type || '').toLowerCase();
+                    if (eventType !== 'draw' && eventType !== 'drawindexed') return;
                     
                     // 从 relatedCalls 提取 pipeline ID
                     if (event.relatedCalls && Array.isArray(event.relatedCalls)) {{
@@ -7420,7 +7425,7 @@ def generate_offline_html(textures: list, rdc_name: str, output_path: str,
                                 if (!pipelineToEvents[pipelineId]) {{
                                     pipelineToEvents[pipelineId] = [];
                                 }}
-                                pipelineToEvents[pipelineId].push(event.eid);
+                                pipelineToEvents[pipelineId].push(eventId);
                             }}
                         }});
                     }}
@@ -7433,8 +7438,8 @@ def generate_offline_html(textures: list, rdc_name: str, output_path: str,
                                 if (!pipelineToEvents[shaderId]) {{
                                     pipelineToEvents[shaderId] = [];
                                 }}
-                                if (!pipelineToEvents[shaderId].includes(event.eid)) {{
-                                    pipelineToEvents[shaderId].push(event.eid);
+                                if (!pipelineToEvents[shaderId].includes(eventId)) {{
+                                    pipelineToEvents[shaderId].push(eventId);
                                 }}
                             }}
                         }});
@@ -8898,6 +8903,13 @@ def generate_offline_html(textures: list, rdc_name: str, output_path: str,
                 console.log('No event data available');
                 return;
             }}
+            
+            // TASK-210: 规范化事件字段名（eventId → eid）
+            eventPassData.events.forEach(event => {{
+                if (!event.eid && event.eventId) {{
+                    event.eid = event.eventId;
+                }}
+            }});
             
             // 更新头部统计
             document.getElementById('eventApiType').textContent = eventPassData.apiType || 'Unknown';
