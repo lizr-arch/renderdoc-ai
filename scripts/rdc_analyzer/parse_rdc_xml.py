@@ -1018,9 +1018,9 @@ def parse_vulkan_vertex_buffers(params):
 # 新增解析函数：Shader Resources, Constant Buffers, Samplers, RT
 # ============================================================
 
-def parse_shader_resources_from_params(params):
+def parse_shader_resources_from_params_simple(params):
     """
-    解析 *SetShaderResources 调用的参数
+    解析 *SetShaderResources 调用的参数 (简化版，用于 Pipeline State 解析)
     返回: [{slot: int, resourceId: str}, ...]
     """
     start_slot = 0
@@ -1044,9 +1044,9 @@ def parse_shader_resources_from_params(params):
     return result
 
 
-def parse_constant_buffers_from_params(params):
+def parse_constant_buffers_from_params_simple(params):
     """
-    解析 *SetConstantBuffers 调用的参数
+    解析 *SetConstantBuffers 调用的参数 (简化版，用于 Pipeline State 解析)
     返回: [{slot: int, resourceId: str}, ...]
     """
     start_slot = 0
@@ -1070,9 +1070,9 @@ def parse_constant_buffers_from_params(params):
     return result
 
 
-def parse_samplers_from_params(params):
+def parse_samplers_from_params_simple(params):
     """
-    解析 *SetSamplers 调用的参数
+    解析 *SetSamplers 调用的参数 (简化版，用于 Pipeline State 解析)
     返回: [{slot: int, resourceId: str}, ...]
     """
     start_slot = 0
@@ -1317,27 +1317,27 @@ def parse_pipeline_state_from_binding_records(binding_records, state_objects=Non
         # 新增解析：Shader Resources (SRV)
         # ============================================================
         elif "VSSetShaderResources" in name:
-            resources = parse_shader_resources_from_params(params)
+            resources = parse_shader_resources_from_params_simple(params)
             if resources:
                 merge_slot_resources(pipeline_state["shaderResources"]["vs"], resources)
         elif "PSSetShaderResources" in name:
-            resources = parse_shader_resources_from_params(params)
+            resources = parse_shader_resources_from_params_simple(params)
             if resources:
                 merge_slot_resources(pipeline_state["shaderResources"]["ps"], resources)
         elif "GSSetShaderResources" in name:
-            resources = parse_shader_resources_from_params(params)
+            resources = parse_shader_resources_from_params_simple(params)
             if resources:
                 merge_slot_resources(pipeline_state["shaderResources"]["gs"], resources)
         elif "HSSetShaderResources" in name:
-            resources = parse_shader_resources_from_params(params)
+            resources = parse_shader_resources_from_params_simple(params)
             if resources:
                 merge_slot_resources(pipeline_state["shaderResources"]["hs"], resources)
         elif "DSSetShaderResources" in name:
-            resources = parse_shader_resources_from_params(params)
+            resources = parse_shader_resources_from_params_simple(params)
             if resources:
                 merge_slot_resources(pipeline_state["shaderResources"]["ds"], resources)
         elif "CSSetShaderResources" in name:
-            resources = parse_shader_resources_from_params(params)
+            resources = parse_shader_resources_from_params_simple(params)
             if resources:
                 merge_slot_resources(pipeline_state["shaderResources"]["cs"], resources)
         
@@ -1345,27 +1345,27 @@ def parse_pipeline_state_from_binding_records(binding_records, state_objects=Non
         # 新增解析：Constant Buffers (CBV)
         # ============================================================
         elif "VSSetConstantBuffers" in name:
-            buffers = parse_constant_buffers_from_params(params)
+            buffers = parse_constant_buffers_from_params_simple(params)
             if buffers:
                 merge_slot_resources(pipeline_state["constantBuffers"]["vs"], buffers)
         elif "PSSetConstantBuffers" in name:
-            buffers = parse_constant_buffers_from_params(params)
+            buffers = parse_constant_buffers_from_params_simple(params)
             if buffers:
                 merge_slot_resources(pipeline_state["constantBuffers"]["ps"], buffers)
         elif "GSSetConstantBuffers" in name:
-            buffers = parse_constant_buffers_from_params(params)
+            buffers = parse_constant_buffers_from_params_simple(params)
             if buffers:
                 merge_slot_resources(pipeline_state["constantBuffers"]["gs"], buffers)
         elif "HSSetConstantBuffers" in name:
-            buffers = parse_constant_buffers_from_params(params)
+            buffers = parse_constant_buffers_from_params_simple(params)
             if buffers:
                 merge_slot_resources(pipeline_state["constantBuffers"]["hs"], buffers)
         elif "DSSetConstantBuffers" in name:
-            buffers = parse_constant_buffers_from_params(params)
+            buffers = parse_constant_buffers_from_params_simple(params)
             if buffers:
                 merge_slot_resources(pipeline_state["constantBuffers"]["ds"], buffers)
         elif "CSSetConstantBuffers" in name:
-            buffers = parse_constant_buffers_from_params(params)
+            buffers = parse_constant_buffers_from_params_simple(params)
             if buffers:
                 merge_slot_resources(pipeline_state["constantBuffers"]["cs"], buffers)
         
@@ -1373,27 +1373,27 @@ def parse_pipeline_state_from_binding_records(binding_records, state_objects=Non
         # 新增解析：Samplers
         # ============================================================
         elif "VSSetSamplers" in name:
-            samplers = parse_samplers_from_params(params)
+            samplers = parse_samplers_from_params_simple(params)
             if samplers:
                 merge_slot_resources(pipeline_state["samplers"]["vs"], samplers)
         elif "PSSetSamplers" in name:
-            samplers = parse_samplers_from_params(params)
+            samplers = parse_samplers_from_params_simple(params)
             if samplers:
                 merge_slot_resources(pipeline_state["samplers"]["ps"], samplers)
         elif "GSSetSamplers" in name:
-            samplers = parse_samplers_from_params(params)
+            samplers = parse_samplers_from_params_simple(params)
             if samplers:
                 merge_slot_resources(pipeline_state["samplers"]["gs"], samplers)
         elif "HSSetSamplers" in name:
-            samplers = parse_samplers_from_params(params)
+            samplers = parse_samplers_from_params_simple(params)
             if samplers:
                 merge_slot_resources(pipeline_state["samplers"]["hs"], samplers)
         elif "DSSetSamplers" in name:
-            samplers = parse_samplers_from_params(params)
+            samplers = parse_samplers_from_params_simple(params)
             if samplers:
                 merge_slot_resources(pipeline_state["samplers"]["ds"], samplers)
         elif "CSSetSamplers" in name:
-            samplers = parse_samplers_from_params(params)
+            samplers = parse_samplers_from_params_simple(params)
             if samplers:
                 merge_slot_resources(pipeline_state["samplers"]["cs"], samplers)
         
