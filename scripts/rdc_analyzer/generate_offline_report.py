@@ -23,6 +23,17 @@ try:
 except ImportError:
     HAS_RT_TIMELINE = False
 
+# Hotspot 组件 (Direction F)
+try:
+    from components.hotspot_component import (
+        generate_hotspot_css,
+        generate_hotspot_html,
+        generate_hotspot_js
+    )
+    HAS_HOTSPOT = True
+except ImportError:
+    HAS_HOTSPOT = False
+
 # 尝试导入 PIL
 try:
     from PIL import Image
@@ -145,7 +156,7 @@ def generate_offline_html(textures: list, rdc_name: str, output_path: str,
                           duplicate_analysis: dict = None, usage_analysis: dict = None,
                           event_pass_data: dict = None, frame_thumbnail: str = None,
                           optimization_data: dict = None, performance_data: dict = None,
-                          rt_tracking_data: dict = None):
+                          rt_tracking_data: dict = None, hotspot_data: dict = None):
     """生成纯离线 HTML 报告
     
     Args:
@@ -159,6 +170,7 @@ def generate_offline_html(textures: list, rdc_name: str, output_path: str,
         optimization_data: 优化建议数据（可选，来自 OptimizationAdvisor）
         performance_data: 性能分析数据（可选，来自 PerformanceAnalyzer，TASK-008）
         rt_tracking_data: RT 追踪数据（可选，来自 RTTracker，Direction C）
+        hotspot_data: 热点分析数据（可选，来自 HotspotAnalyzer，Direction F）
     """
     
     textures_json = json.dumps(textures, ensure_ascii=False)
@@ -534,6 +546,140 @@ def generate_offline_html(textures: list, rdc_name: str, output_path: str,
         
         .texture-list::-webkit-scrollbar-thumb:hover {{
             background: var(--border-light);
+        }}
+        
+        /* Shader 列表面板 (TASK-205) */
+        .shader-panel {{
+            border-top: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+            max-height: 280px;
+        }}
+        
+        .shader-panel-header {{
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 8px 12px;
+            background: var(--bg-dark);
+            cursor: pointer;
+            user-select: none;
+        }}
+        
+        .shader-panel-header:hover {{
+            background: var(--bg-medium);
+        }}
+        
+        .shader-panel-title {{
+            font-size: 12px;
+            font-weight: 500;
+            color: var(--text-primary);
+        }}
+        
+        .shader-panel-badge {{
+            background: var(--accent-orange);
+            color: #000;
+            padding: 2px 6px;
+            border-radius: 10px;
+            font-size: 10px;
+            font-weight: 600;
+        }}
+        
+        .shader-list {{
+            flex: 1;
+            overflow-y: auto;
+            overflow-x: hidden;
+        }}
+        
+        .shader-list::-webkit-scrollbar {{
+            width: 6px;
+        }}
+        
+        .shader-list::-webkit-scrollbar-track {{
+            background: var(--bg-darker);
+        }}
+        
+        .shader-list::-webkit-scrollbar-thumb {{
+            background: var(--bg-medium);
+            border-radius: 3px;
+        }}
+        
+        .shader-item {{
+            display: flex;
+            align-items: flex-start;
+            gap: 8px;
+            padding: 8px 12px;
+            border-bottom: 1px solid var(--bg-dark);
+            cursor: pointer;
+            transition: background 0.15s;
+        }}
+        
+        .shader-item:hover {{
+            background: var(--bg-dark);
+        }}
+        
+        .shader-item.selected {{
+            background: rgba(251, 146, 60, 0.15);
+            border-left: 2px solid var(--accent-orange);
+        }}
+        
+        .shader-item-icon {{
+            font-size: 14px;
+            flex-shrink: 0;
+            margin-top: 2px;
+        }}
+        
+        .shader-item-content {{
+            flex: 1;
+            min-width: 0;
+        }}
+        
+        .shader-item-title {{
+            font-size: 11px;
+            color: var(--text-primary);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }}
+        
+        .shader-item-desc {{
+            font-size: 10px;
+            color: var(--text-muted);
+            margin-top: 2px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }}
+        
+        .shader-item-severity {{
+            font-size: 9px;
+            padding: 1px 5px;
+            border-radius: 3px;
+            text-transform: uppercase;
+            font-weight: 500;
+            flex-shrink: 0;
+        }}
+        
+        .shader-item-severity.high {{
+            background: rgba(239, 68, 68, 0.2);
+            color: #f87171;
+        }}
+        
+        .shader-item-severity.medium {{
+            background: rgba(251, 146, 60, 0.2);
+            color: #fb923c;
+        }}
+        
+        .shader-item-severity.low {{
+            background: rgba(34, 197, 94, 0.2);
+            color: #4ade80;
+        }}
+        
+        .shader-empty {{
+            padding: 16px;
+            text-align: center;
+            color: var(--text-muted);
+            font-size: 11px;
         }}
         
         .texture-item {{
@@ -5430,6 +5576,9 @@ def generate_offline_html(textures: list, rdc_name: str, output_path: str,
         
         /* ========== RT Timeline Component (Direction C) ========== */
         {generate_rt_timeline_css() if HAS_RT_TIMELINE and rt_tracking_data else ''}
+        
+        /* ========== Hotspot Component (Direction F) ========== */
+        {generate_hotspot_css() if HAS_HOTSPOT and hotspot_data else ''}
     </style>
 </head>
 <body>
@@ -5496,6 +5645,15 @@ def generate_offline_html(textures: list, rdc_name: str, output_path: str,
                     <button onclick="clearOptimizationFilter()" style="float:right; background:#444; border:none; color:#fff; padding:2px 8px; border-radius:3px; cursor:pointer; font-size:11px;">✕ 清除筛选</button>
                 </div>
                 <div class="texture-list" id="textureListApp"></div>
+                
+                <!-- Shader 优化列表面板 (TASK-205) -->
+                <div class="shader-panel" id="shaderPanel">
+                    <div class="shader-panel-header" onclick="toggleShaderPanel()">
+                        <span class="shader-panel-title">🎯 Shader 优化</span>
+                        <span class="shader-panel-badge" id="shaderCountBadge">0</span>
+                    </div>
+                    <div class="shader-list" id="shaderListApp"></div>
+                </div>
             </div>
             
             <!-- 中间主画布区域 -->
@@ -6196,6 +6354,7 @@ def generate_offline_html(textures: list, rdc_name: str, output_path: str,
             runGlobalAnalysis();
             renderPerformancePanel();
             renderOptimizationPanel();
+            initShaderList();  // TASK-205: 初始化 Shader 列表
             setupAppEventListeners();
         }}
         
@@ -6678,6 +6837,118 @@ def generate_offline_html(textures: list, rdc_name: str, output_path: str,
                     setTimeout(() => item.classList.remove('jump-highlight'), 1500);
                 }}
             }}
+        }}
+        
+        // ========== Shader 列表功能 (TASK-205) ==========
+        let shaderOptimizations = [];
+        let shaderPanelCollapsed = false;
+        
+        function initShaderList() {{
+            // 从 optimizationData 中提取 Shader 类别的优化建议
+            if (!optimizationData || !optimizationData.items) {{
+                hideShaderPanel();
+                return;
+            }}
+            
+            shaderOptimizations = optimizationData.items
+                .map((item, idx) => ({{ ...item, originalIndex: idx }}))
+                .filter(item => item.category === 'Shader');
+            
+            if (shaderOptimizations.length === 0) {{
+                hideShaderPanel();
+                return;
+            }}
+            
+            // 更新徽章数字
+            document.getElementById('shaderCountBadge').textContent = shaderOptimizations.length;
+            
+            // 渲染列表
+            renderShaderList();
+        }}
+        
+        function hideShaderPanel() {{
+            const panel = document.getElementById('shaderPanel');
+            if (panel) panel.style.display = 'none';
+        }}
+        
+        function toggleShaderPanel() {{
+            shaderPanelCollapsed = !shaderPanelCollapsed;
+            const list = document.getElementById('shaderListApp');
+            if (list) {{
+                list.style.display = shaderPanelCollapsed ? 'none' : 'block';
+            }}
+        }}
+        
+        function renderShaderList() {{
+            const container = document.getElementById('shaderListApp');
+            if (!container) return;
+            
+            if (shaderOptimizations.length === 0) {{
+                container.innerHTML = '<div class="shader-empty">暂无 Shader 优化建议</div>';
+                return;
+            }}
+            
+            const html = shaderOptimizations.map((item, idx) => {{
+                const severity = (item.severity || 'medium').toLowerCase();
+                const icon = severity === 'high' ? '🔴' : severity === 'medium' ? '🟠' : '🟢';
+                const title = item.title || 'Shader 优化';
+                const desc = item.description || '';
+                // 截断描述
+                const shortDesc = desc.length > 50 ? desc.substring(0, 50) + '...' : desc;
+                
+                return `
+                    <div class="shader-item" data-index="${{idx}}" data-optim-index="${{item.originalIndex}}" onclick="selectShaderItem(${{idx}})">
+                        <span class="shader-item-icon">${{icon}}</span>
+                        <div class="shader-item-content">
+                            <div class="shader-item-title">${{title}}</div>
+                            <div class="shader-item-desc">${{shortDesc}}</div>
+                        </div>
+                        <span class="shader-item-severity ${{severity}}">${{severity}}</span>
+                    </div>
+                `;
+            }}).join('');
+            
+            container.innerHTML = html;
+        }}
+        
+        function selectShaderItem(idx) {{
+            // 高亮当前选中项
+            const items = document.querySelectorAll('.shader-item');
+            items.forEach((el, i) => {{
+                el.classList.toggle('selected', i === idx);
+            }});
+            
+            // 获取原始优化建议索引
+            const item = shaderOptimizations[idx];
+            if (!item) return;
+            
+            // 切换到优化建议 Tab 并滚动到对应项
+            scrollToOptimizationItem(item.originalIndex);
+        }}
+        
+        function scrollToOptimizationItem(optimIndex) {{
+            // 确保优化建议面板是展开状态
+            const optimPanel = document.getElementById('optimizationPanel');
+            const optimContent = document.getElementById('optimizationContent');
+            if (optimPanel && optimContent) {{
+                optimContent.style.display = 'block';
+                const toggleIcon = document.getElementById('optimizationToggle');
+                if (toggleIcon) toggleIcon.innerHTML = '&#9660;'; // 展开箭头
+            }}
+            
+            // 滚动到对应卡片
+            setTimeout(() => {{
+                const optimCard = document.querySelector(`.optim-card[data-index="${{optimIndex}}"]`);
+                if (optimCard) {{
+                    optimCard.scrollIntoView({{ behavior: 'smooth', block: 'center' }});
+                    // 添加高亮效果
+                    optimCard.style.boxShadow = '0 0 0 2px var(--accent-orange), 0 0 20px rgba(251, 146, 60, 0.3)';
+                    optimCard.style.transition = 'box-shadow 0.3s ease';
+                    setTimeout(() => {{
+                        optimCard.style.boxShadow = '';
+                    }}, 2000);
+                }}
+            }}, 100);
         }}
         
         function updatePropPanel(tex) {{
@@ -7341,9 +7612,9 @@ def generate_offline_html(textures: list, rdc_name: str, output_path: str,
                 'LOW': 'priority-low'
             }};
             
-            // 渲染列表
-            listEl.innerHTML = items.map(item => `
-                <li class="optimization-item">
+            // 渲染列表 (TASK-205: 添加 data-index 用于 Shader 列表定位)
+            listEl.innerHTML = items.map((item, idx) => `
+                <li class="optimization-item optim-card" data-index="${{idx}}">
                     <span class="priority-dot ${{priorityClass[item.priority] || 'priority-low'}}"></span>
                     <span class="optimization-item-type">[${{item.category}}]</span>
                     <span class="optimization-item-desc">${{item.title}}: ${{item.description}}</span>
@@ -11844,8 +12115,14 @@ Draw Info: ${{currentEIDInfo.drawInfo}}`;
         // RT Timeline 功能 (Direction C)
         {generate_rt_timeline_js() if HAS_RT_TIMELINE and rt_tracking_data else ''}
         
+        // Hotspot 功能 (Direction F)
+        {generate_hotspot_js() if HAS_HOTSPOT and hotspot_data else ''}
+        
         // 启动
         init();
+        
+        // Hotspot 初始化 (Direction F)
+        {generate_hotspot_html(hotspot_data) if HAS_HOTSPOT and hotspot_data else ''}
     </script>
 </body>
 </html>'''
