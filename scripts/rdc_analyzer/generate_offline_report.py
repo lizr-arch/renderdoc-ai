@@ -133,7 +133,7 @@ def load_textures_from_export(rdc_path: str, enable_channels: bool = True) -> li
 def generate_offline_html(textures: list, rdc_name: str, output_path: str, 
                           duplicate_analysis: dict = None, usage_analysis: dict = None,
                           event_pass_data: dict = None, frame_thumbnail: str = None,
-                          optimization_data: dict = None):
+                          optimization_data: dict = None, performance_data: dict = None):
     """生成纯离线 HTML 报告
     
     Args:
@@ -145,6 +145,7 @@ def generate_offline_html(textures: list, rdc_name: str, output_path: str,
         event_pass_data: Event/Pass 数据（可选，用于 Event Browser 视图）
         frame_thumbnail: 帧缩略图 Base64 数据 (data:image/png;base64,...) （可选）
         optimization_data: 优化建议数据（可选，来自 OptimizationAdvisor）
+        performance_data: 性能分析数据（可选，来自 PerformanceAnalyzer，TASK-008）
     """
     
     textures_json = json.dumps(textures, ensure_ascii=False)
@@ -153,6 +154,7 @@ def generate_offline_html(textures: list, rdc_name: str, output_path: str,
     event_pass_json = json.dumps(event_pass_data or {}, ensure_ascii=False)
     frame_thumbnail_json = json.dumps(frame_thumbnail or "", ensure_ascii=False)
     optimization_json = json.dumps(optimization_data or {}, ensure_ascii=False)
+    performance_json = json.dumps(performance_data or {}, ensure_ascii=False)
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     
     html = f'''<!DOCTYPE html>
@@ -1480,6 +1482,182 @@ def generate_offline_html(textures: list, rdc_name: str, output_path: str,
             padding: 24px;
             text-align: center;
             color: var(--text-muted);
+        }}
+        
+        /* 性能分析面板 (TASK-008) */
+        .performance-panel {{
+            background: var(--bg-darker);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            margin-bottom: 16px;
+            overflow: hidden;
+        }}
+        
+        .performance-header {{
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px 16px;
+            background: var(--bg-dark);
+            cursor: pointer;
+            user-select: none;
+        }}
+        
+        .performance-header:hover {{
+            background: var(--bg-medium);
+        }}
+        
+        .performance-title {{
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-weight: 600;
+        }}
+        
+        .performance-score {{
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            font-size: 1.2rem;
+            font-weight: 700;
+            color: white;
+        }}
+        
+        .performance-score.good {{ background: linear-gradient(135deg, #3fb950, #2ea043); }}
+        .performance-score.medium {{ background: linear-gradient(135deg, #f9c513, #d29922); }}
+        .performance-score.poor {{ background: linear-gradient(135deg, #f0883e, #db6d28); }}
+        .performance-score.critical {{ background: linear-gradient(135deg, #e94560, #d73a4a); }}
+        
+        .performance-toggle {{
+            color: var(--text-secondary);
+            transition: transform 0.2s;
+        }}
+        
+        .performance-toggle.collapsed {{
+            transform: rotate(-90deg);
+        }}
+        
+        .performance-content {{
+            max-height: 500px;
+            overflow-y: auto;
+            padding: 0;
+            transition: max-height 0.3s ease;
+        }}
+        
+        .performance-content.collapsed {{
+            max-height: 0;
+            padding: 0;
+        }}
+        
+        .performance-metrics {{
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+            gap: 12px;
+            padding: 16px;
+            background: var(--bg-darkest);
+            border-bottom: 1px solid var(--border);
+        }}
+        
+        .performance-metric {{
+            text-align: center;
+            padding: 8px;
+            background: var(--bg-dark);
+            border-radius: 6px;
+        }}
+        
+        .performance-metric-value {{
+            font-size: 1.4rem;
+            font-weight: 700;
+            color: var(--accent-blue);
+        }}
+        
+        .performance-metric-label {{
+            font-size: 0.7rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            margin-top: 4px;
+        }}
+        
+        .performance-issues {{
+            padding: 0;
+            margin: 0;
+            list-style: none;
+        }}
+        
+        .performance-issue {{
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+            padding: 12px 16px;
+            border-bottom: 1px solid var(--border);
+        }}
+        
+        .performance-issue:last-child {{
+            border-bottom: none;
+        }}
+        
+        .performance-issue:hover {{
+            background: var(--bg-dark);
+        }}
+        
+        .performance-severity {{
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            margin-top: 5px;
+            flex-shrink: 0;
+        }}
+        
+        .performance-severity.critical {{ background: #e94560; }}
+        .performance-severity.warning {{ background: #f0883e; }}
+        .performance-severity.info {{ background: #58a6ff; }}
+        
+        .performance-issue-content {{
+            flex: 1;
+            min-width: 0;
+        }}
+        
+        .performance-issue-title {{
+            font-weight: 600;
+            margin-bottom: 4px;
+            color: var(--text-primary);
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }}
+        
+        .performance-issue-rule {{
+            font-size: 0.7rem;
+            padding: 2px 6px;
+            background: var(--bg-medium);
+            border-radius: 4px;
+            color: var(--text-muted);
+        }}
+        
+        .performance-issue-message {{
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            margin-bottom: 6px;
+        }}
+        
+        .performance-issue-suggestion {{
+            font-size: 0.75rem;
+            color: var(--accent-green);
+            font-style: italic;
+        }}
+        
+        .performance-empty {{
+            padding: 24px;
+            text-align: center;
+            color: var(--accent-green);
+        }}
+        
+        .performance-empty-icon {{
+            font-size: 2rem;
+            margin-bottom: 8px;
         }}
         
         /* 纹理网格 - 原版 */
@@ -4819,6 +4997,13 @@ def generate_offline_html(textures: list, rdc_name: str, output_path: str,
                         <span class="stats-badge" id="statsApp">0 项</span>
                     </div>
                 </div>
+                <!-- 优化建议筛选提示条 (TASK-009 方案B) -->
+                <div class="optimization-filter-bar" id="optimFilterBar" style="display:none; background:#2d4a3d; padding:8px 12px; margin:0 8px 8px 8px; border-radius:4px; font-size:12px;">
+                    <span style="color:#4CAF50;">🎯 筛选:</span>
+                    <span id="optimFilterTitle" style="color:#fff; margin:0 8px;"></span>
+                    <span id="optimFilterCount" style="color:#888;"></span>
+                    <button onclick="clearOptimizationFilter()" style="float:right; background:#444; border:none; color:#fff; padding:2px 8px; border-radius:3px; cursor:pointer; font-size:11px;">✕ 清除筛选</button>
+                </div>
                 <div class="texture-list" id="textureListApp"></div>
             </div>
             
@@ -5058,6 +5243,21 @@ def generate_offline_html(textures: list, rdc_name: str, output_path: str,
             <div class="stat-card">
                 <div class="stat-value" id="statAvgSize">0×0</div>
                 <div class="stat-label">平均尺寸</div>
+            </div>
+        </div>
+        
+        <!-- 性能分析面板 (TASK-008) -->
+        <div class="performance-panel" id="performancePanel">
+            <div class="performance-header" onclick="togglePerformancePanel()">
+                <div class="performance-title">
+                    <div class="performance-score" id="performanceScore">--</div>
+                    <span>Performance Insights</span>
+                </div>
+                <span class="performance-toggle" id="performanceToggle">&#9660;</span>
+            </div>
+            <div class="performance-content" id="performanceContent">
+                <div class="performance-metrics" id="performanceMetrics"></div>
+                <ul class="performance-issues" id="performanceIssues"></ul>
             </div>
         </div>
         
@@ -5427,6 +5627,8 @@ def generate_offline_html(textures: list, rdc_name: str, output_path: str,
         const frameThumbnail = {frame_thumbnail_json};
         // 优化建议数据 (TASK-009)
         const optimizationData = {optimization_json};
+        // 性能分析数据 (TASK-008)
+        const performanceData = {performance_json};
         let filteredTextures = [...textures];
         let currentLightboxIndex = 0;
         let currentSort = {{ key: 'id', asc: true }};
@@ -5437,6 +5639,9 @@ def generate_offline_html(textures: list, rdc_name: str, output_path: str,
         let selectedTextureIndex = -1;
         let appZoom = 1;
         let appChannel = 'rgb';
+        
+        // 优化建议筛选状态 (TASK-009 方案B)
+        let currentOptimizationFilter = null;  // {{ title: string, resourceNames: string[] }}
         
         // 初始化
         function init() {{
@@ -5457,6 +5662,7 @@ def generate_offline_html(textures: list, rdc_name: str, output_path: str,
             renderTextureList();
             updateAppStats();
             runGlobalAnalysis();
+            renderPerformancePanel();
             renderOptimizationPanel();
             setupAppEventListeners();
         }}
@@ -6317,6 +6523,92 @@ def generate_offline_html(textures: list, rdc_name: str, output_path: str,
             }}
         }}
         
+        // ========== 性能分析面板函数 (TASK-008) ==========
+        
+        function togglePerformancePanel() {{
+            const content = document.getElementById('performanceContent');
+            const toggle = document.getElementById('performanceToggle');
+            if (content.classList.contains('collapsed')) {{
+                content.classList.remove('collapsed');
+                toggle.classList.remove('collapsed');
+            }} else {{
+                content.classList.add('collapsed');
+                toggle.classList.add('collapsed');
+            }}
+        }}
+        
+        function renderPerformancePanel() {{
+            const panel = document.getElementById('performancePanel');
+            const scoreEl = document.getElementById('performanceScore');
+            const metricsEl = document.getElementById('performanceMetrics');
+            const issuesEl = document.getElementById('performanceIssues');
+            
+            // 隐藏面板如果没有数据
+            if (!performanceData || typeof performanceData !== 'object') {{
+                panel.style.display = 'none';
+                return;
+            }}
+            
+            panel.style.display = 'block';
+            
+            // 1. 渲染分数徽章
+            const score = performanceData.overall_score ?? performanceData.score ?? '--';
+            const numScore = parseInt(score);
+            let scoreClass = 'good';
+            if (numScore < 50) scoreClass = 'critical';
+            else if (numScore < 70) scoreClass = 'poor';
+            else if (numScore < 85) scoreClass = 'medium';
+            
+            scoreEl.textContent = score;
+            scoreEl.className = `performance-score ${{scoreClass}}`;
+            
+            // 2. 渲染指标卡片
+            const metrics = performanceData.metrics || {{}};
+            const metricsHtml = Object.entries(metrics).map(([key, val]) => {{
+                const label = key.replace(/_/g, ' ').toUpperCase();
+                return `
+                    <div class="performance-metric">
+                        <div class="performance-metric-value">${{val}}</div>
+                        <div class="performance-metric-label">${{label}}</div>
+                    </div>
+                `;
+            }}).join('');
+            metricsEl.innerHTML = metricsHtml || '<div style="padding:16px;text-align:center;color:#888;">No metrics available</div>';
+            
+            // 3. 渲染问题列表
+            const issues = performanceData.issues || [];
+            if (issues.length === 0) {{
+                issuesEl.innerHTML = `
+                    <li class="performance-empty">
+                        <div class="performance-empty-icon">✓</div>
+                        <div>No performance issues detected!</div>
+                    </li>
+                `;
+            }} else {{
+                issuesEl.innerHTML = issues.map(issue => {{
+                    const severity = issue.severity || 'info';
+                    const rule = issue.rule_id || issue.rule || '';
+                    const title = issue.title || issue.message || 'Issue';
+                    const message = issue.message || issue.description || '';
+                    const suggestion = issue.suggestion || '';
+                    
+                    return `
+                        <li class="performance-issue">
+                            <div class="performance-severity ${{severity}}"></div>
+                            <div class="performance-issue-content">
+                                <div class="performance-issue-title">
+                                    ${{title}}
+                                    ${{rule ? `<span class="performance-issue-rule">${{rule}}</span>` : ''}}
+                                </div>
+                                <div class="performance-issue-message">${{message}}</div>
+                                ${{suggestion ? `<div class="performance-issue-suggestion">💡 ${{suggestion}}</div>` : ''}}
+                            </div>
+                        </li>
+                    `;
+                }}).join('');
+            }}
+        }}
+        
         // ========== 优化建议面板函数 (TASK-009) ==========
         
         function toggleOptimizationPanel() {{
@@ -6407,7 +6699,7 @@ def generate_offline_html(textures: list, rdc_name: str, output_path: str,
                 'LOW': '#44aa44'
             }};
             
-            // 构建 HTML - 带可展开的资源列表
+            // 构建 HTML - 点击筛选主纹理列表 (方案B)
             let itemsHtml = items.map((item, idx) => {{
                 const color = priorityColors[item.priority] || '#888';
                 const savings = item.estimated_savings_bytes > 0 ? 
@@ -6418,29 +6710,15 @@ def generate_offline_html(textures: list, rdc_name: str, output_path: str,
                 const hasResources = resources.length > 0;
                 const resourceCount = resources.length;
                 
-                // 构建资源列表 HTML
-                let resourcesHtml = '';
-                if (hasResources) {{
-                    const displayResources = resources.slice(0, 20);
-                    const moreCount = resources.length - 20;
-                    resourcesHtml = `
-                        <div id="optim-resources-${{idx}}" class="optim-resources" style="display:none; margin: 8px 0 8px 20px; padding: 8px; background: #1a1a1a; border-radius: 4px; max-height: 200px; overflow-y: auto;">
-                            ${{displayResources.map(r => `<div style="color:#ccc; font-size:11px; padding:2px 0; border-bottom:1px solid #333;">📄 ${{r}}</div>`).join('')}}
-                            ${{moreCount > 0 ? `<div style="color:#888; font-size:11px; padding:4px 0;">... 还有 ${{moreCount}} 个</div>` : ''}}
-                        </div>
-                    `;
-                }}
-                
                 return `
-                    <div class="optim-item" style="border-left: 3px solid ${{color}}; padding-left: 8px; margin: 4px 0;">
-                        <div class="optim-header" style="cursor: ${{hasResources ? 'pointer' : 'default'}};" onclick="${{hasResources ? `toggleOptimResources(${{idx}})` : ''}}">
-                            <span style="color:${{color}};">●</span> 
-                            <span style="color:#aaa;">[${{item.category}}]</span> 
-                            ${{item.title}}
-                            ${{hasResources ? `<span style="color:#888;font-size:11px;"> (${{resourceCount}}个)</span><span id="optim-toggle-${{idx}}" style="color:#888;margin-left:4px;">▶</span>` : ''}}
-                            ${{savings}}
-                        </div>
-                        ${{resourcesHtml}}
+                    <div class="optim-item" style="border-left: 3px solid ${{color}}; padding-left: 8px; margin: 4px 0; cursor: ${{hasResources ? 'pointer' : 'default'}};" 
+                         onclick="${{hasResources ? `applyOptimizationFilter(${{idx}})` : ''}}"
+                         title="${{hasResources ? '点击筛选纹理列表' : ''}}">
+                        <span style="color:${{color}};">●</span> 
+                        <span style="color:#aaa;">[${{item.category}}]</span> 
+                        ${{item.title}}
+                        ${{hasResources ? `<span style="color:#888;font-size:11px;"> (${{resourceCount}}个) →</span>` : ''}}
+                        ${{savings}}
                     </div>
                 `;
             }}).join('');
@@ -6460,19 +6738,68 @@ def generate_offline_html(textures: list, rdc_name: str, output_path: str,
             statsSection.insertAdjacentHTML('beforeend', optimHtml);
         }}
         
-        // 切换优化建议的资源列表展开/折叠
-        function toggleOptimResources(idx) {{
-            const resourcesDiv = document.getElementById(`optim-resources-${{idx}}`);
-            const toggleSpan = document.getElementById(`optim-toggle-${{idx}}`);
-            if (resourcesDiv) {{
-                if (resourcesDiv.style.display === 'none') {{
-                    resourcesDiv.style.display = 'block';
-                    if (toggleSpan) toggleSpan.textContent = '▼';
-                }} else {{
-                    resourcesDiv.style.display = 'none';
-                    if (toggleSpan) toggleSpan.textContent = '▶';
-                }}
+        // 应用优化建议筛选 (方案B)
+        function applyOptimizationFilter(idx) {{
+            if (!optimizationData || !optimizationData.items[idx]) return;
+            
+            const item = optimizationData.items[idx];
+            const resources = item.affected_resources || [];
+            if (resources.length === 0) return;
+            
+            // 保存筛选状态
+            currentOptimizationFilter = {{
+                title: item.title,
+                category: item.category,
+                resourceNames: resources
+            }};
+            
+            // 按资源名称筛选纹理
+            filteredTextures = textures.filter(tex => {{
+                const texName = tex.name || `Texture #${{tex.id}}`;
+                return resources.some(r => texName.includes(r) || r.includes(texName) || texName === r);
+            }});
+            
+            // 如果按名称匹配不到，尝试更宽松的匹配（资源名可能只是部分名称）
+            if (filteredTextures.length === 0) {{
+                // 尝试用 resourceId 匹配
+                filteredTextures = textures.filter(tex => {{
+                    return resources.some(r => r.includes(String(tex.resourceId)) || r.includes(String(tex.id)));
+                }});
             }}
+            
+            // 更新筛选提示条
+            const filterBar = document.getElementById('optimFilterBar');
+            const filterTitle = document.getElementById('optimFilterTitle');
+            const filterCount = document.getElementById('optimFilterCount');
+            if (filterBar && filterTitle && filterCount) {{
+                filterBar.style.display = 'block';
+                filterTitle.textContent = item.title;
+                filterCount.textContent = `(${{filteredTextures.length}}/${{resources.length}} 匹配)`;
+            }}
+            
+            // 重新渲染纹理列表
+            renderTextureList();
+            
+            // 滚动到列表顶部
+            const list = document.getElementById('textureListApp');
+            if (list) list.scrollTop = 0;
+        }}
+        
+        // 清除优化建议筛选
+        function clearOptimizationFilter() {{
+            currentOptimizationFilter = null;
+            filteredTextures = [...textures];
+            
+            // 隐藏筛选提示条
+            const filterBar = document.getElementById('optimFilterBar');
+            if (filterBar) filterBar.style.display = 'none';
+            
+            // 清空搜索框
+            const searchBox = document.getElementById('searchBoxApp');
+            if (searchBox) searchBox.value = '';
+            
+            // 重新渲染
+            renderTextureList();
         }}
         
         function setupAppEventListeners() {{
