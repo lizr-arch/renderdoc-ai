@@ -25,7 +25,9 @@ from core.types import (
     PERFORMANCE_RULES,
     StateRedundancy,
     BatchAnalysis,
+    BatchAnalysisSummary,
     TextureAnalysis,
+    TextureAnalysisSummary,
     TextureInfo,
     DrawCallInfo,
 )
@@ -155,10 +157,11 @@ class PerformanceAnalyzer:
         self.report.total_triangles = total_triangles
         self.report.total_vertices = total_vertices
         
-        # 纹理统计
-        self.report.unique_textures = len(parsed.textures)
+        # 纹理统计 - 使用 texture_infos 属性获取 TextureInfo 对象列表
+        texture_list = parsed.texture_infos
+        self.report.unique_textures = len(texture_list)
         self.report.total_texture_memory_mb = sum(
-            t.byte_size for t in parsed.textures
+            t.memory_size for t in texture_list
         ) / (1024 * 1024)
     
     def _analyze_state_changes(self) -> None:
@@ -205,7 +208,8 @@ class PerformanceAnalyzer:
         uncompressed_textures: List[TextureInfo] = []
         npot_textures: List[TextureInfo] = []
         
-        for tex in self.context.parsed.textures:
+        # 使用 texture_infos 属性获取 TextureInfo 对象列表
+        for tex in self.context.parsed.texture_infos:
             # 大纹理检测 (PERF004)
             if tex.width >= 4096 or tex.height >= 4096:
                 large_textures.append(tex)
@@ -222,7 +226,7 @@ class PerformanceAnalyzer:
         
         # 添加大纹理警告
         if large_textures:
-            total_size_mb = sum(t.byte_size for t in large_textures) / (1024 * 1024)
+            total_size_mb = sum(t.memory_size for t in large_textures) / (1024 * 1024)
             self._add_issue(
                 rule_id="PERF004",
                 title="Large Textures Detected",
@@ -235,7 +239,7 @@ class PerformanceAnalyzer:
         
         # 添加未压缩纹理警告
         if uncompressed_textures:
-            total_size_mb = sum(t.byte_size for t in uncompressed_textures) / (1024 * 1024)
+            total_size_mb = sum(t.memory_size for t in uncompressed_textures) / (1024 * 1024)
             self._add_issue(
                 rule_id="PERF005",
                 title="Uncompressed Textures Detected",
@@ -247,10 +251,13 @@ class PerformanceAnalyzer:
             )
         
         # 保存纹理分析结果
-        self.report.texture_analysis = TextureAnalysis(
+        self.report.texture_analysis = TextureAnalysisSummary(
             large_textures=[t.name for t in large_textures],
             uncompressed_textures=[t.name for t in uncompressed_textures],
             npot_textures=[t.name for t in npot_textures],
+            total_large_texture_count=len(large_textures),
+            total_uncompressed_count=len(uncompressed_textures),
+            total_large_texture_memory_mb=sum(t.memory_size for t in large_textures) / (1024 * 1024),
         )
     
     def _analyze_batches(self) -> None:
@@ -297,10 +304,12 @@ class PerformanceAnalyzer:
                 )
         
         # 保存批次分析结果
-        self.report.batch_analysis = BatchAnalysis(
+        self.report.batch_analysis = BatchAnalysisSummary(
             avg_batch_size=avg_batch_size,
             small_batch_count=len(small_batches),
             very_small_batch_count=len(very_small_batches),
+            total_batches=self.report.total_draw_calls,
+            instanced_batch_count=0,  # TODO: 需要从 draw call 数据中提取
         )
     
     def _calculate_score(self) -> None:
@@ -395,13 +404,15 @@ class PerformanceAnalyzer:
         """添加性能问题"""
         rule = self._rules.get(rule_id)
         suggestion = rule.suggestion if rule else ""
+        category = rule.category if rule else "unknown"
         
         issue = PerformanceIssue(
             rule_id=rule_id,
             severity=severity,
+            category=category,
             title=title,
             message=message,
             suggestion=suggestion,
-            event_ids=event_ids,
+            related_events=event_ids,
         )
         self.report.issues.append(issue)

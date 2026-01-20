@@ -276,6 +276,40 @@ class ParsedData:
             )
             result.append(dc)
         return result
+    
+    @property
+    def texture_infos(self) -> List['TextureInfo']:
+        """
+        texture_infos 属性
+        
+        将 Dict 格式的 textures 转换为 TextureInfo 对象列表。
+        用于兼容 PerformanceAnalyzer 等期望 TextureInfo 对象的代码。
+        """
+        result = []
+        for t in self.textures:
+            # 处理 Dict 和 TextureInfo 两种输入
+            if isinstance(t, dict):
+                tex = TextureInfo(
+                    resource_id=t.get('id', t.get('resource_id', '')),
+                    name=t.get('name', ''),
+                    width=t.get('width', 0),
+                    height=t.get('height', 0),
+                    depth=t.get('depth', 1),
+                    array_size=t.get('array_size', t.get('arraySize', 1)),
+                    mip_levels=t.get('mip_levels', t.get('mipLevels', 1)),
+                    format=t.get('format', ''),
+                    format_category=t.get('format_category', ''),
+                    sample_count=t.get('sample_count', t.get('sampleCount', 1)),
+                    memory_size=t.get('byte_size', t.get('byteSize', t.get('memory_size', 0))),
+                    is_render_target=t.get('is_render_target', t.get('isRenderTarget', False)),
+                    is_depth_stencil=t.get('is_depth_stencil', t.get('isDepthStencil', False)),
+                    bind_count=t.get('bind_count', t.get('bindCount', 0)),
+                )
+                result.append(tex)
+            elif hasattr(t, 'resource_id'):
+                # 已经是 TextureInfo 对象
+                result.append(t)
+        return result
 
 
 # ============================================================================
@@ -397,6 +431,12 @@ class PerformanceReport:
     
     # 建议列表 (按优先级排序)
     recommendations: List[str] = field(default_factory=list)
+    
+    # 纹理分析汇总
+    texture_analysis: Optional['TextureAnalysisSummary'] = None
+    
+    # 批次分析汇总
+    batch_analysis: Optional['BatchAnalysisSummary'] = None
 
 
 @dataclass
@@ -432,7 +472,7 @@ class BatchAnalysis:
 
 @dataclass
 class TextureAnalysis:
-    """纹理分析结果"""
+    """单个纹理的分析结果"""
     resource_id: str
     name: str = ""
     width: int = 0
@@ -452,6 +492,27 @@ class TextureAnalysis:
     used_in_events: List[int] = field(default_factory=list)
 
 
+@dataclass
+class TextureAnalysisSummary:
+    """纹理分析汇总结果 (用于 PerformanceReport)"""
+    large_textures: List[str] = field(default_factory=list)  # 大纹理名称列表
+    uncompressed_textures: List[str] = field(default_factory=list)  # 未压缩纹理名称列表
+    npot_textures: List[str] = field(default_factory=list)  # 非2的幂纹理名称列表
+    total_large_texture_count: int = 0
+    total_uncompressed_count: int = 0
+    total_large_texture_memory_mb: float = 0.0
+
+
+@dataclass
+class BatchAnalysisSummary:
+    """批次分析汇总结果 (用于 PerformanceReport)"""
+    avg_batch_size: float = 0.0  # 平均批次大小 (三角形数)
+    small_batch_count: int = 0  # 小批次数量 (< 500 三角形)
+    very_small_batch_count: int = 0  # 极小批次数量 (< 100 三角形)
+    total_batches: int = 0
+    instanced_batch_count: int = 0
+
+
 # ============================================================================
 # 性能规则定义
 # ============================================================================
@@ -464,6 +525,7 @@ class PerformanceRule:
     description: str
     category: str  # overdraw | state | batch | texture | blend | binding
     severity: str  # critical | warning | info
+    suggestion: str = ""  # 优化建议文本
     enabled: bool = True
     
     # 阈值参数 (规则特定)
@@ -478,6 +540,7 @@ PERFORMANCE_RULES: Dict[str, PerformanceRule] = {
         description="检测同一像素被多次绘制的情况",
         category="overdraw",
         severity="warning",
+        suggestion="使用深度预绘制(Z-Prepass)或遮挡剔除减少过度绘制",
         thresholds={"max_overdraw": 4}  # 超过 4 次绘制视为问题
     ),
     "PERF002": PerformanceRule(
@@ -486,6 +549,7 @@ PERFORMANCE_RULES: Dict[str, PerformanceRule] = {
         description="检测连续设置相同状态的情况",
         category="state",
         severity="info",
+        suggestion="按材质/Shader排序绘制调用，减少状态切换",
         thresholds={"min_redundant_count": 3}  # 连续 3 次以上视为问题
     ),
     "PERF003": PerformanceRule(
@@ -494,6 +558,7 @@ PERFORMANCE_RULES: Dict[str, PerformanceRule] = {
         description="检测顶点数过少的绘制调用",
         category="batch",
         severity="warning",
+        suggestion="使用GPU实例化或静态批处理合并小绘制调用",
         thresholds={"min_vertices": 100, "min_triangles": 30}
     ),
     "PERF004": PerformanceRule(
@@ -502,6 +567,7 @@ PERFORMANCE_RULES: Dict[str, PerformanceRule] = {
         description="检测超过阈值的大纹理",
         category="texture",
         severity="warning",
+        suggestion="使用较低分辨率的纹理或虚拟纹理(Virtual Texturing)",
         thresholds={"max_dimension": 4096, "max_memory_mb": 64}
     ),
     "PERF005": PerformanceRule(
@@ -510,6 +576,7 @@ PERFORMANCE_RULES: Dict[str, PerformanceRule] = {
         description="检测未使用压缩格式的纹理",
         category="texture",
         severity="info",
+        suggestion="使用BC/DXT压缩格式减少显存占用和带宽消耗",
         thresholds={"min_size_for_compression": 256}  # 256x256 以上应压缩
     ),
     "PERF006": PerformanceRule(
@@ -518,6 +585,7 @@ PERFORMANCE_RULES: Dict[str, PerformanceRule] = {
         description="检测过多的 Alpha 混合绘制",
         category="blend",
         severity="warning",
+        suggestion="减少半透明物体数量或使用Alpha测试代替混合",
         thresholds={"max_blend_ratio": 0.5}  # 超过 50% 的 Draw 使用混合
     ),
     "PERF007": PerformanceRule(
@@ -526,6 +594,7 @@ PERFORMANCE_RULES: Dict[str, PerformanceRule] = {
         description="检测资源频繁绑定/解绑的情况",
         category="binding",
         severity="info",
+        suggestion="使用Bindless资源或合并纹理为图集减少绑定次数",
         thresholds={"max_rebind_count": 10}  # 同一资源绑定超过 10 次
     ),
 }
