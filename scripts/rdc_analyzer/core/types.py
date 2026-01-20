@@ -175,6 +175,7 @@ RenderPassInfo = PassInfo
 class DrawCallInfo:
     """绘制调用信息"""
     event_id: int
+    name: str = ""  # Draw call 名称 (如 "DrawIndexed")
     type: str = ""
     index_count: int = 0
     vertex_count: int = 0
@@ -253,6 +254,28 @@ class ParsedData:
     # 元数据
     total_events: int = 0
     capture_time: str = ""
+    
+    @property
+    def draw_calls(self) -> List['DrawCallInfo']:
+        """
+        draw_calls 属性 (别名到 draws)
+        
+        用于兼容 PerformanceAnalyzer 等期望 draw_calls 属性的代码。
+        将 Dict 格式的 draws 转换为 DrawCallInfo 对象。
+        """
+        result = []
+        for d in self.draws:
+            dc = DrawCallInfo(
+                event_id=d.get('eid', d.get('event_id', 0)),
+                name=d.get('name', ''),
+                vertex_count=d.get('vertex_count', d.get('vertexCount', 0)),
+                index_count=d.get('index_count', d.get('indexCount', 0)),
+                instance_count=d.get('instance_count', d.get('instanceCount', 1)),
+                vs_id=d.get('vs_id', d.get('vs', '')),
+                ps_id=d.get('ps_id', d.get('ps', '')),
+            )
+            result.append(dc)
+        return result
 
 
 # ============================================================================
