@@ -13311,6 +13311,9 @@ def main():
     print(f"\n=== Generating Offline Report for {rdc_path.name} ===\n")
     
     # 支持直接传入 textures.json
+    shaders = []
+    event_pass_data = {}
+    
     if rdc_path.name == 'textures.json' or rdc_path.suffix == '.json':
         with open(rdc_path, 'r', encoding='utf-8') as f:
             manifest = json.load(f)
@@ -13331,13 +13334,29 @@ def main():
                 "channels": tex.get("channels", {})
             })
         print(f"  [OK] Loaded {len(textures)} textures from {rdc_path}")
+        
+        # TASK-215: 提取 shaders 数据
+        if isinstance(manifest, dict) and "shaders" in manifest:
+            shaders = manifest.get("shaders", [])
+            print(f"  [OK] Loaded {len(shaders)} shaders from {rdc_path}")
+        
+        # 提取 events 数据（用于 Pipeline→Event/Texture 映射）
+        if isinstance(manifest, dict) and "events" in manifest:
+            event_pass_data = {"events": manifest.get("events", [])}
+            print(f"  [OK] Loaded {len(event_pass_data['events'])} events from {rdc_path}")
     else:
         textures = load_textures_from_export(str(rdc_path))
     
     if not textures:
         print("[WARN] No textures found, generating empty report")
     
-    generate_offline_html(textures, rdc_path.name, output_path)
+    generate_offline_html(
+        textures, 
+        rdc_path.name, 
+        output_path,
+        event_pass_data=event_pass_data if event_pass_data else None,
+        shader_data=shaders if shaders else None
+    )
     
     return 0
 
