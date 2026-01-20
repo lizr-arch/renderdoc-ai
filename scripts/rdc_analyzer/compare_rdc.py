@@ -151,12 +151,22 @@ def load_json_data(file_path: str) -> Dict[str, Any]:
         texture_count = phase1_summary.get("total_textures", 0)
         shader_count = phase1_summary.get("total_shaders", 0)
         
+        # 从 Phase 1 summary 提取顶点/三角形数据
+        total_vertices = phase1_summary.get("total_vertices", 0)
+        total_triangles = phase1_summary.get("total_triangles", 0)
+        
+        # 如果 summary 没有，尝试从 events 累加
+        if total_vertices == 0 and "events" in item:
+            for evt in item.get("events", []):
+                total_vertices += evt.get("vertex_count", evt.get("index_count", 0))
+                total_triangles += evt.get("index_count", 0) // 3
+        
         result = {
             "file_path": item.get("summary", {}).get("file", str(file_path)),
             "summary": {
                 "draw_call_count": draw_count,
-                "total_vertices": 0,  # Phase 1 可能没有这个字段
-                "total_triangles": 0,  # Phase 1 可能没有这个字段
+                "total_vertices": total_vertices,
+                "total_triangles": total_triangles,
                 "texture_count": texture_count,
                 "shader_count": shader_count,
                 "pipeline_count": phase1_summary.get("total_pipelines", 0),
@@ -166,8 +176,8 @@ def load_json_data(file_path: str) -> Dict[str, Any]:
             # DiffEngine 从 statistics 读取这些值
             "statistics": {
                 "totalDrawCalls": draw_count,
-                "totalVertices": 0,
-                "totalTriangles": 0,
+                "totalVertices": total_vertices,
+                "totalTriangles": total_triangles,
                 "dispatchCalls": 0,
                 "textureCount": texture_count,
                 "shaderCount": shader_count,
