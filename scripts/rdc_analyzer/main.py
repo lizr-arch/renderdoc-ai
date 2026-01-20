@@ -197,6 +197,10 @@ class AnalysisPipeline:
         self._performance_report = None  # 性能分析报告
         self._mali_report = None  # Mali GPU 分析报告
         
+        # Pipeline state 采样跟踪
+        self._pipeline_state_samples = 0  # 已采样的 draw call 数量
+        self._resource_lifecycle_tracked = False  # 是否跟踪了资源生命周期
+        
         # 配置日志级别
         log_level = getattr(logging, self.options.log_level.upper(), logging.INFO)
         logging.getLogger().setLevel(log_level)
@@ -709,6 +713,9 @@ class AnalysisPipeline:
             state = self._controller.GetPipelineState()
             pipe = state.GetGraphicsPipelineObject()
             
+            # 更新 pipeline state 采样计数
+            self._pipeline_state_samples += 1
+            
             # 分析 Vertex Shader
             try:
                 vs_refl = state.GetShaderReflection(rd.ShaderStage.Vertex)
@@ -944,25 +951,57 @@ class AnalysisPipeline:
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         base_name = Path(self.rdc_path).stem
         
-        # 准备分析数据
+        # 计算统计指标
+        total_vertices = sum(dc.get('numIndices', 0) or 0 for dc in self._draw_calls)
+        total_instances = sum(dc.get('numInstances', 1) or 1 for dc in self._draw_calls)
+        
+        # 计算资源内存
+        texture_memory_bytes = sum(
+            tex.get('width', 0) * tex.get('height', 0) * tex.get('depth', 1) * 4  # 估算
+            for tex in self._resources.get('textures', {}).values()
+        )
+        buffer_memory_bytes = sum(
+            buf.get('length', 0)
+            for buf in self._resources.get('buffers', {}).values()
+        )
+        
+        # 构建 coverage/data_quality 信息
+        coverage = self._build_coverage_report()
+        
+        # 构建 suggestions 列表
+        suggestions = self._build_suggestions()
+        
+        # 准备分析数据 - Canonical Schema v1.0
         analysis_data = {
+            'schema_version': '1.0',
             'meta': {
                 'rdc_path': self.rdc_path,
                 'api': self._api,
+                'platform': self.options.platform,
                 'timestamp': datetime.now().isoformat(),
-                'version': '2.0.0'
+                'analyzer_version': '2.0.0',
+                'renderdoc_version': self._get_renderdoc_version()
             },
             'summary': {
                 'total_events': len(self._events),
                 'draw_call_count': len(self._draw_calls),
+                'dispatch_count': sum(1 for e in self._events if 'Dispatch' in str(e.get('name', ''))),
+                'total_vertices': total_vertices,
+                'total_instances': total_instances,
                 'texture_count': len(self._resources.get('textures', {})),
                 'buffer_count': len(self._resources.get('buffers', {})),
+                'texture_memory_mb': round(texture_memory_bytes / (1024 * 1024), 2),
+                'buffer_memory_mb': round(buffer_memory_bytes / (1024 * 1024), 2),
+                'issue_count': len(self._issues),
+                'suggestion_count': len(suggestions)
             },
+            'coverage': coverage,
             'events': self._events[:1000],  # 限制大小
             'draw_calls': self._draw_calls,
             'resources': self._resources,
             'resource_samples': self._resource_samples,
-            'issues': self._issues
+            'issues': self._issues,
+            'suggestions': suggestions
         }
         
         # 导出 JSON
@@ -1093,6 +1132,398 @@ class AnalysisPipeline:
             except:
                 pass
             self._capture = None
+    
+    def _get_renderdoc_version(self) -> str:
+        """获取 RenderDoc 版本号"""
+        try:
+            import renderdoc as rd
+            if hasattr(rd, 'GetVersionString'):
+                return rd.GetVersionString()
+            elif hasattr(rd, 'RENDERDOC_VERSION'):
+                return str(rd.RENDERDOC_VERSION)
+            return 'unknown'
+        except Exception:
+            return 'unknown'
+    
+    def _build_coverage_report(self) -> Dict[str, Any]:
+        """构建数据覆盖率/质量报告
+        
+        检测各数据源的实际可用性，区分:
+        - present: 有真实数据
+        - partial: 部分有真实数据
+        - estimated: 使用估算值
+        - missing: 完全缺失
+        
+        Returns:
+            Dict 包含各数据面的覆盖状态
+        """
+        coverage = {
+            'overall': 'medium',  # 默认中等可信度
+            'details': {},
+            'missing_items': [],
+            'confidence_reasons': [],
+            'sampling_stats': {}  # 采样统计
+        }
+        
+        # === 1. 检查事件数据 ===
+        if self._events:
+            coverage['details']['events'] = 'present'
+        else:
+            coverage['details']['events'] = 'missing'
+            coverage['missing_items'].append('事件列表为空')
+        
+        # === 2. 检查 Draw Call 数据 ===
+        if self._draw_calls:
+            coverage['details']['draw_calls'] = 'present'
+        else:
+            coverage['details']['draw_calls'] = 'missing'
+            coverage['missing_items'].append('未检测到 Draw Call')
+        
+        # === 3. 检查资源数据 ===
+        has_textures = bool(self._resources.get('textures'))
+        has_buffers = bool(self._resources.get('buffers'))
+        
+        if has_textures and has_buffers:
+            coverage['details']['resources'] = 'present'
+        elif has_textures or has_buffers:
+            coverage['details']['resources'] = 'partial'
+            coverage['missing_items'].append('资源数据不完整')
+        else:
+            coverage['details']['resources'] = 'missing'
+            coverage['missing_items'].append('无资源数据')
+        
+        # === 4. 检查 Marker 数据 ===
+        has_markers = any(
+            e.get('depth', 0) > 0 or 
+            any(keyword in str(e.get('name', '')) for keyword in ['Begin', 'End', 'Push', 'Pop'])
+            for e in self._events
+        )
+        coverage['details']['markers'] = 'present' if has_markers else 'missing'
+        if not has_markers:
+            coverage['missing_items'].append('未检测到 Render Markers（建议开启 Marker/Annotation）')
+        
+        # === 5. 检查 Pipeline State ===
+        # Pipeline State 采样覆盖率判断
+        total_draws = len(self._draw_calls)
+        sampled_draws = self._pipeline_state_samples
+        
+        if sampled_draws > 0 and total_draws > 0:
+            sample_ratio = sampled_draws / total_draws
+            coverage['sampling_stats']['pipeline_state'] = {
+                'sampled': sampled_draws,
+                'total': total_draws,
+                'ratio': round(sample_ratio, 3)
+            }
+            
+            if sample_ratio >= 0.9:
+                coverage['details']['pipeline_state'] = 'present'
+                coverage['confidence_reasons'].append(
+                    f'Pipeline State 覆盖率: {sample_ratio*100:.1f}% ({sampled_draws}/{total_draws})'
+                )
+            elif sample_ratio >= 0.3:
+                coverage['details']['pipeline_state'] = 'partial'
+                coverage['confidence_reasons'].append(
+                    f'Pipeline State 部分采样: {sample_ratio*100:.1f}% ({sampled_draws}/{total_draws})'
+                )
+            else:
+                coverage['details']['pipeline_state'] = 'estimated'
+                coverage['confidence_reasons'].append(
+                    f'Pipeline State 采样不足: {sample_ratio*100:.1f}% ({sampled_draws}/{total_draws})'
+                )
+        else:
+            coverage['details']['pipeline_state'] = 'estimated'
+            coverage['confidence_reasons'].append('Pipeline State 使用估算值（未进行真实回放）')
+        
+        # === 6. 检查资源生命周期 ===
+        if self._resource_lifecycle_tracked:
+            coverage['details']['resource_lifecycle'] = 'present'
+        else:
+            # 如果有资源采样数据，视为部分可用
+            if self._resource_samples:
+                coverage['details']['resource_lifecycle'] = 'partial'
+                coverage['confidence_reasons'].append(
+                    f'资源生命周期：基于 {len(self._resource_samples)} 个采样推断'
+                )
+            else:
+                coverage['details']['resource_lifecycle'] = 'estimated'
+                coverage['confidence_reasons'].append('资源生命周期使用估算值')
+        
+        # === 7. 检查 Shader 分析数据 ===
+        if self._mali_report and self._mali_report.get('status') == 'success':
+            success_count = self._mali_report.get('success_count', 0)
+            total_shaders = self._mali_report.get('total_shaders', 0)
+            if success_count > 0:
+                coverage['details']['shader_analysis'] = 'present'
+                coverage['sampling_stats']['shader_analysis'] = {
+                    'analyzed': success_count,
+                    'total': total_shaders
+                }
+            else:
+                coverage['details']['shader_analysis'] = 'missing'
+        else:
+            coverage['details']['shader_analysis'] = 'missing'
+        
+        # === 8. 检查性能分析数据 ===
+        if self._performance_report and self._performance_report.get('overall_score') is not None:
+            coverage['details']['performance_metrics'] = 'present'
+        else:
+            coverage['details']['performance_metrics'] = 'missing'
+        
+        # === 计算整体可信度 ===
+        present_count = sum(1 for v in coverage['details'].values() if v == 'present')
+        partial_count = sum(1 for v in coverage['details'].values() if v == 'partial')
+        estimated_count = sum(1 for v in coverage['details'].values() if v == 'estimated')
+        total_count = len(coverage['details'])
+        
+        # 加权计算 (present=1.0, partial=0.5, estimated=0.2)
+        effective_present = present_count + partial_count * 0.5 + estimated_count * 0.2
+        coverage_ratio = effective_present / total_count if total_count > 0 else 0
+        
+        if coverage_ratio >= 0.8:
+            coverage['overall'] = 'high'
+        elif coverage_ratio >= 0.5:
+            coverage['overall'] = 'medium'
+        else:
+            coverage['overall'] = 'low'
+        
+        return coverage
+    
+    def _build_suggestions(self) -> List[Dict[str, Any]]:
+        """构建建议列表
+        
+        基于发现的 issues 和性能分析结果生成可执行建议。
+        每条建议包含: steps, expected_impact, risk, verification_plan
+        
+        Returns:
+            List of suggestion dicts
+        """
+        suggestions = []
+        
+        # 从性能报告提取建议
+        if self._performance_report:
+            for rec in self._performance_report.get('recommendations', []):
+                text = rec.get('text', rec) if isinstance(rec, dict) else str(rec)
+                priority = rec.get('priority', 'medium') if isinstance(rec, dict) else 'medium'
+                
+                suggestion = self._create_suggestion_from_recommendation(text, priority)
+                if suggestion:
+                    suggestions.append(suggestion)
+        
+        # 从 issues 生成建议
+        for issue in self._issues:
+            code = issue.get('code', '')
+            
+            # 根据不同类型的 issue 生成建议
+            if code == 'BIND001':  # Draw Call 过多
+                suggestions.append({
+                    'id': f'SUG_{code}',
+                    'title': '减少 Draw Call 数量',
+                    'priority': 'high',
+                    'confidence': 'high',
+                    'related_issue': code,
+                    'steps': [
+                        '使用 Static/Dynamic Batching 合并相同材质的物体',
+                        '使用 GPU Instancing 批量绘制相同 Mesh',
+                        '合并小型 Mesh 为单个大 Mesh（Mesh Combine）',
+                        '检查是否有不必要的渲染 Pass'
+                    ],
+                    'expected_impact': {
+                        'metric': 'draw_call_count',
+                        'direction': 'decrease',
+                        'estimate': '可减少 30-70% Draw Call'
+                    },
+                    'risk': '合并可能影响裁剪效率，需要平衡',
+                    'engine_howto': {
+                        'unity': '开启 Player Settings > Static Batching; 使用 DrawMeshInstanced()',
+                        'unreal': '使用 Instanced Static Mesh Component; 开启 Merge Actors',
+                        'custom': '实现 Instance Buffer，批量提交相同 Mesh'
+                    },
+                    'verification_plan': {
+                        'metrics': ['draw_call_count', 'batch_count'],
+                        'expected_direction': 'down',
+                        'how_to_verify': '抓取优化后的帧，对比 Draw Call 数量'
+                    }
+                })
+            
+            elif code == 'BIND002':  # 顶点数过多
+                suggestions.append({
+                    'id': f'SUG_{code}',
+                    'title': '优化顶点数量',
+                    'priority': 'high',
+                    'confidence': 'high',
+                    'related_issue': code,
+                    'steps': [
+                        '使用 LOD（Level of Detail）系统',
+                        '简化远处物体的 Mesh',
+                        '检查是否有被遮挡但仍在渲染的物体',
+                        '使用 Occlusion Culling 剔除不可见物体'
+                    ],
+                    'expected_impact': {
+                        'metric': 'total_vertices',
+                        'direction': 'decrease',
+                        'estimate': '可减少 20-50% 顶点'
+                    },
+                    'risk': '过度简化可能影响画质',
+                    'engine_howto': {
+                        'unity': '使用 LOD Group 组件; 开启 Occlusion Culling',
+                        'unreal': '配置 LOD Settings; 使用 HLOD',
+                        'custom': '实现视距 LOD 切换逻辑'
+                    },
+                    'verification_plan': {
+                        'metrics': ['total_vertices', 'total_triangles'],
+                        'expected_direction': 'down',
+                        'how_to_verify': '对比优化前后的顶点/三角形数量'
+                    }
+                })
+            
+            elif code == 'PERF005':  # 未压缩纹理
+                suggestions.append({
+                    'id': f'SUG_{code}',
+                    'title': '压缩纹理以减少内存和带宽',
+                    'priority': 'medium',
+                    'confidence': 'high',
+                    'related_issue': code,
+                    'steps': [
+                        '将 RGBA32 纹理转换为 BC/DXT 格式（PC）',
+                        '将纹理转换为 ASTC 格式（Mobile）',
+                        '对法线贴图使用专用压缩格式（BC5/ASTC）',
+                        '检查是否需要 Alpha 通道'
+                    ],
+                    'expected_impact': {
+                        'metric': 'texture_memory_mb',
+                        'direction': 'decrease',
+                        'estimate': '可减少 60-75% 纹理内存'
+                    },
+                    'risk': '压缩可能导致轻微画质损失，尤其是渐变区域',
+                    'engine_howto': {
+                        'unity': '在 Texture Import Settings 中选择 Compression 格式',
+                        'unreal': '在 Texture Editor 中设置 Compression Settings',
+                        'custom': '使用 texconv/compressonator 工具压缩'
+                    },
+                    'verification_plan': {
+                        'metrics': ['texture_memory_mb'],
+                        'expected_direction': 'down',
+                        'how_to_verify': '对比压缩前后的纹理内存占用'
+                    }
+                })
+            
+            elif code == 'PERF004':  # 大纹理
+                suggestions.append({
+                    'id': f'SUG_{code}',
+                    'title': '降低大尺寸纹理分辨率',
+                    'priority': 'medium',
+                    'confidence': 'medium',
+                    'related_issue': code,
+                    'steps': [
+                        '评估纹理实际显示尺寸（屏幕像素）',
+                        '根据使用场景降低纹理分辨率',
+                        '使用 Mipmap 避免远距离采样大纹理',
+                        '考虑使用 Virtual Texturing（如适用）'
+                    ],
+                    'expected_impact': {
+                        'metric': 'texture_memory_mb',
+                        'direction': 'decrease',
+                        'estimate': '每降一级约减少 75% 内存'
+                    },
+                    'risk': '近距离观察可能模糊',
+                    'engine_howto': {
+                        'unity': '在 Texture Import 中设置 Max Size; 开启 Generate Mip Maps',
+                        'unreal': '设置 Maximum Texture Size; 使用 Texture Streaming',
+                        'custom': '预处理时生成低分辨率版本'
+                    },
+                    'verification_plan': {
+                        'metrics': ['texture_memory_mb', 'texture_count'],
+                        'expected_direction': 'down',
+                        'how_to_verify': '对比优化前后的纹理内存占用'
+                    }
+                })
+        
+        return suggestions
+    
+    def _create_suggestion_from_recommendation(self, text: str, priority: str) -> Optional[Dict[str, Any]]:
+        """从简单建议文本创建结构化建议"""
+        # 解析建议类型
+        text_lower = text.lower()
+        
+        if '批次' in text or 'batch' in text_lower:
+            return {
+                'id': 'SUG_BATCH',
+                'title': '优化批次绘制',
+                'priority': priority,
+                'confidence': 'medium',
+                'steps': [text],
+                'expected_impact': {
+                    'metric': 'draw_call_count',
+                    'direction': 'decrease',
+                    'estimate': '视具体情况而定'
+                },
+                'risk': '需要评估合并后的裁剪效率',
+                'verification_plan': {
+                    'metrics': ['draw_call_count'],
+                    'expected_direction': 'down',
+                    'how_to_verify': '对比优化前后 Draw Call 数量'
+                }
+            }
+        
+        elif '压缩' in text or 'compress' in text_lower:
+            return {
+                'id': 'SUG_COMPRESS',
+                'title': '压缩纹理',
+                'priority': priority,
+                'confidence': 'medium',
+                'steps': [text],
+                'expected_impact': {
+                    'metric': 'texture_memory_mb',
+                    'direction': 'decrease',
+                    'estimate': '视具体情况而定'
+                },
+                'risk': '可能轻微影响画质',
+                'verification_plan': {
+                    'metrics': ['texture_memory_mb'],
+                    'expected_direction': 'down',
+                    'how_to_verify': '对比优化前后纹理内存'
+                }
+            }
+        
+        elif '分辨率' in text or 'resolution' in text_lower or '纹理' in text:
+            return {
+                'id': 'SUG_TEXTURE',
+                'title': '优化纹理',
+                'priority': priority,
+                'confidence': 'medium',
+                'steps': [text],
+                'expected_impact': {
+                    'metric': 'texture_memory_mb',
+                    'direction': 'decrease',
+                    'estimate': '视具体情况而定'
+                },
+                'risk': '可能影响画质',
+                'verification_plan': {
+                    'metrics': ['texture_memory_mb'],
+                    'expected_direction': 'down',
+                    'how_to_verify': '对比优化前后纹理内存'
+                }
+            }
+        
+        # 通用建议
+        return {
+            'id': 'SUG_GENERAL',
+            'title': '性能优化建议',
+            'priority': priority,
+            'confidence': 'low',
+            'steps': [text],
+            'expected_impact': {
+                'metric': 'performance',
+                'direction': 'improve',
+                'estimate': '视具体情况而定'
+            },
+            'risk': '需要具体评估',
+            'verification_plan': {
+                'metrics': ['frame_time'],
+                'expected_direction': 'down',
+                'how_to_verify': '对比优化前后帧时间'
+            }
+        }
     
     def _create_summary(self, duration: float, output_files: List[str]) -> AnalysisSummary:
         """创建分析摘要"""
