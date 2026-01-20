@@ -954,13 +954,31 @@ def load_texture_thumbnails(texture_dir: Path) -> dict:
         with open(manifest_path, 'r', encoding='utf-8') as f:
             manifest = json.load(f)
         
-        for tex in manifest.get("textures", []):
+        # 兼容两种格式：
+        # 1. 字典格式 {"textures": [...]}
+        # 2. 列表格式 [...] (直接是纹理列表)
+        if isinstance(manifest, list):
+            texture_list = manifest
+        else:
+            texture_list = manifest.get("textures", [])
+        
+        for tex in texture_list:
             # 兼容两种格式：id (C++) 或 resource_id (Python)
             res_id = tex.get("id") or tex.get("resource_id")
+            
+            if res_id is None:
+                continue
+            
+            # 优先检查嵌入的 thumbnail 字段（Data URI 格式）
+            embedded_thumbnail = tex.get("thumbnail")
+            if embedded_thumbnail and embedded_thumbnail.startswith("data:"):
+                thumbnail_map[str(res_id)] = embedded_thumbnail
+                continue
+            
             # 兼容两种格式：file (C++) 或 filename (Python)
             filename = tex.get("file") or tex.get("filename")
             
-            if res_id is not None and filename:
+            if filename:
                 img_path = texture_dir / filename
                 if img_path.exists():
                     try:
@@ -1024,7 +1042,15 @@ def create_textures_from_export(texture_dir: Path) -> list:
         with open(manifest_path, 'r', encoding='utf-8') as f:
             manifest = json.load(f)
         
-        for tex in manifest.get("textures", []):
+        # 兼容两种格式：
+        # 1. 字典格式 {"textures": [...]}
+        # 2. 列表格式 [...] (直接是纹理列表)
+        if isinstance(manifest, list):
+            texture_list = manifest
+        else:
+            texture_list = manifest.get("textures", [])
+        
+        for tex in texture_list:
             # 兼容两种格式
             res_id = tex.get("id") or tex.get("resource_id") or 0
             
@@ -1035,7 +1061,7 @@ def create_textures_from_export(texture_dir: Path) -> list:
                 "height": tex.get("height", 0),
                 "depth": tex.get("depth", 1),
                 "format": tex.get("format", "Unknown"),
-                "mips": tex.get("mips", 1),
+                "mips": tex.get("mips", tex.get("mipLevels", 1)),
                 "arraySize": tex.get("arrayLayers", 1),
                 "sampleCount": tex.get("samples", 1),
                 "byteSize": tex.get("byteSize", 0),
@@ -1413,8 +1439,8 @@ def main():
     # 加载帧缩略图
     frame_thumbnail = load_frame_thumbnail(json_path)
     
-    # 生成优化建议 (TASK-009)
-    print(f"\nGenerating optimization suggestions...")
+    # 生成纹理优化建议 (TASK-009)
+    print(f"\nGenerating texture optimization suggestions...")
     advisor = OptimizationAdvisor(
         textures=textures,
         rdc_name=json_path.stem,
@@ -1423,7 +1449,7 @@ def main():
     )
     optimization_report = advisor.analyze()
     optimization_data = optimization_report.to_dict()
-    print(f"  Generated {optimization_data['total_items']} optimization suggestions")
+    print(f"  Generated {optimization_data['total_items']} texture optimization suggestions")
     total_savings_mb = optimization_data['total_savings_bytes'] / (1024 * 1024)
     print(f"  Potential savings: {total_savings_mb:.2f} MB")
     
@@ -1499,6 +1525,31 @@ def main():
         
         print(f"  Performance Score: {perf_report.overall_score:.1f}/100")
         print(f"  Issues: {len(perf_report.issues)} ({perf_report.critical_count} critical, {perf_report.warning_count} warnings)")
+        
+        # 生成 Shader 优化建议 (ISSUE-003)
+        if SHADER_OPTIMIZATION_ENABLED and generate_optimization_from_context:
+            try:
+                shader_report = generate_optimization_from_context(analysis_context)
+                shader_suggestions = shader_report.get('top_suggestions', [])
+                
+                if shader_suggestions:
+                    print(f"  Shader optimizations: {len(shader_suggestions)} suggestions")
+                    
+                    # 合并到 optimization_data
+                    for suggestion in shader_suggestions:
+                        optimization_data['items'].append({
+                            'category': 'Shader',
+                            'severity': suggestion.get('priority', 'MEDIUM').lower(),
+                            'title': suggestion.get('title', 'Shader Optimization'),
+                            'description': suggestion.get('description', ''),
+                            'savings_bytes': 0,  # Shader 优化无直接内存节省
+                            'affected_resources': [suggestion.get('shader', 'Unknown')],
+                        })
+                    optimization_data['total_items'] += len(shader_suggestions)
+                else:
+                    print(f"  Shader optimizations: No shader data available")
+            except Exception as e:
+                print(f"  [WARN] Shader optimization analysis failed: {e}")
         
     except Exception as e:
         print(f"  [WARN] Performance analysis failed: {e}")
