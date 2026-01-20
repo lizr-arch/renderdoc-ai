@@ -144,6 +144,34 @@ class TestRTTracker(unittest.TestCase):
         self.assertIn("summary", data)
         self.assertIn("RT001", data["timeline"])
         self.assertEqual(data["summary"]["totalRTs"], 2)
+        
+    def test_excessive_switches_detection(self):
+        """测试过多 RT 切换检测"""
+        # 模拟频繁切换：15 次绑定，每次只有 2 个 Draw（< 5 阈值）
+        for i in range(15):
+            self.tracker.record_bind(i * 10, ["RT001"])
+            self.tracker.record_draw(i * 10 + 1)
+            self.tracker.record_draw(i * 10 + 2)
+            
+        issues = self.tracker.finalize()
+        
+        switch_issues = [i for i in issues if i.issue_type == "excessive_switches"]
+        self.assertEqual(len(switch_issues), 1)
+        self.assertEqual(switch_issues[0].resource_id, "RT001")
+        self.assertIn("频繁切换", switch_issues[0].message)
+        
+    def test_no_excessive_switches_if_enough_draws(self):
+        """测试：如果每次绑定有足够 Draw，则不报告过多切换"""
+        # 12 次绑定，每次 10 个 Draw（> 5 阈值）
+        for i in range(12):
+            self.tracker.record_bind(i * 100, ["RT001"])
+            for j in range(10):
+                self.tracker.record_draw(i * 100 + j + 1)
+                
+        issues = self.tracker.finalize()
+        
+        switch_issues = [i for i in issues if i.issue_type == "excessive_switches"]
+        self.assertEqual(len(switch_issues), 0)
 
 
 class TestAnalyzeRTOperations(unittest.TestCase):

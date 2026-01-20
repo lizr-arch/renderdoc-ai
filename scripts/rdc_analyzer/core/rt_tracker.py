@@ -303,6 +303,21 @@ class RTTracker:
                     suggestion="合并连续的 Clear 操作可减少 GPU 开销",
                 ))
                 
+        # 检查过多 RT 切换
+        excessive_switch_threshold = 10  # 绑定次数阈值
+        for resource_id, lc in self.lifecycles.items():
+            if lc.total_binds > excessive_switch_threshold:
+                avg_draws_per_bind = lc.total_draws / lc.total_binds if lc.total_binds > 0 else 0
+                if avg_draws_per_bind < 5:  # 每次绑定平均 Draw 少于 5 次
+                    issues.append(RTIssue(
+                        issue_type="excessive_switches",
+                        severity="warning",
+                        resource_id=resource_id,
+                        event_ids=[],
+                        message=f"RT {resource_id} 频繁切换: {lc.total_binds} 次绑定, 平均 {avg_draws_per_bind:.1f} Draw/绑定",
+                        suggestion="考虑合并渲染 Pass 或使用 MRT 减少切换开销",
+                    ))
+                
         return issues
         
     def _get_or_create_lifecycle(self, resource_id: str) -> RTLifecycle:
