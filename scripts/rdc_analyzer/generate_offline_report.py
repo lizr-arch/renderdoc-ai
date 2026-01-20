@@ -1181,11 +1181,52 @@ def generate_offline_html(textures: list, rdc_name: str, output_path: str,
             flex-shrink: 0;
         }}
         
+        /* VRAM 总结统计卡片 */
+        .vram-summary {{
+            display: flex;
+            gap: 8px;
+            margin-bottom: 10px;
+        }}
+        
+        .vram-stat {{
+            flex: 1;
+            text-align: center;
+            padding: 8px 4px;
+            background: var(--bg-tertiary);
+            border-radius: 6px;
+            border: 1px solid var(--border);
+        }}
+        
+        .vram-stat-value {{
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--text-bright);
+            margin-bottom: 2px;
+        }}
+        
+        .vram-stat-value.warn {{
+            color: #f97316;
+        }}
+        
+        .vram-stat-value.good {{
+            color: #22c55e;
+        }}
+        
+        .vram-stat-label {{
+            font-size: 9px;
+            color: var(--text-muted);
+        }}
+        
         .bar-chart {{
             display: flex;
             flex-direction: column;
             gap: 4px;
             height: 100px;
+        }}
+        
+        .bar-chart.top-textures {{
+            height: auto;
+            max-height: 180px;
         }}
         
         .bar-row {{
@@ -1223,6 +1264,16 @@ def generate_offline_html(textures: list, rdc_name: str, output_path: str,
             width: 40px;
             font-size: 9px;
             color: var(--text-muted);
+        }}
+        
+        .bar-row.clickable {{
+            cursor: pointer;
+            transition: background 0.15s;
+        }}
+        
+        .bar-row.clickable:hover {{
+            background: var(--hover);
+            border-radius: 4px;
         }}
         
         /* ========== 底部状态栏 ========== */
@@ -5093,6 +5144,22 @@ def generate_offline_html(textures: list, rdc_name: str, output_path: str,
                         </div>
                         <div class="prop-section-content">
                             <div class="chart-container">
+                                <!-- VRAM 总结统计卡片 -->
+                                <div class="vram-summary" id="vramSummary">
+                                    <div class="vram-stat">
+                                        <div class="vram-stat-value" id="vramTotal">-</div>
+                                        <div class="vram-stat-label">总 VRAM</div>
+                                    </div>
+                                    <div class="vram-stat">
+                                        <div class="vram-stat-value" id="vramCompressed">-</div>
+                                        <div class="vram-stat-label">压缩纹理</div>
+                                    </div>
+                                    <div class="vram-stat">
+                                        <div class="vram-stat-value warn" id="vramWasted">-</div>
+                                        <div class="vram-stat-label">可优化</div>
+                                    </div>
+                                </div>
+                                
                                 <!-- 格式分布饼图 -->
                                 <div class="chart-box">
                                     <div class="chart-title">按格式分布</div>
@@ -5101,10 +5168,17 @@ def generate_offline_html(textures: list, rdc_name: str, output_path: str,
                                     </div>
                                     <div class="chart-legend" id="formatLegend"></div>
                                 </div>
+                                
                                 <!-- 尺寸分布柱状图 -->
                                 <div class="chart-box" style="margin-top:8px;">
                                     <div class="chart-title">按尺寸分布</div>
                                     <div class="bar-chart" id="sizeBarChart"></div>
+                                </div>
+                                
+                                <!-- Top 10 最大纹理 -->
+                                <div class="chart-box" style="margin-top:8px;">
+                                    <div class="chart-title">🏆 Top 10 最大纹理</div>
+                                    <div class="bar-chart top-textures" id="topTexturesChart"></div>
                                 </div>
                             </div>
                         </div>
@@ -5643,6 +5717,19 @@ def generate_offline_html(textures: list, rdc_name: str, output_path: str,
         // 优化建议筛选状态 (TASK-009 方案B)
         let currentOptimizationFilter = null;  // {{ title: string, resourceNames: string[] }}
         
+        // ========== 全局工具函数 ==========
+        
+        // 根据名称生成占位符颜色 (哈希转 HSL)
+        function generateColorFromName(name) {{
+            const str = String(name || 'default');
+            let hash = 0;
+            for (let i = 0; i < str.length; i++) {{
+                hash = str.charCodeAt(i) + ((hash << 5) - hash);
+            }}
+            const hue = Math.abs(hash) % 360;
+            return `hsl(${{hue}}, 65%, 45%)`;
+        }}
+        
         // 初始化
         function init() {{
             populateFormatFilter();
@@ -5959,10 +6046,16 @@ def generate_offline_html(textures: list, rdc_name: str, output_path: str,
         
         function renderTextureItem(tex, index, isSelected = false) {{
             const selectedClass = isSelected ? ' selected' : '';
+            // 生成占位符颜色
+            const placeholderColor = generateColorFromName(tex.name || `Texture#${{tex.id}}`);
+            const thumbContent = tex.thumbnail
+                ? `<img src="${{tex.thumbnail}}" alt="" loading="lazy">`
+                : `<div style="width:100%;height:100%;background:${{placeholderColor}};display:flex;align-items:center;justify-content:center;color:#fff;font-size:8px;text-shadow:0 1px 2px rgba(0,0,0,0.5);">${{tex.width}}</div>`;
+            
             return `
                 <div class="texture-item${{selectedClass}}" data-index="${{index}}" onclick="selectTexture(${{index}})" style="${{virtualScrollEnabled ? `position:absolute;top:${{index * ITEM_HEIGHT}}px;left:0;right:0;` : ''}}">
                     <div class="texture-item-thumb">
-                        ${{tex.thumbnail ? `<img src="${{tex.thumbnail}}" alt="" loading="lazy">` : '<span style="color:#6e7681;font-size:9px">N/A</span>'}}
+                        ${{thumbContent}}
                     </div>
                     <div class="texture-item-info">
                         <div class="texture-item-name">${{tex.name || `Texture #${{tex.id}}`}}</div>
@@ -6116,6 +6209,29 @@ def generate_offline_html(textures: list, rdc_name: str, output_path: str,
         function scrollToCurrentTexture() {{
             if (selectedTextureIndex >= 0) {{
                 scrollToTextureIndex(selectedTextureIndex);
+            }}
+        }}
+        
+        // 滚动左侧列表到指定索引的纹理
+        function scrollToTextureIndex(index) {{
+            const list = document.getElementById('textureListApp');
+            if (!list) return;
+            
+            if (virtualScrollEnabled) {{
+                // 虚拟滚动模式：直接设置 scrollTop
+                const targetTop = index * ITEM_HEIGHT;
+                const viewportHeight = list.clientHeight || 400;
+                // 滚动到让该项居中
+                list.scrollTop = Math.max(0, targetTop - viewportHeight / 2 + ITEM_HEIGHT / 2);
+            }} else {{
+                // 普通模式：查找对应元素并滚动
+                const item = list.querySelector(`[data-index="${{index}}"]`);
+                if (item) {{
+                    item.scrollIntoView({{ behavior: 'smooth', block: 'center' }});
+                    // 添加高亮动画
+                    item.classList.add('jump-highlight');
+                    setTimeout(() => item.classList.remove('jump-highlight'), 1500);
+                }}
             }}
         }}
         
@@ -6379,8 +6495,68 @@ def generate_offline_html(textures: list, rdc_name: str, output_path: str,
         
         // VRAM 分布图表渲染函数
         function renderVRAMCharts() {{
+            renderVRAMSummary();
             renderFormatPieChart();
             renderSizeBarChart();
+            renderTopTexturesChart();
+        }}
+        
+        // VRAM 总结统计卡片
+        function renderVRAMSummary() {{
+            const compressedFormats = ['BC1', 'BC3', 'BC4', 'BC5', 'BC6', 'BC7', 'ASTC', 'ETC2', 'DXT'];
+            const bppMap = {{
+                'R8G8B8A8_UNORM': 4, 'B8G8R8A8_UNORM': 4, 'R8G8B8A8_SRGB': 4,
+                'R16G16B16A16_FLOAT': 8, 'R32G32B32A32_FLOAT': 16,
+                'BC1_UNORM': 0.5, 'BC3_UNORM': 1, 'BC7_UNORM': 1,
+                'ASTC_4x4_UNORM': 1, 'ASTC_8x8_UNORM': 0.5,
+            }};
+            
+            let totalBytes = 0;
+            let compressedBytes = 0;
+            let wastedBytes = 0;
+            
+            textures.forEach(tex => {{
+                const bpp = bppMap[tex.format] || 4;
+                let pixels = tex.width * tex.height * (tex.depth || 1) * (tex.arrayLayers || 1);
+                if (tex.mips > 1) pixels = Math.floor(pixels * 1.33);
+                const bytes = pixels * bpp;
+                totalBytes += bytes;
+                
+                // 检查是否为压缩格式
+                const fmtPrefix = tex.format.split('_')[0];
+                if (compressedFormats.some(cf => fmtPrefix.startsWith(cf))) {{
+                    compressedBytes += bytes;
+                }}
+                
+                // 检查潜在浪费：无mip的大纹理、未压缩的普通纹理
+                const maxDim = Math.max(tex.width, tex.height);
+                if (maxDim >= 512 && tex.mips <= 1) {{
+                    wastedBytes += bytes * 0.3; // 无mip可能多加载30%
+                }}
+                if (maxDim >= 256 && !compressedFormats.some(cf => fmtPrefix.startsWith(cf)) && bpp >= 4) {{
+                    wastedBytes += bytes * 0.5; // 未压缩可节省50%
+                }}
+            }});
+            
+            // 更新统计卡片
+            const totalEl = document.getElementById('vramTotal');
+            if (totalEl) {{
+                const mb = (totalBytes / (1024 * 1024)).toFixed(1);
+                totalEl.textContent = `${{mb}} MB`;
+            }}
+            
+            const compressedEl = document.getElementById('vramCompressed');
+            if (compressedEl) {{
+                const pct = totalBytes > 0 ? ((compressedBytes / totalBytes) * 100).toFixed(0) : 0;
+                compressedEl.textContent = `${{pct}}%`;
+                compressedEl.classList.toggle('good', pct >= 60);
+            }}
+            
+            const wastedEl = document.getElementById('vramWasted');
+            if (wastedEl) {{
+                const mb = (wastedBytes / (1024 * 1024)).toFixed(1);
+                wastedEl.textContent = `~${{mb}} MB`;
+            }}
         }}
         
         function renderFormatPieChart() {{
@@ -6511,6 +6687,65 @@ def generate_offline_html(textures: list, rdc_name: str, output_path: str,
                         <div class="bar-value">${{mb}} MB</div>
                     </div>`;
                 }}).join('');
+            }}
+        }}
+        
+        // Top 10 最大纹理柱状图
+        function renderTopTexturesChart() {{
+            const bppMap = {{
+                'R8G8B8A8_UNORM': 4, 'B8G8R8A8_UNORM': 4, 'R8G8B8A8_SRGB': 4,
+                'R16G16B16A16_FLOAT': 8, 'R32G32B32A32_FLOAT': 16,
+                'BC1_UNORM': 0.5, 'BC3_UNORM': 1, 'BC7_UNORM': 1,
+                'ASTC_4x4_UNORM': 1, 'ASTC_8x8_UNORM': 0.5,
+            }};
+            
+            // 计算每个纹理的 VRAM 并排序
+            const texturesWithSize = textures.map((tex, idx) => {{
+                const bpp = bppMap[tex.format] || 4;
+                let pixels = tex.width * tex.height * (tex.depth || 1) * (tex.arrayLayers || 1);
+                if (tex.mips > 1) pixels = Math.floor(pixels * 1.33);
+                const bytes = pixels * bpp;
+                return {{ tex, idx, bytes }};
+            }}).sort((a, b) => b.bytes - a.bytes);
+            
+            // 取前 10 个
+            const top10 = texturesWithSize.slice(0, 10);
+            const maxBytes = top10.length > 0 ? top10[0].bytes : 0;
+            
+            // 生成颜色渐变（从红到蓝）
+            const chart = document.getElementById('topTexturesChart');
+            if (!chart) return;
+            
+            chart.innerHTML = top10.map((item, i) => {{
+                const pct = maxBytes > 0 ? (item.bytes / maxBytes * 100) : 0;
+                const mb = (item.bytes / (1024 * 1024)).toFixed(2);
+                const name = item.tex.name || `Tex_${{item.tex.resourceId}}`;
+                const shortName = name.length > 20 ? name.slice(0, 18) + '...' : name;
+                const hue = 0 + (i / 10) * 240; // 从红(0)到蓝(240)
+                const color = `hsl(${{hue}}, 70%, 55%)`;
+                
+                return `<div class="bar-row clickable" onclick="jumpToTexture(${{item.idx}})" title="${{name}}">
+                    <div class="bar-label">#${{i + 1}}</div>
+                    <div class="bar-track">
+                        <div class="bar-fill" style="width:${{pct}}%;background:${{color}}"></div>
+                    </div>
+                    <div class="bar-value">${{mb}} MB</div>
+                </div>`;
+            }}).join('');
+        }}
+        
+        // 点击 Top 10 柱状图跳转到纹理
+        function jumpToTexture(index) {{
+            if (typeof selectTextureByIndex === 'function') {{
+                selectTextureByIndex(index);
+            }} else {{
+                // 兼容：直接滚动并选中
+                scrollToTextureIndex(index);
+                const tex = textures[index];
+                if (tex) {{
+                    currentSelectedTexture = tex;
+                    showTextureDetail(tex);
+                }}
             }}
         }}
         
@@ -10835,21 +11070,43 @@ Draw Info: ${{currentEIDInfo.drawInfo}}`;
 
 def main():
     parser = argparse.ArgumentParser(description='Generate offline RDC texture report')
-    parser.add_argument('rdc_path', help='Path to RDC file')
+    parser.add_argument('rdc_path', help='Path to RDC file or textures.json')
     parser.add_argument('-o', '--output', help='Output HTML path', default=None)
     
     args = parser.parse_args()
     
     rdc_path = Path(args.rdc_path)
     if not rdc_path.exists():
-        print(f"[ERROR] RDC file not found: {rdc_path}")
+        print(f"[ERROR] File not found: {rdc_path}")
         return 1
     
     output_path = args.output or str(rdc_path.with_suffix('.html'))
     
     print(f"\n=== Generating Offline Report for {rdc_path.name} ===\n")
     
-    textures = load_textures_from_export(str(rdc_path))
+    # 支持直接传入 textures.json
+    if rdc_path.name == 'textures.json' or rdc_path.suffix == '.json':
+        with open(rdc_path, 'r', encoding='utf-8') as f:
+            manifest = json.load(f)
+        tex_list = manifest if isinstance(manifest, list) else manifest.get("textures", [])
+        textures = []
+        for tex in tex_list:
+            res_id = tex.get("resource_id") or tex.get("id")
+            textures.append({
+                "id": res_id,
+                "name": tex.get("name", ""),
+                "width": tex.get("width", 0),
+                "height": tex.get("height", 0),
+                "depth": tex.get("depth", 1),
+                "format": tex.get("format", "UNKNOWN"),
+                "mips": tex.get("mips", 1),
+                "arrayLayers": tex.get("arrayLayers", 1),
+                "thumbnail": tex.get("thumbnail", ""),
+                "channels": tex.get("channels", {})
+            })
+        print(f"  [OK] Loaded {len(textures)} textures from {rdc_path}")
+    else:
+        textures = load_textures_from_export(str(rdc_path))
     
     if not textures:
         print("[WARN] No textures found, generating empty report")
