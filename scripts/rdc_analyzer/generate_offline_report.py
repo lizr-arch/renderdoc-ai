@@ -2801,6 +2801,74 @@ def generate_offline_html(textures: list, rdc_name: str, output_path: str,
             background: var(--accent-red);
         }}
         
+        /* 差异对比表格 */
+        .compare-diff-table {{
+            background: var(--bg-dark);
+            padding: 12px 20px;
+            border-top: 1px solid var(--border-color);
+            display: flex;
+            flex-wrap: wrap;
+            gap: 16px;
+            justify-content: center;
+            font-size: 12px;
+        }}
+        
+        .compare-diff-item {{
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 10px;
+            background: var(--bg-light);
+            border-radius: 6px;
+            border: 1px solid var(--border-color);
+        }}
+        
+        .compare-diff-item.same {{
+            border-color: var(--accent-green);
+        }}
+        
+        .compare-diff-item.different {{
+            border-color: var(--accent-red);
+            background: rgba(255, 85, 85, 0.1);
+        }}
+        
+        .compare-diff-label {{
+            color: var(--text-muted);
+            font-weight: 500;
+        }}
+        
+        .compare-diff-values {{
+            display: flex;
+            gap: 4px;
+            align-items: center;
+        }}
+        
+        .compare-diff-value {{
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: 'Consolas', monospace;
+        }}
+        
+        .compare-diff-value.left {{
+            background: var(--accent-blue);
+            color: white;
+        }}
+        
+        .compare-diff-value.right {{
+            background: var(--accent-purple);
+            color: white;
+        }}
+        
+        .compare-diff-arrow {{
+            color: var(--text-muted);
+            font-size: 10px;
+        }}
+        
+        .compare-diff-same {{
+            color: var(--accent-green);
+            font-weight: 500;
+        }}
+        
         /* ========== 移动端适配 ========== */
         @media (max-width: 768px) {{
             .lightbox-header {{
@@ -5635,6 +5703,8 @@ def generate_offline_html(textures: list, rdc_name: str, output_path: str,
                 </div>
             </div>
         </div>
+        <!-- 差异对比表格 -->
+        <div class="compare-diff-table" id="compareDiffTable"></div>
         <div class="compare-toolbar">
             <div class="zoom-group">
                 <button onclick="compareZoomIn()" title="放大">➕</button>
@@ -10440,6 +10510,9 @@ def generate_offline_html(textures: list, rdc_name: str, output_path: str,
             document.getElementById('compareInfo2').textContent = `${{tex2.width}}×${{tex2.height}} | ${{tex2.format}}`;
             document.getElementById('compareImg2').src = tex2.thumbnail || '';
             
+            // 生成差异对比表格
+            renderCompareDiffTable(tex1, tex2);
+            
             // 更新缩放显示
             updateCompareTransform();
             
@@ -10447,6 +10520,56 @@ def generate_offline_html(textures: list, rdc_name: str, output_path: str,
             
             // 初始化对比视图事件
             initCompareEvents();
+        }}
+        
+        // 生成差异对比表格
+        function renderCompareDiffTable(tex1, tex2) {{
+            const bppMap = {{
+                'R8G8B8A8_UNORM': 4, 'B8G8R8A8_UNORM': 4, 'R8G8B8A8_SRGB': 4,
+                'R16G16B16A16_FLOAT': 8, 'R32G32B32A32_FLOAT': 16,
+                'BC1_UNORM': 0.5, 'BC3_UNORM': 1, 'BC5_UNORM': 1, 'BC7_UNORM': 1,
+                'D32_FLOAT': 4, 'D24_UNORM_S8_UINT': 4, 'D16_UNORM': 2,
+            }};
+            
+            // 计算 VRAM
+            const calcVRAM = (tex) => {{
+                const bpp = bppMap[tex.format] || 4;
+                let pixels = tex.width * tex.height * (tex.depth || 1) * (tex.arrayLayers || 1);
+                if (tex.mips > 1) pixels = Math.floor(pixels * 1.33);
+                return pixels * bpp;
+            }};
+            
+            const vram1 = calcVRAM(tex1);
+            const vram2 = calcVRAM(tex2);
+            
+            // 定义要对比的属性
+            const props = [
+                {{ label: '宽度', v1: tex1.width, v2: tex2.width, unit: 'px' }},
+                {{ label: '高度', v1: tex1.height, v2: tex2.height, unit: 'px' }},
+                {{ label: '格式', v1: tex1.format, v2: tex2.format, unit: '' }},
+                {{ label: 'Mips', v1: tex1.mips || 1, v2: tex2.mips || 1, unit: '' }},
+                {{ label: 'Layers', v1: tex1.arrayLayers || 1, v2: tex2.arrayLayers || 1, unit: '' }},
+                {{ label: 'VRAM', v1: (vram1 / 1024 / 1024).toFixed(2), v2: (vram2 / 1024 / 1024).toFixed(2), unit: 'MB' }},
+            ];
+            
+            // 生成 HTML
+            const html = props.map(p => {{
+                const isSame = String(p.v1) === String(p.v2);
+                const cls = isSame ? 'same' : 'different';
+                const valueHtml = isSame
+                    ? `<span class="compare-diff-same">${{p.v1}}${{p.unit}}</span>`
+                    : `<div class="compare-diff-values">
+                        <span class="compare-diff-value left">${{p.v1}}${{p.unit}}</span>
+                        <span class="compare-diff-arrow">vs</span>
+                        <span class="compare-diff-value right">${{p.v2}}${{p.unit}}</span>
+                       </div>`;
+                return `<div class="compare-diff-item ${{cls}}">
+                    <span class="compare-diff-label">${{p.label}}</span>
+                    ${{valueHtml}}
+                </div>`;
+            }}).join('');
+            
+            document.getElementById('compareDiffTable').innerHTML = html;
         }}
         
         function closeCompare() {{
