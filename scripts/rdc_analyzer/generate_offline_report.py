@@ -10038,6 +10038,8 @@ def generate_offline_html(textures: list, rdc_name: str, output_path: str,
                                 </thead>
                                 <tbody>
                                 ${{Object.entries(ps.shaders).map(([stage, shader]) => {{
+                                    // TASK-216: 跳过 null shader 条目
+                                    if (!shader) return '';
                                     const name = shader.debugName || shader.entryPoint || shader.resourceId || 'N/A';
                                     const hasCode = shader.sourceAsm || shader.inputSignature;
                                     const shaderJson = JSON.stringify(shader).replace(/'/g, "\\\\'").replace(/"/g, '&quot;');
