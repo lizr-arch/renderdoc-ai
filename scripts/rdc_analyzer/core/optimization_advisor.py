@@ -82,6 +82,29 @@ class OptimizationReport:
         """计算总预计节省"""
         return sum(item.estimated_savings_bytes for item in self.items)
     
+    def to_dict(self) -> dict:
+        """转换为字典格式，供 JSON 序列化"""
+        self.sort_by_priority()
+        
+        # 按优先级和类别统计
+        by_priority = {}
+        by_category = {}
+        for item in self.items:
+            p = item.priority.name
+            c = item.category.value
+            by_priority[p] = by_priority.get(p, 0) + 1
+            by_category[c] = by_category.get(c, 0) + 1
+        
+        return {
+            "rdc_name": self.rdc_name,
+            "generated_at": self.generated_at,
+            "total_items": len(self.items),
+            "total_savings_bytes": self.get_total_savings(),
+            "by_priority": by_priority,
+            "by_category": by_category,
+            "items": [item.to_dict() for item in self.items]
+        }
+    
     def to_markdown(self) -> str:
         """生成 Markdown 格式报告"""
         self.sort_by_priority()

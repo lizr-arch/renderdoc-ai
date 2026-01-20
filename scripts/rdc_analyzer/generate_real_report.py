@@ -25,6 +25,9 @@ from generate_offline_report import generate_offline_html
 # 导入 Pipeline State 解析函数
 from parse_rdc_xml import parse_pipeline_state_from_related_calls
 
+# 导入优化建议生成器
+from core.optimization_advisor import OptimizationAdvisor
+
 
 def load_rdc_data(json_path):
     """加载解析后的 RDC JSON 数据"""
@@ -1257,6 +1260,20 @@ def main():
     # 加载帧缩略图
     frame_thumbnail = load_frame_thumbnail(json_path)
     
+    # 生成优化建议 (TASK-009)
+    print(f"\nGenerating optimization suggestions...")
+    advisor = OptimizationAdvisor(
+        textures=textures,
+        rdc_name=json_path.stem,
+        duplicate_analysis=duplicate_analysis,
+        usage_analysis=usage_analysis,
+    )
+    optimization_report = advisor.analyze()
+    optimization_data = optimization_report.to_dict()
+    print(f"  Generated {optimization_data['total_items']} optimization suggestions")
+    total_savings_mb = optimization_data['total_savings_bytes'] / (1024 * 1024)
+    print(f"  Potential savings: {total_savings_mb:.2f} MB")
+    
     print(f"\nGenerating HTML report...")
     
     # 调用现有的 HTML 生成函数
@@ -1268,6 +1285,7 @@ def main():
         usage_analysis=usage_analysis,
         event_pass_data=event_data,
         frame_thumbnail=frame_thumbnail,
+        optimization_data=optimization_data,
     )
     
     print(f"[OK] Report saved to: {output_path}")

@@ -132,7 +132,8 @@ def load_textures_from_export(rdc_path: str, enable_channels: bool = True) -> li
 
 def generate_offline_html(textures: list, rdc_name: str, output_path: str, 
                           duplicate_analysis: dict = None, usage_analysis: dict = None,
-                          event_pass_data: dict = None, frame_thumbnail: str = None):
+                          event_pass_data: dict = None, frame_thumbnail: str = None,
+                          optimization_data: dict = None):
     """生成纯离线 HTML 报告
     
     Args:
@@ -143,6 +144,7 @@ def generate_offline_html(textures: list, rdc_name: str, output_path: str,
         usage_analysis: 纹理热度分析结果（可选）
         event_pass_data: Event/Pass 数据（可选，用于 Event Browser 视图）
         frame_thumbnail: 帧缩略图 Base64 数据 (data:image/png;base64,...) （可选）
+        optimization_data: 优化建议数据（可选，来自 OptimizationAdvisor）
     """
     
     textures_json = json.dumps(textures, ensure_ascii=False)
@@ -150,6 +152,7 @@ def generate_offline_html(textures: list, rdc_name: str, output_path: str,
     usage_json = json.dumps(usage_analysis or {}, ensure_ascii=False)
     event_pass_json = json.dumps(event_pass_data or {}, ensure_ascii=False)
     frame_thumbnail_json = json.dumps(frame_thumbnail or "", ensure_ascii=False)
+    optimization_json = json.dumps(optimization_data or {}, ensure_ascii=False)
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     
     html = f'''<!DOCTYPE html>
@@ -1324,6 +1327,159 @@ def generate_offline_html(textures: list, rdc_name: str, output_path: str,
             color: var(--text-secondary);
             text-transform: uppercase;
             letter-spacing: 0.5px;
+        }}
+        
+        /* 优化建议面板 (TASK-009) */
+        .optimization-panel {{
+            background: var(--bg-darker);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            margin-bottom: 16px;
+            overflow: hidden;
+        }}
+        
+        .optimization-header {{
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px 16px;
+            background: var(--bg-dark);
+            cursor: pointer;
+            user-select: none;
+        }}
+        
+        .optimization-header:hover {{
+            background: var(--bg-medium);
+        }}
+        
+        .optimization-title {{
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-weight: 600;
+        }}
+        
+        .optimization-badge {{
+            background: var(--accent-orange);
+            color: white;
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-size: 0.75rem;
+            font-weight: 700;
+        }}
+        
+        .optimization-toggle {{
+            color: var(--text-secondary);
+            transition: transform 0.2s;
+        }}
+        
+        .optimization-toggle.collapsed {{
+            transform: rotate(-90deg);
+        }}
+        
+        .optimization-content {{
+            max-height: 400px;
+            overflow-y: auto;
+            padding: 0;
+            transition: max-height 0.3s ease;
+        }}
+        
+        .optimization-content.collapsed {{
+            max-height: 0;
+            padding: 0;
+        }}
+        
+        .optimization-summary {{
+            display: flex;
+            gap: 24px;
+            padding: 12px 16px;
+            border-bottom: 1px solid var(--border);
+            background: var(--bg-darkest);
+        }}
+        
+        .optimization-stat {{
+            text-align: center;
+        }}
+        
+        .optimization-stat-value {{
+            font-size: 1.2rem;
+            font-weight: 700;
+            color: var(--accent-yellow);
+        }}
+        
+        .optimization-stat-label {{
+            font-size: 0.75rem;
+            color: var(--text-muted);
+        }}
+        
+        .optimization-list {{
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }}
+        
+        .optimization-item {{
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+            padding: 12px 16px;
+            border-bottom: 1px solid var(--border);
+        }}
+        
+        .optimization-item:last-child {{
+            border-bottom: none;
+        }}
+        
+        .optimization-item:hover {{
+            background: var(--bg-dark);
+        }}
+        
+        .optimization-priority {{
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            margin-top: 6px;
+            flex-shrink: 0;
+        }}
+        
+        .optimization-priority.CRITICAL {{ background: #e94560; }}
+        .optimization-priority.HIGH {{ background: #f0883e; }}
+        .optimization-priority.MEDIUM {{ background: #f9c513; }}
+        .optimization-priority.LOW {{ background: #3fb950; }}
+        
+        .optimization-item-content {{
+            flex: 1;
+            min-width: 0;
+        }}
+        
+        .optimization-item-title {{
+            font-weight: 600;
+            margin-bottom: 4px;
+            color: var(--text-primary);
+        }}
+        
+        .optimization-item-desc {{
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            margin-bottom: 6px;
+        }}
+        
+        .optimization-item-meta {{
+            display: flex;
+            gap: 12px;
+            font-size: 0.75rem;
+            color: var(--text-muted);
+        }}
+        
+        .optimization-item-savings {{
+            color: var(--accent-green);
+            font-weight: 600;
+        }}
+        
+        .optimization-empty {{
+            padding: 24px;
+            text-align: center;
+            color: var(--text-muted);
         }}
         
         /* 纹理网格 - 原版 */
@@ -4905,6 +5061,21 @@ def generate_offline_html(textures: list, rdc_name: str, output_path: str,
             </div>
         </div>
         
+        <!-- 优化建议面板 (TASK-009) -->
+        <div class="optimization-panel" id="optimizationPanel">
+            <div class="optimization-header" onclick="toggleOptimizationPanel()">
+                <div class="optimization-title">
+                    <span>Optimization Suggestions</span>
+                    <span class="optimization-badge" id="optimizationCount">0</span>
+                </div>
+                <span class="optimization-toggle" id="optimizationToggle">&#9660;</span>
+            </div>
+            <div class="optimization-content" id="optimizationContent">
+                <div class="optimization-summary" id="optimizationSummary"></div>
+                <ul class="optimization-list" id="optimizationList"></ul>
+            </div>
+        </div>
+        
         <div class="toolbar">
             <input type="text" class="search-box" id="searchBox" placeholder="🔍 搜索纹理名称或 ID...">
             <select class="sort-select" id="formatFilter">
@@ -5254,6 +5425,8 @@ def generate_offline_html(textures: list, rdc_name: str, output_path: str,
         const eventPassData = {event_pass_json};
         // 帧缩略图
         const frameThumbnail = {frame_thumbnail_json};
+        // 优化建议数据 (TASK-009)
+        const optimizationData = {optimization_json};
         let filteredTextures = [...textures];
         let currentLightboxIndex = 0;
         let currentSort = {{ key: 'id', asc: true }};
@@ -5284,6 +5457,7 @@ def generate_offline_html(textures: list, rdc_name: str, output_path: str,
             renderTextureList();
             updateAppStats();
             runGlobalAnalysis();
+            renderOptimizationPanel();
             setupAppEventListeners();
         }}
         
@@ -6138,6 +6312,69 @@ def generate_offline_html(textures: list, rdc_name: str, output_path: str,
                 searchBox.value = format;
                 searchBox.dispatchEvent(new Event('input'));
             }}
+        }}
+        
+        // ========== 优化建议面板函数 (TASK-009) ==========
+        
+        function toggleOptimizationPanel() {{
+            const content = document.getElementById('optimizationContent');
+            const toggle = document.getElementById('optimizationToggle');
+            if (content.style.display === 'none') {{
+                content.style.display = 'block';
+                toggle.innerHTML = '&#9660;';
+            }} else {{
+                content.style.display = 'none';
+                toggle.innerHTML = '&#9654;';
+            }}
+        }}
+        
+        function renderOptimizationPanel() {{
+            const panel = document.getElementById('optimizationPanel');
+            const countBadge = document.getElementById('optimizationCount');
+            const summaryDiv = document.getElementById('optimizationSummary');
+            const listEl = document.getElementById('optimizationList');
+            
+            // 隐藏面板如果没有数据
+            if (!optimizationData || !optimizationData.items || optimizationData.items.length === 0) {{
+                panel.style.display = 'none';
+                return;
+            }}
+            
+            panel.style.display = 'block';
+            const items = optimizationData.items;
+            countBadge.textContent = items.length;
+            
+            // 格式化节省的字节
+            function formatBytes(bytes) {{
+                if (bytes < 1024) return bytes + ' B';
+                if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+                return (bytes / (1024 * 1024)).toFixed(2) + ' MB';
+            }}
+            
+            // 总结
+            const totalSavings = optimizationData.total_savings_bytes || 0;
+            summaryDiv.innerHTML = `
+                <strong>Potential VRAM Savings:</strong> ${{formatBytes(totalSavings)}} 
+                <span style="color:#888;">(${{items.length}} issues found)</span>
+            `;
+            
+            // 优先级映射
+            const priorityClass = {{
+                'CRITICAL': 'priority-critical',
+                'HIGH': 'priority-high',
+                'MEDIUM': 'priority-medium',
+                'LOW': 'priority-low'
+            }};
+            
+            // 渲染列表
+            listEl.innerHTML = items.map(item => `
+                <li class="optimization-item">
+                    <span class="priority-dot ${{priorityClass[item.priority] || 'priority-low'}}"></span>
+                    <span class="optimization-item-type">[${{item.category}}]</span>
+                    <span class="optimization-item-desc">${{item.title}}: ${{item.description}}</span>
+                    ${{item.estimated_savings_bytes > 0 ? `<span class="optimization-item-savings">-${{formatBytes(item.estimated_savings_bytes)}}</span>` : ''}}
+                </li>
+            `).join('');
         }}
         
         function setupAppEventListeners() {{
