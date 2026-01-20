@@ -548,47 +548,194 @@ def generate_offline_html(textures: list, rdc_name: str, output_path: str,
             background: var(--border-light);
         }}
         
-        /* Shader 列表面板 (TASK-205) */
-        .shader-panel {{
+        /* ========== 资源浏览器双列表 (TASK-205) ========== */
+        .resource-section {{
             border-top: 1px solid var(--border-color);
             display: flex;
             flex-direction: column;
-            max-height: 280px;
         }}
         
-        .shader-panel-header {{
+        .resource-section:first-child {{
+            border-top: none;
+        }}
+        
+        .resource-section-header {{
             display: flex;
             align-items: center;
-            justify-content: space-between;
-            padding: 8px 12px;
-            background: var(--bg-dark);
+            gap: 8px;
+            padding: 10px 12px;
+            background: linear-gradient(180deg, var(--bg-medium) 0%, var(--bg-dark) 100%);
             cursor: pointer;
             user-select: none;
+            border-bottom: 1px solid var(--border-color);
         }}
         
-        .shader-panel-header:hover {{
-            background: var(--bg-medium);
+        .resource-section-header:hover {{
+            background: linear-gradient(180deg, var(--bg-light) 0%, var(--bg-medium) 100%);
         }}
         
-        .shader-panel-title {{
-            font-size: 12px;
+        .resource-section-icon {{
+            font-size: 14px;
+        }}
+        
+        .resource-section-title {{
+            font-size: 11px;
+            font-weight: 600;
+            color: var(--text-primary);
+            letter-spacing: 0.5px;
+            flex: 1;
+        }}
+        
+        .resource-section-badge {{
+            background: var(--accent-blue);
+            color: #fff;
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-size: 10px;
             font-weight: 500;
+        }}
+        
+        .resource-section-badge.shader-badge {{
+            background: var(--accent-purple);
+        }}
+        
+        .resource-section-toggle {{
+            font-size: 10px;
+            color: var(--text-muted);
+            transition: transform 0.2s;
+        }}
+        
+        .resource-section.collapsed .resource-section-toggle {{
+            transform: rotate(-90deg);
+        }}
+        
+        .resource-section.collapsed .resource-section-content {{
+            display: none;
+        }}
+        
+        .resource-section-content {{
+            display: flex;
+            flex-direction: column;
+            flex: 1;
+            min-height: 0;
+        }}
+        
+        .resource-filter-bar {{
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 12px;
+            background: var(--bg-darker);
+            border-bottom: 1px solid var(--border-color);
+        }}
+        
+        .filter-toggle-group {{
+            display: flex;
+            border-radius: 4px;
+            overflow: hidden;
+            border: 1px solid var(--border-color);
+        }}
+        
+        .filter-toggle-btn {{
+            padding: 4px 10px;
+            font-size: 10px;
+            background: var(--bg-dark);
+            border: none;
+            color: var(--text-muted);
+            cursor: pointer;
+            transition: all 0.15s;
+        }}
+        
+        .filter-toggle-btn:hover {{
+            background: var(--bg-medium);
             color: var(--text-primary);
         }}
         
-        .shader-panel-badge {{
-            background: var(--accent-orange);
-            color: #000;
-            padding: 2px 6px;
-            border-radius: 10px;
-            font-size: 10px;
-            font-weight: 600;
+        .filter-toggle-btn.active {{
+            background: var(--accent-blue);
+            color: #fff;
         }}
         
+        .shader-section .filter-toggle-btn.active {{
+            background: var(--accent-purple);
+        }}
+        
+        .resource-search-box {{
+            flex: 1;
+            padding: 4px 8px;
+            font-size: 11px;
+            background: var(--bg-dark);
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            color: var(--text-primary);
+            min-width: 60px;
+        }}
+        
+        .resource-search-box::placeholder {{
+            color: var(--text-muted);
+        }}
+        
+        .resource-search-box:focus {{
+            outline: none;
+            border-color: var(--accent-blue);
+        }}
+        
+        .shader-section .resource-search-box:focus {{
+            border-color: var(--accent-purple);
+        }}
+        
+        .resource-sort-bar {{
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 6px 12px;
+            background: var(--bg-dark);
+            border-bottom: 1px solid var(--border-color);
+        }}
+        
+        /* 筛选提示条样式 */
+        .optimization-filter-bar,
+        .shader-filter-bar {{
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 12px;
+            background: linear-gradient(90deg, rgba(34, 197, 94, 0.15) 0%, rgba(34, 197, 94, 0.05) 100%);
+            border-bottom: 1px solid rgba(34, 197, 94, 0.3);
+            font-size: 11px;
+        }}
+        
+        .shader-filter-bar {{
+            background: linear-gradient(90deg, rgba(168, 85, 247, 0.15) 0%, rgba(168, 85, 247, 0.05) 100%);
+            border-bottom: 1px solid rgba(168, 85, 247, 0.3);
+        }}
+        
+        .filter-indicator {{
+            font-size: 12px;
+        }}
+        
+        .filter-clear-btn {{
+            margin-left: auto;
+            background: var(--bg-medium);
+            border: none;
+            color: var(--text-muted);
+            padding: 2px 8px;
+            border-radius: 3px;
+            cursor: pointer;
+            font-size: 10px;
+        }}
+        
+        .filter-clear-btn:hover {{
+            background: var(--bg-light);
+            color: var(--text-primary);
+        }}
+        
+        /* Shader 列表样式 */
         .shader-list {{
             flex: 1;
             overflow-y: auto;
             overflow-x: hidden;
+            max-height: 250px;
         }}
         
         .shader-list::-webkit-scrollbar {{
@@ -606,12 +753,12 @@ def generate_offline_html(textures: list, rdc_name: str, output_path: str,
         
         .shader-item {{
             display: flex;
-            align-items: flex-start;
+            align-items: center;
             gap: 8px;
             padding: 8px 12px;
             border-bottom: 1px solid var(--bg-dark);
             cursor: pointer;
-            transition: background 0.15s;
+            transition: all 0.15s;
         }}
         
         .shader-item:hover {{
@@ -619,14 +766,23 @@ def generate_offline_html(textures: list, rdc_name: str, output_path: str,
         }}
         
         .shader-item.selected {{
-            background: rgba(251, 146, 60, 0.15);
-            border-left: 2px solid var(--accent-orange);
+            background: rgba(168, 85, 247, 0.15);
+            border-left: 3px solid var(--accent-purple);
+        }}
+        
+        .shader-item.has-issue {{
+            background: rgba(251, 146, 60, 0.08);
+        }}
+        
+        .shader-item.has-issue::before {{
+            content: '⚠';
+            font-size: 10px;
+            margin-right: 4px;
         }}
         
         .shader-item-icon {{
             font-size: 14px;
             flex-shrink: 0;
-            margin-top: 2px;
         }}
         
         .shader-item-content {{
@@ -634,7 +790,7 @@ def generate_offline_html(textures: list, rdc_name: str, output_path: str,
             min-width: 0;
         }}
         
-        .shader-item-title {{
+        .shader-item-name {{
             font-size: 11px;
             color: var(--text-primary);
             white-space: nowrap;
@@ -642,41 +798,30 @@ def generate_offline_html(textures: list, rdc_name: str, output_path: str,
             text-overflow: ellipsis;
         }}
         
-        .shader-item-desc {{
+        .shader-item-meta {{
             font-size: 10px;
             color: var(--text-muted);
             margin-top: 2px;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
         }}
         
-        .shader-item-severity {{
+        .shader-item-type {{
             font-size: 9px;
             padding: 1px 5px;
             border-radius: 3px;
-            text-transform: uppercase;
-            font-weight: 500;
+            background: var(--bg-medium);
+            color: var(--text-secondary);
             flex-shrink: 0;
         }}
         
-        .shader-item-severity.high {{
-            background: rgba(239, 68, 68, 0.2);
-            color: #f87171;
-        }}
-        
-        .shader-item-severity.medium {{
-            background: rgba(251, 146, 60, 0.2);
-            color: #fb923c;
-        }}
-        
-        .shader-item-severity.low {{
-            background: rgba(34, 197, 94, 0.2);
-            color: #4ade80;
-        }}
+        .shader-item-type.vs {{ background: rgba(96, 165, 250, 0.2); color: #60a5fa; }}
+        .shader-item-type.ps {{ background: rgba(251, 146, 60, 0.2); color: #fb923c; }}
+        .shader-item-type.cs {{ background: rgba(34, 197, 94, 0.2); color: #22c55e; }}
+        .shader-item-type.gs {{ background: rgba(168, 85, 247, 0.2); color: #a855f7; }}
+        .shader-item-type.hs {{ background: rgba(236, 72, 153, 0.2); color: #ec4899; }}
+        .shader-item-type.ds {{ background: rgba(20, 184, 166, 0.2); color: #14b8a6; }}
         
         .shader-empty {{
-            padding: 16px;
+            padding: 20px;
             text-align: center;
             color: var(--text-muted);
             font-size: 11px;
@@ -5619,40 +5764,74 @@ def generate_offline_html(textures: list, rdc_name: str, output_path: str,
         
         <!-- 主工作区 -->
         <div class="app-workspace">
-            <!-- 左侧面板 - 纹理列表 -->
+            <!-- 左侧面板 - 资源浏览器 (TASK-205 双列表设计) -->
             <div class="panel-left" id="panelLeft">
                 <div class="panel-header" onclick="togglePanel('left')">
-                    <span class="panel-title">纹理列表</span>
+                    <span class="panel-title">📂 资源浏览器</span>
                     <span class="panel-toggle">▼</span>
                 </div>
-                <div class="list-toolbar">
-                    <input type="text" class="search-box" id="searchBoxApp" placeholder="搜索纹理...">
-                    <div class="filter-row">
-                        <select class="sort-select" id="sortSelectApp">
-                            <option value="id">ID</option>
-                            <option value="size">尺寸</option>
-                            <option value="format">格式</option>
-                            <option value="name">名称</option>
-                        </select>
-                        <span class="stats-badge" id="statsApp">0 项</span>
-                    </div>
-                </div>
-                <!-- 优化建议筛选提示条 (TASK-009 方案B) -->
-                <div class="optimization-filter-bar" id="optimFilterBar" style="display:none; background:#2d4a3d; padding:8px 12px; margin:0 8px 8px 8px; border-radius:4px; font-size:12px;">
-                    <span style="color:#4CAF50;">🎯 筛选:</span>
-                    <span id="optimFilterTitle" style="color:#fff; margin:0 8px;"></span>
-                    <span id="optimFilterCount" style="color:#888;"></span>
-                    <button onclick="clearOptimizationFilter()" style="float:right; background:#444; border:none; color:#fff; padding:2px 8px; border-radius:3px; cursor:pointer; font-size:11px;">✕ 清除筛选</button>
-                </div>
-                <div class="texture-list" id="textureListApp"></div>
                 
-                <!-- Shader 优化列表面板 (TASK-205) -->
-                <div class="shader-panel" id="shaderPanel">
-                    <div class="shader-panel-header" onclick="toggleShaderPanel()">
-                        <span class="shader-panel-title">🎯 Shader 优化</span>
-                        <span class="shader-panel-badge" id="shaderCountBadge">0</span>
+                <!-- 纹理列表区块 -->
+                <div class="resource-section texture-section" id="textureSectionPanel">
+                    <div class="resource-section-header" onclick="toggleResourceSection('texture')">
+                        <span class="resource-section-icon">🖼️</span>
+                        <span class="resource-section-title">TEXTURES</span>
+                        <span class="resource-section-badge" id="textureCountBadge">0/0</span>
+                        <span class="resource-section-toggle" id="textureSectionToggle">▼</span>
                     </div>
-                    <div class="shader-list" id="shaderListApp"></div>
+                    <div class="resource-section-content" id="textureSectionContent">
+                        <div class="resource-filter-bar">
+                            <div class="filter-toggle-group">
+                                <button class="filter-toggle-btn active" id="textureFilterAll" onclick="setTextureFilter('all')">All</button>
+                                <button class="filter-toggle-btn" id="textureFilterIssues" onclick="setTextureFilter('issues')">⚠ Issues</button>
+                            </div>
+                            <input type="text" class="resource-search-box" id="searchBoxApp" placeholder="🔍 搜索...">
+                        </div>
+                        <div class="resource-sort-bar">
+                            <select class="sort-select" id="sortSelectApp">
+                                <option value="id">ID</option>
+                                <option value="size">尺寸</option>
+                                <option value="format">格式</option>
+                                <option value="name">名称</option>
+                            </select>
+                            <span class="stats-badge" id="statsApp">0 项</span>
+                        </div>
+                        <!-- 优化建议筛选提示条 -->
+                        <div class="optimization-filter-bar" id="optimFilterBar" style="display:none;">
+                            <span class="filter-indicator">🎯</span>
+                            <span id="optimFilterTitle"></span>
+                            <span id="optimFilterCount"></span>
+                            <button onclick="clearOptimizationFilter()" class="filter-clear-btn">✕</button>
+                        </div>
+                        <div class="texture-list" id="textureListApp"></div>
+                    </div>
+                </div>
+                
+                <!-- Shader 列表区块 (TASK-205) -->
+                <div class="resource-section shader-section" id="shaderSectionPanel">
+                    <div class="resource-section-header" onclick="toggleResourceSection('shader')">
+                        <span class="resource-section-icon">⚡</span>
+                        <span class="resource-section-title">SHADERS</span>
+                        <span class="resource-section-badge shader-badge" id="shaderCountBadge">0/0</span>
+                        <span class="resource-section-toggle" id="shaderSectionToggle">▼</span>
+                    </div>
+                    <div class="resource-section-content" id="shaderSectionContent">
+                        <div class="resource-filter-bar">
+                            <div class="filter-toggle-group">
+                                <button class="filter-toggle-btn active" id="shaderFilterAll" onclick="setShaderFilter('all')">All</button>
+                                <button class="filter-toggle-btn" id="shaderFilterIssues" onclick="setShaderFilter('issues')">⚠ Issues</button>
+                            </div>
+                            <input type="text" class="resource-search-box" id="shaderSearchBox" placeholder="🔍 搜索...">
+                        </div>
+                        <!-- Shader 优化筛选提示条 -->
+                        <div class="shader-filter-bar" id="shaderFilterBar" style="display:none;">
+                            <span class="filter-indicator">🎯</span>
+                            <span id="shaderFilterTitle"></span>
+                            <span id="shaderFilterCount"></span>
+                            <button onclick="clearShaderFilter()" class="filter-clear-btn">✕</button>
+                        </div>
+                        <div class="shader-list" id="shaderListApp"></div>
+                    </div>
                 </div>
             </div>
             
@@ -6354,7 +6533,7 @@ def generate_offline_html(textures: list, rdc_name: str, output_path: str,
             runGlobalAnalysis();
             renderPerformancePanel();
             renderOptimizationPanel();
-            initShaderList();  // TASK-205: 初始化 Shader 列表
+            initResourceBrowser();  // TASK-205: 初始化资源浏览器双列表
             setupAppEventListeners();
         }}
         
@@ -6839,71 +7018,176 @@ def generate_offline_html(textures: list, rdc_name: str, output_path: str,
             }}
         }}
         
-        // ========== Shader 列表功能 (TASK-205) ==========
-        let shaderOptimizations = [];
-        let shaderPanelCollapsed = false;
+        // ========== 资源浏览器双列表功能 (TASK-205) ==========
         
+        // Shader 列表状态
+        let allShaders = [];              // 所有 Shader 数据
+        let shaderIssueIds = new Set();   // 有问题的 Shader ID 集合
+        let shaderFilterMode = 'all';     // 'all' | 'issues'
+        let shaderSearchText = '';
+        let selectedShaderIndex = -1;
+        
+        // 纹理列表过滤状态
+        let textureFilterMode = 'all';    // 'all' | 'issues'
+        let textureIssueIds = new Set();  // 有问题的纹理 ID 集合
+        
+        // 初始化资源浏览器
+        function initResourceBrowser() {{
+            initTextureIssues();
+            initShaderList();
+            setupResourceSearchHandlers();
+        }}
+        
+        // 初始化纹理问题 ID 集合
+        function initTextureIssues() {{
+            textureIssueIds.clear();
+            if (optimizationData && optimizationData.items) {{
+                optimizationData.items.forEach(item => {{
+                    if (item.category === 'Texture' && item.resource_id) {{
+                        textureIssueIds.add(item.resource_id);
+                    }}
+                }});
+            }}
+            updateTextureCountBadge();
+        }}
+        
+        // 初始化 Shader 列表
         function initShaderList() {{
-            // 从 optimizationData 中提取 Shader 类别的优化建议
-            if (!optimizationData || !optimizationData.items) {{
-                hideShaderPanel();
-                return;
+            allShaders = [];
+            shaderIssueIds.clear();
+            
+            // 从 optimizationData 中提取所有 Shader 相关的优化建议
+            // 每个建议的 affected_resources 包含 Shader 名称列表
+            if (optimizationData && optimizationData.items) {{
+                const shaderNamesMap = new Map(); // name -> {{ issues: [], indices: [] }}
+                
+                optimizationData.items.forEach((item, idx) => {{
+                    if (item.category === 'Shader' && item.affected_resources) {{
+                        item.affected_resources.forEach(shaderName => {{
+                            if (!shaderNamesMap.has(shaderName)) {{
+                                shaderNamesMap.set(shaderName, {{ issues: [], indices: [] }});
+                            }}
+                            const entry = shaderNamesMap.get(shaderName);
+                            entry.issues.push(item);
+                            entry.indices.push(idx);
+                        }});
+                    }}
+                }});
+                
+                // 构建 allShaders 数组
+                let shaderIdx = 0;
+                shaderNamesMap.forEach((data, name) => {{
+                    const id = `shader_${{shaderIdx++}}`;
+                    allShaders.push({{
+                        id: id,
+                        name: name,
+                        type: detectShaderTypeFromName(name),
+                        issueCount: data.issues.length,
+                        issueIndices: data.indices,
+                        severity: data.issues.some(i => i.severity === 'high') ? 'high' : 
+                                  data.issues.some(i => i.severity === 'medium') ? 'medium' : 'low',
+                        issues: data.issues
+                    }});
+                    shaderIssueIds.add(id);
+                }});
             }}
             
-            shaderOptimizations = optimizationData.items
-                .map((item, idx) => ({{ ...item, originalIndex: idx }}))
-                .filter(item => item.category === 'Shader');
-            
-            if (shaderOptimizations.length === 0) {{
-                hideShaderPanel();
-                return;
-            }}
-            
-            // 更新徽章数字
-            document.getElementById('shaderCountBadge').textContent = shaderOptimizations.length;
-            
-            // 渲染列表
+            updateShaderCountBadge();
             renderShaderList();
         }}
         
-        function hideShaderPanel() {{
-            const panel = document.getElementById('shaderPanel');
-            if (panel) panel.style.display = 'none';
+        // 从名称检测 Shader 类型
+        function detectShaderTypeFromName(name) {{
+            const n = (name || '').toLowerCase();
+            if (n.endsWith('vs') || n.includes('_vs') || n.includes('vert')) return 'VS';
+            if (n.endsWith('ps') || n.includes('_ps') || n.includes('frag') || n.includes('pixel')) return 'PS';
+            if (n.endsWith('cs') || n.includes('_cs') || n.includes('compute')) return 'CS';
+            if (n.endsWith('gs') || n.includes('_gs') || n.includes('geom')) return 'GS';
+            if (n.endsWith('hs') || n.includes('_hs') || n.includes('hull')) return 'HS';
+            if (n.endsWith('ds') || n.includes('_ds') || n.includes('domain')) return 'DS';
+            return '??';
         }}
         
-        function toggleShaderPanel() {{
-            shaderPanelCollapsed = !shaderPanelCollapsed;
-            const list = document.getElementById('shaderListApp');
-            if (list) {{
-                list.style.display = shaderPanelCollapsed ? 'none' : 'block';
+        // 更新纹理计数徽章
+        function updateTextureCountBadge() {{
+            const badge = document.getElementById('textureCountBadge');
+            if (badge && typeof textures !== 'undefined') {{
+                const total = textures.length;
+                const issues = textureIssueIds.size;
+                badge.textContent = `${{issues}}/${{total}}`;
             }}
         }}
         
+        // 更新 Shader 计数徽章
+        function updateShaderCountBadge() {{
+            const badge = document.getElementById('shaderCountBadge');
+            if (badge) {{
+                const total = allShaders.length;
+                const issues = shaderIssueIds.size;
+                badge.textContent = `${{issues}}/${{total}}`;
+            }}
+        }}
+        
+        // 设置搜索框事件监听
+        function setupResourceSearchHandlers() {{
+            // Shader 搜索
+            const shaderSearch = document.getElementById('shaderSearchBox');
+            if (shaderSearch) {{
+                shaderSearch.addEventListener('input', (e) => {{
+                    shaderSearchText = e.target.value.toLowerCase();
+                    renderShaderList();
+                }});
+            }}
+        }}
+        
+        // 渲染 Shader 列表
         function renderShaderList() {{
             const container = document.getElementById('shaderListApp');
             if (!container) return;
             
-            if (shaderOptimizations.length === 0) {{
-                container.innerHTML = '<div class="shader-empty">暂无 Shader 优化建议</div>';
+            // 过滤
+            let filtered = allShaders;
+            
+            // 按模式过滤
+            if (shaderFilterMode === 'issues') {{
+                filtered = filtered.filter(s => shaderIssueIds.has(s.id));
+            }}
+            
+            // 按搜索文本过滤
+            if (shaderSearchText) {{
+                filtered = filtered.filter(s => 
+                    s.name.toLowerCase().includes(shaderSearchText) ||
+                    s.type.toLowerCase().includes(shaderSearchText)
+                );
+            }}
+            
+            if (filtered.length === 0) {{
+                container.innerHTML = `<div class="shader-empty">${{
+                    shaderFilterMode === 'issues' ? '暂无 Shader 优化问题 🎉' : 
+                    shaderSearchText ? '未找到匹配的 Shader' : '暂无 Shader 数据'
+                }}</div>`;
                 return;
             }}
             
-            const html = shaderOptimizations.map((item, idx) => {{
-                const severity = (item.severity || 'medium').toLowerCase();
-                const icon = severity === 'high' ? '🔴' : severity === 'medium' ? '🟠' : '🟢';
-                const title = item.title || 'Shader 优化';
-                const desc = item.description || '';
-                // 截断描述
-                const shortDesc = desc.length > 50 ? desc.substring(0, 50) + '...' : desc;
+            const html = filtered.map((shader, idx) => {{
+                const hasIssue = shaderIssueIds.has(shader.id);
+                const isSelected = selectedShaderIndex === idx;
+                const typeClass = shader.type.toLowerCase();
+                const severityIcon = shader.severity === 'high' ? '🔴' : 
+                                     shader.severity === 'medium' ? '🟠' : '🟢';
+                const issueText = shader.issueCount ? `${{shader.issueCount}} 项问题` : '';
                 
                 return `
-                    <div class="shader-item" data-index="${{idx}}" data-optim-index="${{item.originalIndex}}" onclick="selectShaderItem(${{idx}})">
-                        <span class="shader-item-icon">${{icon}}</span>
+                    <div class="shader-item${{hasIssue ? ' has-issue' : ''}}${{isSelected ? ' selected' : ''}} severity-${{shader.severity || 'low'}}" 
+                         data-shader-id="${{shader.id}}" 
+                         data-index="${{idx}}"
+                         onclick="selectShaderItem('${{shader.id}}', ${{idx}})">
+                        <span class="shader-item-icon">${{severityIcon}}</span>
                         <div class="shader-item-content">
-                            <div class="shader-item-title">${{title}}</div>
-                            <div class="shader-item-desc">${{shortDesc}}</div>
+                            <div class="shader-item-name">${{shader.name}}</div>
+                            ${{issueText ? `<div class="shader-item-meta">${{issueText}}</div>` : ''}}
                         </div>
-                        <span class="shader-item-severity ${{severity}}">${{severity}}</span>
+                        <span class="shader-item-type ${{typeClass}}">${{shader.type}}</span>
                     </div>
                 `;
             }}).join('');
@@ -6911,21 +7195,136 @@ def generate_offline_html(textures: list, rdc_name: str, output_path: str,
             container.innerHTML = html;
         }}
         
-        function selectShaderItem(idx) {{
-            // 高亮当前选中项
-            const items = document.querySelectorAll('.shader-item');
-            items.forEach((el, i) => {{
+        // 切换资源区块折叠
+        function toggleResourceSection(type) {{
+            const section = document.getElementById(type + 'SectionPanel');
+            if (section) {{
+                section.classList.toggle('collapsed');
+            }}
+        }}
+        
+        // 设置纹理过滤模式
+        function setTextureFilter(mode) {{
+            textureFilterMode = mode;
+            
+            // 更新按钮状态
+            document.getElementById('textureFilterAll').classList.toggle('active', mode === 'all');
+            document.getElementById('textureFilterIssues').classList.toggle('active', mode === 'issues');
+            
+            // 重新渲染纹理列表
+            renderTextureListFiltered();
+        }}
+        
+        // 设置 Shader 过滤模式
+        function setShaderFilter(mode) {{
+            shaderFilterMode = mode;
+            
+            // 更新按钮状态
+            document.getElementById('shaderFilterAll').classList.toggle('active', mode === 'all');
+            document.getElementById('shaderFilterIssues').classList.toggle('active', mode === 'issues');
+            
+            // 重新渲染列表
+            renderShaderList();
+        }}
+        
+        // 按过滤模式渲染纹理列表
+        function renderTextureListFiltered() {{
+            if (typeof textures === 'undefined' || !textures) return;
+            
+            let filtered = textures;
+            if (textureFilterMode === 'issues') {{
+                filtered = textures.filter(t => textureIssueIds.has(t.id));
+            }}
+            
+            // 调用原有的纹理列表渲染函数，传入过滤后的数据
+            renderTextureListWithData(filtered);
+        }}
+        
+        // 用指定数据渲染纹理列表
+        function renderTextureListWithData(data) {{
+            filteredTextures = data;
+            renderTextureList();
+        }}
+        
+        // 根据资源 ID 选择纹理并高亮
+        function selectTextureByResourceId(resourceId) {{
+            // 找到对应的索引
+            const idx = filteredTextures.findIndex(t => t.id === resourceId);
+            if (idx >= 0) {{
+                selectTexture(idx);
+                
+                // 滚动到该项并高亮
+                setTimeout(() => {{
+                    const item = document.querySelector(`.texture-item[data-index="${{idx}}"]`);
+                    if (item) {{
+                        item.scrollIntoView({{ behavior: 'smooth', block: 'center' }});
+                        item.classList.add('jump-highlight');
+                        setTimeout(() => item.classList.remove('jump-highlight'), 1500);
+                    }}
+                }}, 100);
+            }}
+        }}
+        
+        // 选择 Shader 项
+        function selectShaderItem(shaderId, idx) {{
+            selectedShaderIndex = idx;
+            
+            // 更新选中状态
+            document.querySelectorAll('.shader-item').forEach((el, i) => {{
                 el.classList.toggle('selected', i === idx);
             }});
             
-            // 获取原始优化建议索引
-            const item = shaderOptimizations[idx];
-            if (!item) return;
-            
-            // 切换到优化建议 Tab 并滚动到对应项
-            scrollToOptimizationItem(item.originalIndex);
+            // 如果有优化问题，跳转到第一个优化建议
+            const shader = allShaders.find(s => s.id === shaderId);
+            if (shader && shader.issueIndices && shader.issueIndices.length > 0) {{
+                // 跳转到第一个相关的优化建议
+                scrollToOptimizationItem(shader.issueIndices[0]);
+            }}
         }}
         
+        // 从优化建议联动到 Shader 列表
+        function highlightShaderFromOptimization(shaderId) {{
+            // 切换到 Issues 模式并高亮
+            setShaderFilter('issues');
+            
+            // 展开 Shader 区块
+            const section = document.getElementById('shaderSectionPanel');
+            if (section) section.classList.remove('collapsed');
+            
+            // 延迟后滚动并高亮
+            setTimeout(() => {{
+                const item = document.querySelector(`.shader-item[data-shader-id="${{shaderId}}"]`);
+                if (item) {{
+                    item.scrollIntoView({{ behavior: 'smooth', block: 'center' }});
+                    item.classList.add('selected');
+                    item.style.boxShadow = '0 0 0 2px var(--accent-purple), 0 0 15px rgba(168, 85, 247, 0.3)';
+                    setTimeout(() => {{ item.style.boxShadow = ''; }}, 2000);
+                }}
+            }}, 150);
+        }}
+        
+        // 从优化建议联动到纹理列表
+        function highlightTextureFromOptimization(textureId) {{
+            // 切换到 Issues 模式
+            setTextureFilter('issues');
+            
+            // 展开纹理区块
+            const section = document.getElementById('textureSectionPanel');
+            if (section) section.classList.remove('collapsed');
+            
+            // 延迟后选中并高亮
+            setTimeout(() => {{
+                selectTextureByResourceId(textureId);
+            }}, 150);
+        }}
+        
+        // 清除 Shader 过滤
+        function clearShaderFilter() {{
+            setShaderFilter('all');
+            document.getElementById('shaderFilterBar').style.display = 'none';
+        }}
+        
+        // 滚动到优化建议项
         function scrollToOptimizationItem(optimIndex) {{
             // 确保优化建议面板是展开状态
             const optimPanel = document.getElementById('optimizationPanel');
@@ -6933,7 +7332,7 @@ def generate_offline_html(textures: list, rdc_name: str, output_path: str,
             if (optimPanel && optimContent) {{
                 optimContent.style.display = 'block';
                 const toggleIcon = document.getElementById('optimizationToggle');
-                if (toggleIcon) toggleIcon.innerHTML = '&#9660;'; // 展开箭头
+                if (toggleIcon) toggleIcon.innerHTML = '&#9660;';
             }}
             
             // 滚动到对应卡片
@@ -6941,12 +7340,9 @@ def generate_offline_html(textures: list, rdc_name: str, output_path: str,
                 const optimCard = document.querySelector(`.optim-card[data-index="${{optimIndex}}"]`);
                 if (optimCard) {{
                     optimCard.scrollIntoView({{ behavior: 'smooth', block: 'center' }});
-                    // 添加高亮效果
                     optimCard.style.boxShadow = '0 0 0 2px var(--accent-orange), 0 0 20px rgba(251, 146, 60, 0.3)';
                     optimCard.style.transition = 'box-shadow 0.3s ease';
-                    setTimeout(() => {{
-                        optimCard.style.boxShadow = '';
-                    }}, 2000);
+                    setTimeout(() => {{ optimCard.style.boxShadow = ''; }}, 2000);
                 }}
             }}, 100);
         }}
@@ -7689,7 +8085,7 @@ def generate_offline_html(textures: list, rdc_name: str, output_path: str,
             statsSection.insertAdjacentHTML('beforeend', optimHtml);
         }}
         
-        // 应用优化建议筛选 (方案B)
+        // 应用优化建议筛选 (方案B) - TASK-205: 支持 Shader 和 Texture 双列表联动
         function applyOptimizationFilter(idx) {{
             if (!optimizationData || !optimizationData.items[idx]) return;
             
@@ -7704,36 +8100,79 @@ def generate_offline_html(textures: list, rdc_name: str, output_path: str,
                 resourceNames: resources
             }};
             
-            // 按资源名称筛选纹理
-            filteredTextures = textures.filter(tex => {{
-                const texName = tex.name || `Texture #${{tex.id}}`;
-                return resources.some(r => texName.includes(r) || r.includes(texName) || texName === r);
-            }});
-            
-            // 如果按名称匹配不到，尝试更宽松的匹配（资源名可能只是部分名称）
-            if (filteredTextures.length === 0) {{
-                // 尝试用 resourceId 匹配
-                filteredTextures = textures.filter(tex => {{
-                    return resources.some(r => r.includes(String(tex.resourceId)) || r.includes(String(tex.id)));
-                }});
+            // TASK-205: 根据类别联动到对应列表
+            if (item.category === 'Shader') {{
+                // Shader 类别 - 联动到 Shader 列表
+                applyShaderOptimizationFilter(item, resources, idx);
+            }} else {{
+                // 默认 Texture 类别 - 联动到纹理列表
+                applyTextureOptimizationFilter(item, resources);
             }}
+        }}
+        
+        // Shader 优化建议联动
+        function applyShaderOptimizationFilter(item, resources, idx) {{
+            // 切换到 Issues 模式
+            setShaderFilter('issues');
+            
+            // 展开 Shader 区块
+            const section = document.getElementById('shaderSectionPanel');
+            if (section) section.classList.remove('collapsed');
+            
+            // 找到对应的 Shader 并高亮
+            if (resources.length > 0) {{
+                const targetName = resources[0]; // 取第一个资源名称
+                const shader = allShaders.find(s => s.name === targetName);
+                if (shader) {{
+                    setTimeout(() => {{
+                        const item = document.querySelector(`.shader-item[data-shader-id="${{shader.id}}"]`);
+                        if (item) {{
+                            item.scrollIntoView({{ behavior: 'smooth', block: 'center' }});
+                            item.classList.add('selected');
+                            item.style.boxShadow = '0 0 0 2px var(--accent-purple), 0 0 15px rgba(168, 85, 247, 0.4)';
+                            setTimeout(() => {{ item.style.boxShadow = ''; }}, 2000);
+                        }}
+                    }}, 150);
+                }}
+            }}
+        }}
+        
+        // Texture 优化建议联动
+        function applyTextureOptimizationFilter(item, resources) {{
+            // 切换到 Issues 模式
+            setTextureFilter('issues');
+            
+            // 展开纹理区块
+            const section = document.getElementById('textureSectionPanel');
+            if (section) section.classList.remove('collapsed');
             
             // 更新筛选提示条
             const filterBar = document.getElementById('optimFilterBar');
             const filterTitle = document.getElementById('optimFilterTitle');
             const filterCount = document.getElementById('optimFilterCount');
+            
+            // 按资源名称筛选纹理（更精确的匹配）
+            const matchedTextures = textures.filter(tex => {{
+                const texName = tex.name || `Texture #${{tex.id}}`;
+                return resources.some(r => {{
+                    // 提取资源名称（去除尺寸信息如 "(1024×1024, 50)"）
+                    const resourceName = r.replace(/\s*\([^)]+\)$/, '').trim();
+                    return texName === resourceName || texName.includes(resourceName) || resourceName.includes(texName);
+                }});
+            }});
+            
             if (filterBar && filterTitle && filterCount) {{
                 filterBar.style.display = 'block';
                 filterTitle.textContent = item.title;
-                filterCount.textContent = `(${{filteredTextures.length}}/${{resources.length}} 匹配)`;
+                filterCount.textContent = `(${{matchedTextures.length}}/${{resources.length}} 匹配)`;
             }}
             
-            // 重新渲染纹理列表
-            renderTextureList();
-            
-            // 滚动到列表顶部
-            const list = document.getElementById('textureListApp');
-            if (list) list.scrollTop = 0;
+            // 如果有匹配的纹理，滚动到第一个
+            if (matchedTextures.length > 0) {{
+                setTimeout(() => {{
+                    selectTextureByResourceId(matchedTextures[0].id);
+                }}, 150);
+            }}
         }}
         
         // 清除优化建议筛选
