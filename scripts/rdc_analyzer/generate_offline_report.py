@@ -2315,6 +2315,331 @@ def generate_offline_html(textures: list, rdc_name: str, output_path: str,
             box-shadow: 0 0 0 2px rgba(34, 197, 94, 0.3);
         }}
         
+        /* ==================== Shader Modal Styles ==================== */
+        .shader-modal {{
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.75);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 2100;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.2s ease;
+            backdrop-filter: blur(2px);
+        }}
+        
+        .shader-modal.show {{
+            opacity: 1;
+            visibility: visible;
+        }}
+        
+        .shader-modal-content {{
+            background: var(--bg-primary);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            width: 85vw;
+            max-width: 1200px;
+            height: 80vh;
+            max-height: 900px;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+            transform: scale(0.95);
+            transition: transform 0.2s ease;
+        }}
+        
+        .shader-modal.show .shader-modal-content {{
+            transform: scale(1);
+        }}
+        
+        .shader-modal-header {{
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 16px 20px;
+            border-bottom: 1px solid var(--border-color);
+            background: var(--bg-secondary);
+            border-radius: 12px 12px 0 0;
+        }}
+        
+        .shader-modal-title {{
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }}
+        
+        .shader-type-badge {{
+            padding: 4px 12px;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+        }}
+        
+        .shader-type-badge.vs {{
+            background: linear-gradient(135deg, #10b981, #059669);
+            color: white;
+        }}
+        
+        .shader-type-badge.ps {{
+            background: linear-gradient(135deg, #8b5cf6, #7c3aed);
+            color: white;
+        }}
+        
+        .shader-type-badge.cs {{
+            background: linear-gradient(135deg, #f59e0b, #d97706);
+            color: white;
+        }}
+        
+        .shader-type-badge.gs {{
+            background: linear-gradient(135deg, #06b6d4, #0891b2);
+            color: white;
+        }}
+        
+        .shader-type-badge.hs, .shader-type-badge.ds {{
+            background: linear-gradient(135deg, #ec4899, #db2777);
+            color: white;
+        }}
+        
+        .shader-modal-name {{
+            font-size: 16px;
+            font-weight: 500;
+            color: var(--text-primary);
+        }}
+        
+        .shader-modal-close {{
+            background: transparent;
+            border: none;
+            color: var(--text-muted);
+            font-size: 28px;
+            cursor: pointer;
+            padding: 0 8px;
+            transition: color 0.15s;
+            line-height: 1;
+        }}
+        
+        .shader-modal-close:hover {{
+            color: #ef4444;
+        }}
+        
+        .shader-modal-info {{
+            display: flex;
+            gap: 20px;
+            padding: 12px 20px;
+            background: var(--bg-tertiary);
+            border-bottom: 1px solid var(--border-color);
+            flex-wrap: wrap;
+        }}
+        
+        .shader-info-item {{
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 12px;
+        }}
+        
+        .shader-info-label {{
+            color: var(--text-muted);
+        }}
+        
+        .shader-info-value {{
+            color: var(--text-secondary);
+            font-family: 'JetBrains Mono', 'Consolas', 'Monaco', monospace;
+        }}
+        
+        .shader-modal-tabs {{
+            display: flex;
+            gap: 4px;
+            padding: 8px 20px;
+            border-bottom: 1px solid var(--border-color);
+            background: var(--bg-secondary);
+        }}
+        
+        .shader-tab-btn {{
+            padding: 8px 16px;
+            border: none;
+            background: transparent;
+            color: var(--text-muted);
+            font-size: 12px;
+            font-weight: 500;
+            cursor: pointer;
+            border-radius: 6px;
+            transition: all 0.15s;
+        }}
+        
+        .shader-tab-btn:hover {{
+            background: var(--bg-hover);
+            color: var(--text-secondary);
+        }}
+        
+        .shader-tab-btn.active {{
+            background: var(--accent-blue);
+            color: white;
+        }}
+        
+        .shader-modal-body {{
+            flex: 1;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }}
+        
+        .shader-code-container {{
+            flex: 1;
+            overflow: auto;
+            background: #1e1e1e;
+            margin: 0;
+        }}
+        
+        .shader-code {{
+            font-family: 'JetBrains Mono', 'Consolas', 'Monaco', monospace;
+            font-size: 12px;
+            line-height: 1.5;
+            color: #d4d4d4;
+            white-space: pre;
+            padding: 16px 20px;
+            margin: 0;
+            min-height: 100%;
+        }}
+        
+        /* ASM Syntax Highlighting */
+        .shader-code .hljs-comment {{
+            color: #6a9955;
+            font-style: italic;
+        }}
+        
+        .shader-code .hljs-keyword {{
+            color: #569cd6;
+            font-weight: 500;
+        }}
+        
+        .shader-code .hljs-register {{
+            color: #9cdcfe;
+        }}
+        
+        .shader-code .hljs-number {{
+            color: #b5cea8;
+        }}
+        
+        .shader-code .hljs-string {{
+            color: #ce9178;
+        }}
+        
+        .shader-code .hljs-type {{
+            color: #4ec9b0;
+        }}
+        
+        .shader-code .hljs-label {{
+            color: #dcdcaa;
+        }}
+        
+        .shader-signature-table {{
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 12px;
+        }}
+        
+        .shader-signature-table th {{
+            background: var(--bg-tertiary);
+            color: var(--text-muted);
+            padding: 8px 12px;
+            text-align: left;
+            font-weight: 500;
+            border-bottom: 1px solid var(--border-color);
+        }}
+        
+        .shader-signature-table td {{
+            padding: 8px 12px;
+            border-bottom: 1px solid var(--border-color);
+            color: var(--text-secondary);
+        }}
+        
+        .shader-signature-table tr:hover td {{
+            background: var(--bg-hover);
+        }}
+        
+        .shader-tab-content {{
+            display: none;
+            height: 100%;
+            overflow: auto;
+        }}
+        
+        .shader-tab-content.active {{
+            display: block;
+        }}
+        
+        .shader-modal-footer {{
+            display: flex;
+            justify-content: flex-end;
+            gap: 8px;
+            padding: 12px 20px;
+            border-top: 1px solid var(--border-color);
+            background: var(--bg-secondary);
+            border-radius: 0 0 12px 12px;
+        }}
+        
+        .shader-modal-btn {{
+            padding: 8px 16px;
+            border: none;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.15s;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }}
+        
+        .shader-modal-btn.secondary {{
+            background: var(--bg-tertiary);
+            color: var(--text-secondary);
+        }}
+        
+        .shader-modal-btn.secondary:hover {{
+            background: var(--bg-hover);
+        }}
+        
+        .shader-modal-btn.primary {{
+            background: linear-gradient(135deg, var(--accent-blue), #3a7ebd);
+            color: white;
+        }}
+        
+        .shader-modal-btn.primary:hover {{
+            box-shadow: 0 0 0 2px rgba(88, 166, 255, 0.3);
+        }}
+        
+        /* Shader 表格中的查看代码按钮 */
+        .btn-view-shader {{
+            padding: 3px 8px;
+            border: none;
+            background: var(--bg-tertiary);
+            color: var(--text-secondary);
+            font-size: 10px;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.15s;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+        }}
+        
+        .btn-view-shader:hover {{
+            background: var(--accent-blue);
+            color: white;
+        }}
+        
+        .btn-view-shader:disabled {{
+            opacity: 0.5;
+            cursor: not-allowed;
+        }}
+        /* ==================== End Shader Modal Styles ==================== */
+        
         /* Event 节点高亮动画 */
         @keyframes highlight-pulse {{
             0%, 100% {{ 
@@ -4073,6 +4398,37 @@ def generate_offline_html(textures: list, rdc_name: str, output_path: str,
         
         .params-table td:last-child {{
             color: var(--text-primary);
+        }}
+        
+        .params-table th {{
+            padding: 6px 8px;
+            text-align: left;
+            font-weight: 500;
+            font-size: 11px;
+            color: var(--text-muted);
+            background: var(--bg-dark);
+            border-bottom: 1px solid var(--border);
+        }}
+        
+        .btn-view-shader {{
+            padding: 4px 10px;
+            font-size: 11px;
+            font-weight: 500;
+            color: var(--text-primary);
+            background: linear-gradient(135deg, #4f46e5, #7c3aed);
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+        }}
+        
+        .btn-view-shader:hover {{
+            background: linear-gradient(135deg, #6366f1, #8b5cf6);
+            transform: translateY(-1px);
+            box-shadow: 0 2px 8px rgba(99, 102, 241, 0.4);
         }}
         
         /* ========== API 调用样式 ========== */
@@ -8222,9 +8578,32 @@ def generate_offline_html(textures: list, rdc_name: str, output_path: str,
                         <div class="event-detail-card-header">🔧 Shaders</div>
                         <div class="event-detail-card-body">
                             <table class="params-table">
-                                ${{Object.entries(ps.shaders).map(([stage, shader]) => 
-                                    `<tr><td>${{stage}}</td><td>${{shader.name || shader.id || 'N/A'}}</td></tr>`
-                                ).join('')}}
+                                <thead>
+                                    <tr>
+                                        <th style="width:120px;">Stage</th>
+                                        <th>Name / Entry Point</th>
+                                        <th style="width:100px;">操作</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                ${{Object.entries(ps.shaders).map(([stage, shader]) => {{
+                                    const name = shader.debugName || shader.entryPoint || shader.resourceId || 'N/A';
+                                    const hasCode = shader.sourceAsm || shader.inputSignature;
+                                    const shaderJson = JSON.stringify(shader).replace(/'/g, "\\\\'").replace(/"/g, '&quot;');
+                                    return `<tr>
+                                        <td><span style="font-weight:500;">${{stage}}</span></td>
+                                        <td style="font-family:monospace;font-size:11px;">${{name}}</td>
+                                        <td>
+                                            ${{hasCode ? 
+                                                `<button class="btn-view-shader" onclick="showShaderModal('${{stage}}', JSON.parse(this.dataset.shader.replace(/&quot;/g, '\\\"')))" data-shader="${{shaderJson}}">
+                                                    📜 查看
+                                                </button>` : 
+                                                `<span style="color:var(--text-muted);font-size:10px;">无详情</span>`
+                                            }}
+                                        </td>
+                                    </tr>`;
+                                }}).join('')}}
+                                </tbody>
                             </table>
                         </div>
                     </div>
@@ -10836,6 +11215,270 @@ Draw Info: ${{currentEIDInfo.drawInfo}}`;
                 alert('复制失败，请手动复制');
             }});
         }}
+        
+        // ==================== Shader Modal Functions ====================
+        let currentShaderData = null;
+        
+        function getShaderTypeBadgeClass(stageName) {{
+            const map = {{
+                'Vertex Shader': 'vs',
+                'Pixel Shader': 'ps',
+                'Compute Shader': 'cs',
+                'Geometry Shader': 'gs',
+                'Hull Shader': 'hs',
+                'Domain Shader': 'ds'
+            }};
+            return map[stageName] || 'vs';
+        }}
+        
+        function getShaderTypeAbbrev(stageName) {{
+            const map = {{
+                'Vertex Shader': 'VS',
+                'Pixel Shader': 'PS',
+                'Compute Shader': 'CS',
+                'Geometry Shader': 'GS',
+                'Hull Shader': 'HS',
+                'Domain Shader': 'DS'
+            }};
+            return map[stageName] || stageName;
+        }}
+        
+        function escapeHtml(text) {{
+            if (!text) return '';
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }}
+        
+        function highlightAsmCode(code) {{
+            if (!code) return '';
+            let escaped = escapeHtml(code);
+            
+            // DXBC/DXIL/SPIRV 语法高亮
+            escaped = escaped
+                // 注释
+                .replace(/(\/\/.*$|;.*$)/gm, '<span class="hljs-comment">$1</span>')
+                // 关键字（指令）
+                .replace(/\\b(dcl_|def|mov|add|mul|mad|dp[234]|sample|sample_l|sample_d|sample_c|ld|store|ret|if_|else|endif|loop|endloop|break|continue|discard|rsq|sqrt|rcp|min|max|abs|saturate|frc|floor|ceil|round|log|exp|sin|cos|tan|asin|acos|atan|pow|step|lerp|clamp|sign|normalize|length|distance|dot|cross|reflect|refract|transpose|determinant|any|all|clip|texld|texldp|texldb|texldd|tex2D|tex3D|texCUBE|texldl)\\b/gi, '<span class="hljs-keyword">$1</span>')
+                // 寄存器
+                .replace(/\\b([vorcst]\\d+|r\\d+|o\\d+|t\\d+|s\\d+|cb\\d+|icb\\d+|x\\d+|v\\d+_\\d+)\\b/gi, '<span class="hljs-register">$1</span>')
+                // 数字
+                .replace(/\\b(-?\\d+\\.?\\d*[fhl]?)\\b/g, '<span class="hljs-number">$1</span>')
+                // 类型
+                .replace(/\\b(float[234]?|int[234]?|uint[234]?|half[234]?|bool|void|float[234]x[234]|matrix|Texture2D|Texture3D|TextureCube|SamplerState|cbuffer|ConstantBuffer)\\b/g, '<span class="hljs-type">$1</span>')
+                // 标签
+                .replace(/^(\\w+:)/gm, '<span class="hljs-label">$1</span>');
+            
+            return escaped;
+        }}
+        
+        function showShaderModal(stageName, shaderData) {{
+            currentShaderData = {{ stage: stageName, ...shaderData }};
+            
+            const abbrev = getShaderTypeAbbrev(stageName);
+            const badgeClass = getShaderTypeBadgeClass(stageName);
+            const displayName = shaderData.debugName || shaderData.entryPoint || 'Unnamed Shader';
+            
+            // 创建模态框 HTML
+            const modal = document.createElement('div');
+            modal.className = 'shader-modal';
+            modal.id = 'shaderModal';
+            modal.onclick = (e) => {{ if (e.target === modal) closeShaderModal(); }};
+            
+            // 构建输入签名表格
+            let inputSigHtml = '<div style="padding:20px;color:var(--text-muted);">无输入签名数据</div>';
+            if (shaderData.inputSignature && shaderData.inputSignature.length > 0) {{
+                inputSigHtml = `
+                    <table class="shader-signature-table">
+                        <thead>
+                            <tr>
+                                <th>Semantic</th>
+                                <th>Index</th>
+                                <th>Register</th>
+                                <th>Type</th>
+                                <th>Components</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${{shaderData.inputSignature.map(sig => `
+                                <tr>
+                                    <td>${{sig.semantic || 'N/A'}}</td>
+                                    <td>${{sig.index ?? 0}}</td>
+                                    <td>${{sig.register ?? 'N/A'}}</td>
+                                    <td>${{sig.type || 'float'}}</td>
+                                    <td>${{sig.components ?? 4}}</td>
+                                </tr>
+                            `).join('')}}
+                        </tbody>
+                    </table>
+                `;
+            }}
+            
+            // 构建输出签名表格
+            let outputSigHtml = '<div style="padding:20px;color:var(--text-muted);">无输出签名数据</div>';
+            if (shaderData.outputSignature && shaderData.outputSignature.length > 0) {{
+                outputSigHtml = `
+                    <table class="shader-signature-table">
+                        <thead>
+                            <tr>
+                                <th>Semantic</th>
+                                <th>Index</th>
+                                <th>Register</th>
+                                <th>Type</th>
+                                <th>Components</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${{shaderData.outputSignature.map(sig => `
+                                <tr>
+                                    <td>${{sig.semantic || 'N/A'}}</td>
+                                    <td>${{sig.index ?? 0}}</td>
+                                    <td>${{sig.register ?? 'N/A'}}</td>
+                                    <td>${{sig.type || 'float'}}</td>
+                                    <td>${{sig.components ?? 4}}</td>
+                                </tr>
+                            `).join('')}}
+                        </tbody>
+                    </table>
+                `;
+            }}
+            
+            // 反汇编代码
+            let asmCode = shaderData.sourceAsm || shaderData.sourceAsmError || '// 无反汇编代码可用\\n// 请确保在提取 Pipeline State 时包含了 Shader 反汇编';
+            const highlightedAsm = highlightAsmCode(asmCode);
+            
+            // 常量缓冲区信息
+            let cbHtml = '<div style="padding:20px;color:var(--text-muted);">无常量缓冲区数据</div>';
+            if (shaderData.constantBuffers && shaderData.constantBuffers.length > 0) {{
+                cbHtml = `
+                    <table class="shader-signature-table">
+                        <thead>
+                            <tr>
+                                <th>Name</th>
+                                <th>Bind Point</th>
+                                <th>Size (bytes)</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${{shaderData.constantBuffers.map(cb => `
+                                <tr>
+                                    <td>${{cb.name || 'Unnamed'}}</td>
+                                    <td>${{cb.bindPoint ?? 'N/A'}}</td>
+                                    <td>${{cb.byteSize ?? 0}}</td>
+                                </tr>
+                            `).join('')}}
+                        </tbody>
+                    </table>
+                `;
+            }}
+            
+            modal.innerHTML = `
+                <div class="shader-modal-content">
+                    <div class="shader-modal-header">
+                        <div class="shader-modal-title">
+                            <span class="shader-type-badge ${{badgeClass}}">${{abbrev}}</span>
+                            <span class="shader-modal-name">${{displayName}}</span>
+                        </div>
+                        <button class="shader-modal-close" onclick="closeShaderModal()">&times;</button>
+                    </div>
+                    <div class="shader-modal-info">
+                        <div class="shader-info-item">
+                            <span class="shader-info-label">Resource ID:</span>
+                            <span class="shader-info-value">${{shaderData.resourceId || 'N/A'}}</span>
+                        </div>
+                        <div class="shader-info-item">
+                            <span class="shader-info-label">Entry Point:</span>
+                            <span class="shader-info-value">${{shaderData.entryPoint || 'main'}}</span>
+                        </div>
+                        <div class="shader-info-item">
+                            <span class="shader-info-label">Encoding:</span>
+                            <span class="shader-info-value">${{shaderData.encoding || 'Unknown'}}</span>
+                        </div>
+                        ${{shaderData.sourceAsmTruncated ? '<div class="shader-info-item"><span style="color:#f59e0b;">⚠️ 代码已截断</span></div>' : ''}}
+                    </div>
+                    <div class="shader-modal-tabs">
+                        <button class="shader-tab-btn active" onclick="switchShaderTab(this, 'asm')">📜 反汇编</button>
+                        <button class="shader-tab-btn" onclick="switchShaderTab(this, 'input')">📥 输入签名</button>
+                        <button class="shader-tab-btn" onclick="switchShaderTab(this, 'output')">📤 输出签名</button>
+                        <button class="shader-tab-btn" onclick="switchShaderTab(this, 'cb')">📦 常量缓冲区</button>
+                    </div>
+                    <div class="shader-modal-body">
+                        <div class="shader-tab-content active" id="shaderTabAsm">
+                            <div class="shader-code-container">
+                                <pre class="shader-code">${{highlightedAsm}}</pre>
+                            </div>
+                        </div>
+                        <div class="shader-tab-content" id="shaderTabInput">
+                            ${{inputSigHtml}}
+                        </div>
+                        <div class="shader-tab-content" id="shaderTabOutput">
+                            ${{outputSigHtml}}
+                        </div>
+                        <div class="shader-tab-content" id="shaderTabCb">
+                            ${{cbHtml}}
+                        </div>
+                    </div>
+                    <div class="shader-modal-footer">
+                        <button class="shader-modal-btn secondary" onclick="closeShaderModal()">关闭</button>
+                        <button class="shader-modal-btn primary" onclick="copyShaderCode()">📋 复制代码</button>
+                    </div>
+                </div>
+            `;
+            
+            document.body.appendChild(modal);
+            
+            // 延迟显示动画
+            requestAnimationFrame(() => {{
+                modal.classList.add('show');
+            }});
+        }}
+        
+        function closeShaderModal() {{
+            const modal = document.getElementById('shaderModal');
+            if (modal) {{
+                modal.classList.remove('show');
+                setTimeout(() => modal.remove(), 200);
+            }}
+            currentShaderData = null;
+        }}
+        
+        function switchShaderTab(btn, tabId) {{
+            // 更新按钮状态
+            btn.parentElement.querySelectorAll('.shader-tab-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            
+            // 切换内容
+            const tabMap = {{
+                'asm': 'shaderTabAsm',
+                'input': 'shaderTabInput',
+                'output': 'shaderTabOutput',
+                'cb': 'shaderTabCb'
+            }};
+            
+            document.querySelectorAll('.shader-tab-content').forEach(c => c.classList.remove('active'));
+            const targetTab = document.getElementById(tabMap[tabId]);
+            if (targetTab) targetTab.classList.add('active');
+        }}
+        
+        function copyShaderCode() {{
+            if (!currentShaderData) return;
+            
+            const code = currentShaderData.sourceAsm || '// No code available';
+            navigator.clipboard.writeText(code).then(() => {{
+                const btn = event.target;
+                const originalText = btn.innerHTML;
+                btn.innerHTML = '✓ 已复制';
+                btn.style.background = 'var(--accent-green)';
+                setTimeout(() => {{
+                    btn.innerHTML = originalText;
+                    btn.style.background = '';
+                }}, 1500);
+            }}).catch(err => {{
+                console.error('复制失败:', err);
+                alert('复制失败，请手动复制');
+            }});
+        }}
+        // ==================== End Shader Modal Functions ====================
         
         // 显示全部 EID 列表弹窗
         function showAllEIDsModal(textureName, events) {{
