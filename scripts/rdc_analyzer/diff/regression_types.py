@@ -69,6 +69,28 @@ class RegressionRule:
 
 
 @dataclass
+class EvidenceAnchor:
+    """
+    证据锚点 - 用于关联回归问题到具体的渲染事件
+    
+    Attributes:
+        event_id: RenderDoc Event ID
+        marker_path: Debug Marker 路径 (如 "Shadow/MainLight/Cascade0")
+        description: 事件描述
+    """
+    event_id: int
+    marker_path: str = ""
+    description: str = ""
+    
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "event_id": self.event_id,
+            "marker_path": self.marker_path,
+            "description": self.description,
+        }
+
+
+@dataclass
 class RegressionIssue:
     """
     检测到的回归问题
@@ -82,6 +104,7 @@ class RegressionIssue:
         target_value: 目标值
         delta_percent: 变化百分比
         affected_resources: 受影响的资源 ID 列表
+        evidence: 证据锚点列表 (用于跳转到问题位置)
     """
     rule_id: RegressionRuleId
     severity: RegressionSeverity
@@ -91,6 +114,7 @@ class RegressionIssue:
     target_value: Optional[float] = None
     delta_percent: Optional[float] = None
     affected_resources: List[str] = field(default_factory=list)
+    evidence: List[EvidenceAnchor] = field(default_factory=list)
     
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -102,6 +126,7 @@ class RegressionIssue:
             "target_value": self.target_value,
             "delta_percent": self.delta_percent,
             "affected_resources": self.affected_resources,
+            "evidence": [e.to_dict() for e in self.evidence],
         }
 
 

@@ -175,6 +175,10 @@ class DrawCallDiff:
     index_count: int = 0
     vertex_count: int = 0
     
+    # 证据链属性 (用于跳转到 RenderDoc)
+    marker_path: str = ""        # Debug Marker 路径
+    name: str = ""               # Draw Call 名称/描述
+    
     def to_dict(self) -> Dict[str, Any]:
         changes_dict = {}
         for k, (b, t) in self.changes.items():
@@ -187,6 +191,8 @@ class DrawCallDiff:
             "draw_type": self.draw_type,
             "index_count": self.index_count,
             "vertex_count": self.vertex_count,
+            "marker_path": self.marker_path,
+            "name": self.name,
             "changes": changes_dict,
         }
 

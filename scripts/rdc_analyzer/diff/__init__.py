@@ -29,6 +29,7 @@ from .regression_types import (
     RegressionSeverity,
     RegressionIssue,
     RegressionReport,
+    EvidenceAnchor,
     DEFAULT_RULES,
 )
 from .regression_detector import RegressionDetector
@@ -55,6 +56,7 @@ __all__ = [
     'RegressionSeverity',
     'RegressionIssue',
     'RegressionReport',
+    'EvidenceAnchor',
     'DEFAULT_RULES',
     # HTML 导出
     'DiffHTMLExporter',

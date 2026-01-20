@@ -387,7 +387,16 @@ def export_json_diff(
                     "message": issue.message,
                     "baseline_value": issue.baseline_value,
                     "target_value": issue.target_value,
-                    "delta_percent": issue.delta_percent
+                    "delta_percent": issue.delta_percent,
+                    "affected_resources": issue.affected_resources,
+                    "evidence": [
+                        {
+                            "event_id": e.event_id,
+                            "marker_path": e.marker_path,
+                            "description": e.description
+                        }
+                        for e in issue.evidence
+                    ] if issue.evidence else []
                 }
                 for issue in regression_report.issues
             ]

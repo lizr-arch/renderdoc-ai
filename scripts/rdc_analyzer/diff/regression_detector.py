@@ -23,6 +23,7 @@ from .regression_types import (
     RegressionSeverity,
     RegressionIssue,
     RegressionReport,
+    EvidenceAnchor,
     DEFAULT_RULES,
 )
 
@@ -305,12 +306,23 @@ class RegressionDetector:
             
             for vc, draws in vertex_counts.items():
                 if len(draws) > 1:
+                    # 构建证据锚点列表
+                    evidence_list = [
+                        EvidenceAnchor(
+                            event_id=d.event_id,
+                            marker_path=d.marker_path,
+                            description=d.name or f"{d.draw_type} (vertices={d.vertex_count})"
+                        )
+                        for d in draws
+                    ]
+                    
                     issues.append(RegressionIssue(
                         rule_id=RegressionRuleId.REG006,
                         severity=rule.severity,
                         message=f"检测到 {len(draws)} 个新增 Draw Call 具有相同顶点数 ({vc})，可能存在 Overdraw",
                         details=f"Event IDs: {[d.event_id for d in draws]}",
                         affected_resources=[str(d.event_id) for d in draws],
+                        evidence=evidence_list,
                     ))
         
         return issues
@@ -324,16 +336,38 @@ class RegressionDetector:
         rule = self.rules[RegressionRuleId.REG007]
         issues: List[RegressionIssue] = []
         
-        # 统计新增的 Draw Calls
-        added_count = sum(1 for d in diff.draw_call_diffs if d.status == DiffStatus.ADDED)
+        # 获取新增的 Draw Calls
+        added_draws = [d for d in diff.draw_call_diffs if d.status == DiffStatus.ADDED]
         
-        if added_count > 0:
-            # 简单报告: 有新增的 Draw Calls
+        if added_draws:
+            # 按 marker_path 分组，推断 Pass 结构
+            marker_groups: Dict[str, List] = {}
+            for draw in added_draws:
+                # 取 marker_path 的第一级作为分组依据
+                marker_key = draw.marker_path.split("/")[0] if draw.marker_path else "(no marker)"
+                if marker_key not in marker_groups:
+                    marker_groups[marker_key] = []
+                marker_groups[marker_key].append(draw)
+            
+            # 构建证据锚点列表 (限制前 10 个)
+            evidence_list = [
+                EvidenceAnchor(
+                    event_id=d.event_id,
+                    marker_path=d.marker_path,
+                    description=d.name or f"{d.draw_type} (vertices={d.vertex_count})"
+                )
+                for d in added_draws[:10]
+            ]
+            
+            # 生成详情
+            pass_summary = ", ".join([f"{k}: {len(v)} DC" for k, v in marker_groups.items()])
+            
             issues.append(RegressionIssue(
                 rule_id=RegressionRuleId.REG007,
                 severity=rule.severity,
-                message=f"新增 {added_count} 个 Draw Call",
-                details="可能表示新增了渲染 Pass 或功能",
+                message=f"新增 {len(added_draws)} 个 Draw Call",
+                details=f"按 Pass 分布: {pass_summary}" if len(marker_groups) > 1 else "可能表示新增了渲染 Pass 或功能",
+                evidence=evidence_list,
             ))
         
         return issues
