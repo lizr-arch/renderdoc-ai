@@ -523,6 +523,31 @@ def parse_rdc_xml(xml_path):
         "ID3D12GraphicsCommandList::Dispatch",
     ]
     
+    # OpenGL draw/dispatch calls (真正的渲染调用，会清空 binding_records)
+    gl_draw_calls = [
+        # Basic draw calls
+        "glDrawArrays", "glDrawElements",
+        # Instanced draw calls  
+        "glDrawArraysInstanced", "glDrawElementsInstanced",
+        "glDrawArraysInstancedBaseInstance", "glDrawElementsInstancedBaseInstance",
+        "glDrawElementsInstancedBaseVertex", "glDrawElementsInstancedBaseVertexBaseInstance",
+        # Range draw calls
+        "glDrawRangeElements", "glDrawRangeElementsBaseVertex",
+        # Base vertex draw calls
+        "glDrawElementsBaseVertex",
+        # Indirect draw calls
+        "glDrawArraysIndirect", "glDrawElementsIndirect",
+        "glMultiDrawArraysIndirect", "glMultiDrawElementsIndirect",
+        "glMultiDrawArraysIndirectCount", "glMultiDrawElementsIndirectCount",
+        # Multi draw calls
+        "glMultiDrawArrays", "glMultiDrawElements", "glMultiDrawElementsBaseVertex",
+        # Transform feedback draw calls
+        "glDrawTransformFeedback", "glDrawTransformFeedbackInstanced",
+        "glDrawTransformFeedbackStream", "glDrawTransformFeedbackStreamInstanced",
+        # Compute dispatch
+        "glDispatchCompute", "glDispatchComputeIndirect", "glDispatchComputeGroupSizeARB",
+    ]
+    
     # Clear/Copy/Resolve 调用 - 记录为事件但不清空 binding_records
     # 因为这些调用不需要完整的 pipeline state，而且 binding 应该延续到下一个 Draw
     auxiliary_calls = [
@@ -541,10 +566,17 @@ def parse_rdc_xml(xml_path):
         "ID3D12GraphicsCommandList::CopyTextureRegion",
         "ID3D12GraphicsCommandList::ClearRenderTargetView",
         "ID3D12GraphicsCommandList::ClearDepthStencilView",
+        # OpenGL
+        "glClear", "glClearColor", "glClearDepth", "glClearStencil",
+        "glClearTexImage", "glClearTexSubImage",
+        "glClearNamedFramebufferfv", "glClearNamedFramebufferiv",
+        "glClearNamedFramebufferuiv", "glClearNamedFramebufferfi",
+        "glClearNamedBufferDataEXT", "glClearNamedBufferSubDataEXT",
+        "glCopyImageSubData", "glBlitFramebuffer", "glBlitNamedFramebuffer",
     ]
     
     # Combined draw call names (会清空 binding_records)
-    draw_call_names = vk_draw_calls + d3d11_draw_calls + d3d12_draw_calls
+    draw_call_names = vk_draw_calls + d3d11_draw_calls + d3d12_draw_calls + gl_draw_calls
     
     # Vulkan markers
     vk_marker_names = ["vkCmdBeginDebugUtilsLabelEXT", "vkCmdEndDebugUtilsLabelEXT", 
@@ -558,11 +590,20 @@ def parse_rdc_xml(xml_path):
         "ID3D12GraphicsCommandList::EndEvent",
     ]
     
-    marker_names = vk_marker_names + d3d_marker_names
+    # OpenGL markers (debug groups)
+    gl_marker_names = [
+        "glPushDebugGroup", "glPopDebugGroup",
+        "glPushDebugGroupKHR", "glPopDebugGroupKHR",  # ES extension
+    ]
+    
+    marker_names = vk_marker_names + d3d_marker_names + gl_marker_names
     
     # Render pass begin/end
     render_pass_begin = ["vkCmdBeginRenderPass", "vkCmdBeginRendering"]
     render_pass_end = ["vkCmdEndRenderPass", "vkCmdEndRendering"]
+    
+    # OpenGL "render pass" equivalents (framebuffer binding)
+    gl_framebuffer_binding = ["glBindFramebuffer", "glBindNamedFramebuffer"]
     
     # Vulkan binding calls
     vk_binding_calls = [
@@ -631,7 +672,44 @@ def parse_rdc_xml(xml_path):
         "ID3D12GraphicsCommandList::SetGraphicsRoot32BitConstants",
     ]
     
-    binding_calls = vk_binding_calls + d3d11_binding_calls + d3d12_binding_calls
+    # OpenGL binding calls
+    gl_binding_calls = [
+        # Programs and Pipelines
+        "glUseProgram", "glBindProgramPipeline",
+        "glUseProgramStages",
+        # Vertex Input
+        "glBindVertexArray", "glBindVertexBuffer", "glBindVertexBuffers",
+        "glVertexAttribPointer", "glVertexAttribIPointer", "glVertexAttribLPointer",
+        "glEnableVertexAttribArray", "glDisableVertexAttribArray",
+        # Index Buffer
+        "glBindBuffer",  # specifically GL_ELEMENT_ARRAY_BUFFER
+        # Textures and Samplers
+        "glBindTexture", "glBindTextures", "glBindTextureUnit",
+        "glBindSampler", "glBindSamplers",
+        "glBindImageTexture", "glBindImageTextures",
+        "glActiveTexture",
+        # Uniform Buffers
+        "glBindBufferBase", "glBindBufferRange", "glBindBuffersBase", "glBindBuffersRange",
+        # State
+        "glViewport", "glViewportArrayv",
+        "glScissor", "glScissorArrayv",
+        "glBlendFunc", "glBlendFuncSeparate", "glBlendFunci", "glBlendFuncSeparatei",
+        "glBlendEquation", "glBlendEquationSeparate", "glBlendEquationi", "glBlendEquationSeparatei",
+        "glBlendColor",
+        "glDepthFunc", "glDepthMask", "glDepthRange", "glDepthRangef",
+        "glStencilFunc", "glStencilFuncSeparate",
+        "glStencilOp", "glStencilOpSeparate",
+        "glStencilMask", "glStencilMaskSeparate",
+        "glColorMask", "glColorMaski",
+        "glCullFace", "glFrontFace",
+        "glPolygonMode", "glPolygonOffset", "glPolygonOffsetClamp",
+        "glEnable", "glDisable", "glEnablei", "glDisablei",
+        # Framebuffer
+        "glBindFramebuffer", "glBindNamedFramebuffer",
+        "glDrawBuffers", "glNamedFramebufferDrawBuffers",
+    ]
+    
+    binding_calls = vk_binding_calls + d3d11_binding_calls + d3d12_binding_calls + gl_binding_calls
     
     # 跟踪当前绑定状态（用于关联到 Draw 调用）
     current_bindings = []           # 字符串格式的调用（向后兼容）
@@ -659,10 +737,19 @@ def parse_rdc_xml(xml_path):
         
         # 检测事件类型
         if chunk_name in draw_call_names:
-            event["type"] = "draw" if "Draw" in chunk_name else "dispatch" if "Dispatch" in chunk_name else "copy"
+            # 判断是 draw、dispatch 还是其他类型
+            # 支持 D3D/Vulkan 的 Draw/Dispatch 和 OpenGL 的 glDraw*/glDispatch*
+            if "Draw" in chunk_name or chunk_name.startswith("glDraw"):
+                event["type"] = "draw"
+            elif "Dispatch" in chunk_name or chunk_name.startswith("glDispatch"):
+                event["type"] = "dispatch"
+            else:
+                event["type"] = "copy"
+            
             event["flags"] = []
             
-            if "Indexed" in chunk_name:
+            # 检测 indexed (D3D/Vulkan) 或 Elements (OpenGL)
+            if "Indexed" in chunk_name or "Elements" in chunk_name:
                 event["flags"].append("indexed")
             if "Indirect" in chunk_name:
                 event["flags"].append("indirect")
@@ -685,17 +772,48 @@ def parse_rdc_xml(xml_path):
             current_binding_records = []  # 清空结构化记录
             
             # 提取绘制参数
+            # 支持 D3D11/D3D12/Vulkan 和 OpenGL 的不同参数命名
             for p in params:
-                if p["name"] == "vertexCount":
-                    event["vertexCount"] = int(p.get("value", 0))
-                elif p["name"] == "indexCount":
-                    event["indexCount"] = int(p.get("value", 0))
-                elif p["name"] == "instanceCount":
-                    event["instanceCount"] = int(p.get("value", 1))
-                elif p["name"] == "firstVertex":
-                    event["firstVertex"] = int(p.get("value", 0))
-                elif p["name"] == "firstIndex":
-                    event["firstIndex"] = int(p.get("value", 0))
+                pname = p["name"]
+                pvalue = p.get("value", 0)
+                
+                # Vertex/Index count
+                if pname in ("vertexCount", "VertexCountPerInstance"):
+                    event["vertexCount"] = int(pvalue) if pvalue else 0
+                elif pname in ("indexCount", "IndexCountPerInstance"):
+                    event["indexCount"] = int(pvalue) if pvalue else 0
+                elif pname == "count":
+                    # OpenGL: glDrawArrays(mode, first, count) / glDrawElements(mode, count, type, indices)
+                    if "indexed" in event.get("flags", []):
+                        event["indexCount"] = int(pvalue) if pvalue else 0
+                    else:
+                        event["vertexCount"] = int(pvalue) if pvalue else 0
+                        
+                # Instance count
+                elif pname in ("instanceCount", "InstanceCount", "primcount", "instancecount"):
+                    event["instanceCount"] = int(pvalue) if pvalue else 1
+                    
+                # First vertex/index
+                elif pname in ("firstVertex", "StartVertexLocation"):
+                    event["firstVertex"] = int(pvalue) if pvalue else 0
+                elif pname == "first":
+                    # OpenGL: glDrawArrays(mode, first, count)
+                    event["firstVertex"] = int(pvalue) if pvalue else 0
+                elif pname in ("firstIndex", "StartIndexLocation"):
+                    event["firstIndex"] = int(pvalue) if pvalue else 0
+                elif pname == "start":
+                    # OpenGL: glDrawRangeElements(mode, start, end, count, type, indices)
+                    event["rangeStart"] = int(pvalue) if pvalue else 0
+                elif pname == "end":
+                    event["rangeEnd"] = int(pvalue) if pvalue else 0
+                    
+                # OpenGL specific: mode (topology)
+                elif pname == "mode":
+                    event["topology"] = str(pvalue)
+                    
+                # OpenGL specific: type (index type)
+                elif pname == "type" and "indexed" in event.get("flags", []):
+                    event["indexType"] = str(pvalue)
             
             events.append(event)
             current_pass_events.append(event)
