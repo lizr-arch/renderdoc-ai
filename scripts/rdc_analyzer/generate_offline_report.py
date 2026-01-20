@@ -1009,6 +1009,90 @@ def generate_offline_html(textures: list, rdc_name: str, output_path: str,
             opacity: 0.7;
         }}
         
+        /* TASK-212: 关联纹理样式 */
+        .shader-bound-textures {{
+            margin-top: 12px;
+            padding-top: 10px;
+            border-top: 1px solid var(--bg-medium);
+        }}
+        
+        .shader-bound-textures.empty {{
+            opacity: 0.6;
+        }}
+        
+        .shader-textures-header {{
+            display: flex;
+            align-items: center;
+            margin-bottom: 8px;
+        }}
+        
+        .shader-textures-title {{
+            font-size: 11px;
+            font-weight: 600;
+            color: var(--text-secondary);
+        }}
+        
+        .shader-textures-grid {{
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+        }}
+        
+        .shader-texture-chip {{
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 4px 8px;
+            background: var(--bg-medium);
+            border: 1px solid var(--bg-light);
+            border-radius: 4px;
+            font-size: 10px;
+            cursor: pointer;
+            transition: all 0.15s ease;
+        }}
+        
+        .shader-texture-chip:hover {{
+            background: var(--accent-blue);
+            border-color: var(--accent-blue);
+            transform: translateY(-1px);
+        }}
+        
+        .shader-texture-chip.more {{
+            background: transparent;
+            border-style: dashed;
+            color: var(--text-muted);
+            cursor: default;
+        }}
+        
+        .shader-texture-chip.more:hover {{
+            transform: none;
+            background: transparent;
+        }}
+        
+        .texture-chip-icon {{
+            font-size: 10px;
+        }}
+        
+        .texture-chip-name {{
+            color: var(--text-primary);
+            max-width: 100px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }}
+        
+        .texture-chip-id {{
+            color: var(--text-muted);
+            font-size: 9px;
+            opacity: 0.7;
+        }}
+        
+        .shader-textures-empty {{
+            font-size: 10px;
+            color: var(--text-muted);
+            font-style: italic;
+        }}
+        
         /* TASK-209-D: Shader 代码预览样式 */
         .shader-code-preview {{
             margin-top: 12px;
@@ -7448,6 +7532,71 @@ def generate_offline_html(textures: list, rdc_name: str, output_path: str,
             }}
             
             // console.log('TASK-209: Built pipelineToEvents mapping:', Object.keys(pipelineToEvents).length, 'pipelines');
+            
+            // TASK-212: 同时构建 Pipeline 到纹理的映射
+            buildPipelineToTexturesMap();
+        }}
+        
+        // TASK-212: 构建 Pipeline 到关联纹理的映射
+        let pipelineToTextures = {{}};
+        function buildPipelineToTexturesMap() {{
+            pipelineToTextures = {{}};
+            
+            if (eventPassData && eventPassData.events) {{
+                eventPassData.events.forEach(event => {{
+                    // 提取 pipeline ID
+                    let pipelineId = null;
+                    if (event.relatedCalls && Array.isArray(event.relatedCalls)) {{
+                        event.relatedCalls.forEach(call => {{
+                            const match = call.match(/vkCmdBindPipeline.*pipeline:\s*(\d+)/);
+                            if (match && !pipelineId) {{
+                                pipelineId = match[1];
+                            }}
+                        }});
+                    }}
+                    
+                    if (!pipelineId) return;
+                    
+                    // 提取纹理绑定（从 resourceBindings.descriptorSets）
+                    const rb = event.resourceBindings;
+                    if (rb && rb.descriptorSets && Array.isArray(rb.descriptorSets)) {{
+                        rb.descriptorSets.forEach(ds => {{
+                            if (ds.bindings && Array.isArray(ds.bindings)) {{
+                                ds.bindings.forEach(binding => {{
+                                    // 检查是否是 IMAGE 类型 descriptor
+                                    const dtype = binding.descriptorType || '';
+                                    if (dtype.includes('IMAGE')) {{
+                                        if (binding.resources && Array.isArray(binding.resources)) {{
+                                            binding.resources.forEach(res => {{
+                                                if (res.type === 'image' && res.resourceId) {{
+                                                    if (!pipelineToTextures[pipelineId]) {{
+                                                        pipelineToTextures[pipelineId] = new Set();
+                                                    }}
+                                                    pipelineToTextures[pipelineId].add(res.resourceId);
+                                                }}
+                                            }});
+                                        }}
+                                    }}
+                                }});
+                            }}
+                        }});
+                    }}
+                }});
+            }}
+            
+            // 将 Set 转为数组便于后续使用
+            Object.keys(pipelineToTextures).forEach(pid => {{
+                pipelineToTextures[pid] = Array.from(pipelineToTextures[pid]);
+            }});
+            
+            // console.log('TASK-212: Built pipelineToTextures mapping:', Object.keys(pipelineToTextures).length, 'pipelines');
+        }}
+        
+        // TASK-212: 根据 resourceId 查找纹理名称
+        function getTextureNameById(resourceId) {{
+            if (!textures || !Array.isArray(textures)) return `Texture ${{resourceId}}`;
+            const tex = textures.find(t => t.resourceId === resourceId || t.id === resourceId);
+            return tex ? (tex.name || `Texture ${{resourceId}}`) : `Texture ${{resourceId}}`;
         }}
         
         // 规范化 Shader 类型名称
@@ -7719,6 +7868,45 @@ def generate_offline_html(textures: list, rdc_name: str, output_path: str,
                     ` : ''}}
                 </div>
             `;
+            
+            // TASK-212: 关联纹理显示
+            const boundTextures = pipelineToTextures[pipelineId] || [];
+            if (boundTextures.length > 0) {{
+                html += `
+                    <div class="shader-bound-textures">
+                        <div class="shader-textures-header">
+                            <span class="shader-textures-title">🖼 关联纹理 (${{boundTextures.length}})</span>
+                        </div>
+                        <div class="shader-textures-grid">
+                            ${{boundTextures.slice(0, 8).map(texId => {{
+                                const texName = getTextureNameById(texId);
+                                const shortName = texName.length > 20 ? texName.substring(0, 17) + '...' : texName;
+                                return `
+                                    <div class="shader-texture-chip" onclick="selectTextureByResourceId('${{texId}}')" title="${{texName}} (ID: ${{texId}})">
+                                        <span class="texture-chip-icon">🖼</span>
+                                        <span class="texture-chip-name">${{shortName}}</span>
+                                        <span class="texture-chip-id">#${{texId}}</span>
+                                    </div>
+                                `;
+                            }}).join('')}}
+                            ${{boundTextures.length > 8 ? `
+                                <div class="shader-texture-chip more">
+                                    <span class="texture-chip-name">+${{boundTextures.length - 8}} 更多</span>
+                                </div>
+                            ` : ''}}
+                        </div>
+                    </div>
+                `;
+            }} else {{
+                html += `
+                    <div class="shader-bound-textures empty">
+                        <div class="shader-textures-header">
+                            <span class="shader-textures-title">🖼 关联纹理</span>
+                        </div>
+                        <div class="shader-textures-empty">无绑定纹理</div>
+                    </div>
+                `;
+            }}
             
             // TASK-209-D: Shader 代码预览占位符
             html += `
