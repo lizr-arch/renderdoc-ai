@@ -7411,9 +7411,8 @@ def generate_offline_html(textures: list, rdc_name: str, output_path: str,
                     const eventId = event.eid || event.eventId;
                     if (!eventId) return;
                     
-                    // 只处理 Draw 类型事件（兼容大小写）
-                    const eventType = (event.type || '').toLowerCase();
-                    if (eventType !== 'draw' && eventType !== 'drawindexed') return;
+                    // TASK-211: 从所有事件（不仅仅是 Draw）提取 pipeline 绑定
+                    // 因为 Compute Shader 也会绑定 pipeline
                     
                     // 从 relatedCalls 提取 pipeline ID
                     if (event.relatedCalls && Array.isArray(event.relatedCalls)) {{
@@ -7433,6 +7432,7 @@ def generate_offline_html(textures: list, rdc_name: str, output_path: str,
                     // 备用：从 pipelineState.shaders 提取（如果有）
                     if (event.pipelineState && event.pipelineState.shaders) {{
                         Object.values(event.pipelineState.shaders).forEach(shader => {{
+                            if (!shader) return;  // 跳过 null 值
                             const shaderId = shader.resourceId || shader.id;
                             if (shaderId) {{
                                 if (!pipelineToEvents[shaderId]) {{
@@ -7447,7 +7447,7 @@ def generate_offline_html(textures: list, rdc_name: str, output_path: str,
                 }});
             }}
             
-            console.log('TASK-209: Built pipelineToEvents mapping:', Object.keys(pipelineToEvents).length, 'pipelines');
+            // console.log('TASK-209: Built pipelineToEvents mapping:', Object.keys(pipelineToEvents).length, 'pipelines');
         }}
         
         // 规范化 Shader 类型名称
@@ -7656,18 +7656,21 @@ def generate_offline_html(textures: list, rdc_name: str, output_path: str,
             const title = document.getElementById('shaderDetailsTitle');
             if (!panel || !content) return;
             
+            // TASK-211: 使用 resourceId（原始 pipeline ID）查询映射，id 仅用于内部标识
+            const pipelineId = shader.resourceId || shader.id;  // resourceId 是原始 pipeline ID（如 "3820"）
+            
             // 设置标题
-            title.textContent = shader.name || `Shader ${{shader.resourceId}}`;
+            title.textContent = shader.name || `Shader ${{pipelineId}}`;
             
             // 计算使用次数（通过 pipelineToEvents 映射）
-            const usageCount = (pipelineToEvents[shader.resourceId] || []).length;
+            const usageCount = (pipelineToEvents[pipelineId] || []).length;
             
             // 构建详情 HTML
             let html = `
                 <div class="shader-details-grid">
                     <div class="shader-detail-item">
                         <div class="shader-detail-label">Resource ID</div>
-                        <div class="shader-detail-value">${{shader.resourceId || '-'}}</div>
+                        <div class="shader-detail-value">${{pipelineId || '-'}}</div>
                     </div>
                     <div class="shader-detail-item">
                         <div class="shader-detail-label">类型</div>
@@ -7706,7 +7709,7 @@ def generate_offline_html(textures: list, rdc_name: str, output_path: str,
             // 操作按钮
             html += `
                 <div class="shader-details-actions">
-                    <button class="shader-action-btn" onclick="viewShaderInEvents('${{shader.resourceId}}')" ${{usageCount === 0 ? 'disabled style="opacity:0.5"' : ''}}>
+                    <button class="shader-action-btn" onclick="viewShaderInEvents('${{pipelineId}}')" ${{usageCount === 0 ? 'disabled style="opacity:0.5"' : ''}}>
                         🎮 查看相关 Event (${{usageCount}})
                     </button>
                     ${{shader.issueIndices && shader.issueIndices.length > 0 ? `
@@ -7734,7 +7737,7 @@ def generate_offline_html(textures: list, rdc_name: str, output_path: str,
             
             // TASK-209-E: 使用频率可视化（mini 图表）
             if (usageCount > 0 && eventPassData && eventPassData.events) {{
-                const usageEvents = pipelineToEvents[shader.resourceId] || [];
+                const usageEvents = pipelineToEvents[pipelineId] || [];
                 const totalEvents = eventPassData.events.length;
                 const maxEid = Math.max(...eventPassData.events.map(e => e.eid || 0));
                 
