@@ -96,8 +96,8 @@ def test_buffer_format_parser():
     return True
 
 
-def test_resource_inspector_with_replay(controller):
-    """Test ResourceInspector with a real RenderDoc controller"""
+def _run_resource_inspector_with_replay(controller):
+    """Test ResourceInspector with a real RenderDoc controller (internal helper)"""
     from core.resource_inspector import (
         ResourceInspector, ResourceType, BufferFormatParser
     )
@@ -255,7 +255,7 @@ def run_replay_tests(rdc_path=None):
     controller = result[1]
     
     try:
-        test_resource_inspector_with_replay(controller)
+        _run_resource_inspector_with_replay(controller)
         print("\n[SUCCESS] All replay tests passed!")
         return True
     except Exception as e:
@@ -267,6 +267,34 @@ def run_replay_tests(rdc_path=None):
         controller.Shutdown()
         cap.Shutdown()
 
+
+# =============================================================================
+# pytest-compatible Test Classes
+# =============================================================================
+
+import pytest
+
+
+class TestBufferFormatParser:
+    """pytest wrapper for BufferFormatParser tests."""
+    
+    def test_buffer_format_parser(self):
+        """Run the standalone buffer format parser tests."""
+        assert test_buffer_format_parser() is True
+
+
+class TestResourceInspectorReplay:
+    """pytest wrapper for replay-dependent tests (skipped by default)."""
+    
+    @pytest.mark.skip(reason="Requires RenderDoc Python environment with live controller")
+    def test_resource_inspector_with_replay(self):
+        """This test requires a real RenderDoc controller, skip in CI."""
+        pass
+
+
+# =============================================================================
+# Standalone execution entry point
+# =============================================================================
 
 if __name__ == '__main__':
     import sys

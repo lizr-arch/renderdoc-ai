@@ -19,6 +19,14 @@ from ..analysis.resource_tracker import ResourceDependency, ResourceLifetime
 from .json_exporter import JSONExporter, EnhancedJSONEncoder
 from .templates import TemplateLoader, DARK_THEME, LIGHT_THEME
 
+# 导出模板内容供测试使用
+_template_loader = TemplateLoader()
+HTML_TEMPLATE = (
+    _template_loader.load_base_html() +
+    _template_loader.load_styles("dark") +
+    _template_loader.load_scripts()
+)
+
 
 @dataclass
 class HTMLExportConfig:
