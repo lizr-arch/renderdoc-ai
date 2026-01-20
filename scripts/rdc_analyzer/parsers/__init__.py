@@ -1,23 +1,25 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-RDC 解析器包
-============
+RDC Analyzer Parsers - Parse various RenderDoc export formats.
 
-提供 RDC 文件解析的核心组件。
+from .rdc_xml_parser import (
+    RdcXmlParser,
+    RdcXmlData,
+    D3D11DrawCall,
+    D3D11Resource,
+    D3D11PipelineState,
+    parse_rdc_xml,
+)
 
-子模块:
-- constants: 魔数、版本号等常量
-- enums: 枚举类型（VulkanChunk, SectionType 等）
-- models: 数据模型（FileHeader, ShaderInfo, TextureInfo 等）
-
-使用示例::
-
-    from rdc_analyzer.parsers import (
-        RDC_MAGIC_BYTES, SPIRV_MAGIC,
-        VulkanChunk, SectionType,
-        FileHeader, ShaderInfo, TextureInfo, RDCFileInfo,
-    )
+__all__ = [
+    "RdcXmlParser",
+    "RdcXmlData",
+    "D3D11DrawCall",
+    "D3D11Resource",
+    "D3D11PipelineState",
+    "parse_rdc_xml",
+]
 """
 
 # 常量
@@ -64,6 +66,14 @@ from .models import (
 # 解析器类
 from .api_parser import APIParser
 from .binary_parser import BinaryParser
+from .rdc_xml_parser import (
+    RdcXmlParser,
+    RdcXmlData,
+    D3D11DrawCall,
+    D3D11Resource,
+    D3D11PipelineState,
+    parse_rdc_xml,
+)
 
 __all__ = [
     # constants
@@ -101,4 +111,11 @@ __all__ = [
     # parsers
     'APIParser',
     'BinaryParser',
+    # RDC XML parser
+    'RdcXmlParser',
+    'RdcXmlData',
+    'D3D11DrawCall',
+    'D3D11Resource',
+    'D3D11PipelineState',
+    'parse_rdc_xml',
 ]
