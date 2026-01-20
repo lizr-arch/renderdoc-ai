@@ -73,6 +73,30 @@ class BindingIssue:
             'details': self.details,
             'suggestion': self.suggestion,
         }
+    
+    def to_canonical(self) -> 'CanonicalIssue':
+        """转换为 CanonicalIssue 格式"""
+        from ..core.types import CanonicalIssue
+        
+        # 提取 resource_id from details
+        resource_ids = []
+        if 'resource_id' in self.details:
+            resource_ids.append(str(self.details['resource_id']))
+        if 'texture_id' in self.details:
+            resource_ids.append(str(self.details['texture_id']))
+        if 'buffer_id' in self.details:
+            resource_ids.append(str(self.details['buffer_id']))
+        
+        return CanonicalIssue(
+            code=self.rule_id,
+            severity=self.severity.value,
+            category=self.category.value,
+            message=self.message,
+            event_ids=[self.event_id] if self.event_id else [],
+            resource_ids=resource_ids,
+            evidence=self.details if self.details else {},
+            suggestion=self.suggestion if self.suggestion else None,
+        )
 
 
 @dataclass
