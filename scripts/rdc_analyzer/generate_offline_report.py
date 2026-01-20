@@ -156,7 +156,8 @@ def generate_offline_html(textures: list, rdc_name: str, output_path: str,
                           duplicate_analysis: dict = None, usage_analysis: dict = None,
                           event_pass_data: dict = None, frame_thumbnail: str = None,
                           optimization_data: dict = None, performance_data: dict = None,
-                          rt_tracking_data: dict = None, hotspot_data: dict = None):
+                          rt_tracking_data: dict = None, hotspot_data: dict = None,
+                          shader_data: list = None):
     """生成纯离线 HTML 报告
     
     Args:
@@ -171,6 +172,7 @@ def generate_offline_html(textures: list, rdc_name: str, output_path: str,
         performance_data: 性能分析数据（可选，来自 PerformanceAnalyzer，TASK-008）
         rt_tracking_data: RT 追踪数据（可选，来自 RTTracker，Direction C）
         hotspot_data: 热点分析数据（可选，来自 HotspotAnalyzer，Direction F）
+        shader_data: Shader 列表数据（可选，用于 Shader 资源浏览器，TASK-205）
     """
     
     textures_json = json.dumps(textures, ensure_ascii=False)
@@ -180,6 +182,7 @@ def generate_offline_html(textures: list, rdc_name: str, output_path: str,
     frame_thumbnail_json = json.dumps(frame_thumbnail or "", ensure_ascii=False)
     optimization_json = json.dumps(optimization_data or {}, ensure_ascii=False)
     performance_json = json.dumps(performance_data or {}, ensure_ascii=False)
+    shader_json = json.dumps(shader_data or [], ensure_ascii=False)
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     
     html = f'''<!DOCTYPE html>
@@ -825,6 +828,241 @@ def generate_offline_html(textures: list, rdc_name: str, output_path: str,
             text-align: center;
             color: var(--text-muted);
             font-size: 11px;
+        }}
+        
+        /* TASK-209: Shader 详情面板样式 */
+        .shader-details-panel {{
+            border-top: 1px solid var(--bg-medium);
+            background: var(--bg-darker);
+            padding: 12px;
+            font-size: 11px;
+            display: none;
+        }}
+        
+        .shader-details-panel.active {{
+            display: block;
+        }}
+        
+        .shader-details-header {{
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 10px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid var(--bg-medium);
+        }}
+        
+        .shader-details-title {{
+            flex: 1;
+            font-weight: 600;
+            color: var(--text-primary);
+            font-size: 12px;
+        }}
+        
+        .shader-details-close {{
+            width: 20px;
+            height: 20px;
+            border: none;
+            background: transparent;
+            color: var(--text-muted);
+            cursor: pointer;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+        }}
+        
+        .shader-details-close:hover {{
+            background: var(--bg-medium);
+            color: var(--text-primary);
+        }}
+        
+        .shader-details-grid {{
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+            margin-bottom: 12px;
+        }}
+        
+        .shader-detail-item {{
+            background: var(--bg-dark);
+            padding: 8px 10px;
+            border-radius: 6px;
+        }}
+        
+        .shader-detail-label {{
+            font-size: 9px;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 2px;
+        }}
+        
+        .shader-detail-value {{
+            font-size: 12px;
+            color: var(--text-primary);
+            font-weight: 500;
+        }}
+        
+        .shader-detail-value.type-pipeline {{ color: #a855f7; }}
+        .shader-detail-value.type-vs {{ color: #60a5fa; }}
+        .shader-detail-value.type-ps {{ color: #fb923c; }}
+        .shader-detail-value.type-cs {{ color: #22c55e; }}
+        
+        .shader-issues-summary {{
+            background: rgba(251, 146, 60, 0.1);
+            border: 1px solid rgba(251, 146, 60, 0.3);
+            border-radius: 6px;
+            padding: 10px;
+            margin-bottom: 12px;
+        }}
+        
+        .shader-issues-summary.no-issues {{
+            background: rgba(34, 197, 94, 0.1);
+            border-color: rgba(34, 197, 94, 0.3);
+        }}
+        
+        .shader-issues-title {{
+            font-size: 10px;
+            font-weight: 600;
+            color: var(--accent-orange);
+            margin-bottom: 6px;
+        }}
+        
+        .shader-issues-summary.no-issues .shader-issues-title {{
+            color: #22c55e;
+        }}
+        
+        .shader-issue-item {{
+            font-size: 10px;
+            color: var(--text-secondary);
+            padding: 2px 0;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }}
+        
+        .shader-issue-item::before {{
+            content: '•';
+            color: var(--accent-orange);
+        }}
+        
+        .shader-details-actions {{
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }}
+        
+        .shader-action-btn {{
+            flex: 1;
+            min-width: 100px;
+            padding: 8px 12px;
+            border: none;
+            border-radius: 6px;
+            background: var(--accent-blue);
+            color: white;
+            font-size: 10px;
+            font-weight: 500;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            transition: all 0.2s;
+        }}
+        
+        .shader-action-btn:hover {{
+            filter: brightness(1.1);
+            transform: translateY(-1px);
+        }}
+        
+        .shader-action-btn.secondary {{
+            background: var(--bg-medium);
+            color: var(--text-primary);
+        }}
+        
+        .shader-usage-bar {{
+            margin-top: 12px;
+            padding-top: 10px;
+            border-top: 1px solid var(--bg-medium);
+        }}
+        
+        .shader-usage-label {{
+            font-size: 9px;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            margin-bottom: 6px;
+        }}
+        
+        .shader-usage-chart {{
+            height: 24px;
+            background: var(--bg-dark);
+            border-radius: 4px;
+            overflow: hidden;
+            display: flex;
+        }}
+        
+        .shader-usage-segment {{
+            height: 100%;
+            background: var(--accent-purple);
+            opacity: 0.7;
+        }}
+        
+        /* TASK-209-D: Shader 代码预览样式 */
+        .shader-code-preview {{
+            margin-top: 12px;
+            padding-top: 10px;
+            border-top: 1px solid var(--bg-medium);
+        }}
+        
+        .shader-code-header {{
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 8px;
+        }}
+        
+        .shader-code-title {{
+            font-size: 10px;
+            font-weight: 600;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }}
+        
+        .shader-code-badge {{
+            font-size: 9px;
+            padding: 2px 6px;
+            background: var(--bg-medium);
+            color: var(--text-muted);
+            border-radius: 3px;
+        }}
+        
+        .shader-code-placeholder {{
+            background: var(--bg-dark);
+            border-radius: 6px;
+            padding: 16px;
+            text-align: center;
+            border: 1px dashed var(--bg-medium);
+        }}
+        
+        .code-unavailable-icon {{
+            font-size: 20px;
+            opacity: 0.5;
+            margin-bottom: 6px;
+        }}
+        
+        .code-unavailable-text {{
+            font-size: 11px;
+            color: var(--text-muted);
+            margin-bottom: 4px;
+        }}
+        
+        .code-unavailable-hint {{
+            font-size: 9px;
+            color: var(--text-muted);
+            opacity: 0.7;
         }}
         
         .texture-item {{
@@ -5831,6 +6069,17 @@ def generate_offline_html(textures: list, rdc_name: str, output_path: str,
                             <button onclick="clearShaderFilter()" class="filter-clear-btn">✕</button>
                         </div>
                         <div class="shader-list" id="shaderListApp"></div>
+                        
+                        <!-- TASK-209: Shader 详情面板 -->
+                        <div class="shader-details-panel" id="shaderDetailsPanel">
+                            <div class="shader-details-header">
+                                <span class="shader-details-title" id="shaderDetailsTitle">Shader 详情</span>
+                                <button class="shader-details-close" onclick="hideShaderDetails()" title="关闭">×</button>
+                            </div>
+                            <div id="shaderDetailsContent">
+                                <!-- 由 JS 动态填充 -->
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -6485,6 +6734,8 @@ def generate_offline_html(textures: list, rdc_name: str, output_path: str,
         const optimizationData = {optimization_json};
         // 性能分析数据 (TASK-008)
         const performanceData = {performance_json};
+        // Shader 列表数据 (TASK-205: 资源浏览器)
+        const shaderData = {shader_json};
         let filteredTextures = [...textures];
         let currentLightboxIndex = 0;
         let currentSort = {{ key: 'id', asc: true }};
@@ -7027,6 +7278,9 @@ def generate_offline_html(textures: list, rdc_name: str, output_path: str,
         let shaderSearchText = '';
         let selectedShaderIndex = -1;
         
+        // TASK-209: Shader 到 Event 的映射（用于查看相关 Draw Call）
+        let pipelineToEvents = {{}};      // {{ pipelineId: [eventEid, ...] }}
+        
         // 纹理列表过滤状态
         let textureFilterMode = 'all';    // 'all' | 'issues'
         let textureIssueIds = new Set();  // 有问题的纹理 ID 集合
@@ -7035,6 +7289,7 @@ def generate_offline_html(textures: list, rdc_name: str, output_path: str,
         function initResourceBrowser() {{
             initTextureIssues();
             initShaderList();
+            buildPipelineToEventsMap();   // TASK-209: 构建映射
             setupResourceSearchHandlers();
         }}
         
@@ -7056,10 +7311,60 @@ def generate_offline_html(textures: list, rdc_name: str, output_path: str,
             allShaders = [];
             shaderIssueIds.clear();
             
-            // 从 optimizationData 中提取所有 Shader 相关的优化建议
-            // 每个建议的 affected_resources 包含 Shader 名称列表
-            if (optimizationData && optimizationData.items) {{
-                const shaderNamesMap = new Map(); // name -> {{ issues: [], indices: [] }}
+            // TASK-205: 优先从 shaderData 加载完整 Shader 列表
+            // shaderData 来自主 JSON 文件的 shaders 字段
+            if (shaderData && shaderData.length > 0) {{
+                // 首先从 optimizationData 收集有问题的 Shader
+                const issuesByShader = new Map(); // shader id/name -> {{ issues: [], indices: [] }}
+                
+                if (optimizationData && optimizationData.items) {{
+                    optimizationData.items.forEach((item, idx) => {{
+                        if (item.category === 'Shader' && item.affected_resources) {{
+                            item.affected_resources.forEach(shaderRef => {{
+                                if (!issuesByShader.has(shaderRef)) {{
+                                    issuesByShader.set(shaderRef, {{ issues: [], indices: [] }});
+                                }}
+                                const entry = issuesByShader.get(shaderRef);
+                                entry.issues.push(item);
+                                entry.indices.push(idx);
+                            }});
+                        }}
+                    }});
+                }}
+                
+                // 遍历 shaderData 构建 allShaders
+                shaderData.forEach((shader, idx) => {{
+                    const shaderId = shader.id || shader.resourceId || `shader_${{idx}}`;
+                    const shaderName = shader.name || `Shader_${{shaderId}}`;
+                    const shaderType = shader.type || shader.stage || 'PIPELINE';
+                    
+                    // 检查此 Shader 是否有优化建议
+                    const issueData = issuesByShader.get(shaderId) || issuesByShader.get(shaderName) || {{ issues: [], indices: [] }};
+                    const hasIssues = issueData.issues.length > 0;
+                    
+                    const id = `shader_${{idx}}`;
+                    allShaders.push({{
+                        id: id,
+                        resourceId: shaderId,
+                        name: shaderName,
+                        type: normalizeShaderType(shaderType),
+                        issueCount: issueData.issues.length,
+                        issueIndices: issueData.indices,
+                        severity: issueData.issues.some(i => i.severity === 'high') ? 'high' : 
+                                  issueData.issues.some(i => i.severity === 'medium') ? 'medium' : 
+                                  hasIssues ? 'low' : 'none',
+                        issues: issueData.issues,
+                        firstSeenEvent: shader.firstSeenEvent || 0,
+                        bindCount: shader.bindCount || 0
+                    }});
+                    
+                    if (hasIssues) {{
+                        shaderIssueIds.add(id);
+                    }}
+                }});
+            }} else if (optimizationData && optimizationData.items) {{
+                // 回退：从 optimizationData 提取 Shader（旧逻辑）
+                const shaderNamesMap = new Map();
                 
                 optimizationData.items.forEach((item, idx) => {{
                     if (item.category === 'Shader' && item.affected_resources) {{
@@ -7074,7 +7379,6 @@ def generate_offline_html(textures: list, rdc_name: str, output_path: str,
                     }}
                 }});
                 
-                // 构建 allShaders 数组
                 let shaderIdx = 0;
                 shaderNamesMap.forEach((data, name) => {{
                     const id = `shader_${{shaderIdx++}}`;
@@ -7094,6 +7398,64 @@ def generate_offline_html(textures: list, rdc_name: str, output_path: str,
             
             updateShaderCountBadge();
             renderShaderList();
+        }}
+        
+        // TASK-209: 构建 Pipeline/Shader 到 Event 的映射
+        function buildPipelineToEventsMap() {{
+            pipelineToEvents = {{}};
+            
+            // 从 eventPassData 中提取 Draw 事件，分析 relatedCalls 中的 vkCmdBindPipeline
+            if (eventPassData && eventPassData.events) {{
+                eventPassData.events.forEach(event => {{
+                    // 只处理 Draw 类型事件
+                    if (event.type !== 'Draw' && event.type !== 'DrawIndexed') return;
+                    
+                    // 从 relatedCalls 提取 pipeline ID
+                    if (event.relatedCalls && Array.isArray(event.relatedCalls)) {{
+                        event.relatedCalls.forEach(call => {{
+                            // 匹配 vkCmdBindPipeline(pipelineBindPoint: X, pipeline: YYYYY)
+                            const match = call.match(/vkCmdBindPipeline.*pipeline:\s*(\d+)/);
+                            if (match) {{
+                                const pipelineId = match[1];
+                                if (!pipelineToEvents[pipelineId]) {{
+                                    pipelineToEvents[pipelineId] = [];
+                                }}
+                                pipelineToEvents[pipelineId].push(event.eid);
+                            }}
+                        }});
+                    }}
+                    
+                    // 备用：从 pipelineState.shaders 提取（如果有）
+                    if (event.pipelineState && event.pipelineState.shaders) {{
+                        Object.values(event.pipelineState.shaders).forEach(shader => {{
+                            const shaderId = shader.resourceId || shader.id;
+                            if (shaderId) {{
+                                if (!pipelineToEvents[shaderId]) {{
+                                    pipelineToEvents[shaderId] = [];
+                                }}
+                                if (!pipelineToEvents[shaderId].includes(event.eid)) {{
+                                    pipelineToEvents[shaderId].push(event.eid);
+                                }}
+                            }}
+                        }});
+                    }}
+                }});
+            }}
+            
+            console.log('TASK-209: Built pipelineToEvents mapping:', Object.keys(pipelineToEvents).length, 'pipelines');
+        }}
+        
+        // 规范化 Shader 类型名称
+        function normalizeShaderType(type) {{
+            const t = (type || '').toUpperCase();
+            if (t === 'PIPELINE' || t === 'GRAPHICS') return 'Pipeline';
+            if (t.includes('VERTEX') || t === 'VS') return 'VS';
+            if (t.includes('PIXEL') || t.includes('FRAGMENT') || t === 'PS' || t === 'FS') return 'PS';
+            if (t.includes('COMPUTE') || t === 'CS') return 'CS';
+            if (t.includes('GEOMETRY') || t === 'GS') return 'GS';
+            if (t.includes('HULL') || t.includes('TESS_CONTROL') || t === 'HS') return 'HS';
+            if (t.includes('DOMAIN') || t.includes('TESS_EVAL') || t === 'DS') return 'DS';
+            return type || '??';
         }}
         
         // 从名称检测 Shader 类型
@@ -7124,7 +7486,8 @@ def generate_offline_html(textures: list, rdc_name: str, output_path: str,
             if (badge) {{
                 const total = allShaders.length;
                 const issues = shaderIssueIds.size;
-                badge.textContent = `${{issues}}/${{total}}`;
+                // 如果有问题的 shader 数量为 0，只显示总数
+                badge.textContent = issues > 0 ? `${{issues}}/${{total}}` : `${{total}}`;
             }}
         }}
         
@@ -7274,11 +7637,160 @@ def generate_offline_html(textures: list, rdc_name: str, output_path: str,
                 el.classList.toggle('selected', i === idx);
             }});
             
-            // 如果有优化问题，跳转到第一个优化建议
+            // TASK-209: 显示详情面板
             const shader = allShaders.find(s => s.id === shaderId);
-            if (shader && shader.issueIndices && shader.issueIndices.length > 0) {{
-                // 跳转到第一个相关的优化建议
-                scrollToOptimizationItem(shader.issueIndices[0]);
+            if (shader) {{
+                showShaderDetails(shader);
+            }}
+        }}
+        
+        // TASK-209: 显示 Shader 详情面板
+        function showShaderDetails(shader) {{
+            const panel = document.getElementById('shaderDetailsPanel');
+            const content = document.getElementById('shaderDetailsContent');
+            const title = document.getElementById('shaderDetailsTitle');
+            if (!panel || !content) return;
+            
+            // 设置标题
+            title.textContent = shader.name || `Shader ${{shader.resourceId}}`;
+            
+            // 计算使用次数（通过 pipelineToEvents 映射）
+            const usageCount = (pipelineToEvents[shader.resourceId] || []).length;
+            
+            // 构建详情 HTML
+            let html = `
+                <div class="shader-details-grid">
+                    <div class="shader-detail-item">
+                        <div class="shader-detail-label">Resource ID</div>
+                        <div class="shader-detail-value">${{shader.resourceId || '-'}}</div>
+                    </div>
+                    <div class="shader-detail-item">
+                        <div class="shader-detail-label">类型</div>
+                        <div class="shader-detail-value type-${{shader.type.toLowerCase()}}">${{shader.type}}</div>
+                    </div>
+                    <div class="shader-detail-item">
+                        <div class="shader-detail-label">首次出现</div>
+                        <div class="shader-detail-value">Event #${{shader.firstSeenEvent || 0}}</div>
+                    </div>
+                    <div class="shader-detail-item">
+                        <div class="shader-detail-label">Draw 调用</div>
+                        <div class="shader-detail-value">${{usageCount}} 次</div>
+                    </div>
+                </div>
+            `;
+            
+            // 优化问题摘要
+            if (shader.issues && shader.issues.length > 0) {{
+                html += `
+                    <div class="shader-issues-summary">
+                        <div class="shader-issues-title">⚠ ${{shader.issues.length}} 个优化建议</div>
+                        ${{shader.issues.slice(0, 3).map(issue => `
+                            <div class="shader-issue-item">${{issue.title || issue.type || '未知问题'}}</div>
+                        `).join('')}}
+                        ${{shader.issues.length > 3 ? `<div class="shader-issue-item" style="opacity:0.6">还有 ${{shader.issues.length - 3}} 个...</div>` : ''}}
+                    </div>
+                `;
+            }} else {{
+                html += `
+                    <div class="shader-issues-summary no-issues">
+                        <div class="shader-issues-title">✓ 暂无优化建议</div>
+                    </div>
+                `;
+            }}
+            
+            // 操作按钮
+            html += `
+                <div class="shader-details-actions">
+                    <button class="shader-action-btn" onclick="viewShaderInEvents('${{shader.resourceId}}')" ${{usageCount === 0 ? 'disabled style="opacity:0.5"' : ''}}>
+                        🎮 查看相关 Event (${{usageCount}})
+                    </button>
+                    ${{shader.issueIndices && shader.issueIndices.length > 0 ? `
+                        <button class="shader-action-btn secondary" onclick="scrollToOptimizationItem(${{shader.issueIndices[0]}})">
+                            📋 跳转优化建议
+                        </button>
+                    ` : ''}}
+                </div>
+            `;
+            
+            // TASK-209-D: Shader 代码预览占位符
+            html += `
+                <div class="shader-code-preview">
+                    <div class="shader-code-header">
+                        <span class="shader-code-title">📜 着色器代码</span>
+                        <span class="shader-code-badge">SPIR-V</span>
+                    </div>
+                    <div class="shader-code-placeholder">
+                        <div class="code-unavailable-icon">🔒</div>
+                        <div class="code-unavailable-text">反编译代码暂不可用</div>
+                        <div class="code-unavailable-hint">需要在 Python 端集成 SPIRV-Cross 或导出反编译结果</div>
+                    </div>
+                </div>
+            `;
+            
+            // TASK-209-E: 使用频率可视化（mini 图表）
+            if (usageCount > 0 && eventPassData && eventPassData.events) {{
+                const usageEvents = pipelineToEvents[shader.resourceId] || [];
+                const totalEvents = eventPassData.events.length;
+                const maxEid = Math.max(...eventPassData.events.map(e => e.eid || 0));
+                
+                // 构建简易时间轴
+                const segments = [];
+                const bucketSize = Math.ceil(maxEid / 20); // 20 个桶
+                const buckets = new Array(20).fill(0);
+                usageEvents.forEach(eid => {{
+                    const bucket = Math.min(19, Math.floor(eid / bucketSize));
+                    buckets[bucket]++;
+                }});
+                const maxBucket = Math.max(...buckets, 1);
+                
+                html += `
+                    <div class="shader-usage-bar">
+                        <div class="shader-usage-label">帧内使用分布</div>
+                        <div class="shader-usage-chart">
+                            ${{buckets.map((count, i) => `
+                                <div class="shader-usage-segment" style="flex:1;opacity:${{0.2 + (count/maxBucket) * 0.8}}" title="区间 ${{i * bucketSize}}-${{(i+1) * bucketSize}}: ${{count}} 次"></div>
+                            `).join('')}}
+                        </div>
+                    </div>
+                `;
+            }}
+            
+            content.innerHTML = html;
+            panel.classList.add('active');
+        }}
+        
+        // TASK-209: 隐藏 Shader 详情面板
+        function hideShaderDetails() {{
+            const panel = document.getElementById('shaderDetailsPanel');
+            if (panel) panel.classList.remove('active');
+        }}
+        
+        // TASK-209-B: 在 Event Browser 中查看 Shader 相关 Event
+        function viewShaderInEvents(resourceId) {{
+            // 切换到 Event Browser 视图
+            showEventBrowser();
+            
+            // 设置搜索词为 pipeline ID，触发过滤
+            const searchBox = document.getElementById('eventSearchBox');
+            if (searchBox) {{
+                // 设置 shaderFilter 全局变量用于过滤
+                window.currentShaderFilter = resourceId;
+                searchBox.value = `pipeline:${{resourceId}}`;
+                searchBox.dispatchEvent(new Event('input'));
+            }}
+            
+            // 高亮提示
+            const eventEids = pipelineToEvents[resourceId] || [];
+            if (eventEids.length > 0) {{
+                // 滚动到第一个相关 Event
+                setTimeout(() => {{
+                    const firstEid = eventEids[0];
+                    selectEvent(firstEid);
+                    const node = document.querySelector(`.event-node[data-eid="${{firstEid}}"]`);
+                    if (node) {{
+                        node.scrollIntoView({{ behavior: 'smooth', block: 'center' }});
+                    }}
+                }}, 300);
             }}
         }}
         
@@ -8444,6 +8956,13 @@ def generate_offline_html(textures: list, rdc_name: str, output_path: str,
             
             // 检查事件是否匹配过滤条件
             function matchesFilter(event) {{
+                // TASK-209: Pipeline 过滤（搜索 "pipeline:XXXXX"）
+                if (searchTerm && searchTerm.startsWith('pipeline:')) {{
+                    const pipelineId = searchTerm.replace('pipeline:', '').trim();
+                    const eventEids = pipelineToEvents[pipelineId] || [];
+                    return eventEids.includes(event.eid);
+                }}
+                
                 // 搜索文本过滤
                 if (searchTerm && !event.name.toLowerCase().includes(searchTerm) && 
                     !String(event.eid).includes(searchTerm)) {{
