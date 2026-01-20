@@ -12,6 +12,17 @@ import io
 from pathlib import Path
 from datetime import datetime
 
+# RT Timeline 组件 (Direction C)
+try:
+    from components.rt_timeline_component import (
+        generate_rt_timeline_css,
+        generate_rt_timeline_html,
+        generate_rt_timeline_js
+    )
+    HAS_RT_TIMELINE = True
+except ImportError:
+    HAS_RT_TIMELINE = False
+
 # 尝试导入 PIL
 try:
     from PIL import Image
@@ -133,7 +144,8 @@ def load_textures_from_export(rdc_path: str, enable_channels: bool = True) -> li
 def generate_offline_html(textures: list, rdc_name: str, output_path: str, 
                           duplicate_analysis: dict = None, usage_analysis: dict = None,
                           event_pass_data: dict = None, frame_thumbnail: str = None,
-                          optimization_data: dict = None, performance_data: dict = None):
+                          optimization_data: dict = None, performance_data: dict = None,
+                          rt_tracking_data: dict = None):
     """生成纯离线 HTML 报告
     
     Args:
@@ -146,6 +158,7 @@ def generate_offline_html(textures: list, rdc_name: str, output_path: str,
         frame_thumbnail: 帧缩略图 Base64 数据 (data:image/png;base64,...) （可选）
         optimization_data: 优化建议数据（可选，来自 OptimizationAdvisor）
         performance_data: 性能分析数据（可选，来自 PerformanceAnalyzer，TASK-008）
+        rt_tracking_data: RT 追踪数据（可选，来自 RTTracker，Direction C）
     """
     
     textures_json = json.dumps(textures, ensure_ascii=False)
@@ -5414,6 +5427,9 @@ def generate_offline_html(textures: list, rdc_name: str, output_path: str,
             text-transform: uppercase;
             margin-top: 4px;
         }}
+        
+        /* ========== RT Timeline Component (Direction C) ========== */
+        {generate_rt_timeline_css() if HAS_RT_TIMELINE and rt_tracking_data else ''}
     </style>
 </head>
 <body>
@@ -6113,6 +6129,9 @@ def generate_offline_html(textures: list, rdc_name: str, output_path: str,
             </div>
         </div>
     </div>
+    
+    <!-- RT Timeline Component (Direction C) -->
+    {generate_rt_timeline_html(rt_tracking_data) if HAS_RT_TIMELINE and rt_tracking_data else ''}
     
     <script>
         // 纹理数据
@@ -11821,6 +11840,9 @@ Draw Info: ${{currentEIDInfo.drawInfo}}`;
         
         // 初始化帧缩略图
         initFrameThumbnail();
+        
+        // RT Timeline 功能 (Direction C)
+        {generate_rt_timeline_js() if HAS_RT_TIMELINE and rt_tracking_data else ''}
         
         // 启动
         init();
