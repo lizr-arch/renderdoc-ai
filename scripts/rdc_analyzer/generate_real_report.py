@@ -19,6 +19,11 @@ import base64
 import argparse
 from pathlib import Path
 
+# 确保模块路径正确
+_script_dir = Path(__file__).parent.resolve()
+if str(_script_dir) not in sys.path:
+    sys.path.insert(0, str(_script_dir))
+
 # 导入现有的报告生成模块
 from generate_offline_report import generate_offline_html
 
@@ -27,6 +32,17 @@ from parse_rdc_xml import parse_pipeline_state_from_related_calls
 
 # 导入优化建议生成器
 from core.optimization_advisor import OptimizationAdvisor
+
+# 导入性能分析器 (TASK-008)
+# 使用独立版本避免 analyzers 包的相对导入问题
+try:
+    from core.bridge import XMLToContextBridge
+    from core.performance_standalone import PerformanceAnalyzer
+    PERFORMANCE_ENABLED = True
+except ImportError as e:
+    print(f"[WARN] Performance analysis disabled: {e}")
+    PerformanceAnalyzer = None
+    PERFORMANCE_ENABLED = False
 
 
 def load_rdc_data(json_path):
@@ -1402,6 +1418,84 @@ def main():
     total_savings_mb = optimization_data['total_savings_bytes'] / (1024 * 1024)
     print(f"  Potential savings: {total_savings_mb:.2f} MB")
     
+    # 生成性能分析报告 (TASK-008)
+    print(f"\nGenerating performance analysis...")
+    performance_data = None
+    try:
+        # 构建 AnalysisContext 需要的数据字典
+        context_data = {
+            "textures": textures,
+            "buffers": [],  # 当前暂无 buffer 数据
+            "draw_calls": [],
+            "frame_summary": {
+                "api": event_data.get("apiType", "Unknown"),
+                "draw_count": event_data.get("totalDraws", 0),
+                "dispatch_count": event_data.get("totalDispatches", 0),
+                "total_triangles": 0,
+                "total_vertices": 0,
+            }
+        }
+        
+        # 从 events 提取 draw calls
+        for evt in event_data.get("events", []):
+            if evt.get("type") == "draw":
+                dc = {
+                    "event_id": evt.get("eid", 0),
+                    "type": evt.get("name", "Draw"),
+                    "index_count": evt.get("indexCount", 0),
+                    "vertex_count": evt.get("vertexCount", 0),
+                    "instance_count": evt.get("instanceCount", 1),
+                }
+                # 提取 Shader 信息
+                ps = evt.get("pipelineState", {})
+                shaders = ps.get("shaders", {})
+                dc["vs_id"] = shaders.get("VS", {}).get("resourceId", "")
+                dc["ps_id"] = shaders.get("PS", {}).get("resourceId", "")
+                
+                context_data["draw_calls"].append(dc)
+                context_data["frame_summary"]["total_vertices"] += dc["vertex_count"]
+                context_data["frame_summary"]["total_triangles"] += dc["index_count"] // 3
+        
+        # 使用 Bridge 转换为 AnalysisContext
+        analysis_context = XMLToContextBridge.convert(context_data, str(json_path))
+        
+        # 运行 PerformanceAnalyzer
+        perf_analyzer = PerformanceAnalyzer(analysis_context)
+        perf_analyzer.analyze()
+        perf_report = perf_analyzer.report
+        
+        # 转换为 HTML 模板格式
+        performance_data = {
+            "overall_score": round(perf_report.overall_score, 1),
+            "metrics": {
+                "draw_calls": perf_report.total_draw_calls,
+                "triangles": perf_report.total_triangles,
+                "shader_changes": perf_report.total_shader_changes,
+                "rt_changes": perf_report.total_rt_changes,
+                "unique_textures": perf_report.unique_textures,
+                "texture_memory": f"{perf_report.total_texture_memory_mb:.1f} MB",
+            },
+            "issues": [
+                {
+                    "rule_id": issue.rule_id,
+                    "severity": issue.severity,
+                    "title": issue.title,
+                    "message": issue.message,
+                    "suggestion": issue.suggestion,
+                }
+                for issue in perf_report.issues
+            ],
+            "recommendations": perf_report.recommendations,
+        }
+        
+        print(f"  Performance Score: {perf_report.overall_score:.1f}/100")
+        print(f"  Issues: {len(perf_report.issues)} ({perf_report.critical_count} critical, {perf_report.warning_count} warnings)")
+        
+    except Exception as e:
+        print(f"  [WARN] Performance analysis failed: {e}")
+        import traceback
+        traceback.print_exc()
+    
     print(f"\nGenerating HTML report...")
     
     # 调用现有的 HTML 生成函数
@@ -1414,6 +1508,7 @@ def main():
         event_pass_data=event_data,
         frame_thumbnail=frame_thumbnail,
         optimization_data=optimization_data,
+        performance_data=performance_data,
     )
     
     print(f"[OK] Report saved to: {output_path}")
