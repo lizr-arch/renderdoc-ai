@@ -1158,6 +1158,123 @@ def merge_cb_members_to_events(event_data: dict, cb_data_by_eid: dict) -> dict:
     return event_data
 
 
+def load_pipeline_json(pipeline_json_path: Path) -> dict:
+    """
+    加载 extract_pipeline_state.py 在 RenderDoc Python 环境中生成的 JSON 文件
+    
+    格式 (extract_pipeline_state.py 输出):
+    {
+      "capture_file": "...",
+      "events": [
+        {
+          "eventId": 101,
+          "name": "DrawIndexed(...)",
+          "shaders": {
+            "VS": {"resourceId": "123", "name": "Vertex Shader", ...},
+            "PS": {"resourceId": "456", "name": "Pixel Shader", ...}
+          },
+          "viewport": {"x": 0, "y": 0, "width": 1920, "height": 1080, ...},
+          "blendState": {"enabled": true, ...},
+          "depthState": {"testEnabled": true, "writeEnabled": true, ...},
+          "meshData": {
+            "topology": "TriangleList",
+            "vertexBuffers": [...],
+            "indexBuffer": {...}
+          },
+          ...
+        }
+      ]
+    }
+    
+    Returns:
+        {eventId: event_data, ...}  按 eventId 索引的字典
+    """
+    if not pipeline_json_path.exists():
+        print(f"  [WARN] Pipeline JSON file not found: {pipeline_json_path}")
+        return {}
+    
+    try:
+        with open(pipeline_json_path, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+        
+        result = {}
+        events = data.get("events", [])
+        for evt in events:
+            eid = evt.get("eventId")
+            if eid is not None:
+                result[eid] = evt
+        
+        print(f"  Loaded Pipeline State for {len(result)} events (Python API data)")
+        return result
+    
+    except (json.JSONDecodeError, IOError) as e:
+        print(f"  [ERROR] Failed to load pipeline JSON: {e}")
+        return {}
+
+
+def merge_pipeline_state_to_events(event_data: dict, pipeline_data_by_eid: dict) -> dict:
+    """
+    将 Python API 提取的 Pipeline State 数据合并到 event_data 中
+    
+    优先级: Python API 数据 > XML 解析数据
+    
+    Python API 数据更准确，因为它直接查询 GPU 状态，而非从 API 调用推断
+    """
+    if not pipeline_data_by_eid:
+        return event_data
+    
+    merged_count = 0
+    
+    for evt in event_data.get("events", []):
+        eid = evt.get("eid")
+        if eid not in pipeline_data_by_eid:
+            continue
+        
+        pipeline_evt = pipeline_data_by_eid[eid]
+        
+        # 确保 pipelineState 存在
+        if "pipelineState" not in evt:
+            evt["pipelineState"] = {}
+        ps = evt["pipelineState"]
+        
+        # 合并 shaders（高优先级数据）
+        if "shaders" in pipeline_evt:
+            ps["shaders"] = pipeline_evt["shaders"]
+        
+        # 合并 viewport
+        if "viewport" in pipeline_evt:
+            ps["viewport"] = pipeline_evt["viewport"]
+        
+        # 合并 blendState
+        if "blendState" in pipeline_evt:
+            ps["blendState"] = pipeline_evt["blendState"]
+        
+        # 合并 depthState
+        if "depthState" in pipeline_evt:
+            ps["depthState"] = pipeline_evt["depthState"]
+        
+        # 合并 rasterizerState
+        if "rasterizerState" in pipeline_evt:
+            ps["rasterizerState"] = pipeline_evt["rasterizerState"]
+        
+        # 合并 bindings（Python API 版本优先）
+        if "bindings" in pipeline_evt:
+            # Python API bindings 完全覆盖 XML 版本
+            ps["bindings"] = pipeline_evt["bindings"]
+        
+        # 合并 meshData
+        if "meshData" in pipeline_evt:
+            evt["meshData"] = pipeline_evt["meshData"]
+        
+        # 标记数据来源
+        ps["dataSource"] = "python_api"
+        
+        merged_count += 1
+    
+    print(f"  Merged Pipeline State into {merged_count} events (Python API)")
+    return event_data
+
+
 def main():
     # 使用 argparse 解析命令行参数
     parser = argparse.ArgumentParser(
@@ -1177,6 +1294,8 @@ def main():
                         help="纹理导出目录路径（包含 textures.json 和 PNG 文件）")
     parser.add_argument("--bindings", "-b", dest="bindings_path",
                         help="CB 绑定数据文件路径（renderdoccmd export --bindings 生成的 bindings.json）")
+    parser.add_argument("--pipeline-json", "-p", dest="pipeline_json_path",
+                        help="Pipeline State JSON 文件路径（extract_pipeline_state.py 在 RenderDoc Python 环境中生成）")
     
     args = parser.parse_args()
     
@@ -1184,6 +1303,7 @@ def main():
     output_path = Path(args.output_path) if args.output_path else json_path.with_suffix('.html')
     texture_dir = Path(args.texture_dir) if args.texture_dir else None
     bindings_path = Path(args.bindings_path) if args.bindings_path else None
+    pipeline_json_path = Path(args.pipeline_json_path) if args.pipeline_json_path else None
     
     if not json_path.exists():
         print(f"Error: File not found: {json_path}")
@@ -1201,6 +1321,14 @@ def main():
         cb_data = load_bindings_json(bindings_path)
         if cb_data:
             event_data = merge_cb_members_to_events(event_data, cb_data)
+    
+    # 加载并合并 Pipeline State 数据（如果提供了 --pipeline-json）
+    # 数据来自 extract_pipeline_state.py (需在 RenderDoc Python 环境中运行)
+    if pipeline_json_path:
+        print(f"\nLoading Pipeline State from {pipeline_json_path}...")
+        pipeline_data = load_pipeline_json(pipeline_json_path)
+        if pipeline_data:
+            event_data = merge_pipeline_state_to_events(event_data, pipeline_data)
     
     print(f"  API: {event_data['apiType']}")
     print(f"  Events: {event_data['totalEvents']}")
