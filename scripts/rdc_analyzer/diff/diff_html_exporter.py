@@ -353,6 +353,70 @@ DIFF_HTML_TEMPLATE = '''<!DOCTYPE html>
             color: var(--text-secondary);
         }}
         
+        /* Evidence Anchors */
+        .evidence-list {{
+            margin-top: 10px;
+            padding: 8px 12px;
+            background: var(--bg-tertiary);
+            border-radius: 6px;
+            font-size: 12px;
+        }}
+        
+        .evidence-header {{
+            font-weight: 600;
+            margin-bottom: 6px;
+            color: var(--text-secondary);
+            font-size: 11px;
+            text-transform: uppercase;
+        }}
+        
+        .evidence-anchor {{
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 10px;
+            margin: 2px 4px 2px 0;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.15s ease;
+        }}
+        
+        .evidence-anchor:hover {{
+            background: var(--accent);
+            border-color: var(--accent);
+            color: white;
+        }}
+        
+        .evidence-anchor .eid {{
+            font-family: 'Monaco', 'Menlo', monospace;
+            font-weight: 600;
+            color: var(--accent);
+        }}
+        
+        .evidence-anchor:hover .eid {{
+            color: white;
+        }}
+        
+        .evidence-anchor .marker {{
+            color: var(--text-secondary);
+            max-width: 200px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }}
+        
+        .evidence-anchor:hover .marker {{
+            color: rgba(255,255,255,0.8);
+        }}
+        
+        .evidence-more {{
+            font-size: 11px;
+            color: var(--text-secondary);
+            margin-left: 4px;
+        }}
+        
         /* Resource Diff Table */
         .diff-table {{
             width: 100%;
@@ -515,6 +579,43 @@ DIFF_HTML_TEMPLATE = '''<!DOCTYPE html>
                 tabGroup.querySelector(`#${{tabId}}`).classList.add('active');
             }});
         }});
+        
+        // Evidence anchor click handler
+        function jumpToEventId(eventId, markerPath) {{
+            // Copy to clipboard for easy use in RenderDoc
+            const text = `Event ID: ${{eventId}}\\nMarker: ${{markerPath}}`;
+            navigator.clipboard.writeText(eventId.toString()).then(() => {{
+                // Show tooltip notification
+                const anchor = event.currentTarget;
+                const tooltip = document.createElement('div');
+                tooltip.textContent = '已复制 Event ID';
+                tooltip.style.cssText = `
+                    position: fixed;
+                    top: ${{event.clientY - 40}}px;
+                    left: ${{event.clientX}}px;
+                    background: var(--accent);
+                    color: white;
+                    padding: 6px 12px;
+                    border-radius: 4px;
+                    font-size: 12px;
+                    z-index: 1000;
+                    animation: fadeOut 1.5s forwards;
+                `;
+                document.body.appendChild(tooltip);
+                setTimeout(() => tooltip.remove(), 1500);
+            }});
+        }}
+        
+        // Add fadeOut animation
+        const style = document.createElement('style');
+        style.textContent = `
+            @keyframes fadeOut {{
+                0% {{ opacity: 1; transform: translateY(0); }}
+                70% {{ opacity: 1; transform: translateY(-5px); }}
+                100% {{ opacity: 0; transform: translateY(-10px); }}
+            }}
+        `;
+        document.head.appendChild(style);
     </script>
 </body>
 </html>'''
@@ -783,6 +884,9 @@ class DiffHTMLExporter:
             </div>
             '''
         
+        # 渲染证据锚点
+        evidence_html = self._render_evidence_anchors(issue.evidence)
+        
         return f'''
         <div class="issue-item {severity}">
             <div class="issue-header">
@@ -792,6 +896,47 @@ class DiffHTMLExporter:
             <div class="issue-message">{html.escape(issue.message)}</div>
             <div class="issue-details">{html.escape(issue.details)}</div>
             {values_html}
+            {evidence_html}
+        </div>
+        '''
+    
+    def _render_evidence_anchors(self, evidence: list) -> str:
+        """渲染证据锚点列表"""
+        if not evidence:
+            return ""
+        
+        # 限制显示数量，避免 UI 过于拥挤
+        max_display = 5
+        anchors = []
+        
+        for ev in evidence[:max_display]:
+            marker_display = ev.marker_path if ev.marker_path else "(no marker)"
+            # 截断过长的 marker path
+            if len(marker_display) > 30:
+                marker_display = "..." + marker_display[-27:]
+            
+            # 使用 description 作为 title tooltip
+            tooltip = html.escape(ev.description) if ev.description else f"Event {ev.event_id}"
+            
+            anchors.append(f'''
+                <span class="evidence-anchor" 
+                      onclick="jumpToEventId({ev.event_id}, '{html.escape(ev.marker_path)}')"
+                      title="{tooltip}">
+                    <span class="eid">#{ev.event_id}</span>
+                    <span class="marker">{html.escape(marker_display)}</span>
+                </span>
+            ''')
+        
+        # 如果有更多证据，显示提示
+        more_html = ""
+        if len(evidence) > max_display:
+            more_html = f'<span class="evidence-more">+{len(evidence) - max_display} more</span>'
+        
+        return f'''
+        <div class="evidence-list">
+            <div class="evidence-header">📍 证据锚点 (点击复制 Event ID)</div>
+            {"".join(anchors)}
+            {more_html}
         </div>
         '''
     
