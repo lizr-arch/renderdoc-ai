@@ -103,7 +103,8 @@ class PerformanceAnalyzer:
     
     def _load_rules(self) -> Dict[str, PerformanceRule]:
         """加载性能规则"""
-        return {rule.rule_id: rule for rule in PERFORMANCE_RULES}
+        # PERFORMANCE_RULES 已经是 Dict[str, PerformanceRule]，直接返回
+        return PERFORMANCE_RULES
     
     def analyze(self) -> None:
         """
