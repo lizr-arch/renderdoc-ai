@@ -256,6 +256,34 @@ def main():
         help="置信水平 (默认: 0.95，可选: 0.90, 0.95, 0.99)"
     )
     
+    # CI 集成参数
+    compare_parser.add_argument(
+        "--junit-xml",
+        dest="junit_xml",
+        metavar="FILE",
+        help="输出 JUnit XML 报告 (供 CI 系统使用)"
+    )
+    
+    compare_parser.add_argument(
+        "--fail-on-regression",
+        action="store_true",
+        help="检测到回归时返回非零退出码 (CI 模式)"
+    )
+    
+    compare_parser.add_argument(
+        "--fail-threshold",
+        choices=["low", "medium", "high", "critical"],
+        default="medium",
+        help="触发失败的最低回归级别 (默认: medium)"
+    )
+    
+    compare_parser.add_argument(
+        "--align-strategy",
+        choices=["order", "signature", "marker"],
+        default="signature",
+        help="DrawCall 对齐策略 (默认: signature，推荐: marker)"
+    )
+    
     # ========== rules 子命令 ==========
     rules_parser = subparsers.add_parser(
         'rules',
@@ -503,17 +531,60 @@ def cmd_compare(args):
             if not args.quiet:
                 print(f"[+] JSON 差异: {json_path}")
         
+        # JUnit XML 输出 (CI 集成)
+        if args.junit_xml:
+            from .diff import JUnitXMLExporter, export_junit_xml
+            
+            junit_path = export_junit_xml(
+                diff_result,
+                regression_report,
+                args.junit_xml,
+                suite_name="RDC Regression Tests"
+            )
+            output_files.append(junit_path)
+            if not args.quiet:
+                print(f"[+] JUnit XML: {junit_path}")
+        
         # 打印摘要
         if not args.quiet:
             print_summary(diff_result, regression_report)
         
-        # 返回值
-        if regression_report.has_critical:
-            return 2
-        elif regression_report.has_warning:
-            return 1
+        # 返回值（CI 模式）
+        if args.fail_on_regression:
+            from .diff import JUnitXMLExporter, RegressionSeverity
+            
+            # 根据 --fail-threshold 确定失败条件
+            threshold_map = {
+                "low": [RegressionSeverity.LOW, RegressionSeverity.MEDIUM, 
+                        RegressionSeverity.HIGH, RegressionSeverity.WARNING,
+                        RegressionSeverity.CRITICAL],
+                "medium": [RegressionSeverity.MEDIUM, RegressionSeverity.HIGH, 
+                           RegressionSeverity.WARNING, RegressionSeverity.CRITICAL],
+                "high": [RegressionSeverity.HIGH, RegressionSeverity.CRITICAL],
+                "critical": [RegressionSeverity.CRITICAL],
+            }
+            fail_severities = threshold_map.get(args.fail_threshold, [RegressionSeverity.MEDIUM])
+            
+            # 检查是否有达到阈值的回归（同时检查 issues 和 results）
+            has_failing_regression = (
+                any(i.severity in fail_severities for i in regression_report.issues) or
+                any(r.severity in fail_severities for r in regression_report.results)
+            )
+            
+            if has_failing_regression:
+                if not args.quiet:
+                    print(f"\n[!] CI 模式: 检测到 {args.fail_threshold}+ 级别回归，返回非零退出码")
+                return JUnitXMLExporter.EXIT_CRITICAL if regression_report.has_critical else JUnitXMLExporter.EXIT_WARNING
+            else:
+                return JUnitXMLExporter.EXIT_SUCCESS
         else:
-            return 0
+            # 传统模式：根据回归情况返回
+            if regression_report.has_critical:
+                return 2
+            elif regression_report.has_warning:
+                return 1
+            else:
+                return 0
             
     except FileNotFoundError as e:
         print(f"[!] 错误: {e}")
