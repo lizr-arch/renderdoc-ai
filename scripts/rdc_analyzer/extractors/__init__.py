@@ -39,6 +39,14 @@ from .shader_extractor import (
     SHADER_TYPE_ABBREV,
     SHADER_ENCODING_NAMES,
 )
+from .pipeline_sampler import (
+    PipelineSampler,
+    PipelineSample,
+    SamplingConfig,
+    SamplingResult,
+    SamplingStrategy,
+    sample_pipeline_states,
+)
 
 # 导入提取器实现（会自动注册）
 from .d3d11_extractor import D3D11Extractor
@@ -76,4 +84,11 @@ __all__ = [
     'SHADER_STAGE_NAMES',
     'SHADER_TYPE_ABBREV',
     'SHADER_ENCODING_NAMES',
+    # 管线状态采样
+    'PipelineSampler',
+    'PipelineSample',
+    'SamplingConfig',
+    'SamplingResult',
+    'SamplingStrategy',
+    'sample_pipeline_states',
 ]

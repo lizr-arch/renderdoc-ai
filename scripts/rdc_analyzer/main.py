@@ -84,6 +84,16 @@ class AnalysisOptions:
     enable_mali_analysis: bool = False
     """是否启用 Mali GPU 性能分析"""
     
+    # === Pipeline State 采样 ===
+    enable_pipeline_sampling: bool = True
+    """是否启用 Pipeline State 采样（用于规则检查）"""
+    
+    pipeline_sample_count: int = 30
+    """每帧采样的 draw call 数量"""
+    
+    pipeline_sample_strategy: str = "uniform"
+    """采样策略: 'uniform', 'diverse', 'first_n', 'last_n'"""
+    
     mali_gpu: str = "Mali-G78"
     """目标 Mali GPU 型号（默认: Mali-G78，市场占有率最高）"""
     
@@ -200,6 +210,7 @@ class AnalysisPipeline:
         # Pipeline state 采样跟踪
         self._pipeline_state_samples = 0  # 已采样的 draw call 数量
         self._resource_lifecycle_tracked = False  # 是否跟踪了资源生命周期
+        self._pipeline_sampling_result = None  # PipelineSampler 结果
         
         # 配置日志级别
         log_level = getattr(logging, self.options.log_level.upper(), logging.INFO)
@@ -401,8 +412,75 @@ class AnalysisPipeline:
             }
         
         logger.info(f"提取到 {len(textures)} 个纹理，{len(buffers)} 个 Buffer")
+        
+        # === Pipeline State 采样 ===
+        if self.options.enable_pipeline_sampling and self._draw_calls:
+            try:
+                self._sample_pipeline_states()
+            except Exception as e:
+                logger.warning(f"Pipeline State 采样失败: {e}")
+        
         self._report_progress('extract', 1, 1, 
                              f'{len(textures)} 纹理, {len(buffers)} Buffer')
+    
+    def _sample_pipeline_states(self):
+        """
+        采样 Pipeline State（非 Mali 分析路径）
+        
+        使用 PipelineSampler 对 draw call 进行抽样，获取关键管线状态：
+        - VS/PS Shader
+        - Render Target
+        - Depth/Stencil
+        - Viewport/Scissor
+        - Primitive Topology
+        """
+        try:
+            from .extractors.pipeline_sampler import (
+                sample_pipeline_states,
+                SamplingStrategy,
+            )
+        except ImportError as e:
+            logger.warning(f"无法导入 PipelineSampler: {e}")
+            return
+        
+        # 映射策略名称到枚举
+        strategy_map = {
+            'uniform': SamplingStrategy.UNIFORM,
+            'diverse': SamplingStrategy.DIVERSE,
+            'first_n': SamplingStrategy.FIRST_N,
+            'last_n': SamplingStrategy.LAST_N,
+        }
+        strategy = strategy_map.get(
+            self.options.pipeline_sample_strategy.lower(),
+            SamplingStrategy.UNIFORM
+        )
+        
+        logger.info(
+            f"开始 Pipeline State 采样: "
+            f"策略={self.options.pipeline_sample_strategy}, "
+            f"数量={self.options.pipeline_sample_count}"
+        )
+        
+        try:
+            result = sample_pipeline_states(
+                controller=self._controller,
+                events=self._draw_calls,
+                sample_count=self.options.pipeline_sample_count,
+                strategy=strategy,
+            )
+            
+            self._pipeline_sampling_result = result
+            self._pipeline_state_samples = result.sampled_count
+            
+            logger.info(
+                f"Pipeline State 采样完成: "
+                f"{result.sampled_count}/{result.total_candidates} 个事件, "
+                f"{result.unique_shaders} 个唯一 Shader 组合"
+            )
+            
+        except Exception as e:
+            logger.warning(f"Pipeline State 采样失败: {e}")
+            self._pipeline_sampling_result = None
     
     def _analyze_rules(self):
         """运行规则分析"""
@@ -1006,6 +1084,10 @@ class AnalysisPipeline:
             'draw_calls': self._draw_calls,
             'resources': self._resources,
             'resource_samples': self._resource_samples,
+            'pipeline_samples': (
+                self._pipeline_sampling_result.to_dict() 
+                if self._pipeline_sampling_result else None
+            ),
             'issues': canonical_issues,
             'suggestions': suggestions,
             'preflight': preflight
