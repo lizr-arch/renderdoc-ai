@@ -33,6 +33,7 @@ def main():
 子命令:
   analyze   分析 RDC 文件并生成报告
   compare   对比两个 RDC/JSON 文件并生成回归报告
+  audit     资产审计 (单帧资源检查，无需对比基准)
   rules     列出或管理分析规则
 
 示例:
@@ -284,6 +285,100 @@ def main():
         help="DrawCall 对齐策略 (默认: signature，推荐: marker)"
     )
     
+    # ========== audit 子命令 ==========
+    audit_parser = subparsers.add_parser(
+        'audit',
+        help='资产审计 (单帧资源检查，无需对比基准)',
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+示例:
+  %(prog)s capture.json
+  %(prog)s capture.json -o audit_report.html
+  %(prog)s capture.json --preset mobile
+  %(prog)s capture.rdc --platform mobile --output audit.html
+
+预设说明:
+  default   默认配置 (2048 纹理上限, 16MB 纹理内存)
+  pc        PC 配置 (4096 纹理上限, 32MB 纹理内存)
+  mobile    移动端配置 (2048 纹理上限, 8MB 内存, 检查 NPOT)
+  strict    严格模式 (1024 纹理上限, 4MB 内存)
+        """
+    )
+    
+    audit_parser.add_argument(
+        "input_file",
+        help="输入文件 (RDC, XML 或 JSON 格式)"
+    )
+    
+    audit_parser.add_argument(
+        "-o", "--output",
+        default="./audit_output",
+        help="输出目录或文件路径 (默认: ./audit_output)"
+    )
+    
+    audit_parser.add_argument(
+        "-f", "--format",
+        default="html",
+        choices=["html", "json", "both"],
+        help="输出格式 (默认: html)"
+    )
+    
+    audit_parser.add_argument(
+        "-p", "--platform",
+        choices=["pc", "mobile"],
+        default="pc",
+        help="目标平台 (默认: pc)"
+    )
+    
+    audit_parser.add_argument(
+        "--preset",
+        choices=["default", "pc", "mobile", "strict"],
+        help="使用预设配置 (覆盖 --platform 推断)"
+    )
+    
+    audit_parser.add_argument(
+        "--max-texture-size",
+        type=int,
+        help="纹理最大尺寸阈值 (覆盖预设)"
+    )
+    
+    audit_parser.add_argument(
+        "--max-texture-memory",
+        type=float,
+        metavar="MB",
+        help="单张纹理最大内存 (MB, 覆盖预设)"
+    )
+    
+    audit_parser.add_argument(
+        "--check-npot",
+        action="store_true",
+        help="检查非 2 次幂纹理"
+    )
+    
+    audit_parser.add_argument(
+        "-q", "--quiet",
+        action="store_true",
+        help="静默模式，不打印控制台摘要"
+    )
+    
+    audit_parser.add_argument(
+        "-v", "--verbose",
+        action="store_true",
+        help="详细输出"
+    )
+    
+    audit_parser.add_argument(
+        "--fail-on-warning",
+        action="store_true",
+        help="存在警告时返回非零退出码 (CI 模式)"
+    )
+    
+    audit_parser.add_argument(
+        "--fail-on-critical",
+        action="store_true",
+        help="存在严重问题时返回非零退出码 (CI 模式)"
+    )
+    
     # ========== rules 子命令 ==========
     rules_parser = subparsers.add_parser(
         'rules',
@@ -314,6 +409,8 @@ def main():
         return cmd_analyze(args)
     elif args.command == 'compare':
         return cmd_compare(args)
+    elif args.command == 'audit':
+        return cmd_audit(args)
     elif args.command == 'rules':
         if args.list:
             return cmd_list_rules()
@@ -773,6 +870,322 @@ def cmd_compare_multi_frame(args):
             import traceback
             traceback.print_exc()
         return 1
+
+
+def cmd_audit(args):
+    """执行资产审计命令"""
+    from datetime import datetime
+    import json
+    
+    # 检查文件存在
+    if not os.path.exists(args.input_file):
+        print(f"[!] 错误: 文件不存在: {args.input_file}")
+        return 1
+    
+    # 导入审计模块
+    try:
+        from .audit import AuditEngine, AuditReport
+        from .audit.engine import AuditPreset, PRESETS
+    except ImportError as e:
+        print(f"[!] 错误: 无法导入审计模块: {e}")
+        return 1
+    
+    input_path = Path(args.input_file)
+    
+    if not args.quiet:
+        print(f"[*] 资产审计模式")
+        print(f"[*] 输入文件: {args.input_file}")
+        print(f"[*] 平台: {args.platform}")
+        print(f"[*] 预设: {args.preset or 'auto'}")
+    
+    try:
+        # Step 1: 加载捕获数据
+        if not args.quiet:
+            print(f"[*] 加载文件...")
+        
+        capture_data = load_capture_file(args.input_file, verbose=args.verbose)
+        
+        # Step 2: 创建审计引擎
+        # 构建自定义配置 (如果有)
+        custom_config = None
+        if args.max_texture_size or args.max_texture_memory or args.check_npot:
+            # 获取基础预设
+            base_preset = PRESETS.get(args.preset or args.platform, PRESETS["default"])
+            custom_config = AuditPreset(
+                name=f"custom_{args.platform}",
+                max_texture_size=args.max_texture_size or base_preset.max_texture_size,
+                max_texture_memory_mb=args.max_texture_memory or base_preset.max_texture_memory_mb,
+                require_mipmap_size=base_preset.require_mipmap_size,
+                require_compression_size=base_preset.require_compression_size,
+                max_buffer_size_mb=base_preset.max_buffer_size_mb,
+                check_npot=args.check_npot or base_preset.check_npot,
+                strict_mode=base_preset.strict_mode,
+            )
+        
+        engine = AuditEngine(
+            platform=args.platform,
+            preset=args.preset,
+            custom_config=custom_config,
+        )
+        
+        if not args.quiet:
+            print(f"[*] 使用预设: {engine.preset.name}")
+            print(f"[*] 执行审计...")
+        
+        # Step 3: 执行审计
+        report = engine.audit(capture_data, file_path=str(input_path))
+        
+        # Step 4: 输出报告
+        output_path = Path(args.output)
+        output_files = []
+        
+        # 确定输出格式
+        output_html = args.format in ("html", "both")
+        output_json = args.format in ("json", "both")
+        
+        # 如果 -o 指定的是 .html/.json 文件，直接作为输出
+        if output_path.suffix.lower() == '.html':
+            html_output_path = output_path
+            output_html = True
+        elif output_path.suffix.lower() == '.json':
+            json_output_path = output_path
+            output_json = True
+        else:
+            # 在输出目录生成文件
+            output_path.mkdir(parents=True, exist_ok=True)
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            html_output_path = output_path / f"audit_{timestamp}.html"
+            json_output_path = output_path / f"audit_{timestamp}.json"
+        
+        # 输出 JSON
+        if output_json:
+            if 'json_output_path' not in locals():
+                json_output_path = output_path / f"audit_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+            json_output_path.parent.mkdir(parents=True, exist_ok=True)
+            
+            with open(json_output_path, 'w', encoding='utf-8') as f:
+                json.dump(report.to_dict(), f, indent=2, ensure_ascii=False)
+            
+            output_files.append(str(json_output_path))
+            if not args.quiet:
+                print(f"[+] JSON 报告: {json_output_path}")
+        
+        # 输出 HTML (简易版，后续可扩展模板)
+        if output_html:
+            if 'html_output_path' not in locals():
+                html_output_path = output_path / f"audit_{datetime.now().strftime('%Y%m%d_%H%M%S')}.html"
+            html_output_path.parent.mkdir(parents=True, exist_ok=True)
+            
+            html_content = _generate_audit_html(report)
+            with open(html_output_path, 'w', encoding='utf-8') as f:
+                f.write(html_content)
+            
+            output_files.append(str(html_output_path))
+            if not args.quiet:
+                print(f"[+] HTML 报告: {html_output_path}")
+        
+        # 打印摘要
+        if not args.quiet:
+            print(report.format_summary())
+        
+        # 打印输出文件列表
+        if output_files and not args.quiet:
+            print("输出文件:")
+            for f in output_files:
+                print(f"  → {f}")
+        
+        # 返回值 (CI 模式)
+        if args.fail_on_critical and report.has_critical:
+            if not args.quiet:
+                print(f"\n[!] CI 模式: 存在严重问题，返回非零退出码")
+            return 2
+        elif args.fail_on_warning and report.has_warning:
+            if not args.quiet:
+                print(f"\n[!] CI 模式: 存在警告，返回非零退出码")
+            return 1
+        else:
+            return 0
+            
+    except FileNotFoundError as e:
+        print(f"[!] 错误: {e}")
+        return 1
+    except json.JSONDecodeError as e:
+        print(f"[!] JSON 解析错误: {e}")
+        return 1
+    except Exception as e:
+        print(f"[!] 审计失败: {e}")
+        if args.verbose:
+            import traceback
+            traceback.print_exc()
+        return 1
+
+
+def _generate_audit_html(report) -> str:
+    """生成审计报告 HTML"""
+    from .audit.report import AuditSeverity
+    
+    # 严重程度样式映射
+    severity_colors = {
+        AuditSeverity.CRITICAL: "#ff4444",
+        AuditSeverity.WARNING: "#ffaa00",
+        AuditSeverity.INFO: "#4488ff",
+        AuditSeverity.PASS: "#44cc44",
+    }
+    
+    severity_labels = {
+        AuditSeverity.CRITICAL: "严重",
+        AuditSeverity.WARNING: "警告",
+        AuditSeverity.INFO: "提示",
+        AuditSeverity.PASS: "通过",
+    }
+    
+    # 构建问题列表 HTML
+    issues_html = ""
+    for issue in report.issues:
+        color = severity_colors.get(issue.severity, "#888")
+        label = severity_labels.get(issue.severity, str(issue.severity))
+        issues_html += f"""
+        <tr>
+            <td style="color: {color}; font-weight: bold;">{label}</td>
+            <td><code>{issue.rule_id}</code></td>
+            <td>{issue.message}</td>
+            <td>{issue.suggestion or '-'}</td>
+        </tr>
+        """
+    
+    if not issues_html:
+        issues_html = '<tr><td colspan="4" style="text-align:center; color:#888;">未发现问题</td></tr>'
+    
+    # 纹理列表 HTML
+    textures_html = ""
+    for tex in report.textures[:50]:  # 限制前 50 个
+        textures_html += f"""
+        <tr>
+            <td>{tex.get('name', tex.get('resource_id', '-'))}</td>
+            <td>{tex.get('width', 0)}x{tex.get('height', 0)}</td>
+            <td>{tex.get('format', '-')}</td>
+            <td>{tex.get('mip_levels', 1)}</td>
+            <td>{tex.get('memory_size', 0) / 1024:.1f} KB</td>
+        </tr>
+        """
+    
+    html = f"""<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <title>资产审计报告 - {report.file_path}</title>
+    <style>
+        body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #1a1a2e; color: #eee; margin: 0; padding: 20px; }}
+        .container {{ max-width: 1400px; margin: 0 auto; }}
+        h1 {{ color: #4ecdc4; }}
+        h2 {{ color: #88ccff; border-bottom: 1px solid #333; padding-bottom: 8px; }}
+        .grade {{ font-size: 48px; font-weight: bold; text-align: center; padding: 20px; border-radius: 10px; }}
+        .grade-A {{ background: #22aa44; }}
+        .grade-B {{ background: #88cc44; }}
+        .grade-C {{ background: #ccaa44; }}
+        .grade-D {{ background: #cc7744; }}
+        .grade-F {{ background: #cc4444; }}
+        .summary-grid {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin: 20px 0; }}
+        .summary-card {{ background: #252545; padding: 15px; border-radius: 8px; }}
+        .summary-card h3 {{ margin: 0 0 10px 0; color: #aaa; font-size: 14px; }}
+        .summary-card .value {{ font-size: 24px; font-weight: bold; color: #4ecdc4; }}
+        table {{ width: 100%; border-collapse: collapse; margin: 20px 0; }}
+        th, td {{ padding: 10px; text-align: left; border-bottom: 1px solid #333; }}
+        th {{ background: #252545; color: #aaa; }}
+        tr:hover {{ background: #2a2a4a; }}
+        code {{ background: #333; padding: 2px 6px; border-radius: 3px; }}
+        .meta {{ color: #888; font-size: 12px; margin-bottom: 20px; }}
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📊 资产审计报告</h1>
+        <p class="meta">
+            文件: {report.file_path} | 
+            平台: {report.platform} | 
+            预设: {report.preset} |
+            时间: {report.generated_at.strftime('%Y-%m-%d %H:%M:%S')}
+        </p>
+        
+        <div class="grade grade-{report.summary.grade}">
+            评级: {report.summary.grade}
+        </div>
+        
+        <h2>📈 统计摘要</h2>
+        <div class="summary-grid">
+            <div class="summary-card">
+                <h3>严重问题</h3>
+                <div class="value" style="color: #ff4444;">{report.summary.critical_count}</div>
+            </div>
+            <div class="summary-card">
+                <h3>警告</h3>
+                <div class="value" style="color: #ffaa00;">{report.summary.warning_count}</div>
+            </div>
+            <div class="summary-card">
+                <h3>提示</h3>
+                <div class="value" style="color: #4488ff;">{report.summary.info_count}</div>
+            </div>
+            <div class="summary-card">
+                <h3>纹理数量</h3>
+                <div class="value">{report.summary.texture_stats.count}</div>
+            </div>
+            <div class="summary-card">
+                <h3>纹理内存</h3>
+                <div class="value">{report.summary.texture_stats.total_memory / (1024*1024):.1f} MB</div>
+            </div>
+            <div class="summary-card">
+                <h3>Buffer 数量</h3>
+                <div class="value">{report.summary.buffer_stats.count}</div>
+            </div>
+            <div class="summary-card">
+                <h3>Buffer 内存</h3>
+                <div class="value">{report.summary.buffer_stats.total_memory / (1024*1024):.1f} MB</div>
+            </div>
+            <div class="summary-card">
+                <h3>总资源内存</h3>
+                <div class="value">{report.summary.total_memory / (1024*1024):.1f} MB</div>
+            </div>
+        </div>
+        
+        <h2>⚠️ 问题列表 ({report.summary.total_issues})</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>严重程度</th>
+                    <th>规则</th>
+                    <th>问题描述</th>
+                    <th>建议</th>
+                </tr>
+            </thead>
+            <tbody>
+                {issues_html}
+            </tbody>
+        </table>
+        
+        <h2>🖼️ 纹理清单 (前 50 个)</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>名称</th>
+                    <th>尺寸</th>
+                    <th>格式</th>
+                    <th>Mip 层级</th>
+                    <th>内存</th>
+                </tr>
+            </thead>
+            <tbody>
+                {textures_html}
+            </tbody>
+        </table>
+        
+        <p class="meta" style="margin-top: 40px;">
+            Generated by RDC Analyzer v2.0.0 | Audit Mode
+        </p>
+    </div>
+</body>
+</html>
+"""
+    return html
 
 
 def _analyze_rdc_to_json(rdc_path: str, verbose: bool = False) -> Path:
