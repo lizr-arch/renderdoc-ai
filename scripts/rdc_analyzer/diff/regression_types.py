@@ -20,9 +20,19 @@ from typing import List, Optional, Dict, Any
 
 
 class RegressionSeverity(Enum):
-    """回归严重程度"""
-    INFO = "info"           # 信息提示
-    WARNING = "warning"     # 警告
+    """回归严重程度
+    
+    细粒度分级用于 CI 退出码判断:
+    - INFO/LOW: 仅提示，不影响 CI
+    - MEDIUM: 中级警告，可配置是否阻断
+    - HIGH: 高级警告，默认阻断
+    - CRITICAL: 严重问题，必须阻断
+    """
+    INFO = "info"           # 信息提示（兼容旧版）
+    LOW = "low"             # 低级别
+    MEDIUM = "medium"       # 中级别
+    HIGH = "high"           # 高级别
+    WARNING = "warning"     # 警告（兼容旧版，等同于 MEDIUM）
     CRITICAL = "critical"   # 严重问题
 
 
@@ -131,28 +141,117 @@ class RegressionIssue:
 
 
 @dataclass
+class RegressionResult:
+    """
+    回归检测结果 (用于 CI 输出和 JUnit XML)
+    
+    与 RegressionIssue 类似，但增加了阈值等 CI 所需字段。
+    
+    Attributes:
+        rule_id: 触发的规则 ID
+        severity: 严重程度
+        category: 类别 (如 DrawCalls, Triangles)
+        metric_name: 指标名称
+        baseline_value: 基准值
+        target_value: 目标值
+        delta_percent: 变化百分比
+        threshold_percent: 阈值百分比
+        message: 问题描述
+        details: 详细信息
+    """
+    rule_id: RegressionRuleId
+    severity: RegressionSeverity
+    category: str
+    metric_name: str
+    baseline_value: float
+    target_value: float
+    delta_percent: float
+    threshold_percent: float
+    message: str
+    details: str = ""
+    
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "rule_id": self.rule_id.value,
+            "severity": self.severity.value,
+            "category": self.category,
+            "metric_name": self.metric_name,
+            "baseline_value": self.baseline_value,
+            "target_value": self.target_value,
+            "delta_percent": self.delta_percent,
+            "threshold_percent": self.threshold_percent,
+            "message": self.message,
+            "details": self.details,
+        }
+
+
+@dataclass
 class RegressionReport:
     """
     回归检测报告
     
     Attributes:
-        issues: 检测到的问题列表
+        issues: 检测到的问题列表 (RegressionIssue)
+        results: 回归结果列表 (RegressionResult, 用于 CI/JUnit)
         rules_checked: 已检查的规则数量
         rules_triggered: 触发的规则数量
-        has_critical: 是否有严重问题
-        has_warning: 是否有警告
     """
     issues: List[RegressionIssue] = field(default_factory=list)
+    results: List[RegressionResult] = field(default_factory=list)
     rules_checked: int = 0
     rules_triggered: int = 0
+    # 内部字段，用于显式覆盖计算属性（向后兼容）
+    _has_warning_override: Optional[bool] = field(default=None, repr=False)
+    _has_critical_override: Optional[bool] = field(default=None, repr=False)
+    
+    def __init__(
+        self,
+        issues: List[RegressionIssue] = None,
+        results: List[RegressionResult] = None,
+        rules_checked: int = 0,
+        rules_triggered: int = 0,
+        has_warning: bool = None,
+        has_critical: bool = None,
+    ):
+        """初始化报告
+        
+        Args:
+            issues: 问题列表
+            results: 结果列表（用于 CI）
+            rules_checked: 已检查规则数
+            rules_triggered: 触发规则数
+            has_warning: 显式设置是否有警告（覆盖自动计算）
+            has_critical: 显式设置是否有严重问题（覆盖自动计算）
+        """
+        self.issues = issues if issues is not None else []
+        self.results = results if results is not None else []
+        self.rules_checked = rules_checked
+        self.rules_triggered = rules_triggered
+        self._has_warning_override = has_warning
+        self._has_critical_override = has_critical
     
     @property
     def has_critical(self) -> bool:
-        return any(i.severity == RegressionSeverity.CRITICAL for i in self.issues)
+        """是否有严重问题"""
+        if self._has_critical_override is not None:
+            return self._has_critical_override
+        from_issues = any(i.severity == RegressionSeverity.CRITICAL for i in self.issues)
+        from_results = any(r.severity == RegressionSeverity.CRITICAL for r in self.results)
+        return from_issues or from_results
     
     @property
     def has_warning(self) -> bool:
-        return any(i.severity == RegressionSeverity.WARNING for i in self.issues)
+        """是否有警告"""
+        if self._has_warning_override is not None:
+            return self._has_warning_override
+        warning_severities = {
+            RegressionSeverity.WARNING,
+            RegressionSeverity.MEDIUM,
+            RegressionSeverity.HIGH,
+        }
+        from_issues = any(i.severity in warning_severities for i in self.issues)
+        from_results = any(r.severity in warning_severities for r in self.results)
+        return from_issues or from_results
     
     @property
     def critical_count(self) -> int:

@@ -28,12 +28,14 @@ from .regression_types import (
     RegressionRuleId,
     RegressionSeverity,
     RegressionIssue,
+    RegressionResult,
     RegressionReport,
     EvidenceAnchor,
     DEFAULT_RULES,
 )
 from .regression_detector import RegressionDetector
 from .diff_html_exporter import DiffHTMLExporter, DiffHTMLConfig
+from .junit_exporter import JUnitXMLExporter, export_junit_xml
 
 __all__ = [
     # 核心类
@@ -55,10 +57,14 @@ __all__ = [
     'RegressionRuleId',
     'RegressionSeverity',
     'RegressionIssue',
+    'RegressionResult',
     'RegressionReport',
     'EvidenceAnchor',
     'DEFAULT_RULES',
     # HTML 导出
     'DiffHTMLExporter',
     'DiffHTMLConfig',
+    # JUnit XML 导出
+    'JUnitXMLExporter',
+    'export_junit_xml',
 ]

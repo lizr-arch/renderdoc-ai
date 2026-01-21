@@ -1,0 +1,188 @@
+# RDC Regression Detection GitHub Action
+# =======================================
+#
+# 此工作流用于在 CI/CD 中检测图形性能回归。
+#
+# 使用方法:
+#   1. 将此文件放入 .github/workflows/rdc-regression.yml
+#   2. 准备基准 RDC/JSON 文件（存储在 artifacts 或 LFS 中）
+#   3. 在每次 PR/Push 时捕获新的 RDC 文件并与基准对比
+#
+# 退出码说明:
+#   0 - 成功（无回归）
+#   1 - 警告（有中级回归）
+#   2 - 失败（有严重回归）
+
+name: RDC Regression Detection
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+    inputs:
+      baseline_ref:
+        description: 'Baseline commit/tag for comparison'
+        required: false
+        default: 'main'
+
+env:
+  PYTHON_VERSION: '3.10'
+  RDC_ANALYZER_PATH: 'scripts/rdc_analyzer'
+
+jobs:
+  # ============================================================
+  # Job: Capture and Compare
+  # ============================================================
+  regression-check:
+    name: RDC Regression Check
+    runs-on: ubuntu-latest
+    
+    steps:
+      # 1. Checkout 代码
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # 需要完整历史以对比基准
+      
+      # 2. 设置 Python
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+      
+      # 3. 安装依赖
+      - name: Install Dependencies
+        run: |
+          pip install --upgrade pip
+          pip install -r scripts/rdc_analyzer/requirements.txt
+      
+      # 4. 下载基准文件（从 artifact 或远程存储）
+      - name: Download Baseline
+        uses: actions/download-artifact@v4
+        with:
+          name: rdc-baseline
+          path: ./baseline/
+        continue-on-error: true  # 首次运行可能没有基准
+      
+      # 5. 检查基准是否存在
+      - name: Check Baseline Exists
+        id: baseline_check
+        run: |
+          if [ -f "./baseline/baseline.json" ]; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+            echo "::warning::No baseline found. Skipping regression check."
+          fi
+      
+      # 6. 运行对比（仅当基准存在时）
+      - name: Run Regression Check
+        if: steps.baseline_check.outputs.exists == 'true'
+        id: regression
+        run: |
+          # 假设目标 RDC/JSON 文件已经生成（由其他步骤生成）
+          # 这里使用示例路径，实际使用时替换为真实路径
+          
+          python -m rdc_analyzer compare \
+            ./baseline/baseline.json \
+            ./target/target.json \
+            --junit-xml ./reports/junit-regression.xml \
+            --html ./reports/regression-report.html \
+            --fail-on-regression \
+            --fail-threshold medium \
+            --align-strategy marker \
+            -v
+        working-directory: scripts
+        continue-on-error: true
+      
+      # 7. 上传 JUnit 报告
+      - name: Upload Test Results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: regression-reports
+          path: |
+            scripts/reports/junit-regression.xml
+            scripts/reports/regression-report.html
+          retention-days: 30
+      
+      # 8. 发布测试结果（可选，需要 GitHub App）
+      - name: Publish Test Results
+        uses: EnricoMi/publish-unit-test-result-action@v2
+        if: always() && steps.baseline_check.outputs.exists == 'true'
+        with:
+          files: |
+            scripts/reports/junit-regression.xml
+          check_name: 'RDC Regression Results'
+          comment_title: 'RDC Performance Regression Report'
+          fail_on: 'test failures'
+      
+      # 9. 根据检测结果决定是否失败
+      - name: Check Result
+        if: steps.baseline_check.outputs.exists == 'true'
+        run: |
+          exit_code=${{ steps.regression.outputs.exit_code || steps.regression.outcome == 'failure' && '1' || '0' }}
+          if [ "$exit_code" != "0" ]; then
+            echo "::error::Performance regression detected!"
+            exit 1
+          fi
+
+  # ============================================================
+  # Job: Update Baseline (Optional, triggered manually)
+  # ============================================================
+  update-baseline:
+    name: Update RDC Baseline
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/main'
+    needs: regression-check
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      
+      # 生成新基准（实际使用时替换为真实的 RDC 捕获步骤）
+      - name: Generate Baseline
+        run: |
+          echo "Generating new baseline..."
+          # 实际项目中这里应该运行游戏/渲染器并捕获 RDC
+          mkdir -p baseline
+          # cp target/target.json baseline/baseline.json
+      
+      # 上传为 artifact 供后续使用
+      - name: Upload New Baseline
+        uses: actions/upload-artifact@v4
+        with:
+          name: rdc-baseline
+          path: ./baseline/
+          retention-days: 90
+
+
+# ============================================================
+# 使用说明
+# ============================================================
+#
+# 1. 首次设置:
+#    - 运行一次完整的渲染并捕获 baseline RDC
+#    - 使用 rdc_analyzer analyze 生成 baseline.json
+#    - 上传为 artifact 或提交到仓库
+#
+# 2. PR 检查:
+#    - 每次 PR 触发此工作流
+#    - 自动对比新版本与基准
+#    - 检测到回归时 PR 显示失败
+#
+# 3. 阈值调整:
+#    --fail-threshold: low | medium | high | critical
+#    --triangle-threshold: 0.2 (20%)
+#    --draw-call-threshold: 0.1 (10%)
+#
+# 4. 多帧统计模式（更精确）:
+#    python -m rdc_analyzer compare \
+#      --baseline-dir ./baseline_samples/ \
+#      --target-dir ./target_samples/ \
+#      --samples 10 \
+#      --confidence-level 0.95 \
+#      --junit-xml report.xml
