@@ -259,6 +259,62 @@ scripts/rdc_analyzer/
 
 ---
 
+## 🧪 测试样本
+
+### 获取测试用 RDC 文件
+
+测试套件中的部分测试需要真实的 `.rdc` 文件。这些文件因体积较大（通常 100MB+）未包含在仓库中。
+
+**方法 1：手动截帧（推荐）**
+
+1. 安装 RenderDoc（[下载地址](https://renderdoc.org/)）
+2. 启动目标应用，使用 RenderDoc 进行帧捕获
+3. 保存 `.rdc` 文件到 `tests/fixtures/` 目录
+
+**方法 2：使用现有样本**
+
+如果您有访问权限，可以从以下位置获取测试样本：
+```
+D:\renderdoc\goog pixel-9\g145.rdc  # Mali GPU (Pixel 9) 截帧
+D:\renderdoc\pc_capture.rdc          # PC (D3D11/Vulkan) 截帧
+```
+
+### 配置测试样本路径
+
+创建 `tests/conftest_local.py`（已加入 .gitignore）：
+
+```python
+# tests/conftest_local.py - 本地测试配置（不提交到 Git）
+import pytest
+
+# 真实 RDC 文件路径（根据您的环境修改）
+SAMPLE_RDC_PATHS = {
+    'mali': r'D:\renderdoc\goog pixel-9\g145.rdc',
+    'pc': r'D:\renderdoc\pc_capture.rdc',
+}
+
+@pytest.fixture
+def real_rdc_path(request):
+    """获取真实 RDC 文件路径"""
+    platform = getattr(request, 'param', 'mali')
+    path = SAMPLE_RDC_PATHS.get(platform)
+    if path and not os.path.exists(path):
+        pytest.skip(f"样本文件不存在: {path}")
+    return path
+```
+
+### 运行完整测试
+
+```bash
+# 跳过需要真实 RDC 的测试（默认）
+py -3 -m pytest tests/
+
+# 包含真实 RDC 测试（需要配置 conftest_local.py）
+py -3 -m pytest tests/ --run-real-samples
+```
+
+---
+
 ## 📝 版本历史
 
 ### v3.1.0 - 交互式 HTML 报告增强

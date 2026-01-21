@@ -1,0 +1,75 @@
+# tests/conftest_local.py.example
+# 
+# 复制此文件为 conftest_local.py 并修改路径以启用真实 RDC 样本测试
+# conftest_local.py 已在 .gitignore 中，不会被提交
+#
+# 使用方法:
+#   1. cp conftest_local.py.example conftest_local.py
+#   2. 修改 SAMPLE_RDC_PATHS 指向你的测试文件
+#   3. py -3 -m pytest tests/ --run-real-samples
+#
+
+import os
+import pytest
+
+# =============================================================================
+# 真实 RDC 文件路径配置
+# =============================================================================
+
+SAMPLE_RDC_PATHS = {
+    # Mali GPU 截帧（Android 设备，如 Pixel 9、Samsung S系列）
+    'mali': r'D:\renderdoc\goog pixel-9\g145.rdc',
+    
+    # PC D3D11/D3D12 截帧
+    'pc_d3d': r'D:\renderdoc\pc_d3d11_capture.rdc',
+    
+    # PC Vulkan 截帧
+    'pc_vulkan': r'D:\renderdoc\pc_vulkan_capture.rdc',
+    
+    # OpenGL ES 截帧
+    'gles': r'D:\renderdoc\android_gles_capture.rdc',
+}
+
+# =============================================================================
+# Pytest Fixtures
+# =============================================================================
+
+@pytest.fixture
+def real_rdc_path(request):
+    """
+    获取真实 RDC 文件路径
+    
+    Usage:
+        @pytest.mark.parametrize('real_rdc_path', ['mali'], indirect=True)
+        def test_with_mali_capture(real_rdc_path):
+            ...
+    """
+    platform = getattr(request, 'param', 'mali')
+    path = SAMPLE_RDC_PATHS.get(platform)
+    
+    if not path:
+        pytest.skip(f"未配置 '{platform}' 样本路径")
+    
+    if not os.path.exists(path):
+        pytest.skip(f"样本文件不存在: {path}")
+    
+    return path
+
+
+@pytest.fixture
+def mali_rdc_path():
+    """获取 Mali GPU 截帧路径（便捷方法）"""
+    path = SAMPLE_RDC_PATHS.get('mali')
+    if not path or not os.path.exists(path):
+        pytest.skip("Mali 样本文件未配置或不存在")
+    return path
+
+
+@pytest.fixture
+def pc_rdc_path():
+    """获取 PC 截帧路径（优先 D3D，fallback Vulkan）"""
+    for key in ['pc_d3d', 'pc_vulkan']:
+        path = SAMPLE_RDC_PATHS.get(key)
+        if path and os.path.exists(path):
+            return path
+    pytest.skip("PC 样本文件未配置或不存在")

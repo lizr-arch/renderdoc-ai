@@ -56,3 +56,6 @@ rdc_analyzer/
 *.rdc  
 __pycache__/  
 .pytest_cache/ 
+  
+# Local test configuration  
+tests/conftest_local.py 
