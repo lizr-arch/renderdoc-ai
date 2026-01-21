@@ -179,12 +179,19 @@ class DrawCallDiff:
     marker_path: str = ""        # Debug Marker 路径
     name: str = ""               # Draw Call 名称/描述
     
+    # 匹配类型 (P5-03: Marker 对齐增强)
+    # - "marker+shader": Marker + Shader 复合签名匹配（最强）
+    # - "marker_only": 仅 Marker 路径匹配
+    # - "shader_fallback": 仅 Shader 签名匹配（回退）
+    # - "order": 按顺序匹配
+    match_type: str = ""
+    
     def to_dict(self) -> Dict[str, Any]:
         changes_dict = {}
         for k, (b, t) in self.changes.items():
             changes_dict[k] = {"baseline": b, "target": t}
         
-        return {
+        result = {
             "event_id": self.event_id,
             "status": self.status.value,
             "matched_event_id": self.matched_event_id,
@@ -195,6 +202,12 @@ class DrawCallDiff:
             "name": self.name,
             "changes": changes_dict,
         }
+        
+        # 仅在有值时输出 match_type
+        if self.match_type:
+            result["match_type"] = self.match_type
+        
+        return result
 
 
 @dataclass

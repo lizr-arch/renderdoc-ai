@@ -38,14 +38,29 @@ class DiffEngine:
         print(result.to_json())
     """
     
-    def __init__(self, ignore_order: bool = False):
+    # 对齐策略
+    ALIGN_BY_ORDER = "order"        # 按顺序对齐（原始行为）
+    ALIGN_BY_SIGNATURE = "signature"  # 按签名对齐（Shader+IndexCount）
+    ALIGN_BY_MARKER = "marker"      # 按 Marker 路径对齐（推荐用于 B-mode）
+    
+    def __init__(
+        self,
+        ignore_order: bool = False,
+        align_strategy: str = "order"
+    ):
         """
         初始化对比引擎
         
         Args:
-            ignore_order: 是否忽略 Draw Call 顺序差异
+            ignore_order: 是否忽略 Draw Call 顺序差异（兼容旧参数）
+            align_strategy: 对齐策略 ("order", "signature", "marker")
         """
         self.ignore_order = ignore_order
+        self.align_strategy = align_strategy
+        
+        # 如果设置了 ignore_order=True 但未指定策略，使用 signature
+        if ignore_order and align_strategy == "order":
+            self.align_strategy = self.ALIGN_BY_SIGNATURE
     
     def compare(
         self,
@@ -379,8 +394,9 @@ class DiffEngine:
         对比 Draw Call 列表
         
         策略:
-        1. 如果 ignore_order=False，按 event_id 顺序对比
-        2. 如果 ignore_order=True，按 Draw Call 特征匹配
+        1. order: 按 event_id 顺序对比（原始行为）
+        2. signature: 按 Shader+IndexCount 签名匹配
+        3. marker: 按 Marker 路径优先对齐（推荐用于 B-mode）
         """
         diffs = []
         
@@ -388,11 +404,12 @@ class DiffEngine:
         b_draws = [e for e in baseline if self._is_draw_call(e)]
         t_draws = [e for e in target if self._is_draw_call(e)]
         
-        if self.ignore_order:
-            # 按特征匹配 (shader + RT + vertex_count)
+        # 根据对齐策略选择匹配方法
+        if self.align_strategy == self.ALIGN_BY_MARKER:
+            diffs = self._compare_draws_by_marker(b_draws, t_draws)
+        elif self.align_strategy == self.ALIGN_BY_SIGNATURE or self.ignore_order:
             diffs = self._compare_draws_by_signature(b_draws, t_draws)
         else:
-            # 按顺序对比
             diffs = self._compare_draws_by_order(b_draws, t_draws)
         
         return diffs
@@ -445,6 +462,191 @@ class DiffEngine:
                         changes=changes,
                     )
                     diffs.append(diff)
+        
+        return diffs
+    
+    def _compare_draws_by_marker(
+        self,
+        baseline: List[Dict],
+        target: List[Dict]
+    ) -> List[DrawCallDiff]:
+        """
+        按 Marker 路径优先对齐 Draw Call
+        
+        对齐优先级:
+        1. Marker 路径完全相同 + Shader 签名相同 → 强匹配
+        2. Marker 路径相同 + 顺序相同 → 次级匹配
+        3. 仅 Shader 签名相同 → 弱匹配（回退到 signature 策略）
+        
+        这种策略在 EventID 偏移的情况下仍能正确对齐 Pass。
+        """
+        diffs = []
+        
+        # 构建复合签名
+        def get_marker_signature(draw: Dict) -> str:
+            """构建 Marker + Shader 复合签名"""
+            # Marker 路径 (如 "Scene/Opaque/Character")
+            marker_path = draw.get('marker_path', draw.get('markerPath', ''))
+            
+            # Shader 签名
+            ps = draw.get('pipelineState', {})
+            shaders = ps.get('shaders', {})
+            vs = shaders.get('VS', shaders.get('Vertex', {}))
+            ps_shader = shaders.get('PS', shaders.get('Pixel', shaders.get('Fragment', {})))
+            
+            vs_id = vs.get('resourceId', '') if isinstance(vs, dict) else str(vs)
+            ps_id = ps_shader.get('resourceId', '') if isinstance(ps_shader, dict) else str(ps_shader)
+            
+            idx_count = draw.get('indexCount', 0)
+            
+            # 复合签名: marker|vs|ps|indexCount
+            return f"{marker_path}|{vs_id}|{ps_id}|{idx_count}"
+        
+        def get_marker_only(draw: Dict) -> str:
+            """仅获取 Marker 路径"""
+            return draw.get('marker_path', draw.get('markerPath', ''))
+        
+        def get_shader_signature(draw: Dict) -> str:
+            """仅获取 Shader 签名（回退用）"""
+            ps = draw.get('pipelineState', {})
+            shaders = ps.get('shaders', {})
+            vs = shaders.get('VS', shaders.get('Vertex', {}))
+            ps_shader = shaders.get('PS', shaders.get('Pixel', shaders.get('Fragment', {})))
+            
+            vs_id = vs.get('resourceId', '') if isinstance(vs, dict) else str(vs)
+            ps_id = ps_shader.get('resourceId', '') if isinstance(ps_shader, dict) else str(ps_shader)
+            
+            return f"{vs_id}|{ps_id}|{draw.get('indexCount', 0)}"
+        
+        # 阶段1: 按复合签名（Marker+Shader）匹配
+        b_by_full_sig: Dict[str, List[Dict]] = {}
+        for d in baseline:
+            sig = get_marker_signature(d)
+            b_by_full_sig.setdefault(sig, []).append(d)
+        
+        matched_b_ids: Set[int] = set()
+        matched_t_ids: Set[int] = set()
+        
+        for t_draw in target:
+            sig = get_marker_signature(t_draw)
+            b_list = b_by_full_sig.get(sig, [])
+            
+            # 寻找未匹配的 baseline
+            for b_draw in b_list:
+                b_eid = b_draw.get('eventId', 0)
+                if b_eid not in matched_b_ids:
+                    # 强匹配成功
+                    matched_b_ids.add(b_eid)
+                    matched_t_ids.add(t_draw.get('eventId', 0))
+                    
+                    changes = self._diff_draw_call(b_draw, t_draw)
+                    if changes:
+                        diff = DrawCallDiff(
+                            event_id=t_draw.get('eventId', 0),
+                            status=DiffStatus.MODIFIED,
+                            matched_event_id=b_eid,
+                            draw_type=t_draw.get('name', ''),
+                            marker_path=get_marker_only(t_draw),
+                            match_type="marker+shader",
+                            changes=changes,
+                        )
+                        diffs.append(diff)
+                    break
+        
+        # 阶段2: 未匹配的按仅 Marker 路径匹配（同一 Pass 内的不同 Draw）
+        unmatched_b = [d for d in baseline if d.get('eventId', 0) not in matched_b_ids]
+        unmatched_t = [d for d in target if d.get('eventId', 0) not in matched_t_ids]
+        
+        b_by_marker: Dict[str, List[Dict]] = {}
+        for d in unmatched_b:
+            marker = get_marker_only(d)
+            if marker:  # 只有有 marker 的才进行此阶段匹配
+                b_by_marker.setdefault(marker, []).append(d)
+        
+        for t_draw in unmatched_t[:]:  # 复制列表以便修改
+            marker = get_marker_only(t_draw)
+            if not marker:
+                continue
+            
+            b_list = b_by_marker.get(marker, [])
+            if b_list:
+                # 按出现顺序匹配（同一 Marker 内的第 N 个 Draw）
+                b_draw = b_list.pop(0)
+                b_eid = b_draw.get('eventId', 0)
+                
+                matched_b_ids.add(b_eid)
+                matched_t_ids.add(t_draw.get('eventId', 0))
+                unmatched_t.remove(t_draw)
+                
+                changes = self._diff_draw_call(b_draw, t_draw)
+                if changes:
+                    diff = DrawCallDiff(
+                        event_id=t_draw.get('eventId', 0),
+                        status=DiffStatus.MODIFIED,
+                        matched_event_id=b_eid,
+                        draw_type=t_draw.get('name', ''),
+                        marker_path=marker,
+                        match_type="marker_only",
+                        changes=changes,
+                    )
+                    diffs.append(diff)
+        
+        # 阶段3: 仍未匹配的回退到 Shader 签名匹配
+        unmatched_b = [d for d in baseline if d.get('eventId', 0) not in matched_b_ids]
+        unmatched_t = [d for d in target if d.get('eventId', 0) not in matched_t_ids]
+        
+        b_by_shader: Dict[str, List[Dict]] = {}
+        for d in unmatched_b:
+            sig = get_shader_signature(d)
+            b_by_shader.setdefault(sig, []).append(d)
+        
+        for t_draw in unmatched_t[:]:
+            sig = get_shader_signature(t_draw)
+            b_list = b_by_shader.get(sig, [])
+            
+            if b_list:
+                b_draw = b_list.pop(0)
+                b_eid = b_draw.get('eventId', 0)
+                
+                matched_b_ids.add(b_eid)
+                matched_t_ids.add(t_draw.get('eventId', 0))
+                
+                changes = self._diff_draw_call(b_draw, t_draw)
+                if changes:
+                    diff = DrawCallDiff(
+                        event_id=t_draw.get('eventId', 0),
+                        status=DiffStatus.MODIFIED,
+                        matched_event_id=b_eid,
+                        draw_type=t_draw.get('name', ''),
+                        match_type="shader_fallback",
+                        changes=changes,
+                    )
+                    diffs.append(diff)
+        
+        # 阶段4: 处理新增和删除
+        for t_draw in target:
+            if t_draw.get('eventId', 0) not in matched_t_ids:
+                diff = DrawCallDiff(
+                    event_id=t_draw.get('eventId', 0),
+                    status=DiffStatus.ADDED,
+                    draw_type=t_draw.get('name', ''),
+                    marker_path=get_marker_only(t_draw),
+                    index_count=t_draw.get('indexCount', 0),
+                    vertex_count=t_draw.get('vertexCount', 0),
+                )
+                diffs.append(diff)
+        
+        for b_draw in baseline:
+            if b_draw.get('eventId', 0) not in matched_b_ids:
+                diff = DrawCallDiff(
+                    event_id=b_draw.get('eventId', 0),
+                    status=DiffStatus.REMOVED,
+                    draw_type=b_draw.get('name', ''),
+                    marker_path=get_marker_only(b_draw),
+                    index_count=b_draw.get('indexCount', 0),
+                    vertex_count=b_draw.get('vertexCount', 0),
+                )
+                diffs.append(diff)
         
         return diffs
     
