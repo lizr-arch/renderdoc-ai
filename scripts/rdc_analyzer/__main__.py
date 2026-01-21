@@ -227,6 +227,35 @@ def main():
         help="详细输出"
     )
     
+    # 多帧统计采样参数
+    compare_parser.add_argument(
+        "--samples",
+        type=int,
+        default=1,
+        metavar="N",
+        help="采样帧数 (默认: 1，即单帧对比；N>1 时启用多帧统计对比)"
+    )
+    
+    compare_parser.add_argument(
+        "--baseline-dir",
+        dest="baseline_dir",
+        help="基准样本目录 (多帧模式，与 --samples 配合)"
+    )
+    
+    compare_parser.add_argument(
+        "--target-dir",
+        dest="target_dir",
+        help="目标样本目录 (多帧模式，与 --samples 配合)"
+    )
+    
+    compare_parser.add_argument(
+        "--confidence-level",
+        type=float,
+        default=0.95,
+        choices=[0.90, 0.95, 0.99],
+        help="置信水平 (默认: 0.95，可选: 0.90, 0.95, 0.99)"
+    )
+    
     # ========== rules 子命令 ==========
     rules_parser = subparsers.add_parser(
         'rules',
@@ -375,6 +404,13 @@ def cmd_compare(args):
     from datetime import datetime
     import json
     
+    # 判断是否为多帧统计模式
+    multi_frame_mode = args.samples > 1 or args.baseline_dir or args.target_dir
+    
+    if multi_frame_mode:
+        return cmd_compare_multi_frame(args)
+    
+    # 单帧对比模式
     # 检查文件存在
     if not os.path.exists(args.baseline):
         print(f"[!] 错误: 基准文件不存在: {args.baseline}")
@@ -487,6 +523,181 @@ def cmd_compare(args):
         return 1
     except Exception as e:
         print(f"[!] 对比失败: {e}")
+        if args.verbose:
+            import traceback
+            traceback.print_exc()
+        return 1
+
+
+def cmd_compare_multi_frame(args):
+    """执行多帧统计对比命令
+    
+    多帧模式下：
+    1. 从 baseline_dir/target_dir 加载多个 JSON 样本
+    2. 使用 MultiFrameSampler 聚合统计数据
+    3. 使用 StatisticalSummary 执行显著性检测
+    4. 输出统计对比报告
+    """
+    from datetime import datetime
+    import json
+    
+    # 导入统计模块
+    try:
+        from .stats import (
+            MultiFrameSampler,
+            StatisticalSummary,
+        )
+    except ImportError as e:
+        print(f"[!] 错误: 无法导入统计模块: {e}")
+        return 1
+    
+    # 确定样本目录
+    baseline_dir = args.baseline_dir or args.baseline
+    target_dir = args.target_dir or args.target
+    
+    # 验证目录
+    baseline_path = Path(baseline_dir)
+    target_path = Path(target_dir)
+    
+    if not baseline_path.exists():
+        print(f"[!] 错误: 基准目录不存在: {baseline_dir}")
+        return 1
+    
+    if not target_path.exists():
+        print(f"[!] 错误: 目标目录不存在: {target_dir}")
+        return 1
+    
+    if not args.quiet:
+        print(f"[*] 多帧统计对比模式")
+        print(f"[*] 基准目录: {baseline_dir}")
+        print(f"[*] 目标目录: {target_dir}")
+        print(f"[*] 置信水平: {args.confidence_level * 100:.0f}%")
+        print()
+    
+    try:
+        # Step 1: 加载基准样本
+        if not args.quiet:
+            print("[*] 加载基准样本...")
+        
+        baseline_sampler = MultiFrameSampler()
+        
+        if baseline_path.is_dir():
+            baseline_count = baseline_sampler.add_samples_from_directory(str(baseline_path))
+        else:
+            # 单文件模式，直接加载
+            data = load_capture_file(str(baseline_path), verbose=args.verbose)
+            baseline_sampler.add_sample_from_json(data, baseline_path.name)
+            baseline_count = 1
+        
+        if baseline_count == 0:
+            print(f"[!] 错误: 基准目录中没有有效的 JSON 样本")
+            return 1
+        
+        if not args.quiet:
+            print(f"    加载了 {baseline_count} 个基准样本")
+        
+        # Step 2: 加载目标样本
+        if not args.quiet:
+            print("[*] 加载目标样本...")
+        
+        target_sampler = MultiFrameSampler()
+        
+        if target_path.is_dir():
+            target_count = target_sampler.add_samples_from_directory(str(target_path))
+        else:
+            data = load_capture_file(str(target_path), verbose=args.verbose)
+            target_sampler.add_sample_from_json(data, target_path.name)
+            target_count = 1
+        
+        if target_count == 0:
+            print(f"[!] 错误: 目标目录中没有有效的 JSON 样本")
+            return 1
+        
+        if not args.quiet:
+            print(f"    加载了 {target_count} 个目标样本")
+        
+        # Step 3: 聚合统计
+        if not args.quiet:
+            print("[*] 聚合统计数据...")
+        
+        baseline_aggregated = baseline_sampler.aggregate()
+        target_aggregated = target_sampler.aggregate()
+        
+        # Step 4: 显著性检测
+        if not args.quiet:
+            print("[*] 执行显著性检测...")
+        
+        summary = StatisticalSummary(confidence_level=args.confidence_level)
+        comparison_result = summary.compare(baseline_aggregated, target_aggregated)
+        
+        # Step 5: 输出报告
+        output_path = Path(args.output)
+        output_files = []
+        
+        # 打印摘要
+        if not args.quiet:
+            print(summary.format_summary(comparison_result))
+        
+        # 生成 JSON 输出
+        json_output = args.json_output
+        if json_output or (not args.html_output and not args.quiet):
+            if not json_output:
+                output_path.mkdir(parents=True, exist_ok=True)
+                timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                json_output = str(output_path / f"stats_compare_{timestamp}.json")
+            
+            # 构建输出数据
+            output_data = {
+                "metadata": {
+                    "generated_at": datetime.now().isoformat(),
+                    "mode": "multi_frame_statistical",
+                    "confidence_level": args.confidence_level,
+                    "baseline_dir": str(baseline_dir),
+                    "target_dir": str(target_dir),
+                },
+                "baseline": baseline_aggregated.to_dict(),
+                "target": target_aggregated.to_dict(),
+                "comparison": comparison_result.to_dict(),
+                "stability": {
+                    "baseline": baseline_sampler.get_stability_report(),
+                    "target": target_sampler.get_stability_report(),
+                },
+            }
+            
+            json_path = Path(json_output)
+            json_path.parent.mkdir(parents=True, exist_ok=True)
+            
+            with open(json_path, 'w', encoding='utf-8') as f:
+                json.dump(output_data, f, indent=2, ensure_ascii=False)
+            
+            output_files.append(str(json_path))
+            if not args.quiet:
+                print(f"[+] JSON 统计报告: {json_path}")
+        
+        # 打印输出文件列表
+        if output_files and not args.quiet:
+            print()
+            print("输出文件:")
+            for f in output_files:
+                print(f"  → {f}")
+        
+        # 返回值基于显著性检测结果
+        if comparison_result.has_significant_regression:
+            # 检查严重程度
+            from .stats import SignificanceLevel
+            high_sig = any(
+                comparison_result.metrics[m].significance == SignificanceLevel.HIGH
+                for m in comparison_result.significant_metrics
+            )
+            if high_sig:
+                return 2  # 高显著性回归
+            else:
+                return 1  # 中/低显著性回归
+        else:
+            return 0
+            
+    except Exception as e:
+        print(f"[!] 多帧对比失败: {e}")
         if args.verbose:
             import traceback
             traceback.print_exc()
