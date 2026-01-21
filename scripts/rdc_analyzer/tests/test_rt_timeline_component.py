@@ -82,7 +82,7 @@ def test_rt_timeline_component():
     assert 'RT_Color_Main' in html, "HTML should contain mock data"
     
     print("[OK] All component validations passed")
-    return True
+    # Assertions above prove success - no return value needed
 
 
 if __name__ == "__main__":

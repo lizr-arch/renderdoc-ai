@@ -93,7 +93,7 @@ def test_buffer_format_parser():
     print("\n" + "="*60)
     print("ALL BUFFER FORMAT PARSER TESTS PASSED!")
     print("="*60)
-    return True
+    # Assertions above prove success - no return value needed
 
 
 def _run_resource_inspector_with_replay(controller):
@@ -280,7 +280,8 @@ class TestBufferFormatParser:
     
     def test_buffer_format_parser(self):
         """Run the standalone buffer format parser tests."""
-        assert test_buffer_format_parser() is True
+        # Function contains assertions - will raise if failed
+        test_buffer_format_parser()
 
 
 class TestResourceInspectorReplay:

@@ -6,6 +6,7 @@ Test RTTracker + generate_offline_report.py integration
 
 import sys
 import os
+import pytest
 
 # Add parent directory to path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -134,12 +135,10 @@ def test_rt_integration():
         print(f"\n[SUCCESS] Integration test passed!")
         print(f"Report generated: {output_path}")
     else:
-        print(f"\n[FAIL] Some checks failed")
-        return False
+        pytest.fail("Some integration checks failed")
     
-    return True
+    # All checks passed - no return value needed
 
 
 if __name__ == "__main__":
-    success = test_rt_integration()
-    sys.exit(0 if success else 1)
+    test_rt_integration()
