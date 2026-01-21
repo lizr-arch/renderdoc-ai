@@ -239,10 +239,133 @@ class TestDOD72SchemaStability:
 class TestDOD73DataQuality:
     """DoD 7.3: DataQuality/Confidence - coverage 结构验证"""
     
-    def test_coverage_report_structure(self):
-        """验证 coverage 报告结构 (需要完整 Pipeline)"""
-        # 这个测试需要 mock 更多内部状态，放入集成测试
-        pass
+    def test_coverage_report_required_keys(self):
+        """验证 coverage 报告必须包含的顶层 key"""
+        # 构造最小 Pipeline mock（只需要 _build_coverage_report 依赖的属性）
+        from unittest.mock import MagicMock
+        
+        pipeline = MagicMock()
+        pipeline._events = []
+        pipeline._draw_calls = []
+        pipeline._resources = {}
+        pipeline._pipeline_state_samples = 0
+        pipeline._resource_lifecycle_tracked = False
+        pipeline._resource_samples = []
+        pipeline._mali_report = None
+        pipeline._performance_report = None
+        
+        # 直接调用 _build_coverage_report（绑定到 mock 对象）
+        from rdc_analyzer.main import AnalysisPipeline
+        coverage = AnalysisPipeline._build_coverage_report(pipeline)
+        
+        # === 验证必须存在的顶层 key ===
+        required_keys = ['overall', 'details', 'missing_items', 'confidence_reasons', 'sampling_stats']
+        for key in required_keys:
+            assert key in coverage, f"coverage 缺少必需 key: {key}"
+        
+        # === 验证 overall 值域 ===
+        assert coverage['overall'] in ('high', 'medium', 'low'), \
+            f"overall 值域应为 high/medium/low，实际为: {coverage['overall']}"
+        
+        # === 验证 details 是 dict 且包含关键面 ===
+        assert isinstance(coverage['details'], dict), "details 应为 dict"
+        expected_detail_keys = ['events', 'draw_calls', 'resources', 'markers', 
+                                 'pipeline_state', 'resource_lifecycle']
+        for key in expected_detail_keys:
+            assert key in coverage['details'], f"details 缺少 key: {key}"
+    
+    def test_coverage_degradation_logic_no_data(self):
+        """验证：无数据时，所有维度应降级为 missing/estimated 且包含原因"""
+        from unittest.mock import MagicMock
+        from rdc_analyzer.main import AnalysisPipeline
+        
+        pipeline = MagicMock()
+        pipeline._events = []
+        pipeline._draw_calls = []
+        pipeline._resources = {}
+        pipeline._pipeline_state_samples = 0
+        pipeline._resource_lifecycle_tracked = False
+        pipeline._resource_samples = []
+        pipeline._mali_report = None
+        pipeline._performance_report = None
+        
+        coverage = AnalysisPipeline._build_coverage_report(pipeline)
+        
+        # === 验证降级状态 ===
+        details = coverage['details']
+        assert details['events'] == 'missing', "无事件时应为 missing"
+        assert details['draw_calls'] == 'missing', "无 draw call 时应为 missing"
+        assert details['resources'] == 'missing', "无资源时应为 missing"
+        assert details['pipeline_state'] == 'estimated', "无采样时应为 estimated"
+        assert details['resource_lifecycle'] == 'estimated', "无追踪时应为 estimated"
+        
+        # === 验证置信度原因非空 ===
+        assert len(coverage['confidence_reasons']) > 0, "降级时 confidence_reasons 不应为空"
+        assert any('Pipeline State' in r or '估算' in r for r in coverage['confidence_reasons']), \
+            "confidence_reasons 应包含 Pipeline State 降级原因"
+        
+        # === 验证整体可信度降为 low ===
+        assert coverage['overall'] == 'low', f"全缺失时 overall 应为 low，实际为: {coverage['overall']}"
+    
+    def test_coverage_with_partial_data(self):
+        """验证：有部分数据时，降级逻辑正确（维度状态正确识别）"""
+        from unittest.mock import MagicMock
+        from rdc_analyzer.main import AnalysisPipeline
+        
+        pipeline = MagicMock()
+        pipeline._events = [{'eventId': 1, 'name': 'DrawIndexed'}]
+        pipeline._draw_calls = [{'eventId': 1}]
+        pipeline._resources = {'textures': {'tex1': {}}}  # 只有 textures，无 buffers
+        pipeline._pipeline_state_samples = 0
+        pipeline._resource_lifecycle_tracked = False
+        pipeline._resource_samples = []
+        pipeline._mali_report = None
+        pipeline._performance_report = None
+        
+        coverage = AnalysisPipeline._build_coverage_report(pipeline)
+        
+        # === 验证部分数据状态 ===
+        details = coverage['details']
+        assert details['events'] == 'present', "有事件时应为 present"
+        assert details['draw_calls'] == 'present', "有 draw call 时应为 present"
+        assert details['resources'] == 'partial', "只有 textures 时应为 partial"
+        
+        # === 验证：2 present + 1 partial + 5 missing/estimated = 仍然是 low ===
+        # 加权: 2*1.0 + 1*0.5 + N*0.2 = 2.9 / 8 ≈ 0.36 < 0.5 → low
+        # 这是预期行为：大部分数据缺失时确实应该 overall=low
+        assert coverage['overall'] == 'low', \
+            f"大部分数据缺失时 overall 应为 low，实际为: {coverage['overall']}"
+        
+        # === 验证 missing_items 包含原因 ===
+        assert len(coverage['missing_items']) > 0, "应有 missing_items 描述缺失原因"
+    
+    def test_coverage_pipeline_state_sampling_stats(self):
+        """验证：有 pipeline state 采样时，sampling_stats 正确填充"""
+        from unittest.mock import MagicMock
+        from rdc_analyzer.main import AnalysisPipeline
+        
+        pipeline = MagicMock()
+        pipeline._events = [{'eventId': i} for i in range(10)]
+        pipeline._draw_calls = [{'eventId': i} for i in range(10)]
+        pipeline._resources = {}
+        pipeline._pipeline_state_samples = 5  # 采样了 5 个
+        pipeline._resource_lifecycle_tracked = False
+        pipeline._resource_samples = []
+        pipeline._mali_report = None
+        pipeline._performance_report = None
+        
+        coverage = AnalysisPipeline._build_coverage_report(pipeline)
+        
+        # === 验证采样统计 ===
+        assert 'pipeline_state' in coverage['sampling_stats'], "应有 pipeline_state 采样统计"
+        stats = coverage['sampling_stats']['pipeline_state']
+        assert stats['sampled'] == 5, f"sampled 应为 5，实际为: {stats['sampled']}"
+        assert stats['total'] == 10, f"total 应为 10，实际为: {stats['total']}"
+        assert stats['ratio'] == 0.5, f"ratio 应为 0.5，实际为: {stats['ratio']}"
+        
+        # === 验证 50% 采样率时为 partial ===
+        assert coverage['details']['pipeline_state'] == 'partial', \
+            f"50% 采样率应为 partial，实际为: {coverage['details']['pipeline_state']}"
 
 
 if __name__ == '__main__':
