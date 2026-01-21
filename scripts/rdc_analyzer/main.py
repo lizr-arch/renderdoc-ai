@@ -971,6 +971,12 @@ class AnalysisPipeline:
         # 构建 suggestions 列表
         suggestions = self._build_suggestions()
         
+        # 构建 preflight 建议 (DoD 7.7)
+        preflight = self._build_preflight(coverage)
+        
+        # 将 issues 转换为 CanonicalIssue 格式 (DoD 7.4)
+        canonical_issues = self._canonicalize_issues()
+        
         # 准备分析数据 - Canonical Schema v1.0
         analysis_data = {
             'schema_version': '1.0',
@@ -1000,8 +1006,9 @@ class AnalysisPipeline:
             'draw_calls': self._draw_calls,
             'resources': self._resources,
             'resource_samples': self._resource_samples,
-            'issues': self._issues,
-            'suggestions': suggestions
+            'issues': canonical_issues,
+            'suggestions': suggestions,
+            'preflight': preflight
         }
         
         # 导出 JSON
@@ -1026,6 +1033,9 @@ class AnalysisPipeline:
     def _export_html(self, analysis_data: Dict[str, Any], output_path: Path):
         """导出 HTML 报告"""
         from .exporters.html_exporter import HTMLExporter, HTMLExportConfig
+        from .core.pipeline_state import DrawCallDetail, DrawType, PipelineSnapshot
+        from .analysis.resource_tracker import ResourceLifetime, ResourceType
+        from .analysis.call_analyzer import BindingIssue, IssueSeverity, IssueCategory
         
         # 创建配置
         config = HTMLExportConfig(
@@ -1037,34 +1047,38 @@ class AnalysisPipeline:
         exporter = HTMLExporter(config)
         
         # 转换数据格式以匹配导出器期望
-        # 导出器期望 DrawCallDetail 列表
+        # 使用真正的 DrawCallDetail dataclass，而非 type() 创建伪对象
         draw_call_details = []
         for dc in self._draw_calls:
-            # 简化的 DrawCallDetail 模拟
-            detail = type('DrawCallDetail', (), {
-                'event_id': dc['eventId'],
-                'name': dc['name'],
-                'draw_type': 'DrawIndexed' if dc.get('numIndices', 0) > 0 else 'Draw',
-                'vertex_count': dc.get('numIndices', 0) or 0,
-                'instance_count': dc.get('numInstances', 1) or 1,
-                'topology': 'TriangleList',
-                'render_targets': [],
-                'depth_target': None,
-                'vs_shader': None,
-                'ps_shader': None,
-                'vs_resources': [],
-                'ps_resources': [],
-                'vs_cbuffers': [],
-                'ps_cbuffers': [],
-                'viewport': None,
-                'scissor': None
-            })()
+            # 确定 DrawType
+            if dc.get('numIndices', 0) > 0:
+                draw_type = DrawType.DRAW_INDEXED
+            elif dc.get('numInstances', 0) > 1:
+                draw_type = DrawType.DRAW_INSTANCED
+            elif 'Dispatch' in dc.get('name', ''):
+                draw_type = DrawType.DISPATCH
+            elif 'Clear' in dc.get('name', ''):
+                draw_type = DrawType.CLEAR_RTV
+            else:
+                draw_type = DrawType.DRAW
+            
+            # 使用真正的 DrawCallDetail，缺失字段使用 dataclass 默认值
+            detail = DrawCallDetail(
+                event_id=dc['eventId'],
+                name=dc['name'],
+                draw_type=draw_type,
+                vertex_count=dc.get('numIndices', 0) or dc.get('numVerts', 0) or 0,
+                index_count=dc.get('numIndices', 0) or 0,
+                instance_count=dc.get('numInstances', 1) or 1,
+                # 其他字段使用 dataclass 默认值（0, None, "" 等）
+                # 不再伪造 render_targets, vs_shader, ps_shader 等
+            )
             draw_call_details.append(detail)
         
-        # 资源生命周期 - 构建为字典格式 {resource_id: ResourceLifetime}
-        from .analysis.resource_tracker import ResourceLifetime, ResourceType
-        
+        # 资源生命周期 - 使用真实的 ResourceLifetime 类
+        # 注意: 访问信息标记为 "estimated"，因为我们没有真实的追踪数据
         resource_lifetimes_dict = {}
+        num_events = len(self._events) if self._events else 1
         
         for tex_id, tex_info in self._resources.get('textures', {}).items():
             lifetime = ResourceLifetime(
@@ -1076,10 +1090,12 @@ class AnalysisPipeline:
                 height=tex_info.get('height', 0),
                 depth=tex_info.get('depth', 1),
             )
-            # 设置访问范围（假设整帧都活跃）
-            lifetime.first_access_event = 1
-            lifetime.last_access_event = len(self._events)
-            lifetime.read_count = 1  # 假设至少被读取一次
+            # 标记为估算值，而非伪造精确数据
+            # first/last_access_event = None 表示未知，-1 表示估算
+            lifetime.first_access_event = -1  # 标记为估算
+            lifetime.last_access_event = -1   # 标记为估算
+            lifetime.read_count = -1          # -1 表示未追踪
+            lifetime._data_status = 'estimated'  # 添加状态标记
             resource_lifetimes_dict[tex_id] = lifetime
         
         for buf_id, buf_info in self._resources.get('buffers', {}).items():
@@ -1089,20 +1105,38 @@ class AnalysisPipeline:
                 resource_type=ResourceType.BUFFER,
                 size_bytes=buf_info.get('length', 0),
             )
-            lifetime.first_access_event = 1
-            lifetime.last_access_event = len(self._events)
-            lifetime.read_count = 1
+            lifetime.first_access_event = -1
+            lifetime.last_access_event = -1
+            lifetime.read_count = -1
+            lifetime._data_status = 'estimated'
             resource_lifetimes_dict[buf_id] = lifetime
         
-        # 问题列表
+        # 问题列表 - 使用真正的 BindingIssue 类
         issues = []
         for issue in self._issues:
-            binding_issue = type('BindingIssue', (), {
-                'code': issue['code'],
-                'severity': issue['severity'],
-                'event_id': issue.get('eventId'),
-                'message': issue['message']
-            })()
+            try:
+                severity_str = issue.get('severity', 'warning').upper()
+                severity = IssueSeverity[severity_str] if severity_str in IssueSeverity.__members__ else IssueSeverity.WARNING
+            except (KeyError, AttributeError):
+                severity = IssueSeverity.WARNING
+            
+            # 从 issue code 推断 category
+            code = issue.get('code', 'UNKNOWN')
+            if 'PERF' in code or 'OPTIM' in code:
+                category = IssueCategory.PERFORMANCE
+            elif 'BIND' in code or 'RES' in code:
+                category = IssueCategory.CORRECTNESS
+            else:
+                category = IssueCategory.BEST_PRACTICE
+            
+            binding_issue = BindingIssue(
+                rule_id=code,
+                severity=severity,
+                category=category,
+                event_id=issue.get('eventId', 0),
+                message=issue.get('message', ''),
+                suggestion=issue.get('suggestion', '')
+            )
             issues.append(binding_issue)
         
         # 导出（包含性能报告和 Mali 报告）
@@ -1287,6 +1321,157 @@ class AnalysisPipeline:
             coverage['overall'] = 'low'
         
         return coverage
+    
+    def _build_preflight(self, coverage: Dict[str, Any]) -> Dict[str, Any]:
+        """构建 Preflight 检查结果 (DoD 7.7)
+        
+        当关键数据缺失时，提示用户如何改进抓帧配置。
+        
+        Args:
+            coverage: 覆盖率报告
+            
+        Returns:
+            Dict 包含 preflight 检查结果
+        """
+        preflight = {
+            'status': 'ok',  # ok | warning | error
+            'missing_data': [],
+            'capture_recommendations': [],
+            'degraded_conclusions': []
+        }
+        
+        details = coverage.get('details', {})
+        missing = coverage.get('missing_items', [])
+        
+        # 检查 Marker 数据
+        if details.get('markers') == 'missing':
+            preflight['status'] = 'warning'
+            preflight['missing_data'].append({
+                'item': 'Debug Markers',
+                'impact': '无法识别渲染 Pass 边界，难以分析渲染管线结构',
+                'severity': 'medium'
+            })
+            preflight['capture_recommendations'].append({
+                'action': '启用 Debug Markers',
+                'unity': '确保 FrameDebugger 打开时抓帧，或使用 BeginSample/EndSample',
+                'unreal': '确保 RenderDoc 插件已启用，UE 会自动添加 Markers',
+                'custom': '使用 ID3D11UserDefinedAnnotation::BeginEvent (D3D11) 或 vkCmdDebugMarkerBegin (Vulkan)',
+                'docs_link': 'https://renderdoc.org/docs/how/how_annotate_capture.html'
+            })
+            preflight['degraded_conclusions'].append('Pass 结构分析将使用启发式推断，准确性降低')
+        
+        # 检查 Pipeline State
+        if details.get('pipeline_state') in ['missing', 'estimated']:
+            preflight['status'] = 'warning'
+            preflight['missing_data'].append({
+                'item': 'Pipeline State',
+                'impact': '无法分析 Shader/Blend/Depth 状态变化',
+                'severity': 'high'
+            })
+            preflight['degraded_conclusions'].append('状态变更统计将使用估算值')
+        
+        # 检查资源生命周期
+        if details.get('resource_lifecycle') in ['missing', 'estimated']:
+            preflight['missing_data'].append({
+                'item': 'Resource Lifecycle',
+                'impact': '无法追踪资源创建/销毁时机',
+                'severity': 'low'
+            })
+        
+        # 检查 Shader 分析
+        if details.get('shader_analysis') == 'missing':
+            preflight['missing_data'].append({
+                'item': 'Shader Analysis',
+                'impact': '无法进行 Shader 复杂度分析',
+                'severity': 'medium'
+            })
+            preflight['capture_recommendations'].append({
+                'action': '确保 Shader 包含调试信息',
+                'unity': '在 Player Settings > Other Settings 中禁用 Shader Stripping',
+                'unreal': '在 Project Settings > Rendering 中启用 Keep Shader Debug Info',
+                'custom': '编译 Shader 时使用 /Zi (HLSL) 或 -g (GLSL)'
+            })
+        
+        # 如果有多个问题，升级状态
+        if len(preflight['missing_data']) >= 3:
+            preflight['status'] = 'error'
+        
+        return preflight
+    
+    def _canonicalize_issues(self) -> List[Dict[str, Any]]:
+        """将所有 issues 转换为 CanonicalIssue 格式 (DoD 7.4)
+        
+        确保每个 issue 都有 event_ids 和 resource_ids 用于 Evidence Chain。
+        
+        Returns:
+            List of issue dicts in canonical format
+        """
+        from .core.types import CanonicalIssue
+        
+        canonical_list = []
+        
+        for issue in self._issues:
+            if isinstance(issue, dict):
+                # 已经是 dict 格式，转换为 CanonicalIssue
+                event_ids = []
+                resource_ids = []
+                
+                # 提取 event_id (兼容 event_id 和 eventId 两种命名)
+                if 'event_id' in issue and issue['event_id'] is not None:
+                    event_ids.append(issue['event_id'])
+                elif 'eventId' in issue and issue['eventId'] is not None:
+                    # 兼容驼峰命名 (从 _analyze_rules 等处产生)
+                    event_ids.append(issue['eventId'])
+                if 'event_ids' in issue:
+                    event_ids.extend(issue['event_ids'])
+                if 'eventIds' in issue:
+                    # 兼容驼峰命名
+                    event_ids.extend(issue['eventIds'])
+                if 'related_events' in issue:
+                    event_ids.extend(issue['related_events'])
+                
+                # 提取 resource_id
+                if 'resource_id' in issue and issue['resource_id']:
+                    resource_ids.append(str(issue['resource_id']))
+                if 'resource_ids' in issue:
+                    resource_ids.extend([str(r) for r in issue['resource_ids']])
+                
+                # 构建 evidence
+                evidence = {}
+                for key in ['threshold', 'actual', 'impact_score', 'pass_index', 'location_path']:
+                    if key in issue and issue[key] is not None:
+                        evidence[key] = issue[key]
+                
+                canonical = CanonicalIssue(
+                    code=issue.get('code', 'UNKNOWN'),
+                    severity=issue.get('severity', 'info'),
+                    category=issue.get('category', 'general'),
+                    message=issue.get('message', ''),
+                    event_ids=list(set(event_ids)),  # 去重
+                    resource_ids=list(set(resource_ids)),  # 去重
+                    evidence=evidence,
+                    suggestion=issue.get('suggestion')
+                )
+                canonical_list.append(canonical.to_dict())
+            
+            elif hasattr(issue, 'to_canonical'):
+                # 有 to_canonical 方法的对象
+                canonical_list.append(issue.to_canonical().to_dict())
+            
+            elif hasattr(issue, 'to_dict'):
+                # 有 to_dict 方法的对象
+                canonical_list.append(issue.to_dict())
+            
+            else:
+                # 其他情况，尝试转为 dict
+                canonical_list.append({
+                    'code': getattr(issue, 'code', 'UNKNOWN'),
+                    'severity': getattr(issue, 'severity', 'info'),
+                    'category': getattr(issue, 'category', 'general'),
+                    'message': str(issue)
+                })
+        
+        return canonical_list
     
     def _build_suggestions(self) -> List[Dict[str, Any]]:
         """构建建议列表

@@ -171,7 +171,58 @@ jobs:
 
 ---
 
-## 📁 文件结构
+## �️ HTML 报告交互功能
+
+生成的 HTML 报告包含以下交互功能：
+
+### Event Browser（事件浏览器）
+
+| 功能 | 说明 |
+|------|------|
+| 🔍 搜索过滤 | 按名称/Event ID 搜索 |
+| 📁 Pass 分组 | 按渲染 Pass 折叠/展开 |
+| 🎯 点击选择 | 点击 Event 查看详情 |
+
+### Event 详情面板
+
+选中 Event 后可查看以下标签：
+
+| 标签 | 内容 |
+|------|------|
+| **Pipeline State** | VS/FS/CS Shader 代码 + Vulkan Pipeline 对象 |
+| **Resource Bindings** | Descriptor Set 绑定（纹理/Buffer/Sampler） |
+| **Mesh Info** | Vertex Buffers / Index Buffer / Primitive Topology |
+| **💾 导出** | 下载当前 Event 完整 JSON 数据 |
+
+### 纹理-Event 交叉引用
+
+在 **Texture Browser** 中点击任意纹理：
+
+1. 右侧显示纹理属性（格式/尺寸/Mipmap 等）
+2. 显示 **🔗 引用次数** 徽章
+3. 列出使用该纹理的所有 Draw Call
+4. 点击 Event 标签可跳转到 Event Browser
+
+```
+纹理属性面板:
+┌─────────────────────────────────────┐
+│ 📄 Properties                       │
+│ ─────────────────                   │
+│ Format: VK_FORMAT_R8G8B8A8_UNORM   │
+│ Size: 1024 x 1024                   │
+│ Mips: 10                            │
+├─────────────────────────────────────┤
+│ 🔗 被 3 个 Draw Call 使用           │
+│ ─────────────────                   │
+│ [Event #35] Set 0, Binding 1        │
+│ [Event #42] Set 0, Binding 1        │
+│ [Event #89] Set 1, Binding 0        │
+└─────────────────────────────────────┘
+```
+
+---
+
+## �📁 文件结构
 
 ```
 scripts/rdc_analyzer/
@@ -209,6 +260,16 @@ scripts/rdc_analyzer/
 ---
 
 ## 📝 版本历史
+
+### v3.1.0 - 交互式 HTML 报告增强
+
+- ✨ **Event Browser**: Draw Call 列表 + Pass 分组
+- ✨ **Pipeline State**: 显示 VS/FS/CS Shader + Vulkan Pipeline 对象
+- ✨ **Resource Bindings**: Descriptor Set 绑定表格（纹理/Buffer/Sampler）
+- ✨ **Mesh Info**: Vertex Buffers / Index Buffer / Primitive Topology
+- ✨ **纹理-Event 交叉引用**: 点击纹理查看哪些 Draw Call 使用了它
+- ✨ **导出功能**: 一键导出单个 Event 的完整 JSON 数据
+- ✨ **Shader 语法高亮**: 支持 DXBC/HLSL/SPIRV 反汇编代码高亮
 
 ### v3.0.0 - 多模式架构
 

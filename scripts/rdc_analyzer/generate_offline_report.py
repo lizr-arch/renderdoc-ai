@@ -157,7 +157,7 @@ def generate_offline_html(textures: list, rdc_name: str, output_path: str,
                           event_pass_data: dict = None, frame_thumbnail: str = None,
                           optimization_data: dict = None, performance_data: dict = None,
                           rt_tracking_data: dict = None, hotspot_data: dict = None,
-                          shader_data: list = None):
+                          shader_data: list = None, texture_usage_map: dict = None):
     """生成纯离线 HTML 报告
     
     Args:
@@ -173,6 +173,7 @@ def generate_offline_html(textures: list, rdc_name: str, output_path: str,
         rt_tracking_data: RT 追踪数据（可选，来自 RTTracker，Direction C）
         hotspot_data: 热点分析数据（可选，来自 HotspotAnalyzer，Direction F）
         shader_data: Shader 列表数据（可选，用于 Shader 资源浏览器，TASK-205）
+        texture_usage_map: 纹理使用映射（可选，纹理ID→Event列表，TASK-223）
     """
     
     textures_json = json.dumps(textures, ensure_ascii=False)
@@ -183,6 +184,7 @@ def generate_offline_html(textures: list, rdc_name: str, output_path: str,
     optimization_json = json.dumps(optimization_data or {}, ensure_ascii=False)
     performance_json = json.dumps(performance_data or {}, ensure_ascii=False)
     shader_json = json.dumps(shader_data or [], ensure_ascii=False)
+    texture_usage_map_json = json.dumps(texture_usage_map or {}, ensure_ascii=False)
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     
     html = f'''<!DOCTYPE html>
@@ -6575,6 +6577,8 @@ def generate_offline_html(textures: list, rdc_name: str, output_path: str,
                     <div class="tab" data-tab="bindings" onclick="switchEventTab('bindings')">🎨 资源绑定</div>
                     <div class="tab" data-tab="mesh" onclick="switchEventTab('mesh')">📐 Mesh Info</div>
                     <div class="tab" data-tab="apicall" onclick="switchEventTab('apicall')">📝 API 调用</div>
+                    <div style="flex:1;"></div>
+                    <div class="tab export-btn" onclick="exportCurrentEvent()" title="导出当前 Event 为 JSON" style="background:var(--accent-blue);color:#fff;border-radius:4px;margin:4px;">💾 导出</div>
                 </div>
                 <div class="event-detail-content" id="eventDetailContent">
                     <div class="event-detail-empty">
@@ -6820,6 +6824,8 @@ def generate_offline_html(textures: list, rdc_name: str, output_path: str,
         const performanceData = {performance_json};
         // Shader 列表数据 (TASK-205: 资源浏览器)
         const shaderData = {shader_json};
+        // 纹理使用映射 (TASK-223: 纹理→Event 交叉引用)
+        const textureUsageMap = {texture_usage_map_json};
         let filteredTextures = [...textures];
         let currentLightboxIndex = 0;
         let currentSort = {{ key: 'id', asc: true }};
@@ -8236,11 +8242,23 @@ def generate_offline_html(textures: list, rdc_name: str, output_path: str,
                         ⚠ 此纹理在当前帧中未被任何 Draw Call 引用，可能是冗余资源
                     </div>`;
                 }} else {{
-                    // 既不在 hot 也不在 cold 列表，可能是新纹理或分析数据不完整
-                    analysisHtml += `<div class="prop-row" style="margin-top:8px;padding-top:8px;border-top:1px solid var(--border);">
-                        <span class="prop-label">使用情况</span>
-                        <span class="prop-value text-muted">无数据</span>
-                    </div>`;
+                    // 既不在 hot 也不在 cold 列表，尝试从 textureUsageMap 获取
+                    const mapUsage = textureUsageMap[String(texId)] || textureUsageMap[texId];
+                    if (mapUsage && mapUsage.length > 0) {{
+                        analysisHtml += renderTextureUsageFromMap(texId, mapUsage);
+                    }} else {{
+                        analysisHtml += `<div class="prop-row" style="margin-top:8px;padding-top:8px;border-top:1px solid var(--border);">
+                            <span class="prop-label">使用情况</span>
+                            <span class="prop-value text-muted">无数据</span>
+                        </div>`;
+                    }}
+                }}
+            }} else {{
+                // 没有 usageAnalysis，直接使用 textureUsageMap (TASK-223)
+                const texId = tex.id || tex.resource_id;
+                const mapUsage = textureUsageMap[String(texId)] || textureUsageMap[texId];
+                if (mapUsage && mapUsage.length > 0) {{
+                    analysisHtml += renderTextureUsageFromMap(texId, mapUsage);
                 }}
             }}
             
@@ -8248,6 +8266,102 @@ def generate_offline_html(textures: list, rdc_name: str, output_path: str,
             if (analysisContainer) {{
                 analysisContainer.innerHTML = analysisHtml;
             }}
+        }}
+        
+        // TASK-223: 从 textureUsageMap 渲染纹理使用情况
+        function renderTextureUsageFromMap(texId, usageList) {{
+            const useCount = usageList.length;
+            const displayEvents = usageList.slice(0, 8);
+            const moreCount = useCount - displayEvents.length;
+            
+            let html = `<div class="prop-row" style="margin-top:8px;padding-top:8px;border-top:1px solid var(--border);">
+                <span class="prop-label">🔗 引用次数</span>
+                <span class="prop-value highlight" style="color:var(--accent-blue);">${{useCount}}×</span>
+            </div>`;
+            
+            html += `<div style="margin-top:4px;">
+                <div style="font-size:10px;color:var(--text-muted);margin-bottom:4px;">被以下 Event 引用: <span style="color:var(--accent-blue);font-size:9px;">(点击跳转)</span></div>
+                <div style="display:flex;flex-wrap:wrap;gap:4px;">
+                    ${{displayEvents.map(u => `
+                        <span class="eid-tag" onclick="jumpToEventFromTexture(${{u.eid}})" title="${{u.name}}\\nSet: ${{u.set}}, Binding: ${{u.binding}}">
+                            EID ${{u.eid}}
+                        </span>
+                    `).join('')}}
+                    ${{moreCount > 0 ? `<span style="color:var(--text-muted);font-size:9px;padding:2px 4px;cursor:pointer;" onclick="showAllTextureUsageModal('${{texId}}', ${{JSON.stringify(usageList).replace(/"/g, '&quot;')}})" title="查看全部 ${{useCount}} 个 Event">+${{moreCount}} 更多...</span>` : ''}}
+                </div>
+            </div>`;
+            
+            return html;
+        }}
+        
+        // TASK-223: 从纹理面板跳转到 Event Browser
+        function jumpToEventFromTexture(eid) {{
+            // 切换到 Event Browser 视图
+            const eventTab = document.querySelector('.nav-tab[data-tab="events"]');
+            if (eventTab) {{
+                eventTab.click();
+            }}
+            // 选中对应的 Event
+            setTimeout(() => {{
+                if (typeof selectEventByEid === 'function') {{
+                    selectEventByEid(eid);
+                }} else {{
+                    // 后备方案：直接调用 renderEventDetail
+                    if (typeof renderEventDetail === 'function') {{
+                        selectedEventEid = eid;
+                        renderEventDetail(eid);
+                    }}
+                }}
+            }}, 100);
+        }}
+        
+        // TASK-223: 显示所有纹理使用的模态框
+        function showAllTextureUsageModal(texId, usageList) {{
+            const modal = document.createElement('div');
+            modal.className = 'shader-modal';
+            modal.onclick = (e) => {{ if (e.target === modal) modal.remove(); }};
+            
+            modal.innerHTML = `
+                <div class="shader-modal-content" style="max-width:600px;">
+                    <div class="shader-modal-header">
+                        <div class="shader-modal-title">
+                            <span class="type-badge" style="background:var(--accent-blue);">TEX</span>
+                            <span>纹理 #${{texId}} 的所有引用</span>
+                        </div>
+                        <button class="shader-modal-close" onclick="this.closest('.shader-modal').remove()">×</button>
+                    </div>
+                    <div class="shader-modal-body" style="max-height:400px;overflow-y:auto;">
+                        <table class="params-table">
+                            <thead>
+                                <tr>
+                                    <th>Event ID</th>
+                                    <th>Event Name</th>
+                                    <th>Set</th>
+                                    <th>Binding</th>
+                                    <th>操作</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${{usageList.map(u => `
+                                    <tr>
+                                        <td><span class="eid-tag">EID ${{u.eid}}</span></td>
+                                        <td style="font-family:monospace;font-size:11px;">${{u.name || 'N/A'}}</td>
+                                        <td>${{u.set !== undefined ? u.set : '-'}}</td>
+                                        <td>${{u.binding !== undefined ? u.binding : '-'}}</td>
+                                        <td>
+                                            <button class="btn-view-shader" onclick="jumpToEventFromTexture(${{u.eid}}); this.closest('.shader-modal').remove();">
+                                                🔍 跳转
+                                            </button>
+                                        </td>
+                                    </tr>
+                                `).join('')}}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            `;
+            
+            document.body.appendChild(modal);
         }}
         
         // 格式化字节数
@@ -9738,7 +9852,8 @@ def generate_offline_html(textures: list, rdc_name: str, output_path: str,
         }}
         
         function renderEventDetail(eid) {{
-            const event = eventPassData.events.find(e => e.eid === eid);
+            // TASK-218: 兼容 eid 和 eventId 两种字段名
+            const event = eventPassData.events.find(e => (e.eid === eid) || (e.eventId === eid));
             if (!event) return;
             
             const content = document.getElementById('eventDetailContent');
@@ -10134,12 +10249,91 @@ def generate_offline_html(textures: list, rdc_name: str, output_path: str,
         }}
         
         function renderEventBindings(event) {{
-            const ps = event.pipelineState;
-            if (!ps || !ps.bindings) {{
+            // TASK-220: 从 resourceBindings.descriptorSets 读取 Vulkan 资源绑定
+            const rb = event.resourceBindings || {{}};
+            const descriptorSets = rb.descriptorSets || [];
+            
+            if (descriptorSets.length === 0) {{
                 return `<div class="event-detail-empty">
                     <div class="icon">🎨</div>
                     <div>此 Event 没有资源绑定数据</div>
                 </div>`;
+            }}
+            
+            let html = '';
+            
+            // 遍历每个 Descriptor Set
+            descriptorSets.forEach((ds, dsIndex) => {{
+                const setTitle = `Descriptor Set ${{ds.setIndex !== undefined ? ds.setIndex : dsIndex}} (${{ds.bindPoint || 'GRAPHICS'}})`;
+                
+                html += `
+                    <div class="binding-section descriptor-set">
+                        <div class="binding-stage">${{setTitle}}</div>
+                        <div class="binding-list">
+                `;
+                
+                // 遍历绑定点
+                (ds.bindings || []).forEach(binding => {{
+                    const bindingSlot = binding.binding !== undefined ? binding.binding : '?';
+                    const descType = binding.descriptorType || 'UNKNOWN';
+                    const shortType = descType.replace('VK_DESCRIPTOR_TYPE_', '');
+                    
+                    // 遍历每个资源
+                    (binding.resources || []).forEach(res => {{
+                        const resId = res.resourceId || 'N/A';
+                        const resType = res.type || 'unknown';
+                        
+                        // 尝试查找纹理缩略图
+                        const texData = textures.find(t => String(t.id) === String(resId));
+                        const thumb = texData?.base64 ? `<img src="data:image/png;base64,${{texData.base64}}" style="max-width:48px;max-height:48px;border-radius:4px;">` : '';
+                        const size = texData ? `${{texData.width}}×${{texData.height}}` : '';
+                        const name = texData?.name || (resType === 'buffer' ? 'Buffer' : 'Resource') + ' #' + resId;
+                        
+                        // 资源类型图标
+                        let icon = '📦';
+                        if (resType === 'image' || shortType.includes('IMAGE') || shortType.includes('SAMPLED')) icon = '🖼️';
+                        else if (resType === 'buffer' || shortType.includes('BUFFER')) icon = '📊';
+                        else if (shortType.includes('SAMPLER')) icon = '🎚️';
+                        
+                        // Buffer 特有信息
+                        const bufferInfo = resType === 'buffer' ? 
+                            `Offset: ${{res.offset || 0}} | Range: ${{res.range || 'N/A'}}` : '';
+                        
+                        html += `
+                            <div class="binding-item" ${{texData ? `onclick="jumpToTexture(${{resId}})" style="cursor:pointer;"` : ''}}>
+                                <span class="slot">b${{bindingSlot}}</span>
+                                <div class="thumb">${{thumb || `<span style="font-size:24px;">${{icon}}</span>`}}</div>
+                                <div class="info">
+                                    <div class="name">${{name}}</div>
+                                    <div class="meta">
+                                        <span class="desc-type">${{shortType}}</span>
+                                        ${{size ? ' | ' + size : ''}}
+                                        ${{bufferInfo ? ' | ' + bufferInfo : ''}}
+                                    </div>
+                                </div>
+                                ${{texData ? '<span class="jump-link">跳转 →</span>' : ''}}
+                            </div>
+                        `;
+                    }});
+                }});
+                
+                html += `
+                        </div>
+                    </div>
+                `;
+            }});
+            
+            return html || `<div class="event-detail-empty">
+                <div class="icon">🎨</div>
+                <div>此 Event 没有资源绑定数据</div>
+            </div>`;
+        }}
+        
+        // 保留原有的按阶段遍历逻辑作为备用 (旧版JSON格式兼容)
+        function renderEventBindingsLegacy(event) {{
+            const ps = event.pipelineState;
+            if (!ps || !ps.bindings) {{
+                return '';
             }}
             
             let html = '';
@@ -10322,8 +10516,18 @@ def generate_offline_html(textures: list, rdc_name: str, output_path: str,
         }}
         
         function renderEventMeshInfo(event) {{
-            const mesh = event.meshData;
-            if (!mesh) {{
+            // TASK-219: 使用正确的字段名 meshInfo
+            const mesh = event.meshInfo;
+            // 检查是否有有效的网格数据
+            const hasData = mesh && (
+                (mesh.vertexBuffers && mesh.vertexBuffers.length > 0) ||
+                (mesh.indexBuffer && mesh.indexBuffer.format) ||
+                mesh.inputLayout ||
+                mesh.primitiveTopology ||
+                mesh.boundingBox ||
+                mesh.statistics
+            );
+            if (!hasData) {{
                 return `<div class="event-detail-empty">
                     <div class="icon">📐</div>
                     <div>此 Event 没有网格数据</div>
@@ -10332,6 +10536,66 @@ def generate_offline_html(textures: list, rdc_name: str, output_path: str,
             }}
             
             let html = '';
+            
+            // ========== Vertex Buffers ==========
+            if (mesh.vertexBuffers && mesh.vertexBuffers.length > 0) {{
+                html += `
+                    <div class="event-detail-card">
+                        <div class="event-detail-card-header">📐 Vertex Buffers</div>
+                        <div class="event-detail-card-body">
+                            <table class="params-table">
+                                <thead>
+                                    <tr>
+                                        <th>Slot</th>
+                                        <th>Buffer ID</th>
+                                        <th>Offset</th>
+                                        <th>Stride</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${{mesh.vertexBuffers.map(vb => `
+                                        <tr>
+                                            <td><span class="slot-badge">VB${{vb.slot !== undefined ? vb.slot : '?'}}</span></td>
+                                            <td><code>${{vb.buffer || vb.resourceId || 'N/A'}}</code></td>
+                                            <td>${{vb.offset !== undefined ? vb.offset : 'N/A'}}</td>
+                                            <td>${{vb.stride !== undefined ? vb.stride + ' bytes' : 'N/A'}}</td>
+                                        </tr>
+                                    `).join('')}}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                `;
+            }}
+            
+            // ========== Index Buffer ==========
+            if (mesh.indexBuffer && (mesh.indexBuffer.buffer || mesh.indexBuffer.resourceId || mesh.indexBuffer.format)) {{
+                const ib = mesh.indexBuffer;
+                html += `
+                    <div class="event-detail-card">
+                        <div class="event-detail-card-header">🔢 Index Buffer</div>
+                        <div class="event-detail-card-body">
+                            <table class="params-table">
+                                <tr><td>Buffer ID</td><td><code>${{ib.buffer || ib.resourceId || 'N/A'}}</code></td></tr>
+                                <tr><td>Offset</td><td>${{ib.offset !== undefined ? ib.offset : 'N/A'}}</td></tr>
+                                <tr><td>Format</td><td>${{ib.format || 'N/A'}}</td></tr>
+                            </table>
+                        </div>
+                    </div>
+                `;
+            }}
+            
+            // ========== Primitive Topology ==========
+            if (mesh.primitiveTopology) {{
+                html += `
+                    <div class="event-detail-card">
+                        <div class="event-detail-card-header">🔺 Primitive Topology</div>
+                        <div class="event-detail-card-body">
+                            <div class="topology-badge">${{mesh.primitiveTopology}}</div>
+                        </div>
+                    </div>
+                `;
+            }}
             
             // ========== 包围盒 (Bounding Box) ==========
             if (mesh.boundingBox) {{
@@ -10622,10 +10886,12 @@ def generate_offline_html(textures: list, rdc_name: str, output_path: str,
         
         // ========== API 调用详情渲染 ==========
         function renderEventApiCall(event) {{
-            const apiCall = event.apiCall;
+            // TASK-219: API 数据直接在 event 顶层，不在 apiCall 子对象
+            const funcName = event.name;
+            const params = event.params || [];
             
             // 无 API 调用数据
-            if (!apiCall) {{
+            if (!funcName) {{
                 return `<div class="event-detail-empty">
                     <div class="icon">📝</div>
                     <div>此 Event 类型无 API 调用数据</div>
@@ -10641,18 +10907,18 @@ def generate_offline_html(textures: list, rdc_name: str, output_path: str,
                     <div class="event-detail-card-header">📝 主调用指令</div>
                     <div class="event-detail-card-body">
                         <div class="api-signature">
-                            <span class="api-return-type">${{apiCall.returnType || 'void'}}</span>
-                            <span class="api-func-name">${{apiCall.signature}}</span>
+                            <span class="api-return-type">void</span>
+                            <span class="api-func-name">${{funcName}}</span>
                             <span class="api-paren">(</span>
                         </div>
                         <div class="api-params-list">
-                            ${{apiCall.params.map((p, i) => `
-                                <div class="api-param-row">
-                                    <span class="api-param-type">${{p.type}}</span>
-                                    <span class="api-param-name">${{p.name}}</span>
+                            ${{params.map((p, i) => `
+                                <div class="api-param-row${{p.important ? ' important' : ''}}">
+                                    <span class="api-param-type">${{p.type || 'unknown'}}</span>
+                                    <span class="api-param-name">${{p.name || 'arg' + i}}</span>
                                     <span class="api-param-sep">=</span>
                                     <span class="api-param-value">${{formatApiValue(p.value, p.type)}}</span>
-                                    ${{i < apiCall.params.length - 1 ? '<span class="api-param-comma">,</span>' : ''}}
+                                    ${{i < params.length - 1 ? '<span class="api-param-comma">,</span>' : ''}}
                                 </div>
                             `).join('')}}
                         </div>
@@ -10663,9 +10929,9 @@ def generate_offline_html(textures: list, rdc_name: str, output_path: str,
                 </div>
             `;
             
-            // 关联调用（如 IASetIndexBuffer, RSSetViewports 等）
+            // 关联调用（从 event.relatedCalls）
             // 过滤掉 null/undefined 值，并兼容字符串和对象格式
-            const validRelatedCalls = (apiCall.relatedCalls || []).filter(c => c != null);
+            const validRelatedCalls = (event.relatedCalls || []).filter(c => c != null);
             
             if (validRelatedCalls.length > 0) {{
                 html += `
@@ -10802,6 +11068,72 @@ def generate_offline_html(textures: list, rdc_name: str, output_path: str,
             if (selectedEventEid !== null) {{
                 renderEventDetail(selectedEventEid);
             }}
+        }}
+        
+        // TASK-224: 导出当前 Event 为 JSON
+        function exportCurrentEvent() {{
+            if (selectedEventEid === null) {{
+                alert('请先选择一个 Event');
+                return;
+            }}
+            
+            const event = eventPassData.events.find(e => (e.eid === selectedEventEid) || (e.eventId === selectedEventEid));
+            if (!event) {{
+                alert('未找到选中的 Event 数据');
+                return;
+            }}
+            
+            // 构建导出数据
+            const exportData = {{
+                exportInfo: {{
+                    timestamp: new Date().toISOString(),
+                    eventId: selectedEventEid,
+                    source: document.title
+                }},
+                event: event
+            }};
+            
+            // 生成 JSON 字符串
+            const jsonStr = JSON.stringify(exportData, null, 2);
+            
+            // 创建下载链接
+            const blob = new Blob([jsonStr], {{ type: 'application/json' }});
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `event_${{selectedEventEid}}_export.json`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            
+            // 显示成功提示
+            showExportToast(`Event #${{selectedEventEid}} 已导出`);
+        }}
+        
+        // 显示导出成功提示
+        function showExportToast(message) {{
+            const toast = document.createElement('div');
+            toast.style.cssText = `
+                position: fixed;
+                bottom: 20px;
+                right: 20px;
+                background: var(--accent-green);
+                color: #fff;
+                padding: 12px 20px;
+                border-radius: 6px;
+                font-size: 13px;
+                z-index: 10000;
+                animation: fadeInUp 0.3s ease;
+            `;
+            toast.textContent = '✓ ' + message;
+            document.body.appendChild(toast);
+            
+            setTimeout(() => {{
+                toast.style.opacity = '0';
+                toast.style.transition = 'opacity 0.3s';
+                setTimeout(() => toast.remove(), 300);
+            }}, 2000);
         }}
         
         function jumpToTexture(texId) {{
@@ -13363,12 +13695,44 @@ def main():
     if not textures:
         print("[WARN] No textures found, generating empty report")
     
+    # TASK-223: 构建纹理使用映射（纹理 ID → 使用它的 Event 列表）
+    texture_usage_map = {}
+    texture_descriptor_types = [
+        'VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE',
+        'VK_DESCRIPTOR_TYPE_STORAGE_IMAGE', 
+        'VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT',
+        'VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER'
+    ]
+    events = event_pass_data.get("events", []) if event_pass_data else []
+    for evt in events:
+        eid = evt.get("eventId") or evt.get("eid")
+        evt_name = evt.get("name", "")
+        descriptor_sets = evt.get("resourceBindings", {}).get("descriptorSets", [])
+        for ds in descriptor_sets:
+            for binding in ds.get("bindings", []):
+                desc_type = binding.get("descriptorType", "")
+                if desc_type in texture_descriptor_types:
+                    for res in binding.get("resources", []):
+                        res_id = res.get("resourceId")
+                        if res_id:
+                            if res_id not in texture_usage_map:
+                                texture_usage_map[res_id] = []
+                            texture_usage_map[res_id].append({
+                                "eid": eid,
+                                "name": evt_name,
+                                "binding": binding.get("binding"),
+                                "set": ds.get("setIndex")
+                            })
+    if texture_usage_map:
+        print(f"  [OK] Built texture usage map: {len(texture_usage_map)} textures referenced by events")
+    
     generate_offline_html(
         textures, 
         rdc_path.name, 
         output_path,
         event_pass_data=event_pass_data if event_pass_data else None,
-        shader_data=shaders if shaders else None
+        shader_data=shaders if shaders else None,
+        texture_usage_map=texture_usage_map if texture_usage_map else None
     )
     
     return 0

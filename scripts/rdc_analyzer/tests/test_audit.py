@@ -16,7 +16,7 @@ class TestAuditSeverity:
     
     def test_severity_values(self):
         """测试严重程度枚举值"""
-        from scripts.rdc_analyzer.audit.report import AuditSeverity
+        from rdc_analyzer.audit.report import AuditSeverity
         
         # 验证枚举存在
         assert AuditSeverity.CRITICAL.value == "critical"
@@ -30,7 +30,7 @@ class TestAssetCategory:
     
     def test_category_values(self):
         """测试分类枚举值"""
-        from scripts.rdc_analyzer.audit.report import AssetCategory
+        from rdc_analyzer.audit.report import AssetCategory
         
         assert AssetCategory.TEXTURE.value == "texture"
         assert AssetCategory.BUFFER.value == "buffer"
@@ -42,7 +42,7 @@ class TestAuditIssue:
     
     def test_issue_creation(self):
         """测试创建问题"""
-        from scripts.rdc_analyzer.audit.report import (
+        from rdc_analyzer.audit.report import (
             AuditIssue, AuditSeverity, AssetCategory
         )
         
@@ -61,7 +61,7 @@ class TestAuditIssue:
     
     def test_issue_to_dict(self):
         """测试问题序列化"""
-        from scripts.rdc_analyzer.audit.report import (
+        from rdc_analyzer.audit.report import (
             AuditIssue, AuditSeverity, AssetCategory
         )
         
@@ -83,7 +83,7 @@ class TestAuditPreset:
     
     def test_default_preset(self):
         """测试默认预设"""
-        from scripts.rdc_analyzer.audit.engine import PRESETS
+        from rdc_analyzer.audit.engine import PRESETS
         
         default = PRESETS["default"]
         assert default.max_texture_size == 2048
@@ -92,7 +92,7 @@ class TestAuditPreset:
     
     def test_mobile_preset(self):
         """测试移动端预设"""
-        from scripts.rdc_analyzer.audit.engine import PRESETS
+        from rdc_analyzer.audit.engine import PRESETS
         
         mobile = PRESETS["mobile"]
         assert mobile.max_texture_size == 2048
@@ -101,7 +101,7 @@ class TestAuditPreset:
     
     def test_pc_preset(self):
         """测试 PC 预设"""
-        from scripts.rdc_analyzer.audit.engine import PRESETS
+        from rdc_analyzer.audit.engine import PRESETS
         
         pc = PRESETS["pc"]
         assert pc.max_texture_size == 4096
@@ -109,7 +109,7 @@ class TestAuditPreset:
     
     def test_strict_preset(self):
         """测试严格预设"""
-        from scripts.rdc_analyzer.audit.engine import PRESETS
+        from rdc_analyzer.audit.engine import PRESETS
         
         strict = PRESETS["strict"]
         assert strict.max_texture_size == 1024
@@ -165,7 +165,7 @@ class TestAuditEngine:
     
     def test_engine_creation_default(self):
         """测试默认引擎创建 (PC 平台自动选择 pc 预设)"""
-        from scripts.rdc_analyzer.audit.engine import AuditEngine
+        from rdc_analyzer.audit.engine import AuditEngine
         
         engine = AuditEngine()
         assert engine.platform == "pc"
@@ -174,7 +174,7 @@ class TestAuditEngine:
     
     def test_engine_creation_mobile(self):
         """测试移动端引擎创建"""
-        from scripts.rdc_analyzer.audit.engine import AuditEngine
+        from rdc_analyzer.audit.engine import AuditEngine
         
         engine = AuditEngine(platform="mobile")
         assert engine.platform == "mobile"
@@ -182,14 +182,14 @@ class TestAuditEngine:
     
     def test_engine_with_preset_override(self):
         """测试预设覆盖"""
-        from scripts.rdc_analyzer.audit.engine import AuditEngine
+        from rdc_analyzer.audit.engine import AuditEngine
         
         engine = AuditEngine(platform="pc", preset="strict")
         assert engine.preset.name == "strict"
     
     def test_audit_basic(self, sample_capture_data):
         """测试基本审计"""
-        from scripts.rdc_analyzer.audit.engine import AuditEngine
+        from rdc_analyzer.audit.engine import AuditEngine
         
         engine = AuditEngine(platform="pc", preset="pc")
         report = engine.audit(sample_capture_data)
@@ -200,8 +200,8 @@ class TestAuditEngine:
     
     def test_audit_detect_oversized_texture(self, sample_capture_data):
         """测试检测超大纹理 (使用 strict 预设)"""
-        from scripts.rdc_analyzer.audit.engine import AuditEngine
-        from scripts.rdc_analyzer.audit.report import AuditSeverity
+        from rdc_analyzer.audit.engine import AuditEngine
+        from rdc_analyzer.audit.report import AuditSeverity
         
         engine = AuditEngine(preset="strict")  # 1024 上限
         report = engine.audit(sample_capture_data)
@@ -215,7 +215,7 @@ class TestAuditEngine:
     
     def test_audit_detect_no_mipmaps(self, sample_capture_data):
         """测试检测缺少 Mipmap"""
-        from scripts.rdc_analyzer.audit.engine import AuditEngine
+        from rdc_analyzer.audit.engine import AuditEngine
         
         engine = AuditEngine(preset="default")
         report = engine.audit(sample_capture_data)
@@ -229,7 +229,7 @@ class TestAuditEngine:
     
     def test_audit_detect_npot(self, sample_capture_data):
         """测试检测非 2 次幂纹理"""
-        from scripts.rdc_analyzer.audit.engine import AuditEngine
+        from rdc_analyzer.audit.engine import AuditEngine
         
         engine = AuditEngine(platform="mobile")  # mobile 启用 NPOT 检测
         report = engine.audit(sample_capture_data)
@@ -243,7 +243,7 @@ class TestAuditEngine:
     
     def test_audit_detect_high_memory(self, sample_capture_data):
         """测试检测高内存纹理"""
-        from scripts.rdc_analyzer.audit.engine import AuditEngine
+        from rdc_analyzer.audit.engine import AuditEngine
         
         engine = AuditEngine(preset="mobile")  # 8MB 上限
         report = engine.audit(sample_capture_data)
@@ -261,7 +261,7 @@ class TestAuditReport:
     
     def test_report_creation(self):
         """测试创建报告"""
-        from scripts.rdc_analyzer.audit.report import AuditReport
+        from rdc_analyzer.audit.report import AuditReport
         
         report = AuditReport(
             file_path="test.json",
@@ -275,7 +275,7 @@ class TestAuditReport:
     
     def test_report_add_issue(self):
         """测试添加问题"""
-        from scripts.rdc_analyzer.audit.report import (
+        from rdc_analyzer.audit.report import (
             AuditReport, AuditIssue, AuditSeverity, AssetCategory
         )
         
@@ -294,7 +294,7 @@ class TestAuditReport:
     
     def test_report_has_critical(self):
         """测试 has_critical 属性"""
-        from scripts.rdc_analyzer.audit.report import (
+        from rdc_analyzer.audit.report import (
             AuditReport, AuditIssue, AuditSeverity, AssetCategory
         )
         
@@ -312,7 +312,7 @@ class TestAuditReport:
     
     def test_report_grade(self):
         """测试评级计算"""
-        from scripts.rdc_analyzer.audit.report import (
+        from rdc_analyzer.audit.report import (
             AuditReport, AuditIssue, AuditSeverity, AssetCategory
         )
         
@@ -343,7 +343,7 @@ class TestAuditReport:
     
     def test_report_to_dict(self):
         """测试报告序列化"""
-        from scripts.rdc_analyzer.audit.report import AuditReport
+        from rdc_analyzer.audit.report import AuditReport
         
         report = AuditReport(
             file_path="test.json",
@@ -359,7 +359,7 @@ class TestAuditReport:
     
     def test_format_summary(self):
         """测试摘要格式化"""
-        from scripts.rdc_analyzer.audit.report import AuditReport
+        from rdc_analyzer.audit.report import AuditReport
         
         report = AuditReport(
             file_path="test.json",
@@ -376,7 +376,7 @@ class TestAuditIntegration:
     
     def test_full_audit_flow(self):
         """测试完整审计流程"""
-        from scripts.rdc_analyzer.audit import AuditEngine, AuditReport
+        from rdc_analyzer.audit import AuditEngine, AuditReport
         
         # 创建测试数据
         capture_data = {
@@ -406,7 +406,7 @@ class TestAuditIntegration:
     
     def test_audit_empty_capture(self):
         """测试空捕获数据"""
-        from scripts.rdc_analyzer.audit import AuditEngine
+        from rdc_analyzer.audit import AuditEngine
         
         engine = AuditEngine()
         report = engine.audit({}, file_path="empty.json")
@@ -421,7 +421,7 @@ class TestCLIAuditCommand:
     def test_audit_parser_exists(self):
         """测试 audit 子命令存在"""
         import argparse
-        from scripts.rdc_analyzer.__main__ import main
+        from rdc_analyzer.__main__ import main
         
         # 验证 audit 命令被注册
         # 通过尝试解析参数来验证
