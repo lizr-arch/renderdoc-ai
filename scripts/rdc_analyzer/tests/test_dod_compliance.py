@@ -368,5 +368,82 @@ class TestDOD73DataQuality:
             f"50% 采样率应为 partial，实际为: {coverage['details']['pipeline_state']}"
 
 
+class TestVerificationPlanSchema:
+    """验证 verification_plan 字段的 schema 稳定性
+    
+    锁定字段命名和枚举值，防止意外回退。
+    """
+    
+    def test_verification_plan_field_names(self):
+        """验证 verification_plan 使用规范字段名"""
+        from rdc_analyzer.main import AnalysisPipeline
+        import inspect
+        
+        # 获取 _build_suggestions 方法源码
+        source = inspect.getsource(AnalysisPipeline._build_suggestions)
+        
+        # === 禁止旧字段名 ===
+        assert "how_to_verify" not in source, \
+            "发现旧字段名 'how_to_verify'，应改为 'how_to_capture'"
+        
+        # === 必须使用新字段名 ===
+        assert "how_to_capture" in source, \
+            "缺少必需字段 'how_to_capture'"
+    
+    def test_expected_direction_enum_values(self):
+        """验证 expected_direction 使用规范枚举值"""
+        from rdc_analyzer.main import AnalysisPipeline
+        import inspect
+        import re
+        
+        source = inspect.getsource(AnalysisPipeline._build_suggestions)
+        source += inspect.getsource(AnalysisPipeline._create_suggestion_from_recommendation)
+        
+        # 提取所有 expected_direction 的值
+        pattern = r"'expected_direction':\s*'(\w+)'"
+        values = re.findall(pattern, source)
+        
+        # === 只允许 increase/decrease/unchanged ===
+        allowed = {'increase', 'decrease', 'unchanged'}
+        for val in values:
+            assert val in allowed, \
+                f"非法 expected_direction 值: '{val}'，只允许 {allowed}"
+        
+        # === 禁止旧值 'down'/'up' ===
+        assert 'down' not in values, \
+            "发现旧枚举值 'down'，应改为 'decrease'"
+        assert 'up' not in values, \
+            "发现旧枚举值 'up'，应改为 'increase'"
+    
+    def test_verification_plan_structure(self):
+        """验证 verification_plan 的完整结构"""
+        from unittest.mock import MagicMock, patch
+        from rdc_analyzer.main import AnalysisPipeline
+        
+        # 模拟一个有 issues 的 Pipeline
+        pipeline = MagicMock()
+        pipeline._issues = [{'code': 'BIND001', 'severity': 'warning', 'message': 'Test'}]
+        
+        suggestions = AnalysisPipeline._build_suggestions(pipeline)
+        
+        # 至少应生成一个建议
+        if len(suggestions) > 0:
+            suggestion = suggestions[0]
+            
+            # === 验证 verification_plan 结构 ===
+            assert 'verification_plan' in suggestion, "建议应包含 verification_plan"
+            vp = suggestion['verification_plan']
+            
+            # 必需字段
+            assert 'metrics' in vp, "verification_plan 应包含 metrics"
+            assert 'expected_direction' in vp, "verification_plan 应包含 expected_direction"
+            assert 'how_to_capture' in vp, "verification_plan 应包含 how_to_capture"
+            
+            # 类型校验
+            assert isinstance(vp['metrics'], list), "metrics 应为 list"
+            assert isinstance(vp['expected_direction'], str), "expected_direction 应为 str"
+            assert isinstance(vp['how_to_capture'], str), "how_to_capture 应为 str"
+
+
 if __name__ == '__main__':
     pytest.main([__file__, '-v'])

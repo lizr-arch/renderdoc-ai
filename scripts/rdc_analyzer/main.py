@@ -1525,8 +1525,8 @@ class AnalysisPipeline:
                     },
                     'verification_plan': {
                         'metrics': ['draw_call_count', 'batch_count'],
-                        'expected_direction': 'down',
-                        'how_to_verify': '抓取优化后的帧，对比 Draw Call 数量'
+                        'expected_direction': 'decrease',
+                        'how_to_capture': '抓取优化后的帧，对比 Draw Call 数量'
                     }
                 })
             
@@ -1556,8 +1556,8 @@ class AnalysisPipeline:
                     },
                     'verification_plan': {
                         'metrics': ['total_vertices', 'total_triangles'],
-                        'expected_direction': 'down',
-                        'how_to_verify': '对比优化前后的顶点/三角形数量'
+                        'expected_direction': 'decrease',
+                        'how_to_capture': '对比优化前后的顶点/三角形数量'
                     }
                 })
             
@@ -1587,8 +1587,8 @@ class AnalysisPipeline:
                     },
                     'verification_plan': {
                         'metrics': ['texture_memory_mb'],
-                        'expected_direction': 'down',
-                        'how_to_verify': '对比压缩前后的纹理内存占用'
+                        'expected_direction': 'decrease',
+                        'how_to_capture': '对比压缩前后的纹理内存占用'
                     }
                 })
             
@@ -1618,8 +1618,8 @@ class AnalysisPipeline:
                     },
                     'verification_plan': {
                         'metrics': ['texture_memory_mb', 'texture_count'],
-                        'expected_direction': 'down',
-                        'how_to_verify': '对比优化前后的纹理内存占用'
+                        'expected_direction': 'decrease',
+                        'how_to_capture': '对比优化前后的纹理内存占用'
                     }
                 })
         
@@ -1645,8 +1645,8 @@ class AnalysisPipeline:
                 'risk': '需要评估合并后的裁剪效率',
                 'verification_plan': {
                     'metrics': ['draw_call_count'],
-                    'expected_direction': 'down',
-                    'how_to_verify': '对比优化前后 Draw Call 数量'
+                    'expected_direction': 'decrease',
+                    'how_to_capture': '对比优化前后 Draw Call 数量'
                 }
             }
         
@@ -1665,8 +1665,8 @@ class AnalysisPipeline:
                 'risk': '可能轻微影响画质',
                 'verification_plan': {
                     'metrics': ['texture_memory_mb'],
-                    'expected_direction': 'down',
-                    'how_to_verify': '对比优化前后纹理内存'
+                    'expected_direction': 'decrease',
+                    'how_to_capture': '对比优化前后纹理内存'
                 }
             }
         
@@ -1685,8 +1685,8 @@ class AnalysisPipeline:
                 'risk': '可能影响画质',
                 'verification_plan': {
                     'metrics': ['texture_memory_mb'],
-                    'expected_direction': 'down',
-                    'how_to_verify': '对比优化前后纹理内存'
+                    'expected_direction': 'decrease',
+                    'how_to_capture': '对比优化前后纹理内存'
                 }
             }
         
@@ -1705,8 +1705,8 @@ class AnalysisPipeline:
             'risk': '需要具体评估',
             'verification_plan': {
                 'metrics': ['frame_time'],
-                'expected_direction': 'down',
-                'how_to_verify': '对比优化前后帧时间'
+                'expected_direction': 'decrease',
+                'how_to_capture': '对比优化前后帧时间'
             }
         }
     
