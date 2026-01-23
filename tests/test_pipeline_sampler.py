@@ -14,10 +14,10 @@ from typing import Any
 import sys
 import os
 
-# 添加项目路径
+# 添加项目路径（确保可直接导入 rdc_analyzer 包）
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'scripts'))
 
-from scripts.rdc_analyzer.extractors.pipeline_sampler import (
+from rdc_analyzer.extractors.pipeline_sampler import (
     PipelineSampler,
     PipelineSample,
     SamplingConfig,
@@ -25,7 +25,7 @@ from scripts.rdc_analyzer.extractors.pipeline_sampler import (
     SamplingStrategy,
     sample_pipeline_states,
 )
-from scripts.rdc_analyzer.core.pipeline_state import (
+from rdc_analyzer.core.pipeline_state import (
     DrawType,
     PrimitiveTopology,
 )
@@ -375,7 +375,7 @@ class TestSamplingResult:
     
     def test_to_dict(self):
         """测试转换为字典"""
-        from scripts.rdc_analyzer.core.pipeline_state import PipelineSnapshot
+        from rdc_analyzer.core.pipeline_state import PipelineSnapshot
         
         sample = PipelineSample(
             event_id=100,
@@ -404,7 +404,7 @@ class TestSamplingResult:
     
     def test_shader_signature(self):
         """测试着色器签名"""
-        from scripts.rdc_analyzer.core.pipeline_state import PipelineSnapshot
+        from rdc_analyzer.core.pipeline_state import PipelineSnapshot
         
         sample = PipelineSample(
             event_id=100,
@@ -425,7 +425,7 @@ class TestConvenienceFunction:
     
     def test_sample_pipeline_states_creates_sampler(self):
         """测试便捷函数创建采样器"""
-        with patch('scripts.rdc_analyzer.extractors.pipeline_sampler.PipelineSampler') as MockSampler:
+        with patch('rdc_analyzer.extractors.pipeline_sampler.PipelineSampler') as MockSampler:
             mock_instance = MagicMock()
             mock_instance.sample_from_events.return_value = SamplingResult()
             MockSampler.return_value = mock_instance

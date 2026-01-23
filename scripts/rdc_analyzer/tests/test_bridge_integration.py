@@ -11,25 +11,17 @@ Created: 2026-01-19
 """
 
 import sys
-import importlib.util
 from pathlib import Path
+
+import pytest
 
 # 项目根目录
 _project_root = Path(__file__).parent.parent
-sys.path.insert(0, str(_project_root))
 
-# 动态加载 parse_rdc_xml 模块（绕过包导入问题）
-spec = importlib.util.spec_from_file_location(
-    "parse_rdc_xml", 
-    _project_root / "parse_rdc_xml.py"
-)
-parse_module = importlib.util.module_from_spec(spec)
-spec.loader.exec_module(parse_module)
-parse_rdc_xml = parse_module.parse_rdc_xml
-
-# 直接导入 core 模块
-from core.bridge import XMLToContextBridge
-from core.context import AnalysisContext
+# 使用包内绝对导入，避免相对导入越界问题
+from rdc_analyzer.parse_rdc_xml import parse_rdc_xml
+from rdc_analyzer.core.bridge import XMLToContextBridge
+from rdc_analyzer.core.context import AnalysisContext
 
 
 def test_real_xml_file():
@@ -37,8 +29,7 @@ def test_real_xml_file():
     xml_file = _project_root / "g145_capture.xml"
     
     if not xml_file.exists():
-        print(f"[SKIP] Test file not found: {xml_file}")
-        return True
+        pytest.skip(f"Test file not found: {xml_file}")
     
     print(f"[INFO] Testing with: {xml_file}")
     
@@ -114,7 +105,7 @@ def test_real_xml_file():
         print(f"  Memory Size: {tex.memory_size:,} bytes")
     
     print("\n[PASS] test_real_xml_file")
-    return True
+    # Test passed - no return value needed
 
 
 def test_with_analyzer():
@@ -122,14 +113,12 @@ def test_with_analyzer():
     xml_file = _project_root / "g145_capture.xml"
     
     if not xml_file.exists():
-        print(f"[SKIP] Test file not found: {xml_file}")
-        return True
+        pytest.skip(f"Test file not found: {xml_file}")
     
     try:
-        from analyzers.performance_analyzer import PerformanceAnalyzer
+        from rdc_analyzer.analyzers.performance_analyzer import PerformanceAnalyzer
     except ImportError as e:
-        print(f"[SKIP] Cannot import PerformanceAnalyzer: {e}")
-        return True
+        pytest.skip(f"Cannot import PerformanceAnalyzer: {e}")
     
     # 解析和转换
     xml_data = parse_rdc_xml(str(xml_file))
@@ -143,8 +132,8 @@ def test_with_analyzer():
     report = context.performance_report
     print(f"\n--- Performance Report ---")
     print(f"  Issues: {len(report.issues)}")
-    print(f"  Warnings: {len(report.warnings)}")
-    print(f"  Suggestions: {len(report.suggestions)}")
+    print(f"  Warnings: {report.warning_count}")
+    print(f"  Suggestions: {len(report.recommendations)}")
     
     if report.issues:
         print(f"\n  Sample Issues:")
@@ -152,7 +141,7 @@ def test_with_analyzer():
             print(f"    - {issue}")
     
     print("\n[PASS] test_with_analyzer")
-    return True
+    # Test passed - no return value needed
 
 
 def run_all():

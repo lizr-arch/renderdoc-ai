@@ -59,3 +59,8 @@ __pycache__/
   
 # Local test configuration  
 tests/conftest_local.py 
+
+# Allow tracked tests under scripts/rdc_analyzer (override broad ignore)
+!scripts/rdc_analyzer/
+!scripts/rdc_analyzer/tests/
+!scripts/rdc_analyzer/tests/**/*.py
