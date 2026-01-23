@@ -28,6 +28,11 @@
 
 ## 2) 已存在的核心文档
 
+- `docs/analysis/codex_rdc_analyzer/2026-01-23-rdc-analyzer-continue2-report.md`  
+  WHAT：继续2综合报告（A/B/C 全覆盖）：源码级核对、重复/冗余清单、下一阶段最小闭环任务。  
+  WHY：在不写代码的前提下，把“现状/冲突/下一步”压缩为可执行清单，避免继续发散。  
+  HOW：基于 `rg -n` 小片段证据，逐条给出 WHAT/WHY/HOW，并按 P0/P1 排序。  
+
 - `docs/analysis/codex_rdc_analyzer/2026-01-23-rdc-analyzer-architecture-review.md`  
   WHAT：架构复审 + 目标功能横向对比 + A-first 缺口清单（含 P0 任务与测试点）。  
   WHY：把“功能已实现但入口/验证链断裂”的问题显性化，避免误判完成度。  
