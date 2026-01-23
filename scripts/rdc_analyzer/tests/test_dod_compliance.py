@@ -367,6 +367,26 @@ class TestDOD73DataQuality:
         assert coverage['details']['pipeline_state'] == 'partial', \
             f"50% 采样率应为 partial，实际为: {coverage['details']['pipeline_state']}"
 
+    def test_resource_lifecycle_partial_when_sampling_low(self):
+        """验证：资源生命周期在低采样率时应为 partial 而非 present"""
+        from unittest.mock import MagicMock
+        from rdc_analyzer.main import AnalysisPipeline
+
+        pipeline = MagicMock()
+        pipeline._events = [{'eventId': i} for i in range(10)]
+        pipeline._draw_calls = [{'eventId': i} for i in range(10)]
+        pipeline._resources = {'textures': {'tex1': {}}}
+        pipeline._pipeline_state_samples = 2  # 低采样率
+        pipeline._resource_lifecycle_tracked = True
+        pipeline._resource_samples = []
+        pipeline._mali_report = None
+        pipeline._performance_report = None
+
+        coverage = AnalysisPipeline._build_coverage_report(pipeline)
+
+        assert coverage['details']['resource_lifecycle'] == 'partial', \
+            f"低采样率时应为 partial，实际为: {coverage['details']['resource_lifecycle']}"
+
 
 class TestVerificationPlanSchema:
     """验证 verification_plan 字段的 schema 稳定性

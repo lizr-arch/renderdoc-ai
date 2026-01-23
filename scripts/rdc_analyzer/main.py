@@ -211,6 +211,7 @@ class AnalysisPipeline:
         self._pipeline_state_samples = 0  # 已采样的 draw call 数量
         self._resource_lifecycle_tracked = False  # 是否跟踪了资源生命周期
         self._pipeline_sampling_result = None  # PipelineSampler 结果
+        self._resource_lifetimes = {}  # ResourceTracker 结果
         
         # 配置日志级别
         log_level = getattr(logging, self.options.log_level.upper(), logging.INFO)
@@ -477,10 +478,42 @@ class AnalysisPipeline:
                 f"{result.sampled_count}/{result.total_candidates} 个事件, "
                 f"{result.unique_shaders} 个唯一 Shader 组合"
             )
+
+            # 基于采样结果追踪资源生命周期
+            self._track_resource_lifetimes_from_samples()
             
         except Exception as e:
             logger.warning(f"Pipeline State 采样失败: {e}")
             self._pipeline_sampling_result = None
+
+    def _track_resource_lifetimes_from_samples(self):
+        """基于 PipelineSampler 的样本追踪资源生命周期"""
+        if not self._pipeline_sampling_result or not self._pipeline_sampling_result.samples:
+            return
+
+        try:
+            from .analysis.resource_tracker import ResourceTracker
+            from .core.pipeline_state import DrawCallDetail
+
+            tracker = ResourceTracker()
+            for sample in self._pipeline_sampling_result.samples:
+                draw = DrawCallDetail(
+                    event_id=sample.event_id,
+                    name=sample.name,
+                    draw_type=sample.draw_type,
+                    vertex_count=sample.vertex_count,
+                    index_count=sample.index_count,
+                    instance_count=sample.instance_count,
+                    pipeline=sample.snapshot,
+                )
+                tracker.process(draw)
+
+            lifetimes = tracker.get_resource_lifetimes()
+            if lifetimes:
+                self._resource_lifetimes = lifetimes
+                self._resource_lifecycle_tracked = True
+        except Exception as e:
+            logger.warning(f"资源生命周期追踪失败: {e}")
     
     def _analyze_rules(self):
         """运行规则分析"""
@@ -1253,12 +1286,15 @@ class AnalysisPipeline:
             )
             draw_call_details.append(detail)
         
-        # 资源生命周期 - 使用真实的 ResourceLifetime 类
-        # 注意: 访问信息标记为 "estimated"，因为我们没有真实的追踪数据
+        # 资源生命周期 - 优先使用 ResourceTracker 结果
         resource_lifetimes_dict = {}
-        num_events = len(self._events) if self._events else 1
+        if self._resource_lifetimes:
+            resource_lifetimes_dict = dict(self._resource_lifetimes)
         
+        # 对未追踪到的资源补充估算占位（保持报告完整性）
         for tex_id, tex_info in self._resources.get('textures', {}).items():
+            if tex_id in resource_lifetimes_dict:
+                continue
             lifetime = ResourceLifetime(
                 resource_id=tex_id,
                 resource_name=tex_info.get('name', f'Texture_{tex_id}'),
@@ -1268,15 +1304,15 @@ class AnalysisPipeline:
                 height=tex_info.get('height', 0),
                 depth=tex_info.get('depth', 1),
             )
-            # 标记为估算值，而非伪造精确数据
-            # first/last_access_event = None 表示未知，-1 表示估算
-            lifetime.first_access_event = -1  # 标记为估算
-            lifetime.last_access_event = -1   # 标记为估算
-            lifetime.read_count = -1          # -1 表示未追踪
-            lifetime._data_status = 'estimated'  # 添加状态标记
+            lifetime.first_access_event = -1  # 估算
+            lifetime.last_access_event = -1
+            lifetime.read_count = -1
+            lifetime._data_status = 'estimated'
             resource_lifetimes_dict[tex_id] = lifetime
         
         for buf_id, buf_info in self._resources.get('buffers', {}).items():
+            if buf_id in resource_lifetimes_dict:
+                continue
             lifetime = ResourceLifetime(
                 resource_id=buf_id,
                 resource_name=buf_info.get('name', f'Buffer_{buf_id}'),
@@ -1448,7 +1484,18 @@ class AnalysisPipeline:
         
         # === 6. 检查资源生命周期 ===
         if self._resource_lifecycle_tracked:
-            coverage['details']['resource_lifecycle'] = 'present'
+            # 根据采样覆盖率标记 present/partial
+            if total_draws > 0 and sampled_draws > 0:
+                sample_ratio = sampled_draws / total_draws
+                if sample_ratio >= 0.9:
+                    coverage['details']['resource_lifecycle'] = 'present'
+                else:
+                    coverage['details']['resource_lifecycle'] = 'partial'
+                    coverage['confidence_reasons'].append(
+                        f'资源生命周期采样不足: {sample_ratio*100:.1f}% ({sampled_draws}/{total_draws})'
+                    )
+            else:
+                coverage['details']['resource_lifecycle'] = 'present'
         else:
             # 如果有资源采样数据，视为部分可用
             if self._resource_samples:

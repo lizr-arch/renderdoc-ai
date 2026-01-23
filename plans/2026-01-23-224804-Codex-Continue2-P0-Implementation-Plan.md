@@ -94,11 +94,11 @@ diff = DiffEngine().compare(baseline_json, target_json)
 - [x] 提交：`feat(rdc-analyzer): unify canonical schema for analyze/compare`
 
 ### P0-2 真实数据链接入
-- [ ] 写失败测试：pipeline_state/resource_lifecycle 不再为 `estimated`  
-- [ ] 运行失败测试  
-- [ ] 最小实现：接入 ReplayWrapper/ResourceTracker  
-- [ ] 运行测试：`py -3 -m pytest -q -rs`  
-- [ ] 提交：`feat(rdc-analyzer): wire replay-backed state into pipeline`
+- [x] 写失败测试：pipeline_state/resource_lifecycle 不再为 `estimated`  
+- [x] 运行失败测试  
+- [x] 最小实现：接入 ReplayWrapper/ResourceTracker  
+- [x] 运行测试：`py -3 -m pytest -q -rs`  
+- [x] 提交：`feat(rdc-analyzer): wire replay-backed state into pipeline`
 
 ### P0-3 规则输出统一
 - [ ] 写失败测试：RuleRunner 输出能被 canonicalize  
