@@ -87,11 +87,11 @@ diff = DiffEngine().compare(baseline_json, target_json)
 ## Task Checklist（2-5 分钟粒度，含 TDD）
 
 ### P0-1 Canonical Schema 统一
-- [ ] 写失败测试：compare 读取 `analysis.json` 不再触发 Phase1 分支  
-- [ ] 运行失败测试（确认失败原因）  
-- [ ] 最小实现：输出统一字段并移除 Phase1 兼容分支  
-- [ ] 运行测试：`py -3 -m pytest -q -rs`  
-- [ ] 提交：`feat(rdc-analyzer): unify canonical schema for analyze/compare`
+- [x] 写失败测试：compare 读取 `analysis.json` 不再触发 Phase1 分支  
+- [x] 运行失败测试（确认失败原因）  
+- [x] 最小实现：输出统一字段并移除 Phase1 兼容分支  
+- [x] 运行测试：`py -3 -m pytest -q -rs`  
+- [x] 提交：`feat(rdc-analyzer): unify canonical schema for analyze/compare`
 
 ### P0-2 真实数据链接入
 - [ ] 写失败测试：pipeline_state/resource_lifecycle 不再为 `estimated`  

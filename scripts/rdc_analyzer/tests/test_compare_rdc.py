@@ -123,6 +123,15 @@ class TestLoadJsonData:
         with pytest.raises(json.JSONDecodeError):
             load_json_data(str(path))
 
+    def test_phase1_list_rejected(self, tmp_path):
+        """Phase1 列表格式已弃用，应明确报错"""
+        path = tmp_path / "phase1.json"
+        with open(path, 'w', encoding='utf-8') as f:
+            json.dump([{"summary": {"draw_call_count": 1}}], f)
+
+        with pytest.raises(ValueError):
+            load_json_data(str(path))
+
 
 # ========== run_comparison 测试 ==========
 

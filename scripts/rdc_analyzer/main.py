@@ -1054,7 +1054,84 @@ class AnalysisPipeline:
         
         # 将 issues 转换为 CanonicalIssue 格式 (DoD 7.4)
         canonical_issues = self._canonicalize_issues()
+
+        # === Canonical Compare Schema 关键字段 ===
+        textures_list = []
+        for tex_id, tex_info in self._resources.get('textures', {}).items():
+            width = tex_info.get('width', 0)
+            height = tex_info.get('height', 0)
+            depth = tex_info.get('depth', 1)
+            mip_levels = tex_info.get('mips', tex_info.get('mipLevels', 1))
+            array_size = tex_info.get('arraysize', tex_info.get('arraySize', 1))
+            fmt = str(tex_info.get('format', '')).upper()
+
+            # 估算纹理内存（与 DiffEngine 对齐）
+            bpp = 4
+            if 'BC' in fmt or 'DXT' in fmt:
+                bpp = 1
+            elif 'R32G32B32A32' in fmt:
+                bpp = 16
+            elif 'R16G16B16A16' in fmt:
+                bpp = 8
+            base = width * height * depth * bpp
+            if mip_levels and mip_levels > 1:
+                base = int(base * 1.33)
+            memory_size = base * (array_size or 1)
+
+            textures_list.append({
+                "resourceId": str(tex_info.get('id', tex_id)),
+                "name": tex_info.get('name', f"Texture_{tex_id}"),
+                "width": width,
+                "height": height,
+                "depth": depth,
+                "format": tex_info.get('format', ''),
+                "mipLevels": mip_levels or 1,
+                "arraySize": array_size or 1,
+                "memorySize": memory_size,
+            })
+
+        buffers_list = []
+        for buf_id, buf_info in self._resources.get('buffers', {}).items():
+            buffers_list.append({
+                "resourceId": str(buf_info.get('id', buf_id)),
+                "name": buf_info.get('name', f"Buffer_{buf_id}"),
+                "size": buf_info.get('length', buf_info.get('size', 0)),
+                "usage": buf_info.get('usage', ''),
+            })
+
+        shaders_list = []
+        if self._mali_report and self._mali_report.get('shaders'):
+            for shader in self._mali_report.get('shaders', []):
+                name = shader.get('name', '')
+                shader_type = shader.get('type', '')
+                resource_id = shader.get('resourceId') or shader.get('hash') or name
+                shaders_list.append({
+                    "resourceId": str(resource_id),
+                    "name": name,
+                    "type": shader_type,
+                })
+
+        draw_calls_list = []
+        for dc in self._draw_calls:
+            draw_calls_list.append({
+                "eventId": dc.get('eventId', 0),
+                "name": dc.get('name', ''),
+                "indexCount": dc.get('numIndices', dc.get('indexCount', 0)) or 0,
+                "vertexCount": dc.get('numVerts', dc.get('vertexCount', 0)) or 0,
+                "instanceCount": dc.get('numInstances', dc.get('instanceCount', 1)) or 1,
+                "flags": dc.get('flags', 0),
+            })
         
+        total_triangles = sum(
+            ((dc.get('numIndices', 0) or dc.get('numVerts', 0)) // 3) *
+            (dc.get('numInstances', 1) or 1)
+            for dc in self._draw_calls
+        )
+        pipeline_count = self._pipeline_sampling_result.sampled_count if self._pipeline_sampling_result else 0
+        shader_count = len(shaders_list)
+        if shader_count == 0 and self._pipeline_sampling_result:
+            shader_count = self._pipeline_sampling_result.unique_shaders
+
         # 准备分析数据 - Canonical Schema v1.0
         analysis_data = {
             'schema_version': '1.0',
@@ -1071,17 +1148,36 @@ class AnalysisPipeline:
                 'draw_call_count': len(self._draw_calls),
                 'dispatch_count': sum(1 for e in self._events if 'Dispatch' in str(e.get('name', ''))),
                 'total_vertices': total_vertices,
+                'total_triangles': total_triangles,
                 'total_instances': total_instances,
-                'texture_count': len(self._resources.get('textures', {})),
-                'buffer_count': len(self._resources.get('buffers', {})),
+                'texture_count': len(textures_list),
+                'buffer_count': len(buffers_list),
+                'shader_count': shader_count,
                 'texture_memory_mb': round(texture_memory_bytes / (1024 * 1024), 2),
                 'buffer_memory_mb': round(buffer_memory_bytes / (1024 * 1024), 2),
                 'issue_count': len(self._issues),
-                'suggestion_count': len(suggestions)
+                'suggestion_count': len(suggestions),
+                'pipeline_count': pipeline_count,
+                'driver': 'Unknown',
+                'gpu_core': (self._mali_report.get('gpu_name') if self._mali_report else self.options.mali_gpu),
+            },
+            'statistics': {
+                'totalDrawCalls': len(draw_calls_list),
+                'totalVertices': total_vertices,
+                'totalTriangles': total_triangles,
+                'dispatchCalls': sum(1 for e in self._events if 'Dispatch' in str(e.get('name', ''))),
+                'textureCount': len(textures_list),
+                'shaderCount': shader_count,
+                'bufferCount': len(buffers_list),
+                'shaderChanges': 0,
+                'renderTargetSwitches': 0,
             },
             'coverage': coverage,
             'events': self._events[:1000],  # 限制大小
-            'draw_calls': self._draw_calls,
+            'draw_calls': draw_calls_list,
+            'textures': textures_list,
+            'shaders': shaders_list,
+            'buffers': buffers_list,
             'resources': self._resources,
             'resource_samples': self._resource_samples,
             'pipeline_samples': (
