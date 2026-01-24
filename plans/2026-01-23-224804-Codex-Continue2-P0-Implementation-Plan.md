@@ -147,6 +147,11 @@ diff = DiffEngine().compare(baseline_json, target_json)
 - [x] 生成 RULES.md：运行生成脚本写入最新内容  
 - [x] 提交：`docs(rdc-analyzer): auto-generate RULES.md from code`
 
+### P1-4 README 补充 RULES 生成说明
+- [x] 增加规则文档生成说明与推荐命令  
+- [x] 保留来源限定（rules/*.py + thresholds.py）  
+- [x] 提交：`docs(rdc-analyzer): document RULES.md generation`
+
 ---
 
 **Approval:** WAIT for user confirmation before entering /do.

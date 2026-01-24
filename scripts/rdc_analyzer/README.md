@@ -125,6 +125,27 @@ py -3 -m rdc_analyzer audit CAPTURE [OPTIONS]
 
 ---
 
+## 📚 规则文档（自动生成）
+
+`RULES.md` 由代码自动生成，避免手工文档漂移。来源仅包含：
+- `rules/*.py`（RuleRegistry 注册的规则）
+- `config/thresholds.py`（平台阈值）
+
+生成命令：
+
+```bash
+# 推荐：一次性执行（无需安装额外依赖）
+py -3 -c "import sys; sys.path.insert(0, 'D:/Code/git/renderdoc/scripts'); import rdc_analyzer.scripts.generate_rules_doc as g; sys.argv=['generate_rules_doc.py','--write']; raise SystemExit(g.main())"
+```
+
+若已设置 `PYTHONPATH=D:/Code/git/renderdoc/scripts`，可直接运行：
+
+```bash
+py -3 -m rdc_analyzer.scripts.generate_rules_doc --write
+```
+
+---
+
 ## 🔧 CI/CD 集成
 
 ### GitHub Actions 示例
