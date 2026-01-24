@@ -12,6 +12,7 @@
 ## Repo / File List
 - New (repo):
   - `docs/analysis/rdoc_quick_capture_python.md` (integration guide)
+  - `scripts/rdoc_quick_capture/rdoc_inprocess_capture.py` (Python helper mirror)
 - New (external, game package):
   - `F:\Code\S1\Package\rdoc_quick_capture\rdoc_inprocess_capture.py` (Python helper)
 - Reference:
@@ -113,8 +114,8 @@ class RenderDocInProcess:
 ## Action Items (2-5 min granularity)
 - [x] Add in-game Python helper at `F:\Code\S1\Package\rdoc_quick_capture\rdoc_inprocess_capture.py` (fixed syntax + version fallback).
 - [x] Add `docs/analysis/rdoc_quick_capture_python.md` with integration steps and troubleshooting (content verified, UTF-8).
+- [x] Mirror helper into repo for versioning.
 - [ ] Verify the script in-game: call `RenderDocInProcess(...).trigger_capture()` in target UI.
-- [ ] Optional: mirror helper into repo for versioning (if you want it tracked).
 
 ## Risks & Blockers
 - `renderdoc.dll` not loadable in-process (path or access issue).
