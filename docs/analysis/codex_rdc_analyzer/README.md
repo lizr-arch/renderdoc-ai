@@ -7,6 +7,20 @@
 
 ---
 
+## 0) WORK_SUMMARY 索引（新）
+
+> 说明：`WORK_SUMMARY_2025-01-21.md` 已改为**索引页**，用于汇总 5 份主题文档。
+
+- 索引入口：`docs/analysis/codex_rdc_analyzer/WORK_SUMMARY_2025-01-21.md`
+- 主题文档：
+  1) `docs/analysis/codex_rdc_analyzer/WORK_SUMMARY_ARCH.md`
+  2) `docs/analysis/codex_rdc_analyzer/WORK_SUMMARY_ROUTES.md`
+  3) `docs/analysis/codex_rdc_analyzer/WORK_SUMMARY_SCHEMA.md`
+  4) `docs/analysis/codex_rdc_analyzer/WORK_SUMMARY_VERIFICATION.md`
+  5) `docs/analysis/codex_rdc_analyzer/WORK_SUMMARY_ROADMAP.md`
+
+---
+
 ## 1) 建议阅读顺序（按你关心的问题）
 
 1. **我现在做到了什么？值不值？下一步先做什么？**  
@@ -108,3 +122,130 @@
 - 结论必须能落到：  
   - 目标 1：单个 RDC 的“极致性能分析 + 建议”  
   - 目标 2：两个 RDC 的“全方位对比 + 结论”
+---
+
+## 4) 补充功能清单（来自 MD/源码扫描）
+
+> 每个功能 **WHAT / WHY / HOW**，写在本节内。
+
+### 4.1 RDC -> HTML 一键转换
+
+- WHAT：提供 `rdc_to_html.py` 将 .rdc 直接转换为 HTML 报告（含 RenderDoc Shell 用法）。
+- WHY：这是“单个 RDC 快速可视化”的最短路径，直接支撑核心目标 1。
+- HOW：
+  - CLI：`py -3 scripts/rdc_analyzer/rdc_to_html.py <rdc> -o <report.html>`
+  - RenderDoc Shell：`rdc_to_html_from_context(pyrenderdoc)`
+
+### 4.2 Mali Shader 性能分析
+
+- WHAT：使用 Mali Offline Compiler 对 .rdc 中 shader 做性能估算。
+- WHY：移动端 GPU 是你的核心场景，Shader 瓶颈是高频问题源。
+- HOW：`analyze_rdc.py` + `mali_analyzer.py` + `USAGE_MALI_ANALYZER.md`。
+
+### 4.3 XML -> HTML 离线路径
+
+- WHAT：用 RenderDoc 导出的 XML 生成 HTML 报告。
+- WHY：缺少 renderdoc Python 模块时，XML 路径可作为离线替代方案。
+- HOW：`py -3 analyze_xml_report.py capture.xml -o report.html`。
+
+### 4.4 Diff / Regression + HTML 对比
+
+- WHAT：diff 引擎 + regression detector + 对比 HTML 导出。
+- WHY：直接支撑核心目标 2（双 RDC 全方位对比 + 结论）。
+- HOW：`generate_diff_report.py` + `diff/diff_engine.py` + `diff/regression_detector.py`。
+
+### 4.5 HTML 导出层与离线报告
+
+- WHAT：HTML exporter / offline report 生成链路。
+- WHY：报告模板与渲染逻辑是交付可视化结果的基础资产。
+- HOW：`exporters/html_exporter.py` / `generate_offline_report.py`。
+
+### 4.6 纹理浏览 UI：搜索 / 筛选 / 排序
+
+- WHAT：纹理搜索、筛选、排序能力。
+- WHY：缩短“定位异常纹理”的时间，是单帧分析效率提升的核心体验点。
+- HOW：见 `docs/MILESTONE_SUMMARY.md` 的 UI 功能条目与说明。
+
+---
+
+## 5) RDC -> HTML 实测（g145.rdc）
+
+- WHAT：将 `D:\renderdoc\goog pixel-9\g145.rdc` 生成 HTML 报告。
+- WHY：验证真实 RDC 的“快速查看 + HTML 展示”能力。
+- HOW：
+  - 已尝试：`py -3 scripts/rdc_analyzer/rdc_to_html.py g145.rdc -o g145_report.html`
+  - 结果：本机 Python 环境缺少 `renderdoc` 模块，无法直接运行 CLI 模式。
+  - 追加尝试：设置 `PYTHONPATH=D:\Code\git\renderdoc\x64\Development\pymodules` 且 PATH 指向 `x64\Development` 后仍提示缺少 `renderdoc` 模块。
+  - 推荐：在 RenderDoc UI 的 Python Shell 中执行：
+    - `exec(open(r"D:\Code\git\renderdoc\scripts\rdc_analyzer\rdc_to_html.py").read())`
+    - `rdc_to_html_from_context(pyrenderdoc)`
+  - 离线路径（已执行）：使用已导出的 `g145_capture.xml` 生成 HTML 成功。
+    - 命令：`py -3 scripts/rdc_analyzer/analyze_xml_report.py g145_capture.xml -o D:\renderdoc\goog pixel-9\g145_report.html`
+    - 输出：`D:\renderdoc\goog pixel-9\g145_report.html`（已生成）
+    - 关键结果：180 events / 136 draw calls / 100 textures / Score 41.0/100
+    - 重新导出（XML→HTML，2026-01-24）：`D:\renderdoc\goog pixel-9\g145_report_reexport.html`
+    - 重新导出命令：`py -3 scripts/rdc_analyzer/analyze_xml_report.py g145_capture.xml -o D:\renderdoc\goog pixel-9\g145_report_reexport.html`
+    - 验证点（已通过）：
+      - HTML 文件存在且 > 0 字节
+      - HTML 包含 `<!DOCTYPE html>`
+      - 输出统计与脚本日志一致（events/draw calls/textures/score）
+
+---
+
+## 6) 结构图：主链路 / 辅助链路
+
+```
+RDC (.rdc)
+  ├─ rdc_to_html.py ───────────────> HTML report
+  ├─ analyze_rdc.py ───────────────> JSON + HTML (Mali Shader)
+  ├─ export_textures.py ─┐
+  │                     └─ generate_offline_report.py ─> HTML
+  └─ (RenderDoc XML) -> analyze_xml_report.py ────────> HTML
+
+Compare (A/B)
+  JSON A + JSON B ──> diff_engine / regression_detector ──> diff.html
+```
+
+- 主链路（核心目标直达）：`rdc_to_html.py` / `analyze_rdc.py` / `generate_diff_report.py`
+- 辅助链路（兜底 / 离线 / 批量）：XML->HTML / offline export / batch analyze
+
+
+---
+
+## 5.1 首次拿到 RDC 的流程（按“export / compile”两条路）
+
+- WHAT：第一次拿到 .rdc 时的标准处理流程（两条路径可选）。
+- WHY：保证“首次拿到就能出 HTML 报告”，并与文档里写的“export/编译”保持一致。
+- HOW：
+  - 路线 A（export 路线，当前已验证可用）
+    1) 获取 XML（来自 RenderDoc UI 导出或你们现有的导出脚本/流程）
+    2) 运行 `analyze_xml_report.py` 生成 HTML
+    3) 产物就是 HTML 报告（本次 g145 已通过该路线生成）
+  - 路线 B（compile 路线，直接 .rdc → HTML）
+    1) 编译 RenderDoc，产出 `renderdoc.pyd` 及其依赖 DLL
+    2) 设置 `PYTHONPATH` 指向 `pymodules`
+    3) 运行 `rdc_to_html.py` 直接从 .rdc 生成 HTML
+    4) 该路线目前在本机尚未可用（renderdoc 模块导入失败，原因是 DLL 依赖/版本匹配问题）
+
+
+---
+
+## 7) 导出阻塞说明（export/compile）
+
+- WHAT：当前“程序化导出”链路的阻塞点说明
+- WHY：解释为何无法直接从 .rdc 进行 export（路线 C / compile 路线）
+- HOW：
+  - 系统安装版 `renderdoccmd.exe` 不包含 `export` 命令（无法程序化导出）
+  - 源码版编译 `renderdoccmd` 失败：缺少 `D:\util\WindowsSDKTarget.props`
+
+
+---
+
+## 7.1 renderdoccmd --export-xml 线索说明
+
+- WHAT：说明 `renderdoccmd --export-xml` 的实现线索与缺失情况
+- WHY：解释 XML 产出为何无法在当前源码中复现
+- HOW：
+  - `scripts/rdc_analyzer/analyze_xml_report.py` 文档提示 `renderdoccmd capture.rdc --export-xml capture.xml`
+  - 当前源码 `renderdoccmd/renderdoccmd.cpp` 中未发现 `--export-xml` 选项实现（仅支持纹理/metadata/bindings 导出）
+  - 结论：XML 可能来自历史分支或外部定制版 renderdoccmd 的程序化导出

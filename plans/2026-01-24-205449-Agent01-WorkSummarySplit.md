@@ -79,6 +79,7 @@ verify line counts < 800 for each doc
 - [x] 4. 将 WORK_SUMMARY 改为索引页（含阅读顺序 + 文档职责）。
 - [x] 5. 补充 “RDC→XML→HTML” 流程到 ROUTES 文档。
 - [x] 6. 行数统计与索引校验（<800 行 / 索引链接存在）。
+- [x] 7. 更新 `docs/analysis/codex_rdc_analyzer/README.md` 指向新索引结构。
 
 # Risks & Blockers
 - 需要保证所有 WHAT/WHY/HOW 结构在迁移后仍可被检索。
