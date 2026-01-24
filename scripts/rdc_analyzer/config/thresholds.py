@@ -230,3 +230,30 @@ def get_thresholds(platform: str = "pc") -> Dict[str, Any]:
         return LOW_END_THRESHOLDS.copy()
     else:
         return DEFAULT_THRESHOLDS.copy()
+
+
+def _default_source_entry(key: str) -> Dict[str, str]:
+    return {
+        "source": "Internal baseline (2025-01)",
+        "rationale": f"Baseline threshold for {key}",
+        "last_reviewed": "2026-01-24",
+    }
+
+
+THRESHOLD_SOURCE_OVERRIDES: Dict[str, Dict[str, str]] = {}
+
+
+def get_threshold_sources(platform: str = "pc") -> Dict[str, Dict[str, str]]:
+    """
+    获取阈值标准来源映射
+
+    Args:
+        platform: 平台名称 ("pc", "mobile", "low_end")
+
+    Returns:
+        阈值键 -> 来源信息 字典
+    """
+    thresholds = get_thresholds(platform)
+    sources = {key: _default_source_entry(key) for key in thresholds.keys()}
+    sources.update(THRESHOLD_SOURCE_OVERRIDES)
+    return sources
