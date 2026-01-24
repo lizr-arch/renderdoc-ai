@@ -128,6 +128,13 @@ diff = DiffEngine().compare(baseline_json, target_json)
 - [x] 运行测试：`py -3 -m pytest -q -rs`  
 - [x] 提交：`fix(rdc-analyzer): ensure thresholds are always injected`
 
+### P1-1 thresholds schema 对齐（规则键别名）
+- [x] 写失败测试：get_thresholds 暴露规则所需键  
+- [x] 运行失败测试  
+- [x] 最小实现：阈值别名映射 + 缺省键补齐  
+- [x] 运行测试：`py -3 -m pytest -q -rs`  
+- [x] 提交：`fix(rdc-analyzer): align rule threshold schema`
+
 ---
 
 **Approval:** WAIT for user confirmation before entering /do.

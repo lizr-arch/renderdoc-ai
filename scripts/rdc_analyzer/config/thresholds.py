@@ -8,6 +8,58 @@
 from typing import Dict, Any
 
 
+_ALIAS_KEYS = {
+    # Draw Call
+    "draw_call_count": "max_draw_calls",
+    "min_vertices_per_draw": "small_draw_vertex_threshold",
+    "instancing_threshold": "instancing_suggestion_threshold",
+    # Texture
+    "max_texture_memory_mb": "large_texture_threshold_mb",
+    "mipmap_required_size": "mipmap_required_min_size",
+    # Buffer
+    "max_buffer_size_mb": "large_buffer_threshold_mb",
+    "max_buffer_updates": "dynamic_buffer_update_threshold",
+    # Render Target
+    "max_rt_switches": "max_rt_changes",
+    # State
+    "max_blend_changes": "max_blend_state_changes",
+}
+
+_ALIAS_DEFAULTS = {
+    # Draw Call
+    "max_vertices_per_draw": 100000,
+    # Texture
+    "max_texture_size": 2048,
+    "compression_required_size": 512,
+    "texture_array_threshold": 8,
+    # Buffer
+    "max_vertex_stride": 64,
+    # State
+    "max_depth_changes": 200,
+    "max_rasterizer_changes": 200,
+    "max_blend_draws": 200,
+    # Render Pass
+    "depth_prepass_threshold": 500,
+    "max_shadowmap_size": 4096,
+    # Mobile-only rules
+    "mobile_max_overdraw": 3.0,
+    "mobile_texture_size": 1024,
+    "mobile_max_alpha_test": 50,
+}
+
+
+def _apply_threshold_aliases(thresholds: Dict[str, Any]) -> Dict[str, Any]:
+    """补齐规则别名阈值，避免规则读取不到配置值。"""
+    for alias, target in _ALIAS_KEYS.items():
+        if alias not in thresholds and target in thresholds:
+            thresholds[alias] = thresholds[target]
+
+    for key, value in _ALIAS_DEFAULTS.items():
+        thresholds.setdefault(key, value)
+
+    return thresholds
+
+
 # PC 平台默认阈值
 DEFAULT_THRESHOLDS: Dict[str, Any] = {
     # ==================== Draw Call 规则 ====================
@@ -154,6 +206,10 @@ LOW_END_THRESHOLDS: Dict[str, Any] = {
     "max_pass_count": 10,
     "max_frame_memory_mb": 256.0,
 }
+
+DEFAULT_THRESHOLDS = _apply_threshold_aliases(DEFAULT_THRESHOLDS)
+MOBILE_THRESHOLDS = _apply_threshold_aliases(MOBILE_THRESHOLDS)
+LOW_END_THRESHOLDS = _apply_threshold_aliases(LOW_END_THRESHOLDS)
 
 
 def get_thresholds(platform: str = "pc") -> Dict[str, Any]:
