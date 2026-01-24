@@ -141,6 +141,12 @@ diff = DiffEngine().compare(baseline_json, target_json)
 - [x] 确认文档 < 800 行  
 - [x] 提交：`docs(rdc-analyzer): align RULES.md with threshold config`
 
+### P1-3 RULES.md 自动生成 + 生成器测试
+- [x] 写测试覆盖：规则清单/阈值映射/行数上限  
+- [x] 运行测试：`py -3 -m pytest -q -rs tests/test_rules_doc_generator.py`（通过）  
+- [x] 生成 RULES.md：运行生成脚本写入最新内容  
+- [x] 提交：`docs(rdc-analyzer): auto-generate RULES.md from code`
+
 ---
 
 **Approval:** WAIT for user confirmation before entering /do.
