@@ -10,9 +10,10 @@
 - `renderdoc.dll` is accessible to the process (either already loaded or loadable by path).
 
 ## Repo / File List
-- New:
-  - `scripts/rdoc_quick_capture/rdoc_inprocess_capture.py` (Python helper)
+- New (repo):
   - `docs/analysis/rdoc_quick_capture_python.md` (integration guide)
+- New (external, game package):
+  - `F:\Code\S1\Package\rdoc_quick_capture\rdoc_inprocess_capture.py` (Python helper)
 - Reference:
   - `renderdoc/api/app/renderdoc_app.h:622` — `RENDERDOC_API_1_6_0` layout
   - `renderdoc/api/app/renderdoc_app.h:509` — `pRENDERDOC_TriggerCapture`
@@ -110,10 +111,10 @@ class RenderDocInProcess:
 - DX11-specific device pointers are not required because we use `TriggerCapture()`.
 
 ## Action Items (2-5 min granularity)
-- [x] Add in-game Python helper at `F:\Code\S1\Package\rdoc_quick_capture\rdoc_inprocess_capture.py`.
-- [x] Add `docs/analysis/rdoc_quick_capture_python.md` with integration steps and troubleshooting.
+- [x] Add in-game Python helper at `F:\Code\S1\Package\rdoc_quick_capture\rdoc_inprocess_capture.py` (fixed syntax + version fallback).
+- [x] Add `docs/analysis/rdoc_quick_capture_python.md` with integration steps and troubleshooting (already committed in repo).
 - [ ] Verify the script in-game: call `RenderDocInProcess(...).trigger_capture()` in target UI.
-- [ ] Commit helper + doc separately (Conventional Commits).
+- [ ] Optional: mirror helper into repo for versioning (if you want it tracked).
 
 ## Risks & Blockers
 - `renderdoc.dll` not loadable in-process (path or access issue).
@@ -124,7 +125,7 @@ class RenderDocInProcess:
 - The `.rdc` opens in RenderDoc and shows the captured frame.
 
 ## Open Questions
-- Where do you prefer to place the Python file inside the game’s script path?
+- Placement confirmed: `F:\Code\S1\Package`.
 
 ## Next Steps
-- Await `/do` approval to create the helper + doc in repo.
+- Run in-game verification on target UI and confirm `.rdc` output path.
