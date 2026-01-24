@@ -135,6 +135,12 @@ diff = DiffEngine().compare(baseline_json, target_json)
 - [x] 运行测试：`py -3 -m pytest -q -rs`  
 - [x] 提交：`fix(rdc-analyzer): align rule threshold schema`
 
+### P1-2 RULES.md 阈值口径对齐
+- [x] 梳理 rules/*.py 与 thresholds.py 的阈值来源  
+- [x] 同步 RULES.md 阈值与触发条件  
+- [x] 确认文档 < 800 行  
+- [x] 提交：`docs(rdc-analyzer): align RULES.md with threshold config`
+
 ---
 
 **Approval:** WAIT for user confirmation before entering /do.

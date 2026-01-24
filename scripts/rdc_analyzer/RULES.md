@@ -28,14 +28,16 @@
 - **严重程度**: ℹ️ INFO
 - **平台**: 全平台
 - **描述**: 检测顶点数过少的 Draw Call，建议合批
-- **阈值**: 顶点数 < 100
+- **阈值**:
+  - PC: 顶点数 < 100
+  - Mobile: 顶点数 < 50
 - **建议**: 合并小型网格，使用 Static/Dynamic Batching
 
 ### RD_DC_003: Non-Instanced Draw
 - **严重程度**: ⚠️ WARNING
 - **平台**: 全平台
 - **描述**: 检测重复绘制相同网格但未使用 Instancing
-- **阈值**: 相同网格绘制 > 10 次
+- **阈值**: 相同网格绘制 >= 50 次
 - **建议**: 启用 GPU Instancing
 
 ### RD_DC_004: Empty Draw Call
@@ -66,16 +68,18 @@
 - **严重程度**: ⚠️ WARNING
 - **平台**: 全平台
 - **描述**: 检测单张纹理内存占用过大
-- **阈值**: 
-  - PC: 64 MB
-  - Mobile: 16 MB
+- **阈值**:
+  - PC: 16 MB
+  - Mobile: 4 MB
 - **建议**: 使用压缩格式 (BC/ASTC/ETC)
 
 ### RD_TEX_003: Missing Mipmap
 - **严重程度**: ⚠️ WARNING
 - **平台**: 全平台
 - **描述**: 检测 256+ 尺寸的纹理缺少 Mipmap
-- **阈值**: 纹理尺寸 >= 256
+- **阈值**:
+  - PC: 纹理尺寸 >= 256
+  - Mobile: 纹理尺寸 >= 128
 - **建议**: 为非 UI 纹理生成 Mipmap
 
 ### RD_TEX_004: Uncompressed Texture
@@ -95,7 +99,7 @@
 - **严重程度**: ℹ️ INFO
 - **平台**: 全平台
 - **描述**: 检测相同尺寸格式的纹理，建议使用 Texture Array
-- **阈值**: >= 4 张相同规格纹理
+- **阈值**: >= 8 张相同规格纹理
 - **建议**: 使用 Texture2DArray 减少绑定切换
 
 ---
@@ -106,23 +110,23 @@
 - **严重程度**: ⚠️ WARNING
 - **平台**: 全平台
 - **描述**: 检测单个 Buffer 内存占用过大
-- **阈值**: 
-  - PC: 256 MB
-  - Mobile: 64 MB
+- **阈值**:
+  - PC: 64 MB
+  - Mobile: 16 MB
 - **建议**: 考虑数据分块或流式加载
 
 ### RD_BUF_002: Dynamic Buffer Update
 - **严重程度**: ℹ️ INFO
 - **平台**: 全平台
 - **描述**: 检测频繁更新的动态 Buffer
-- **阈值**: 每帧更新 > 100 次
+- **阈值**: 每帧更新 > 10 次
 - **建议**: 使用 Ring Buffer 或 Persistent Mapping
 
 ### RD_BUF_003: Constant Buffer Packing
 - **严重程度**: ℹ️ INFO
 - **平台**: 全平台
 - **描述**: 检测 Constant Buffer 是否高效打包
-- **阈值**: 使用率 < 50%
+- **阈值**: 小于 64B 的 Constant Buffer > 20 个
 - **建议**: 合并小型 CB，按 16 字节对齐打包
 
 ### RD_BUF_004: Index Buffer Format
@@ -142,6 +146,7 @@
 - **严重程度**: ℹ️ INFO
 - **平台**: 全平台
 - **描述**: 检测创建但未使用的 Buffer
+- **阈值**: 未使用 Buffer > 10 个
 - **建议**: 清理未使用的资源
 
 ---
@@ -152,18 +157,18 @@
 - **严重程度**: ⚠️ WARNING
 - **平台**: 全平台
 - **描述**: 检测渲染 Pass 数量是否过多
-- **阈值**: 
-  - PC: 50
-  - Mobile: 20
+- **阈值**:
+  - PC: 30
+  - Mobile: 15
 - **建议**: 合并相似 Pass，使用 MRT
 
 ### RD_PASS_002: RT Switch
 - **严重程度**: ⚠️ WARNING
 - **平台**: 全平台
 - **描述**: 检测 Render Target 切换次数过多
-- **阈值**: 
-  - PC: 100
-  - Mobile: 30
+- **阈值**:
+  - PC: 50
+  - Mobile: 20
 - **建议**: 重排绘制顺序，合并输出
 
 ### RD_PASS_003: Empty Pass
@@ -176,13 +181,16 @@
 - **严重程度**: ℹ️ INFO
 - **平台**: 全平台
 - **描述**: 检测重复的全屏 Pass (可能可以合并)
-- **阈值**: 连续 >= 3 个全屏 Pass
+- **阈值**:
+  - PC: 全屏 Pass > 10
+  - Mobile: 全屏 Pass > 5
 - **建议**: 合并后处理 Pass，使用 Compute Shader
 
 ### RD_PASS_005: Clear Optimization
 - **严重程度**: ℹ️ INFO
 - **平台**: 全平台
 - **描述**: 检测不必要的 Clear 操作
+- **阈值**: 连续 Clear 同一目标 > 5 次
 - **建议**: 如果后续完全覆盖则跳过 Clear
 
 ### RD_PASS_006: Depth PrePass
@@ -196,7 +204,7 @@
 - **严重程度**: ℹ️ INFO
 - **平台**: 全平台
 - **描述**: 检测 Shadow Map 的尺寸和更新频率
-- **阈值**: > 4096x4096 或每帧多次更新
+- **阈值**: > 4096x4096
 - **建议**: 使用级联阴影、缓存静态阴影
 
 ---
@@ -207,21 +215,25 @@
 - **严重程度**: ⚠️ WARNING
 - **平台**: 全平台
 - **描述**: 检测渲染状态切换次数过多
-- **阈值**: 状态切换 / Draw Call > 3
+- **阈值**:
+  - Shader 切换 > 500 (PC) / 200 (Mobile)
+  - Blend 状态切换 > 100
+  - Depth 状态切换 > 200
+  - Rasterizer 状态切换 > 200
 - **建议**: 按材质排序，使用状态缓存
 
 ### RD_STATE_002: Shader Thrashing
 - **严重程度**: ⚠️ WARNING
 - **平台**: 全平台
 - **描述**: 检测频繁切换相同 Shader 组合
-- **阈值**: 相同组合切换 > 10 次
+- **阈值**: 相同组合切换 > 50 次
 - **建议**: 按 Shader 分组绘制
 
 ### RD_STATE_003: Redundant State
 - **严重程度**: ℹ️ INFO
 - **平台**: 全平台
 - **描述**: 检测设置相同状态的冗余调用
-- **阈值**: 冗余率 > 20%
+- **阈值**: 冗余状态设置 > 100 次
 - **建议**: 使用状态追踪避免重复设置
 
 ### RD_STATE_004: Scissor Test Usage
@@ -237,13 +249,14 @@
 - **场景**: 
   - 不透明物体关闭深度写入
   - Early-Z 失效 (PS 中 discard 或修改深度)
+- **阈值**: 非 UI 绘制中禁用深度测试占比 > 30%
 - **建议**: 分离不透明/透明物体管线
 
 ### RD_STATE_006: Alpha Blend Overdraw
 - **严重程度**: ⚠️ WARNING
 - **平台**: 全平台
 - **描述**: 检测过多的透明混合绘制
-- **阈值**: 透明 Draw Call > 30% 且像素覆盖率高
+- **阈值**: 透明混合 Draw Call > 200
 - **建议**: 使用 Alpha Test 替代，从后向前排序
 
 ---
@@ -264,7 +277,7 @@
 - **严重程度**: ⚠️ WARNING
 - **平台**: Mobile
 - **描述**: 检测移动端严重的过度绘制
-- **阈值**: 平均每像素绘制 > 2.5 次
+- **阈值**: 平均每像素绘制 > 3.0 次
 - **建议**: 启用 Depth PrePass，优化粒子
 
 ### RD_MOBILE_003: Mobile Precision
@@ -280,16 +293,16 @@
 - **严重程度**: ⚠️ WARNING
 - **平台**: Mobile
 - **描述**: 检测移动端带宽敏感操作
-- **触发条件**: 
-  - 大分辨率 RT (> 屏幕分辨率)
-  - 多次全屏采样
-  - 未压缩纹理
+- **阈值**:
+  - 大纹理尺寸 > 1024
+  - 大纹理数量 > 20
 - **建议**: 降低 RT 分辨率，使用 ASTC 压缩
 
 ### RD_MOBILE_005: Alpha Test Usage
 - **严重程度**: ℹ️ INFO
 - **平台**: Mobile
 - **描述**: 检测 Alpha Test/Clip 对 TBDR 的影响
+- **阈值**: Alpha Test Draw > 50
 - **说明**: Alpha Test 会破坏 Early-Z 优化
 - **建议**: 分离不透明/Alpha Test 绘制
 
@@ -306,20 +319,21 @@
 
 ## 规则配置
 
-可以通过 `config/thresholds.yaml` 自定义阈值：
+当前阈值内置于 `scripts/rdc_analyzer/config/thresholds.py`。
 
-```yaml
-# PC 平台阈值
-pc:
-  draw_call_limit: 3000
-  texture_size_limit: 2048
-  pass_count_limit: 50
-  
-# Mobile 平台阈值
-mobile:
-  draw_call_limit: 500
-  texture_size_limit: 1024
-  pass_count_limit: 20
+示例（仅展示部分键，实际以源码为准）：
+```python
+DEFAULT_THRESHOLDS = {
+  "max_draw_calls": 3000,
+  "large_texture_threshold_mb": 16.0,
+  "max_pass_count": 30,
+}
+MOBILE_THRESHOLDS = {
+  **DEFAULT_THRESHOLDS,
+  "max_draw_calls": 500,
+  "large_texture_threshold_mb": 4.0,
+  "max_pass_count": 15,
+}
 ```
 
 ## 命令行使用
