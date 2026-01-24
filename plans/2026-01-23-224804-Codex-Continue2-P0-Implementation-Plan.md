@@ -108,11 +108,11 @@ diff = DiffEngine().compare(baseline_json, target_json)
 - [x] 提交：`feat(rdc-analyzer): unify rule output pipeline`
 
 ### P0-4 compare 入口闭环化
-- [ ] 写失败测试：compare 直接接受 `.rdc` 输出 diff  
-- [ ] 运行失败测试  
-- [ ] 最小实现：cmd_compare 内部分析 -> canonical -> diff  
-- [ ] 运行测试：`py -3 -m pytest -q -rs`  
-- [ ] 提交：`feat(rdc-analyzer): compare accepts rdc and canonical json`
+- [x] 写失败测试：compare 直接接受 `.rdc` 输出 diff  
+- [x] 运行失败测试  
+- [x] 最小实现：cmd_compare 内部分析 -> canonical -> diff  
+- [x] 运行测试：`py -3 -m pytest -q -rs`  
+- [x] 提交：`feat(rdc-analyzer): compare accepts rdc and canonical json`
 
 ### P0-5 verification_plan 字段标准化
 - [ ] 写失败测试：verification_plan 字段一致性  

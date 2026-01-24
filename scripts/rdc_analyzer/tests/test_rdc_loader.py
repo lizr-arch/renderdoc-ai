@@ -180,6 +180,23 @@ class TestLoadCaptureFile:
         assert result["summary"]["driver"] == "D3D11"
         assert result["summary"]["draw_call_count"] == 1
 
+    def test_load_rdc_prefers_analyze_pipeline(self, tmp_path):
+        """RDC 文件优先走 analyze canonical 路径（可用时）"""
+        rdc_file = tmp_path / "test.rdc"
+        rdc_file.write_bytes(b"dummy rdc")
+
+        sentinel = {"textures": [], "buffers": [], "shaders": [], "events": [], "statistics": {}}
+
+        with patch('rdc_analyzer.parsers.rdc_loader._load_rdc_via_analyze') as mock_analyze:
+            with patch('rdc_analyzer.parsers.rdc_loader.load_rdc_file') as mock_xml:
+                mock_analyze.return_value = sentinel
+
+                result = load_capture_file(str(rdc_file))
+
+                assert result == sentinel
+                mock_analyze.assert_called_once()
+                mock_xml.assert_not_called()
+
 
 class TestIntegration:
     """Integration tests (require renderdoccmd)."""

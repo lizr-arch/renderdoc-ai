@@ -334,6 +334,48 @@ def _convert_schema_v1_to_capture_data(data: Dict[str, Any]) -> Dict[str, Any]:
     return capture_data
 
 
+def _load_rdc_via_analyze(
+    path: str,
+    verbose: bool = False
+) -> Optional[Dict[str, Any]]:
+    """优先使用 analyze 产出的 Canonical Schema 解析 RDC（可用时）。
+
+    Returns:
+        CaptureData dict if analyze pipeline is available, otherwise None.
+    """
+    try:
+        from ..main import AnalysisPipeline, AnalysisOptions
+    except Exception:
+        return None
+
+    try:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            options = AnalysisOptions(
+                output_formats=['json'],
+                output_dir=tmpdir,
+                sample_textures=False,
+                sample_buffers=False,
+                enable_mali_analysis=False,
+            )
+            pipeline = AnalysisPipeline(path, options)
+            summary = pipeline.run()
+
+            json_outputs = [p for p in summary.output_files if str(p).endswith('.json')]
+            if not json_outputs:
+                return None
+
+            import json
+            with open(json_outputs[0], 'r', encoding='utf-8') as f:
+                data = json.load(f)
+            if data.get('schema_version') == '1.0':
+                return _convert_schema_v1_to_capture_data(data)
+            return data
+    except Exception as e:
+        if verbose:
+            print(f"[!] analyze pipeline unavailable, fallback to renderdoccmd: {e}")
+        return None
+
+
 def load_capture_file(
     path: str,
     verbose: bool = False,
@@ -364,6 +406,9 @@ def load_capture_file(
     ext = file_path.suffix.lower()
     
     if ext == '.rdc':
+        analyze_data = _load_rdc_via_analyze(path, verbose=verbose)
+        if analyze_data is not None:
+            return analyze_data
         return load_rdc_file(path, verbose=verbose, **kwargs)
     elif ext == '.json':
         with open(path, 'r', encoding='utf-8') as f:
