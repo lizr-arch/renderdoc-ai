@@ -122,11 +122,11 @@ diff = DiffEngine().compare(baseline_json, target_json)
 - [x] 提交：`feat(rdc-analyzer): standardize verification_plan schema`
 
 ### P0-6 thresholds 注入一致性
-- [ ] 写失败测试：AnalysisContext 总有 thresholds  
-- [ ] 运行失败测试  
-- [ ] 最小实现：统一使用 create_context 或显式传入 thresholds  
-- [ ] 运行测试：`py -3 -m pytest -q -rs`  
-- [ ] 提交：`fix(rdc-analyzer): ensure thresholds are always injected`
+- [x] 写失败测试：AnalysisContext 总有 thresholds  
+- [x] 运行失败测试  
+- [x] 最小实现：统一使用 create_context 或显式传入 thresholds  
+- [x] 运行测试：`py -3 -m pytest -q -rs`  
+- [x] 提交：`fix(rdc-analyzer): ensure thresholds are always injected`
 
 ---
 

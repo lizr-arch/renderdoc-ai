@@ -7,6 +7,7 @@
 
 from typing import Optional, List
 from .core.context import AnalysisContext
+from .config import get_thresholds
 from .core.result import AnalysisResult
 from .core.types import ParsedData
 from .parsers import APIParser, BinaryParser
@@ -66,6 +67,7 @@ class AnalysisPipeline:
         context = AnalysisContext(
             parsed=parsed,
             platform=self.platform,
+            thresholds=get_thresholds(self.platform),
         )
         
         # Step 3: 运行分析器
