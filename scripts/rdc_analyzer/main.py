@@ -1820,10 +1820,13 @@ class AnalysisPipeline:
         
         # 从 issues 生成建议
         for issue in self._issues:
-            code = issue.get('code', '')
+            if isinstance(issue, dict):
+                code = issue.get('code', '')
+            else:
+                code = getattr(issue, 'code', '')
             
             # 根据不同类型的 issue 生成建议
-            if code == 'BIND001':  # Draw Call 过多
+            if code in ('BIND001', 'RD_DC_001'):  # Draw Call 过多
                 suggestions.append({
                     'id': f'SUG_{code}',
                     'title': '减少 Draw Call 数量',
@@ -1854,7 +1857,7 @@ class AnalysisPipeline:
                     }
                 })
             
-            elif code == 'BIND002':  # 顶点数过多
+            elif code in ('BIND002', 'RD_DC_005'):  # 顶点数过多
                 suggestions.append({
                     'id': f'SUG_{code}',
                     'title': '优化顶点数量',

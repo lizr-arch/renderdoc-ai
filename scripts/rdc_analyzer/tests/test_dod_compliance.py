@@ -513,6 +513,21 @@ class TestVerificationPlanSchema:
             assert isinstance(vp['expected_direction'], str), "expected_direction 应为 str"
             assert isinstance(vp['how_to_capture'], str), "how_to_capture 应为 str"
 
+    def test_verification_plan_for_rule_runner_codes(self):
+        """验证 RuleRunner 规则码也能生成 verification_plan"""
+        from unittest.mock import MagicMock
+        from rdc_analyzer.main import AnalysisPipeline
+
+        pipeline = MagicMock()
+        pipeline._performance_report = None
+        pipeline._issues = [{'code': 'RD_DC_001', 'severity': 'warning', 'message': 'Draw Call high'}]
+
+        suggestions = AnalysisPipeline._build_suggestions(pipeline)
+
+        assert len(suggestions) > 0, "RD_DC_001 应生成建议"
+        vp = suggestions[0]['verification_plan']
+        assert 'metrics' in vp and 'expected_direction' in vp and 'how_to_capture' in vp
+
 
 if __name__ == '__main__':
     pytest.main([__file__, '-v'])

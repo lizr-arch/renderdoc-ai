@@ -115,11 +115,11 @@ diff = DiffEngine().compare(baseline_json, target_json)
 - [x] 提交：`feat(rdc-analyzer): compare accepts rdc and canonical json`
 
 ### P0-5 verification_plan 字段标准化
-- [ ] 写失败测试：verification_plan 字段一致性  
-- [ ] 运行失败测试  
-- [ ] 最小实现：统一命名与枚举值  
-- [ ] 运行测试：`py -3 -m pytest -q -rs`  
-- [ ] 提交：`feat(rdc-analyzer): standardize verification_plan schema`
+- [x] 写失败测试：verification_plan 字段一致性  
+- [x] 运行失败测试  
+- [x] 最小实现：统一命名与枚举值  
+- [x] 运行测试：`py -3 -m pytest -q -rs`  
+- [x] 提交：`feat(rdc-analyzer): standardize verification_plan schema`
 
 ### P0-6 thresholds 注入一致性
 - [ ] 写失败测试：AnalysisContext 总有 thresholds  
