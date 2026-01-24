@@ -172,6 +172,7 @@ uint32_t RDocQuickCapture::EndFrame(void *device, void *window)
 - `renderdoc.dll` not injected/loaded in game process (capture APIs unavailable).
 - API version mismatch (need to try lower versions if 1.5.0 fails).
 - Verification commands not run yet (build permission not granted).
+- Verification blocked locally: `cl` and `msbuild` not found in PATH (need VS Developer Command Prompt or VS Build Tools).
 
 ## Verification / Acceptance (Definition of Done)
 - In-game integration (using the helper) can trigger a capture by F12 (or UI-triggered call) and a `.rdc` is produced under the configured path.
