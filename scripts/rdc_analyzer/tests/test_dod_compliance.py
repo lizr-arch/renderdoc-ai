@@ -388,6 +388,55 @@ class TestDOD73DataQuality:
             f"低采样率时应为 partial，实际为: {coverage['details']['resource_lifecycle']}"
 
 
+class TestRuleRunnerIntegration:
+    """规则输出统一：_analyze_rules 必须接入 RuleRunner"""
+    
+    def test_analyze_rules_uses_rule_runner(self):
+        """验证 _analyze_rules 使用 RuleRunner 产出 issues"""
+        from types import SimpleNamespace
+        from unittest.mock import MagicMock, patch
+        from rdc_analyzer.core.types import Issue
+        from rdc_analyzer.main import AnalysisPipeline
+        
+        pipeline = MagicMock()
+        pipeline._draw_calls = [{'eventId': 1, 'numIndices': 3, 'numInstances': 1}]
+        pipeline._issues = []
+        pipeline._performance_report = None
+        pipeline._mali_report = None
+        pipeline._resources = {'textures': {}, 'buffers': {}}
+        pipeline._events = []
+        pipeline.options = SimpleNamespace(
+            enable_performance_analysis=False,
+            enable_mali_analysis=False,
+            enabled_rules=None,
+            disabled_rules=None,
+            platform='pc'
+        )
+        pipeline._report_progress = MagicMock()
+        pipeline._run_performance_analysis = MagicMock()
+        pipeline._run_mali_analysis = MagicMock()
+        
+        runner_issue = Issue(
+            severity="warning",
+            category="performance",
+            code="RD_TEST",
+            message="RuleRunner issued"
+        )
+        
+        with patch("rdc_analyzer.main.register_all_rules") as mock_register, \
+             patch("rdc_analyzer.main.RuleRunner") as mock_runner:
+            mock_runner.return_value.run.return_value = [runner_issue]
+            
+            AnalysisPipeline._analyze_rules(pipeline)
+            
+            mock_register.assert_called_once()
+            mock_runner.assert_called_once()
+            assert any(
+                getattr(issue, "code", None) == "RD_TEST" or issue.get("code") == "RD_TEST"
+                for issue in pipeline._issues
+            ), "RuleRunner 输出的 issue 未被加入 _issues"
+
+
 class TestVerificationPlanSchema:
     """验证 verification_plan 字段的 schema 稳定性
     

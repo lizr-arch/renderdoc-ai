@@ -23,6 +23,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
+from .rules import RuleRunner, register_all_rules
+
 # 配置日志
 logging.basicConfig(
     level=logging.INFO,
@@ -347,6 +349,7 @@ class AnalysisPipeline:
                     'flags': int(action.flags),
                     'depth': depth,
                     'numIndices': action.numIndices,
+                    'numVerts': getattr(action, 'numVertices', 0),
                     'numInstances': action.numInstances,
                 })
                 
@@ -514,20 +517,116 @@ class AnalysisPipeline:
                 self._resource_lifecycle_tracked = True
         except Exception as e:
             logger.warning(f"资源生命周期追踪失败: {e}")
+
+    def _build_rule_context(self):
+        """为 RuleRunner 构建最小可用的 AnalysisContext"""
+        from .config import get_thresholds
+        from .core.context import AnalysisContext
+        from .core.types import ParsedData, FrameSummary, DrawCallInfo, TextureInfo, BufferInfo
+
+        draws = []
+        draw_calls = []
+        total_vertices = 0
+        total_triangles = 0
+
+        for dc in self._draw_calls:
+            num_indices = dc.get('numIndices', 0) or 0
+            num_instances = dc.get('numInstances', 1) or 1
+            num_vertices = dc.get('numVerts', 0) or dc.get('numVertices', 0) or 0
+            if num_vertices == 0 and num_indices:
+                num_vertices = num_indices
+
+            draws.append({
+                'event_id': dc.get('eventId', 0),
+                'vertex_count': num_vertices,
+                'index_count': num_indices,
+                'instance_count': num_instances,
+                'state': dc.get('state', {}),
+                'is_ui': dc.get('is_ui', False),
+                'is_postprocess': dc.get('is_postprocess', False),
+            })
+
+            total_vertices += num_vertices * num_instances
+            total_triangles += (num_vertices // 3) * num_instances
+
+            draw_calls.append(DrawCallInfo(
+                event_id=dc.get('eventId', 0),
+                name=dc.get('name', ''),
+                type=dc.get('name', ''),
+                index_count=num_indices,
+                vertex_count=num_vertices,
+                instance_count=num_instances,
+            ))
+
+        parsed = ParsedData(
+            api=self._api,
+            file_path=self.rdc_path,
+            draws=draws,
+            resources=self._resources,
+        )
+
+        textures = []
+        for tex_id, tex_info in self._resources.get('textures', {}).items():
+            textures.append(TextureInfo(
+                resource_id=str(tex_info.get('id', tex_id)),
+                name=tex_info.get('name', ''),
+                width=tex_info.get('width', 0),
+                height=tex_info.get('height', 0),
+                depth=tex_info.get('depth', 1),
+                mip_levels=tex_info.get('mips', tex_info.get('mipLevels', 1)),
+                array_size=tex_info.get('arraysize', tex_info.get('arraySize', 1)),
+                format=tex_info.get('format', ''),
+            ))
+
+        buffers = []
+        for buf_id, buf_info in self._resources.get('buffers', {}).items():
+            buffers.append(BufferInfo(
+                resource_id=str(buf_info.get('id', buf_id)),
+                name=buf_info.get('name', ''),
+                size=buf_info.get('length', buf_info.get('size', 0)),
+            ))
+
+        frame_summary = FrameSummary(
+            draw_call_count=len(self._draw_calls),
+            vertex_count=total_vertices,
+            primitive_count=total_triangles,
+            texture_count=len(textures),
+            buffer_count=len(buffers),
+        )
+
+        context = AnalysisContext(
+            parsed=parsed,
+            platform=self.options.platform,
+            thresholds=get_thresholds(self.options.platform),
+        )
+        context.frame_summary = frame_summary
+        context.textures = textures
+        context.buffers = buffers
+        context.draw_calls = draw_calls
+
+        return context
     
     def _analyze_rules(self):
         """运行规则分析"""
         self._issues = []
         self._performance_report = None
         
-        # === 基本规则检查 ===
-        if len(self._draw_calls) > 2000:
-            self._issues.append({
-                'code': 'BIND001',
-                'severity': 'warning',
-                'message': f'Draw Call 数量过多: {len(self._draw_calls)} (建议 < 2000)',
-                'eventId': None
-            })
+        # === 规则引擎 (RuleRunner) ===
+        try:
+            register_all_rules()
+
+            context = self._build_rule_context()
+            runner = RuleRunner(context)
+
+            if self.options.enabled_rules:
+                runner.enable_only(self.options.enabled_rules)
+            if self.options.disabled_rules:
+                for rule_id in self.options.disabled_rules:
+                    runner.disable_rule(rule_id)
+
+            self._issues.extend(runner.run())
+        except Exception as e:
+            logger.warning(f"RuleRunner 执行失败: {e}")
         
         total_vertices = sum(dc.get('numIndices', 0) or 0 for dc in self._draw_calls)
         if total_vertices > 5000000:
