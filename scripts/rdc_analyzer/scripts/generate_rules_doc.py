@@ -81,6 +81,37 @@ def _normalize_category(value: Any) -> str:
     return str(value)
 
 
+def _normalize_text(value: Any) -> str:
+    if value is None:
+        return ""
+    return str(value).strip()
+
+
+CATEGORY_DEFAULT_WHY = {
+    "performance": "避免渲染性能退化，降低 CPU/GPU 负载",
+    "memory": "控制资源占用，降低内存与带宽压力",
+    "correctness": "避免渲染结果错误或不一致",
+    "compatibility": "保证跨平台/驱动一致性",
+    "draw_call": "减少 DrawCall 数量，降低 CPU/驱动开销",
+    "texture": "控制纹理开销，降低显存与采样成本",
+    "buffer": "控制 Buffer 更新与占用，降低带宽压力",
+    "pass": "减少 Pass 切换，提高渲染效率",
+    "state": "减少状态切换，降低管线切换成本",
+    "mobile": "适配移动端带宽/功耗限制",
+}
+
+
+def _default_why(category: str) -> str:
+    return CATEGORY_DEFAULT_WHY.get(category, "提升渲染质量与稳定性")
+
+
+def _build_default_how(thresholds: List[Dict[str, Any]]) -> str:
+    if not thresholds:
+        return "规则内部固定条件"
+    keys = [th["key"] for th in thresholds]
+    return "检查阈值是否超标: " + ", ".join(keys)
+
+
 def collect_rules() -> List[Dict[str, Any]]:
     from rdc_analyzer.rules import RuleRegistry, register_all_rules
     from rdc_analyzer.config import get_thresholds
@@ -105,14 +136,24 @@ def collect_rules() -> List[Dict[str, Any]]:
                 "default": default,
             })
 
+        name = _normalize_text(getattr(rule_cls, "name", rule_id)) or rule_id
+        description = _normalize_text(getattr(rule_cls, "description", ""))
+        category = _normalize_category(getattr(rule_cls, "category", ""))
+        what = _normalize_text(getattr(rule_cls, "what", "")) or name
+        why = _normalize_text(getattr(rule_cls, "why", "")) or _default_why(category)
+        how = _normalize_text(getattr(rule_cls, "how", "")) or _build_default_how(thresholds)
+
         rules.append({
             "rule_id": rule_id,
-            "name": getattr(rule_cls, "name", rule_id),
-            "description": getattr(rule_cls, "description", ""),
+            "name": name,
+            "description": description,
             "severity": _normalize_severity(getattr(rule_cls, "severity", "")),
-            "category": _normalize_category(getattr(rule_cls, "category", "")),
+            "category": category,
             "platforms": _normalize_platforms(getattr(rule_cls, "platforms", [])),
             "thresholds": thresholds,
+            "what": what,
+            "why": why,
+            "how": how,
         })
 
     # 按 category + rule_id 排序
@@ -156,6 +197,9 @@ def render_markdown(rules: List[Dict[str, Any]]) -> str:
             lines.append(f"### {rule['rule_id']}: {rule['name']}")
             lines.append(f"- **严重程度**: {rule['severity']}")
             lines.append(f"- **平台**: {rule['platforms']}")
+            lines.append(f"- **WHAT**: {rule['what']}")
+            lines.append(f"- **WHY**: {rule['why']}")
+            lines.append(f"- **HOW**: {rule['how']}")
             if rule["description"]:
                 lines.append(f"- **描述**: {rule['description']}")
             if rule["thresholds"]:

@@ -28,6 +28,11 @@ class BaseRule(ABC):
     
     # 规则描述
     description: str = "Base rule description"
+
+    # 规则元数据（用于文档与审计）
+    what: str = ""
+    why: str = ""
+    how: str = ""
     
     # 严重程度
     severity: str = Severity.WARNING
