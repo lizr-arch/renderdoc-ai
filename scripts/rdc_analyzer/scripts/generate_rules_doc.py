@@ -114,11 +114,12 @@ def _build_default_how(thresholds: List[Dict[str, Any]]) -> str:
 
 def collect_rules() -> List[Dict[str, Any]]:
     from rdc_analyzer.rules import RuleRegistry, register_all_rules
-    from rdc_analyzer.config import get_thresholds
+    from rdc_analyzer.config import get_thresholds, get_threshold_sources
 
     register_all_rules()
     pc_thresholds = get_thresholds("pc")
     mobile_thresholds = get_thresholds("mobile")
+    sources = get_threshold_sources("pc")
 
     rules = []
     for rule_id, rule_cls in RuleRegistry.all().items():
@@ -129,11 +130,13 @@ def collect_rules() -> List[Dict[str, Any]]:
             default = call["default"]
             pc_value = pc_thresholds.get(key, default)
             mobile_value = mobile_thresholds.get(key, default)
+            source_entry = sources.get(key, {})
             thresholds.append({
                 "key": key,
                 "pc": pc_value,
                 "mobile": mobile_value,
                 "default": default,
+                "source": source_entry,
             })
 
         name = _normalize_text(getattr(rule_cls, "name", rule_id)) or rule_id
@@ -213,6 +216,18 @@ def render_markdown(rules: List[Dict[str, Any]]) -> str:
                         lines.append(f"  - {th['key']}: PC={pc_val}, Mobile={mobile_val}")
             else:
                 lines.append("- **阈值**: 规则内部固定条件（无配置阈值）")
+            if rule["thresholds"]:
+                lines.append("- **标准来源**:")
+                for th in rule["thresholds"]:
+                    source = th.get("source", {}) or {}
+                    source_text = source.get("source", "未定义")
+                    rationale = source.get("rationale", "")
+                    if rationale:
+                        lines.append(f"  - {th['key']}: {source_text} ({rationale})")
+                    else:
+                        lines.append(f"  - {th['key']}: {source_text}")
+            else:
+                lines.append("- **标准来源**: 无阈值")
             lines.append("")
         lines.append("---")
         lines.append("")

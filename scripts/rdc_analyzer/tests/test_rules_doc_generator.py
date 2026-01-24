@@ -38,3 +38,12 @@ def test_render_markdown_contains_all_rules_and_under_limit():
         assert rule["rule_id"] in content
 
     assert len(content.splitlines()) < 800
+
+
+def test_rules_doc_includes_metadata_and_sources():
+    """Rendered markdown should include metadata and source sections."""
+    content = render_markdown(collect_rules())
+    assert "**WHAT**" in content
+    assert "**WHY**" in content
+    assert "**HOW**" in content
+    assert "**标准来源**" in content
