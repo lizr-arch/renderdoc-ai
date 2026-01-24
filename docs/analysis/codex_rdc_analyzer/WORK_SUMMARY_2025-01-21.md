@@ -200,14 +200,56 @@ cap.OpenFile(r"D:\renderdoc\goog pixel-9\g145.rdc", "", None)
 
 ### 路线 C 验证详情（待编译）
 
-**需要的操作**：
-1. 在 Visual Studio 中打开 `renderdoc.sln`
-2. 编译 `renderdoccmd` 项目（Release/x64）
-3. 运行 `renderdoccmd export capture.rdc -o output/`
+#### 编译前提条件
 
-**C++ 代码位置**：
-- `renderdoc/renderdoccmd/cmd_export.cpp` — CLI 入口
-- `renderdoc/replay/capture_exporter.cpp` — 导出器实现
+1. **Visual Studio 2022 Community** 已安装（路径示例：`E:\Program Files\Microsoft Visual Studio\2022\Community`）
+2. **v140 平台工具集**（VS 2015 工具链）已安装
+   - 安装方法：VS Installer → 修改 → 单个组件 → 搜索 "v140" → 勾选 "MSVC v140 - VS 2015 C++ 生成工具"
+   - RenderDoc 的部分项目（尤其 Qt 相关）依赖此工具集
+
+#### 编译命令
+
+使用 **VS Developer Command Prompt** 执行：
+
+```cmd
+cmd /c "\"E:\Program Files\Microsoft Visual Studio\2022\Community\Common7\Tools\VsDevCmd.bat\" -arch=x64 -host_arch=x64 && msbuild renderdoc.sln /p:Configuration=Development /p:Platform=x64"
+```
+
+**说明**：
+- `VsDevCmd.bat` 设置编译环境（`cl`, `msbuild` 等工具进入 PATH）
+- `Configuration=Development` 表示开发版（含调试符号）
+- `Platform=x64` 表示 64 位构建
+
+#### 编译输出
+
+成功后，`renderdoccmd.exe` 位于：
+```
+d:\Code\git\renderdoc\x64\Development\renderdoccmd.exe
+```
+
+#### 验证编译结果
+
+```cmd
+d:\Code\git\renderdoc\x64\Development\renderdoccmd.exe --help
+d:\Code\git\renderdoc\x64\Development\renderdoccmd.exe export --help
+```
+
+#### 使用 export 命令
+
+```cmd
+renderdoccmd export capture.rdc -o output/
+renderdoccmd export capture.rdc -o output/ --metadata
+renderdoccmd export capture.rdc -o output/ --bindings
+```
+
+#### C++ 代码位置
+
+- `renderdoccmd/renderdoccmd.cpp:656-920` — ExportCommand 类实现
+- 支持参数：`--metadata`（输出元数据 JSON）、`--bindings`（输出资源绑定）
+
+#### 编译历史记录
+
+编译步骤记录于：`plans/2026-01-24-185241-Agent01-BuildAndPythonCheck.md`
 
 ---
 
