@@ -174,6 +174,122 @@ if result == rd.ResultCode.Succeeded:
 
 ---
 
+## 12. Sphinx 文档系统
+
+### 12.1 什么是 Sphinx？
+
+**Sphinx** 是一个用 Python 编写的文档生成工具，最初是为 Python 官方文档开发的，现已成为技术文档领域的事实标准。
+
+| 特性 | 说明 |
+|------|------|
+| **源格式** | reStructuredText (`.rst`) 或 Markdown |
+| **输出格式** | HTML、PDF、ePub、CHM 等 |
+| **核心能力** | 自动从 Python 代码生成 API 文档 |
+| **扩展性** | 丰富的插件生态系统 |
+
+### 12.2 为什么 RenderDoc 使用 Sphinx？
+
+RenderDoc 使用 Sphinx 有以下关键原因：
+
+1. **Python API 自动文档化**
+   - `sphinx.ext.autodoc` 扩展可以自动从 `renderdoc.pyd` 模块提取类、函数、参数的文档字符串
+   - 无需手动维护 API 文档，代码即文档
+
+2. **交叉引用与链接**
+   - `sphinx_paramlinks` 扩展提供参数级别的精确链接
+   - 类型、函数、类之间可以自动建立超链接
+
+3. **多格式输出**
+   - 同一源文件可生成 HTML（在线浏览）、CHM（Windows 帮助）、PDF 等格式
+   - RenderDoc 官方使用 CHM 作为内嵌帮助文件
+
+4. **与代码同步**
+   - 文档源文件与代码在同一仓库
+   - 每次编译时自动生成最新 API 参考
+
+### 12.3 我们做了什么？
+
+我们成功在本地构建了 RenderDoc 的完整 Sphinx 文档：
+
+| 步骤 | 操作 | 结果 |
+|------|------|------|
+| **1. 安装依赖** | `pip install sphinx sphinx_paramlinks sphinx_rtd_theme` | ✅ |
+| **2. 加载 pyd** | Sphinx 自动导入 `renderdoc.pyd` 和 `qrenderdoc.pyd` | ✅ |
+| **3. 生成文档** | `sphinx-build -b html . ../Documentation/html` | ✅ |
+| **4. 验证输出** | 检查 `Documentation/html/index.html` | ✅ |
+
+**构建输出**：
+```
+d:\Code\git\renderdoc\Documentation\html\
+├── index.html              # 首页
+├── python_api/             # Python API 参考
+│   ├── renderdoc.html      # 核心模块文档
+│   ├── qrenderdoc.html     # Qt UI 扩展文档
+│   └── examples/           # 示例代码
+├── how/                    # 操作指南
+├── window/                 # 界面说明
+└── ...
+```
+
+### 12.4 如何重新构建文档
+
+**方法 1：使用封装脚本（推荐）**
+```cmd
+call d:\Code\git\renderdoc\scripts\_build_sphinx_docs.bat
+```
+
+**方法 2：手动执行**
+```cmd
+cd d:\Code\git\renderdoc\docs
+"D:\Program Files\Python36\python.exe" -m sphinx -b html -d ..\Documentation\doctrees . ..\Documentation\html
+```
+
+### 12.5 查看本地文档
+
+构建完成后，可以用浏览器打开：
+```cmd
+start d:\Code\git\renderdoc\Documentation\html\index.html
+```
+
+### 12.6 Sphinx 依赖包
+
+| 包名 | 版本 | 用途 |
+|------|------|------|
+| `sphinx` | 5.3.0 | 核心文档生成器 |
+| `sphinx_paramlinks` | 0.6.0 | 参数链接扩展 |
+| `sphinx_rtd_theme` | 2.0.0 | Read the Docs 主题 |
+
+### 12.7 conf.py 关键配置
+
+RenderDoc 的 `docs/conf.py` 中有几个关键配置：
+
+```python
+# 扩展模块
+extensions = ['sphinx.ext.autodoc', 'sphinx_paramlinks']
+
+# 自动添加 pyd 路径
+sys.path.insert(0, os.path.abspath(binpath + 'Development/pymodules'))
+os.environ["PATH"] += os.pathsep + os.path.abspath(binpath + 'Development/')
+
+# Python 3.8+ 的 DLL 加载兼容
+if sys.platform == 'win32' and sys.version_info[1] >= 8:
+    os.add_dll_directory(dev_path)
+```
+
+**注意**：由于我们使用 Python 3.6，`os.add_dll_directory()` 不可用，conf.py 中的 `PATH` 修改方式正是为此兼容。
+
+### 12.8 相关脚本
+
+| 脚本 | 用途 |
+|------|------|
+| `scripts/_install_sphinx.bat` | 为 Python 3.6 安装 Sphinx 及依赖 |
+| `scripts/_build_sphinx_docs.bat` | 一键构建 HTML 文档 |
+| `scripts/_check_py36.bat` | 验证 Python 3.6 环境 |
+| `scripts/_check_sphinx.bat` | 验证 Sphinx 安装 |
+
+---
+
 **参考文档**：
 - RenderDoc 官方 Python API：https://renderdoc.org/docs/python_api/index.html
+- Sphinx 官方文档：https://www.sphinx-doc.org/
 - 本地离线文档：`docs/offline_reference/RENDERDOC_DOCS_INDEX.md`
