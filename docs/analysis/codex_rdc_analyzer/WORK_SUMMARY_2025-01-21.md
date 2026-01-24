@@ -10,6 +10,7 @@
 3. `WORK_SUMMARY_SCHEMA.md` — Schema / Pipeline / Bridge
 4. `WORK_SUMMARY_VERIFICATION.md` — 真实性验证 + CLI 用法
 5. `WORK_SUMMARY_ROADMAP.md` — 任务优先级 + 决策 + 参考
+6. `WORK_SUMMARY_BUILD.md` — **编译环境 + Python 3.6 配置**（新增）
 
 ## 文档索引
 - `WORK_SUMMARY_ARCH.md`
@@ -17,6 +18,7 @@
 - `WORK_SUMMARY_SCHEMA.md`
 - `WORK_SUMMARY_VERIFICATION.md`
 - `WORK_SUMMARY_ROADMAP.md`
+- `WORK_SUMMARY_BUILD.md`
 
 ## 维护约定
 - 本索引文件保持 < 200 行。
