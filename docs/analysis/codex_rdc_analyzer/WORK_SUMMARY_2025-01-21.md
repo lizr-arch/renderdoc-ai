@@ -73,13 +73,14 @@
 **适用场景**：无 RenderDoc Python 模块环境，或需要离线分析。
 
 **流程**：
-1. 在 RenderDoc UI 中打开 `.rdc` 文件
-2. File → Export Structured Data...（导出结构化数据）
-3. 选择保存为 `.xml` 格式
-4. 用 `rdc_analyzer` 解析 XML
+1. 使用 `renderdoccmd convert` 命令导出 XML
+2. 用 `rdc_analyzer` 解析 XML 生成报告
 
-> ⚠️ **重要说明**：当前 XML 导出**只能通过 RenderDoc GUI 手动操作**。
-> `renderdoccmd` 命令行工具原生不支持 `--export-xml` 选项（虽然我们的 export 命令实现了纹理/metadata/bindings 导出，但 XML 格式未包含）。
+**核心命令**：
+```bash
+# RDC → XML 转换（RenderDoc 原生支持！）
+renderdoccmd convert -f capture.rdc -o capture.xml -c xml
+```
 
 **关键文件**：
 - `parsers/rdc_xml_parser.py` — XML 解析入口
@@ -788,90 +789,63 @@ py -3 -m pytest tests/test_pipeline_sampler.py -v
 
 ## 11. RDC → XML 导出详细操作指南
 
-> **重要**：这是当前唯一可用的 XML 导出方法，通过 RenderDoc GUI 手动操作。
+> **核心方法**：使用 RenderDoc **原生支持**的 `renderdoccmd convert` 命令行工具！
 
-### 11.1 导出步骤
-
-1. **打开 RenderDoc**（安装版或编译版均可）
-2. **加载 RDC 文件**：
-   - File → Open Capture... (Ctrl+O)
-   - 选择你的 `.rdc` 文件
-3. **导出 XML**：
-   - File → **Export Structured Data...**
-   - 选择保存路径，文件扩展名为 `.xml`
-   - 点击保存
-
-### 11.2 导出的 XML 结构示例
-
-```xml
-<?xml version="1.0" encoding="utf-8"?>
-<rdc>
-  <chunks>
-    <chunk name="DriverInit" id="1" length="...">
-      <!-- 驱动初始化数据 -->
-    </chunk>
-    <chunk name="vkCreateInstance" id="2" length="...">
-      <!-- API 调用参数 -->
-    </chunk>
-    <!-- ... 更多 chunks ... -->
-  </chunks>
-  <resources>
-    <texture id="ResourceId::1" name="Backbuffer" width="1920" height="1080" format="R8G8B8A8_UNORM"/>
-    <texture id="ResourceId::2" name="DepthBuffer" width="1920" height="1080" format="D24_UNORM_S8_UINT"/>
-    <!-- ... 更多资源 ... -->
-  </resources>
-</rdc>
-```
-
-### 11.3 解析 XML 生成 HTML 报告
+### 11.1 命令行导出（推荐）
 
 ```bash
-# 进入 RDC Analyzer 目录
+# RDC → XML 转换（RenderDoc 原生支持！）
+renderdoccmd convert -f capture.rdc -o capture.xml -c xml
+
+# 参数说明：
+#   -f <file>   输入文件路径
+#   -o <file>   输出文件路径  
+#   -c <format> 输出格式 (xml)
+```
+
+**实际验证示例**（来自 `test_e2e_real_data.py`）：
+```python
+# scripts/rdc_analyzer/test_e2e_real_data.py:108-114
+cmd = [
+    renderdoccmd, "convert",
+    "-f", str(rdc_path),     # 输入 .rdc 文件
+    "-o", str(xml_path),      # 输出 .xml 文件
+    "-c", "xml"               # 指定 xml 格式
+]
+result = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
+```
+
+### 11.2 查看支持的格式
+
+```bash
+# 列出所有支持的转换格式
+renderdoccmd convert --list-formats
+```
+
+### 11.3 完整工作流（RDC → XML → HTML）
+
+```bash
+# Step 1: RDC 转换为 XML
+renderdoccmd convert -f game.rdc -o game.xml -c xml
+
+# Step 2: 解析 XML 生成 HTML 报告
 cd scripts/rdc_analyzer
-
-# 运行分析（XML 输入）
-py -3 -m rdc_analyzer analyze your_capture.xml -o ./output/ --format html,json
+py -3 -m rdc_analyzer analyze game.xml -o ./output/ --format html,json
 ```
 
-或使用专用脚本：
+### 11.4 C++ 源码位置
 
-```bash
-py -3 analyze_xml_report.py your_capture.xml -o report.html
-```
+`convert` 命令的实现位于：
+- `renderdoccmd/renderdoccmd.cpp:1436` → `struct ConvertCommand`
+- 支持的格式通过 `ICaptureFile::GetCaptureFileFormats()` 获取
 
-### 11.4 为什么没有命令行导出 XML？
+### 11.5 注意事项
 
-| 方案 | 状态 | 说明 |
-|------|------|------|
-| `renderdoccmd --export-xml` | ❌ 不存在 | RenderDoc 原生 CLI 没有此选项 |
-| 我们新增的 `renderdoccmd export` | ⚠️ 待编译 | 仅支持纹理/metadata/bindings，不含 XML |
-| Python API 导出 | ⚠️ 依赖环境 | 需要 `renderdoc` 模块，可在 UI 中执行 |
-
-**结论**：目前 **GUI 手动导出是唯一可用的方式**。如果需要批量处理，可考虑：
-1. 编写 RenderDoc Python Shell 脚本，在 UI 中批量执行
-2. 扩展我们的 `renderdoccmd export` 命令添加 `--xml` 支持（需要 C++ 修改）
-
-### 11.5 实际操作截图参考
-
-```
-RenderDoc 主界面
-┌─────────────────────────────────────────────────┐
-│ File  Edit  View  Tools  Help                   │
-├─────────────────────────────────────────────────┤
-│  ┌─────────────────────────────────┐            │
-│  │ File                            │            │
-│  ├─────────────────────────────────┤            │
-│  │ Open Capture...        Ctrl+O   │            │
-│  │ Save Capture As...              │            │
-│  │ ─────────────────────────────── │            │
-│  │ Export Structured Data...   ◄── │ ← 点这里   │
-│  │ Export To Replay Application    │            │
-│  │ ─────────────────────────────── │            │
-│  │ Recent Captures               ► │            │
-│  └─────────────────────────────────┘            │
-│                                                 │
-└─────────────────────────────────────────────────┘
-```
+| 项目 | 说明 |
+|------|------|
+| **大文件超时** | XML 导出可能耗时较长（数分钟），建议设置 `timeout=300` |
+| **文件大小** | XML 文件可能比原 RDC 大很多（10x-50x） |
+| **编码** | XML 输出为 UTF-8 编码 |
 
 ---
 
