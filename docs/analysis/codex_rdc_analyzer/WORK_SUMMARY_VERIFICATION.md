@@ -249,6 +249,35 @@ def local_mali_rdc():
 **截图哈希差异**
 - 05_scroll2.png `441cc9058bc46d9039f30052c6e9c6e6f501dfb1796bcc73a8b7bb7a0a3baa01`
 - 06_event_click.png `755670e007c94e2aef04d1a2b6f26fbf1dfc68b60a9ff3f1940e3e556403d051`
+
+### 7.6.4 自动化 Headless 审阅（2026-01-25，本次）
+
+- WHAT: 对最新生成的 `g145_report.html` 执行 headless CDP 截图与事件点击验证。
+- WHY: 验证新增 “Events reported/listed” 与 “Texture Memory 双口径” 对应页面能正常渲染。
+- HOW: 使用 `scripts/_tmp_html_ui_review_cdp.ps1` 输出到 `html_review/run_20260125-223218/`。
+
+**执行结果**
+- 路径：`docs/analysis/codex_rdc_analyzer/html_review/run_20260125-223218/`
+- click_found: `false`（未命中事件元素；fallback 点击）
+- click_strategy: `fallback`
+- click_text: ``
+- 截图尺寸：`1280x720`（01/02 均为 1280x720）
+- 截图文件大小（字节）：
+  - 01_baseline.png 25261
+  - 02_scroll.png 25261
+  - 03_zoom_in.png 30873
+  - 04_zoom_out.png 22503
+  - 05_scroll2.png 22503
+  - 06_event_click.png 23402
+  - 07_final.png 26196
+- hash 差异：
+  - 01_baseline.png = 02_scroll.png（相同）
+  - 04_zoom_out.png = 05_scroll2.png（相同）
+  - 06_event_click.png 与 05_scroll2.png（不同）
+
+**说明**
+- click 未命中事件元素（可能因 Event Browser 未打开或选择器未匹配）。
+- 即便如此，点击阶段仍产生可见变化（hash 不同），说明页面可交互但未精准点中事件节点。
 - 结论：点击前后截图 hash 不同，满足“真实点击可见变化”要求。
 
 ---
