@@ -43,7 +43,7 @@ def main():
   %(prog)s rules --list
         """
     )
-    
+
     parser.add_argument(
         "--version",
         action="version",
@@ -88,6 +88,37 @@ def main():
         choices=["pc", "mobile"],
         default="pc",
         help="目标平台 (默认: pc)"
+    )
+
+    analyze_parser.add_argument(
+        "--enable-tile-analysis",
+        action="store_true",
+        help="启用 Tile-Based GPU 分析 (默认: 关闭)"
+    )
+    
+    analyze_parser.add_argument(
+        "--tile-gpu",
+        default="Generic-Tile",
+        help="目标 Tile GPU 型号 (默认: Generic-Tile)"
+    )
+    
+    analyze_parser.add_argument(
+        "--enable-adreno-analysis",
+        action="store_true",
+        help="启用 Adreno 分析 (默认: 关闭)"
+    )
+    
+    analyze_parser.add_argument(
+        "--adreno-mode",
+        choices=["heuristic", "profiler", "auto"],
+        default="heuristic",
+        help="Adreno 分析模式 (默认: heuristic)"
+    )
+    
+    analyze_parser.add_argument(
+        "--adreno-profiler-path",
+        default=None,
+        help="Snapdragon Profiler CLI 路径（可选）"
     )
     
     analyze_parser.add_argument(
@@ -469,6 +500,11 @@ def cmd_analyze(args):
             max_texture_size=args.max_texture_size,
             event_range=event_range,
             platform=args.platform,
+            enable_tile_analysis=args.enable_tile_analysis,
+            tile_gpu=args.tile_gpu,
+            enable_adreno_analysis=args.enable_adreno_analysis,
+            adreno_mode=args.adreno_mode,
+            adreno_profiler_path=args.adreno_profiler_path,
             verbose=args.verbose,
             log_level='DEBUG' if args.verbose else 'INFO'
         )

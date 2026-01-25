@@ -101,6 +101,24 @@ class AnalysisOptions:
     
     malioc_path: Optional[str] = None
     """malioc 可执行文件路径（None 则自动查找）"""
+
+    # === Tile-Based GPU 分析 ===
+    enable_tile_analysis: bool = False
+    """是否启用 Tile-Based 分析"""
+    
+    tile_gpu: str = "Generic-Tile"
+    """目标 Tile GPU 型号（用于 Tile memory 模型）"""
+    
+    # === Adreno GPU 分析 ===
+    enable_adreno_analysis: bool = False
+    """是否启用 Adreno 分析"""
+    
+    adreno_mode: str = "heuristic"
+    """Adreno 分析模式: 'heuristic', 'profiler', 'auto'"""
+    
+    adreno_profiler_path: Optional[str] = None
+    """Snapdragon Profiler CLI 路径（可选）"""
+    
     
     # === 日志配置 ===
     log_level: str = 'INFO'
@@ -2079,6 +2097,11 @@ def analyze(
             - enable_mali_analysis (bool): 启用 Mali GPU 分析
             - mali_gpu (str): 目标 Mali GPU 型号 (默认: "Mali-G78")
             - malioc_path (str): malioc 可执行文件路径
+            - enable_tile_analysis (bool): 启用 Tile-Based 分析
+            - tile_gpu (str): 目标 Tile GPU 型号 (默认: "Generic-Tile")
+            - enable_adreno_analysis (bool): 启用 Adreno 分析
+            - adreno_mode (str): Adreno 分析模式 ("heuristic" | "profiler" | "auto")
+            - adreno_profiler_path (str): Snapdragon Profiler CLI 路径
             - enable_performance_analysis (bool): 启用性能分析
             - platform (str): 目标平台 ("pc" 或 "mobile")
         
