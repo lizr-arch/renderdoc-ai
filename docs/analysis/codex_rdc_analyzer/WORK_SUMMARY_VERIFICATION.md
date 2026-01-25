@@ -164,6 +164,30 @@ def local_mali_rdc():
 - 未进行浏览器交互级验证（如缩放/拖拽/筛选），需要人工打开页面进一步确认。
 - 自动化截图尝试失败：`CopyFromScreen` 返回“句柄无效”，当前会话疑似不支持 GUI 截图。
 
+### 7.6 自动化 Headless 审阅（CDP，已完成）
+
+- WHAT: 使用 Headless Edge + CDP 自动打开 HTML 并截图，覆盖滚动/缩放/点击交互。
+- WHY: 无人参与下验证页面可渲染、交互路径能触达，并留下可追溯证据。
+- HOW: `scripts/_tmp_html_ui_review_cdp.ps1` + `scripts/_tmp_html_review_hash.py`，输出到 `docs/analysis/codex_rdc_analyzer/html_review/`。
+
+**执行结果**
+- 产物：7 张截图 + `review.json`
+- 路径：`docs/analysis/codex_rdc_analyzer/html_review/`
+- 截图哈希（本次 run 7 张）：
+  - 01_baseline.png `dae05cf821eed5a45f0b8b2f7459a43c6c3d85cb4c86c0e7a4d8c9d36dc1d667` (76963)
+  - 02_scroll.png `f2a9a075bbe82ecffacf82a60b898b45215f86a5a0cc0253023db46f059a5f6e` (76895)
+  - 03_zoom_in.png `cf6ecde50d083cc27aced0f41315e6764fdea7212edaf8ccff4ba0cc3deb9c22` (112506)
+  - 04_zoom_out.png `441cc9058bc46d9039f30052c6e9c6e6f501dfb1796bcc73a8b7bb7a0a3baa01` (133545)
+  - 05_scroll2.png `441cc9058bc46d9039f30052c6e9c6e6f501dfb1796bcc73a8b7bb7a0a3baa01` (133545)
+  - 06_event_click.png `441cc9058bc46d9039f30052c6e9c6e6f501dfb1796bcc73a8b7bb7a0a3baa01` (133545)
+  - 07_final.png `fa5bafedcef76484be3a4f838e111f4691a1e90b07a2ac5834b69591c4c0afee` (76878)
+- 差异检查：至少 5 个不同 hash，满足“交互产生变化”要求。
+
+**发现与说明**
+- 06_event_click.png 与 05_scroll2.png hash 相同，说明点击未产生可见变化（可能选中元素无样式变化或点击目标不匹配）。
+- 目录中存在历史截图（如 `02_pgdn.png`），为旧 run 产物，不影响本次 7 张基线验证。
+- 本结果为 headless 渲染，若需要视觉细节审阅，仍需人工打开浏览器复核。
+
 ---
 
 
