@@ -28,7 +28,7 @@ class TestRuleRegistry:
         rules = RuleRegistry.all()
         for rule_id, rule_cls in rules.items():
             assert hasattr(rule_cls, 'rule_id'), f"{rule_cls.__name__} 缺少 rule_id"
-            assert rule_cls.rule_id.startswith("RD_"), f"{rule_cls.rule_id} 格式错误"
+            assert rule_cls.rule_id.startswith(("RD_", "TILE_")), f"{rule_cls.rule_id} 格式错误"
     
     def test_all_rules_have_name(self):
         """验证所有规则有名称"""

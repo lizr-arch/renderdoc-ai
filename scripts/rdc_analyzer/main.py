@@ -634,27 +634,35 @@ class AnalysisPipeline:
             register_all_rules()
 
             context = self._build_rule_context()
-            if self.options.enable_tile_analysis:
+            enable_tile_analysis = getattr(self.options, "enable_tile_analysis", False)
+            enable_adreno_analysis = getattr(self.options, "enable_adreno_analysis", False)
+            tile_gpu = getattr(self.options, "tile_gpu", "Generic-Tile")
+            adreno_mode = getattr(self.options, "adreno_mode", "heuristic")
+            adreno_profiler_path = getattr(self.options, "adreno_profiler_path", None)
+            enabled_rules = getattr(self.options, "enabled_rules", None)
+            disabled_rules = getattr(self.options, "disabled_rules", None)
+
+            if enable_tile_analysis:
                 try:
                     from .analyzers.tile_based_analyzer import TileBasedAnalyzer
-                    context.tile_gpu = self.options.tile_gpu
+                    context.tile_gpu = tile_gpu
                     TileBasedAnalyzer(context).analyze()
                 except Exception as e:
                     logger.warning(f"Tile-Based 分析失败: {e}")
-            if self.options.enable_adreno_analysis:
+            if enable_adreno_analysis:
                 try:
                     from .analyzers.adreno_analyzer import AdrenoAnalyzer
-                    context.adreno_mode = self.options.adreno_mode
-                    context.adreno_profiler_path = self.options.adreno_profiler_path
+                    context.adreno_mode = adreno_mode
+                    context.adreno_profiler_path = adreno_profiler_path
                     self._issues.extend(AdrenoAnalyzer(context).analyze())
                 except Exception as e:
                     logger.warning(f"Adreno 分析失败: {e}")
             runner = RuleRunner(context)
 
-            if self.options.enabled_rules:
-                runner.enable_only(self.options.enabled_rules)
-            if self.options.disabled_rules:
-                for rule_id in self.options.disabled_rules:
+            if enabled_rules:
+                runner.enable_only(enabled_rules)
+            if disabled_rules:
+                for rule_id in disabled_rules:
                     runner.disable_rule(rule_id)
 
             self._issues.extend(runner.run())
