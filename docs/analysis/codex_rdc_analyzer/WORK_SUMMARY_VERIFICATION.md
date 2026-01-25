@@ -143,6 +143,10 @@ def local_mali_rdc():
 - score = 41
 - issues 计数 = 0 critical / 3 warning / 44 info
 
+**口径说明（需统一认知）**
+- HTML 内嵌 `eventPassData.events` 的长度为 136（与 draw calls 对齐），
+  但日志显示 total events 为 180；说明 HTML 的“事件列表”当前以 draw call 事件为主。
+
 **发现差异（需追溯口径）**
 - HTML 内嵌 `total_texture_memory_mb = 123.87`
 - 生成日志打印 `Total texture memory = 108.60 MB`
