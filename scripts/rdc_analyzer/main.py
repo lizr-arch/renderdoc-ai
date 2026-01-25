@@ -634,6 +634,13 @@ class AnalysisPipeline:
             register_all_rules()
 
             context = self._build_rule_context()
+            if self.options.enable_tile_analysis:
+                try:
+                    from .analyzers.tile_based_analyzer import TileBasedAnalyzer
+                    context.tile_gpu = self.options.tile_gpu
+                    TileBasedAnalyzer(context).analyze()
+                except Exception as e:
+                    logger.warning(f"Tile-Based 分析失败: {e}")
             runner = RuleRunner(context)
 
             if self.options.enabled_rules:
