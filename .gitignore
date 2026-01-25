@@ -84,3 +84,5 @@ tests/conftest_local.py
 !scripts/rdc_analyzer/
 !scripts/rdc_analyzer/tests/
 !scripts/rdc_analyzer/tests/**/*.py
+!scripts/rdc_analyzer/exporters/templates/*.html
+!scripts/rdc_analyzer/test_captures/**/*.html

@@ -265,9 +265,9 @@ for p in pngs:
 - [x] 7. 改造脚本：点击目标注入高亮样式（outline/background），确保截图可见变化。
 - [x] 8. 重新运行自动审阅，验证点击截图 hash 与点击前不同。
 - [x] 9. 更新验证文档，记录新 run 的目录与点击可见性结论。
-- [ ] 10. 改造脚本：在 JS 中增加“真实事件元素”定位策略（data-attr / text-match / fallback），并记录 `click_found`/`click_strategy`。
-- [ ] 11. 重新运行自动审阅，确认 `click_found=true` 且点击前后 hash 不同。
-- [ ] 12. 更新验证文档，记录新策略结果与 run 目录。
+- [x] 10. 改造脚本：在 JS 中增加“真实事件元素”定位策略（data-attr / text-match / fallback），并记录 `click_found`/`click_strategy`。
+- [x] 11. 重新运行自动审阅，确认 `click_found=true` 且点击前后 hash 不同。
+- [x] 12. 更新验证文档，记录新策略结果与 run 目录。
 - [x] 13. 记录问题详情（期望/实际/复现步骤/频率/环境），写入计划或验证文档。
 - [x] 14. 增加可选日志采集参数（例如 `-LogFile`），让 headless run 可落地完整日志。
 - [x] 15. 复跑并收集日志，确认报错来源与触发条件（是否与页面加载/截图/点击相关）。
@@ -290,6 +290,7 @@ for p in pngs:
 - 尝试 4（计划中）：命中真实事件元素并记录 click_strategy。
 - 尝试 5：加入 LogFile + Edge 路径解析，run_20260125-202852 捕获 `fallback_task_provider` 报错；产物正常，记录为已知噪声。
 - 假设：`fallback_task_provider` 为 Chromium Task Manager 内部告警，与 headless 渲染无功能性关联；当前证据未显示影响输出。
+- 尝试 6：调用 `renderEventTree()` 后命中 `.event-node`，run_20260125-204759 选中 `#35 vkCmdDrawIndexed`，点击前后 hash 不同。
 
 # Next Steps
 - 已完成自动化审阅；若需提升“点击后可见变化”，可调整选择器或添加高亮样式。

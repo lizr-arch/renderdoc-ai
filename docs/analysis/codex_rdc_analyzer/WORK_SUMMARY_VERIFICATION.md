@@ -234,6 +234,23 @@ def local_mali_rdc():
 - 当前证据表明该报错为 Chromium 内部告警，**不影响**本次 headless 审阅产物。
 - 处理策略：记录为“已知噪声”，保留日志用于后续排查；若未来出现功能异常再追溯。
 
+### 7.6.3 自动化 Headless 审阅（真实事件元素命中）
+
+- WHAT: 强制调用 `renderEventTree()` 后，命中真实事件节点 `.event-node` 并点击高亮。
+- WHY: 满足“真实事件元素点击”要求，避免仅靠徽标注入。
+- HOW: JS 先渲染事件树，再按 `.event-node` 等选择器优先命中。
+
+**执行结果（run_20260125-204759）**
+- 路径：`docs/analysis/codex_rdc_analyzer/html_review/run_20260125-204759/`
+- click_found: `true`
+- click_strategy: `event-node`
+- click_text: `#35 vkCmdDrawIndexed`
+
+**截图哈希差异**
+- 05_scroll2.png `441cc9058bc46d9039f30052c6e9c6e6f501dfb1796bcc73a8b7bb7a0a3baa01`
+- 06_event_click.png `755670e007c94e2aef04d1a2b6f26fbf1dfc68b60a9ff3f1940e3e556403d051`
+- 结论：点击前后截图 hash 不同，满足“真实点击可见变化”要求。
+
 ---
 
 
