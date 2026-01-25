@@ -278,6 +278,22 @@ def local_mali_rdc():
 **说明**
 - click 未命中事件元素（可能因 Event Browser 未打开或选择器未匹配）。
 - 即便如此，点击阶段仍产生可见变化（hash 不同），说明页面可交互但未精准点中事件节点。
+
+### 7.6.5 自动化 Headless 审阅（点击修复验证）
+
+- WHAT: 修复 CDP 点击逻辑，先打开 Event Browser 再命中事件节点，并输出 step_log。
+- WHY: 提升 click_found 命中率，让“步骤可追溯”。
+- HOW: 更新 `scripts/_tmp_html_ui_review_cdp.ps1`，新增 `showEventBrowser()` 与 step_log 记录。
+
+**执行结果（run_20260125-230339）**
+- 路径：`docs/analysis/codex_rdc_analyzer/html_review/run_20260125-230339/`
+- click_found: `true`
+- click_strategy: `event-node`
+- click_text: `📌 #0 vkCmdCopyBufferToImage`（unicode escape 读取）
+- step_log: `['inject-style','showEventBrowser()','renderEventTree()','event-node-ready']`
+
+**备注**
+- 使用绝对路径执行脚本可稳定命中事件节点；相对路径会导致 `eventBrowserBtn` 无法命中。
 - 结论：点击前后截图 hash 不同，满足“真实点击可见变化”要求。
 
 ---
