@@ -151,6 +151,14 @@ DEFAULT_THRESHOLDS: Dict[str, Any] = {
     # RD_DEPTH_001: Overdraw 检测阈值
     "overdraw_threshold": 3.0,  # 平均 3 层以上
     
+    # ==================== Tile-Based 规则 ====================
+    # TILE_001: Tile Overdraw 比例
+    "tile_overdraw_ratio": 2.5,
+    # TILE_002: 单 Tile 内存阈值 (KB)
+    "tile_memory_kb": 512.0,
+    # TILE_003: 单 Pass RT 总字节阈值
+    "tile_rt_bytes": 128 * 1024 * 1024,
+    
     # ==================== Compute 规则 ====================
     # RD_CS_001: Dispatch 维度过小
     "min_dispatch_size": 64,
@@ -193,6 +201,11 @@ MOBILE_THRESHOLDS: Dict[str, Any] = {
     
     # 内存更严格
     "max_frame_memory_mb": 512.0,
+    
+    # Tile-Based 更严格
+    "tile_overdraw_ratio": 2.0,
+    "tile_memory_kb": 256.0,
+    "tile_rt_bytes": 64 * 1024 * 1024,
 }
 
 
@@ -205,6 +218,9 @@ LOW_END_THRESHOLDS: Dict[str, Any] = {
     "max_rt_changes": 10,
     "max_pass_count": 10,
     "max_frame_memory_mb": 256.0,
+    "tile_overdraw_ratio": 1.5,
+    "tile_memory_kb": 128.0,
+    "tile_rt_bytes": 32 * 1024 * 1024,
 }
 
 DEFAULT_THRESHOLDS = _apply_threshold_aliases(DEFAULT_THRESHOLDS)
