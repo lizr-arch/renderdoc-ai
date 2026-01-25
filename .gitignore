@@ -56,6 +56,26 @@ rdc_analyzer/
 *.rdc  
 __pycache__/  
 .pytest_cache/ 
+
+# Local logs & analysis artifacts
+logs/
+docs/analysis/codex_rdc_analyzer/html_review/
+docs/offline_reference/
+docs/analysis/md_scan_*.md
+docs/analysis/md_scan_*.txt
+
+# RDC analyzer local outputs
+scripts/rdc_analyzer/output/
+scripts/rdc_analyzer/test_output/
+scripts/rdc_analyzer/test_output_d3d12/
+scripts/rdc_analyzer/.pytest_cache/
+scripts/rdc_analyzer/**/__pycache__/
+scripts/rdc_analyzer/**/*.pyc
+scripts/rdc_analyzer/*.html
+scripts/rdc_analyzer/--output
+scripts/rdc_analyzer/-o
+scripts/_tmp_*
+scripts/rdc_analyzer/scripts/_tmp_*
   
 # Local test configuration  
 tests/conftest_local.py 
