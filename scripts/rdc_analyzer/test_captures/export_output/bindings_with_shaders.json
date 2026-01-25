@@ -1,0 +1,180 @@
+{
+  "apiType": "Vulkan",
+  "events": [
+    {
+      "eventId": 101,
+      "name": "vkCmdDrawIndexed",
+      "indexCount": 36000,
+      "vertexCount": 12000,
+      "instanceCount": 1,
+      "pipelineState": {
+        "shaders": {
+          "VS": {"resourceId": "vs001"},
+          "PS": {"resourceId": "ps001"}
+        }
+      }
+    },
+    {
+      "eventId": 120,
+      "name": "vkCmdDrawIndexed",
+      "indexCount": 24000,
+      "vertexCount": 8000,
+      "instanceCount": 1,
+      "pipelineState": {
+        "shaders": {
+          "VS": {"resourceId": "vs001"},
+          "PS": {"resourceId": "ps002"}
+        }
+      }
+    },
+    {
+      "eventId": 137,
+      "name": "vkCmdDrawIndexed",
+      "indexCount": 18000,
+      "vertexCount": 6000,
+      "instanceCount": 100,
+      "pipelineState": {
+        "shaders": {
+          "VS": {"resourceId": "vs002"},
+          "PS": {"resourceId": "ps001"}
+        }
+      }
+    },
+    {
+      "eventId": 156,
+      "name": "vkCmdDispatch",
+      "threadGroupX": 64,
+      "threadGroupY": 64,
+      "threadGroupZ": 1,
+      "pipelineState": {
+        "shaders": {
+          "CS": {"resourceId": "cs001"}
+        }
+      }
+    }
+  ],
+  "shaders": [
+    {
+      "resourceId": "vs001",
+      "type": "VS",
+      "name": "PBR_MainVS",
+      "hash": "a1b2c3d4",
+      "stats": {
+        "tempRegisters": 24,
+        "textureCount": 0,
+        "samplerCount": 0,
+        "cbufferCount": 2,
+        "hasLoops": false,
+        "hasBranching": true,
+        "branchDepth": 1
+      }
+    },
+    {
+      "resourceId": "ps001",
+      "type": "PS",
+      "name": "PBR_MainPS",
+      "hash": "e5f6g7h8",
+      "stats": {
+        "tempRegisters": 48,
+        "textureCount": 8,
+        "samplerCount": 4,
+        "cbufferCount": 3,
+        "hasLoops": true,
+        "loopDepth": 2,
+        "hasBranching": true,
+        "branchDepth": 3,
+        "hasDiscard": true,
+        "hasDerivatives": true
+      },
+      "cycles": {
+        "arithmetic": 45.5,
+        "texture": 32.0,
+        "loadStore": 12.0,
+        "varying": 8.5,
+        "total": 98.0
+      },
+      "bound": "Arithmetic"
+    },
+    {
+      "resourceId": "ps002",
+      "type": "PS",
+      "name": "Shadow_PS",
+      "hash": "i9j0k1l2",
+      "stats": {
+        "tempRegisters": 16,
+        "textureCount": 2,
+        "samplerCount": 1,
+        "cbufferCount": 1,
+        "hasLoops": false,
+        "hasBranching": false
+      },
+      "cycles": {
+        "arithmetic": 8.0,
+        "texture": 15.0,
+        "loadStore": 4.0,
+        "varying": 2.0,
+        "total": 29.0
+      },
+      "bound": "Texture"
+    },
+    {
+      "resourceId": "vs002",
+      "type": "VS",
+      "name": "Skinned_VS",
+      "hash": "m3n4o5p6",
+      "stats": {
+        "tempRegisters": 36,
+        "textureCount": 1,
+        "samplerCount": 1,
+        "cbufferCount": 4,
+        "hasLoops": true,
+        "loopDepth": 1,
+        "hasBranching": true,
+        "branchDepth": 2
+      },
+      "cycles": {
+        "arithmetic": 52.0,
+        "texture": 4.0,
+        "loadStore": 18.0,
+        "varying": 6.0,
+        "total": 80.0
+      },
+      "bound": "Arithmetic"
+    },
+    {
+      "resourceId": "cs001",
+      "type": "CS",
+      "name": "PostProcess_CS",
+      "hash": "q7r8s9t0",
+      "stats": {
+        "tempRegisters": 64,
+        "textureCount": 4,
+        "samplerCount": 2,
+        "cbufferCount": 2,
+        "hasLoops": true,
+        "loopDepth": 3,
+        "hasBranching": true,
+        "branchDepth": 2
+      },
+      "cycles": {
+        "arithmetic": 120.0,
+        "texture": 45.0,
+        "loadStore": 85.0,
+        "varying": 0.0,
+        "total": 250.0
+      },
+      "bound": "Load/Store"
+    }
+  ],
+  "textures": [
+    {"resourceId": "tex001", "name": "Albedo", "width": 2048, "height": 2048, "format": "BC7", "mips": 11},
+    {"resourceId": "tex002", "name": "Normal", "width": 2048, "height": 2048, "format": "BC5", "mips": 11},
+    {"resourceId": "tex003", "name": "Roughness", "width": 1024, "height": 1024, "format": "BC4", "mips": 10},
+    {"resourceId": "tex004", "name": "ShadowMap", "width": 4096, "height": 4096, "format": "D32_FLOAT", "mips": 1}
+  ],
+  "statistics": {
+    "totalDrawCalls": 4,
+    "totalTriangles": 26000,
+    "totalVertices": 26000
+  }
+}
