@@ -6528,7 +6528,8 @@ def generate_offline_html(textures: list, rdc_name: str, output_path: str,
             <h2>🎮 Event Browser</h2>
             <span class="api-badge" id="eventApiType">D3D11</span>
             <div class="frame-stats">
-                <span>Events: <span class="stat-value" id="eventTotalCount">0</span></span>
+                <span>Events (reported): <span class="stat-value" id="eventTotalCount">0</span></span>
+                <span>Events (listed): <span class="stat-value" id="eventListCount">0</span></span>
                 <span>Draws: <span class="stat-value" id="eventDrawCount">0</span></span>
                 <span>Dispatches: <span class="stat-value" id="eventDispatchCount">0</span></span>
                 <span>Frame: <span class="stat-value" id="eventFrameDuration">0 ms</span></span>
@@ -8733,10 +8734,22 @@ def generate_offline_html(textures: list, rdc_name: str, output_path: str,
             
             // 2. 渲染指标卡片
             const metrics = performanceData.metrics || {{}};
+            const metricsMeta = performanceData.metrics_meta || {{
+                "texture_memory": {{
+                    "label": "Texture Memory (Est)",
+                    "desc": "Estimated from analyzer using texture formats; may differ from exported byte sizes."
+                }},
+                "texture_memory_vram_mb": {{
+                    "label": "Texture Memory (Resources)",
+                    "desc": "Sum of texture byteSize from export/JSON; resource统计口径。"
+                }}
+            }};
             const metricsHtml = Object.entries(metrics).map(([key, val]) => {{
-                const label = key.replace(/_/g, ' ').toUpperCase();
+                const meta = metricsMeta[key] || {{}};
+                const label = meta.label || key.replace(/_/g, ' ').toUpperCase();
+                const titleAttr = meta.desc ? ` title="${{meta.desc}}"` : '';
                 return `
-                    <div class="performance-metric">
+                    <div class="performance-metric"${{titleAttr}}>
                         <div class="performance-metric-value">${{val}}</div>
                         <div class="performance-metric-label">${{label}}</div>
                     </div>
@@ -9218,7 +9231,12 @@ def generate_offline_html(textures: list, rdc_name: str, output_path: str,
             
             // 更新头部统计
             document.getElementById('eventApiType').textContent = eventPassData.apiType || 'Unknown';
-            document.getElementById('eventTotalCount').textContent = eventPassData.totalEvents || 0;
+            const listCount = (eventPassData.events && eventPassData.events.length)
+                ? eventPassData.events.length : 0;
+            const reportedTotal = (eventPassData.totalEvents !== undefined && eventPassData.totalEvents !== null)
+                ? eventPassData.totalEvents : listCount;
+            document.getElementById('eventTotalCount').textContent = reportedTotal;
+            document.getElementById('eventListCount').textContent = listCount;
             document.getElementById('eventDrawCount').textContent = eventPassData.totalDraws || 0;
             document.getElementById('eventDispatchCount').textContent = eventPassData.totalDispatches || 0;
             document.getElementById('eventFrameDuration').textContent = (eventPassData.frameDuration || 0).toFixed(2) + ' ms';

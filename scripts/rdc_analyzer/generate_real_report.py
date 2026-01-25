@@ -1411,6 +1411,7 @@ def main():
     print(f"  Frame Duration: {event_data['frameDuration']:.2f} ms")
     
     # 转换纹理数据
+    total_mem_mb = 0.0
     rdc_textures = rdc_data.get("textures", [])
     if rdc_textures:
         print(f"\nProcessing {len(rdc_textures)} textures...")
@@ -1418,7 +1419,7 @@ def main():
         usage_analysis = analyze_texture_usage(textures)
         duplicate_analysis = find_duplicate_textures(textures)
         
-        total_mem_mb = usage_analysis.get("total_vram_bytes", 0) / (1024*1024)
+        total_mem_mb = usage_analysis.get("total_vram_bytes", 0) / (1024 * 1024)
         print(f"  Total texture memory: {total_mem_mb:.2f} MB")
         print(f"  Hot textures: {len(usage_analysis.get('hot_list', []))}")
         print(f"  Duplicate groups: {duplicate_analysis['summary'].get('duplicateGroups', 0)}")
@@ -1452,6 +1453,7 @@ def main():
                 # 重新计算分析
                 usage_analysis = analyze_texture_usage(textures)
                 duplicate_analysis = find_duplicate_textures(textures)
+                total_mem_mb = usage_analysis.get("total_vram_bytes", 0) / (1024 * 1024)
                 
                 print(f"  Using {len(textures)} exported textures with {thumbnail_count} thumbnails")
         else:
@@ -1531,6 +1533,17 @@ def main():
                 "rt_changes": perf_report.total_rt_changes,
                 "unique_textures": perf_report.unique_textures,
                 "texture_memory": f"{perf_report.total_texture_memory_mb:.1f} MB",
+                "texture_memory_vram_mb": f"{total_mem_mb:.1f} MB",
+            },
+            "metrics_meta": {
+                "texture_memory": {
+                    "label": "Texture Memory (Est)",
+                    "desc": "Estimated from analyzer using texture formats; may differ from exported byte sizes.",
+                },
+                "texture_memory_vram_mb": {
+                    "label": "Texture Memory (Resources)",
+                    "desc": "Sum of texture byteSize from export/JSON; resource统计口径。",
+                },
             },
             "issues": [
                 {
