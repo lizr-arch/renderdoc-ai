@@ -376,11 +376,13 @@ if __name__ == '__main__':
 
 #### A.4 验收标准
 
-- [ ] `XMLToContextBridge` 类可以从 XML dict 创建 `AnalysisContext`
-- [ ] 纹理、缓冲区、着色器正确转换
-- [ ] DrawCall 和 Pass 信息正确提取
-- [ ] 基础指标 (total_draw_calls, texture_memory 等) 正确计算
-- [ ] 单元测试全部通过
+- [x] `XMLToContextBridge` 类可以从 XML dict 创建 `AnalysisContext`
+- [x] 纹理、缓冲区、着色器正确转换
+- [x] DrawCall 和 Pass 信息正确提取
+- [x] 基础指标 (total_draw_calls, texture_memory 等) 正确计算
+- [x] 单元测试全部通过 (16/16 passed ✅)
+
+> **任务 A (TASK-007) 完成** - 验证人: Flux-0119, 时间: 2025-01-20
 
 ---
 
@@ -557,11 +559,14 @@ def generate_report(xml_data: Dict, rdc_path: str, output_path: str):
 
 #### B.4 验收标准
 
-- [ ] `generate_real_report.py` 成功调用 `XMLToContextBridge`
-- [ ] `PerformanceAnalyzer` 在报告生成时运行
-- [ ] HTML 报告中显示 "性能洞察" 面板
-- [ ] 面板显示 overall_score 和关键指标
-- [ ] 问题列表按严重程度着色显示
+- [x] `generate_real_report.py` 成功调用 `XMLToContextBridge`
+- [x] `PerformanceAnalyzer` 在报告生成时运行
+- [x] HTML 报告中显示 "性能洞察" 面板
+- [x] 面板显示 overall_score 和关键指标
+- [x] 问题列表按严重程度着色显示
+- [x] 单元测试全部通过 (23/23 passed ✅)
+
+> **任务 B (TASK-008) 完成** - 验证人: Flux-0119, 时间: 2025-01-20
 
 ---
 
@@ -569,7 +574,8 @@ def generate_report(xml_data: Dict, rdc_path: str, output_path: str):
 ### 任务 C: OptimizationAdvisor 集成
 ### ═══════════════════════════════════════════════════════════
 
-**负责人**: AI-C
+**负责人**: Flux-0119 (认领于 2025-01-20)
+**状态**: 🔄 进行中
 **依赖**: 无 (独立任务)
 **输出**: 新增优化建议生成脚本 + HTML 面板
 

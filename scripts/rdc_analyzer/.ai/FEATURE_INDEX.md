@@ -332,16 +332,17 @@ class TextureSizeRule(BaseRule):
 
 ## 8. 对比分析模块 ⭐ Phase 2 核心
 
-> **状态**: 🟡 规划中 | **目标**: 实现两个 RDC 文件的差异对比，找出性能回归点
+> **状态**: ✅ 已完成 | **目标**: 实现两个 RDC 文件的差异对比，找出性能回归点
 
-### 8.1 DiffEngine 核心引擎 (TASK-010)
+### 8.1 DiffEngine 核心引擎 (TASK-010) ✅
 
 | 属性 | 值 |
 |------|-----|
-| **文件** | `diff/diff_engine.py` (待实现) |
+| **文件** | `diff/diff_engine.py` |
 | **类** | `DiffEngine` |
 | **输入** | 两个 `parse_rdc_xml.py` 输出的 dict (baseline, target) |
 | **输出** | `DiffReport` 对象 |
+| **状态** | ✅ 已完成 (Commit: 48b770712) |
 
 **对比维度**:
 
@@ -369,14 +370,15 @@ class DiffReport:
     def to_json(self) -> str: ...
 ```
 
-### 8.3 RegressionDetector 回归检测 (TASK-013)
+### 8.3 RegressionDetector 回归检测 (TASK-013) ✅
 
 | 属性 | 值 |
 |------|-----|
-| **文件** | `diff/regression_detector.py` (待实现) |
+| **文件** | `diff/regression_detector.py` |
 | **类** | `RegressionDetector` |
 | **输入** | `DiffReport` |
 | **输出** | `List[RegressionWarning]` |
+| **状态** | ✅ 已完成 (Commit: 48b770712) |
 
 **回归规则**:
 
@@ -473,6 +475,16 @@ class DiffReport:
 | MaliAnalyzer | ✅ 已实现 | `analyzers/mali_analyzer.py` | 需要 malioc 工具 |
 | OptimizationAdvisor | ✅ 已实现 | `analyzers/optimization_advisor.py` | ⚠️ 未集成到 HTML 报告 |
 
+### 9.4 对比分析 (TASK-010~013) ✅ 已完成
+
+| 功能 | 状态 | Commit | 任务 |
+|------|------|--------|------|
+| DiffEngine 对比引擎 | ✅ | 48b770712 | TASK-010 |
+| 差异可视化 HTML | ✅ | 48b770712 | TASK-011 |
+| CLI 对比入口 `compare_rdc.py` | ✅ | 48b770712 | TASK-012 |
+| RegressionDetector 回归检测 | ✅ | 48b770712 | TASK-013 |
+| 全局 Shader 列表收集 | ✅ | e95ed2686 | Phase 1 增强 |
+
 ---
 
 ## 10. 开发路线图
@@ -488,17 +500,17 @@ class DiffReport:
 | TASK-008: PerformanceAnalyzer 集成 | 🟡 待认领 | TASK-007 |
 | TASK-009: OptimizationAdvisor 集成 | 🟡 待认领 | TASK-007 |
 
-### Phase 2: RDC 对比分析 ⭐ 核心目标
+### Phase 2: RDC 对比分析 ⭐ 已完成
 
 > **目标**: 实现两个 RDC 的差异对比，找出性能回归点
-> **预计工时**: 4 小时
+> **完成时间**: 2026-01-19
 
-| 任务 | 状态 | 依赖 |
-|------|------|------|
-| TASK-010: DiffEngine 核心实现 | 🟡 待认领 | 无 |
-| TASK-011: 差异可视化 HTML | 🟡 待认领 | TASK-010 |
-| TASK-012: CLI 对比入口 | 🟡 待认领 | TASK-010, TASK-011 |
-| TASK-013: 性能回归检测 | 🟡 待认领 | TASK-010 |
+| 任务 | 状态 | 完成者 |
+|------|------|--------|
+| TASK-010: DiffEngine 核心实现 | ✅ 已完成 | Flux-0119 |
+| TASK-011: 差异可视化 HTML | ✅ 已完成 | Flux-0119 |
+| TASK-012: CLI 对比入口 | ✅ 已完成 | Flux-0119 |
+| TASK-013: 性能回归检测 | ✅ 已完成 | Flux-0119 |
 
 ### Phase 3: 兼容性与扩展
 

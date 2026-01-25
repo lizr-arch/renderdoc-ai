@@ -49,6 +49,9 @@ scripts/rdc_analyzer/
 | **HTML 生成** | `generate_offline_report.py` | 生成单文件 HTML | ✅ 完成 |
 | **E2E 测试** | `test_e2e_real_data.py` | 端到端验证 | ✅ 完成 |
 | **Pipeline 提取** | `extract_pipeline_state.py` | 提取渲染状态 | 🔧 待集成 |
+| **RDC 对比** | `compare_rdc.py` | 两个 RDC 差异分析 | ✅ 完成 |
+| **对比引擎** | `diff/diff_engine.py` | 对比核心逻辑 | ✅ 完成 |
+| **回归检测** | `diff/regression_detector.py` | 性能回归检测 | ✅ 完成 |
 
 ---
 
