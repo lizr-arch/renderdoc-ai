@@ -121,7 +121,7 @@ verify git status clean
     - `scripts/rdc_analyzer/test_captures/export_output/bindings_with_shaders.json`
   - Commit: `chore(samples): add local sample artifacts`
 
-- [ ] Task 6: 清理与验证
+- [x] Task 6: 清理与验证
   - Run: `git status -sb` (Expected: clean or approved files only)
 
 ## Open Questions
