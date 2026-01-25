@@ -109,11 +109,11 @@ verify git status clean
   - Files: plans/*, scripts/rdc_analyzer/.ai/*
   - Confirm: 是否归档保留？若保留 → `docs(plans)` 或 `docs(ai)` 提交
 
-- [ ] Task 4: 追加计划文档提交
+- [x] Task 4: 追加计划文档提交
   - Files: `plans/2026-01-25-213500-Agent01-HTML-Metrics-Alignment.md`
   - Commit: `docs(plans): add html metrics alignment plan`
 
-- [ ] Task 5: 样本/实验文件提交
+- [x] Task 5: 样本/实验文件提交
   - Files:
     - `example_d3d12.obj`
     - `scripts/rdc_analyzer/_test_regex.js`
