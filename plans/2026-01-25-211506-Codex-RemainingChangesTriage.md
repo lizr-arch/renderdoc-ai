@@ -105,18 +105,24 @@ verify git status clean
   - Files: `Agents.md`, `docs/conf.py`
   - Confirm: 是否为本次需求改动？若否 → restore
 
-- [ ] Task 3: 计划/索引类文件确认
+- [x] Task 3: 计划/索引类文件确认
   - Files: plans/*, scripts/rdc_analyzer/.ai/*
   - Confirm: 是否归档保留？若保留 → `docs(plans)` 或 `docs(ai)` 提交
 
-- [ ] Task 4: 实验/输出类文件确认（默认不提交）
-  - Files: `_test_regex.js`, `g145_with_shaders.json`, `bindings_with_shaders.json`
-  - Confirm: 是否保留为样本？若否 → 删除或加入 .gitignore + 清理
+- [ ] Task 4: 追加计划文档提交
+  - Files: `plans/2026-01-25-213500-Agent01-HTML-Metrics-Alignment.md`
+  - Commit: `docs(plans): add html metrics alignment plan`
 
-- [ ] Task 5: 清理与验证
+- [ ] Task 5: 样本/实验文件提交
+  - Files:
+    - `example_d3d12.obj`
+    - `scripts/rdc_analyzer/_test_regex.js`
+    - `scripts/rdc_analyzer/g145_with_shaders.json`
+    - `scripts/rdc_analyzer/test_captures/export_output/bindings_with_shaders.json`
+  - Commit: `chore(samples): add local sample artifacts`
+
+- [ ] Task 6: 清理与验证
   - Run: `git status -sb` (Expected: clean or approved files only)
 
 ## Open Questions
-- `Agents.md` 与 `docs/conf.py` 的改动是否确认为有效配置更新？
-- `scripts/rdc_analyzer/core/*.py` 等源码改动是否来自本次任务，是否要提交？
-- 计划/索引文件（plans/*, .ai/*）是否需要纳入版本控制？
+- 是否确认提交样本/实验文件（已在 Task 5 列出）？
