@@ -294,6 +294,21 @@ def local_mali_rdc():
 
 **备注**
 - 使用绝对路径执行脚本可稳定命中事件节点；相对路径会导致 `eventBrowserBtn` 无法命中。
+
+### 7.6.6 自动化 Headless 审阅（路径归一化 + step_log 扩展）
+
+- WHAT: 对相对路径自动转绝对路径，并在 step_log 记录 `doc_ready`/`doc_url` 等信息。
+- WHY: 解决相对路径导致 DOM 不命中的问题，并增强验收步骤可追溯性。
+- HOW: 更新 `scripts/_tmp_html_ui_review_cdp.ps1` 的路径归一化与 step_log 输出。
+
+**执行结果（run_20260125-232313）**
+- 路径：`docs/analysis/codex_rdc_analyzer/html_review/run_20260125-232313/`
+- click_found: `true`
+- click_strategy: `event-node`
+- html_input: `scripts/rdc_analyzer/test_output/g145_report.html`
+- html_abs: `D:\Code\git\renderdoc\scripts\rdc_analyzer\test_output\g145_report.html`
+- file_url: `file:///D:/Code/git/renderdoc/scripts/rdc_analyzer/test_output/g145_report.html`
+- step_log: `['doc_ready:complete','doc_url:file:///D:/Code/git/renderdoc/scripts/rdc_analyzer/test_output/g145_report.html','inject-style','showEventBrowser()','renderEventTree()','event-node-ready']`
 - 结论：点击前后截图 hash 不同，满足“真实点击可见变化”要求。
 
 ---
