@@ -289,6 +289,7 @@ for p in pngs:
 - 尝试 3：加入点击高亮与时间戳目录，run_20260125-192309 成功；点击可见差异满足。
 - 尝试 4（计划中）：命中真实事件元素并记录 click_strategy。
 - 尝试 5：加入 LogFile + Edge 路径解析，run_20260125-202852 捕获 `fallback_task_provider` 报错；产物正常，记录为已知噪声。
+- 假设：`fallback_task_provider` 为 Chromium Task Manager 内部告警，与 headless 渲染无功能性关联；当前证据未显示影响输出。
 
 # Next Steps
 - 已完成自动化审阅；若需提升“点击后可见变化”，可调整选择器或添加高亮样式。
