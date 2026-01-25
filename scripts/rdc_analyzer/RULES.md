@@ -1,6 +1,6 @@
 # RDC Analyzer 规则文档
 
-> 自动生成于 2026-01-24 17:15:26，共 **36 条** 规则
+> 自动生成于 2026-01-25 19:39:46，共 **42 条** 规则
 
 **数据来源**: rules/*.py + config/thresholds.py
 
@@ -8,7 +8,7 @@
 
 - [Buffer 规则](#buffer-规则-6-条)
 - [Draw Call 规则](#draw-call-规则-5-条)
-- [Mobile 规则](#mobile-规则-6-条)
+- [Mobile 规则](#mobile-规则-12-条)
 - [Pass 规则](#pass-规则-7-条)
 - [State 规则](#state-规则-6-条)
 - [Texture 规则](#texture-规则-6-条)
@@ -147,7 +147,7 @@
 
 ---
 
-## Mobile 规则 (6 条)
+## Mobile 规则 (12 条)
 
 ### RD_MOBILE_001: TBDR Flush
 - **严重程度**: warning
@@ -214,6 +214,74 @@
 - **描述**: 检测是否正确使用 Load/Store Action
 - **阈值**: 规则内部固定条件（无配置阈值）
 - **标准来源**: 无阈值
+
+### TILE_001: Tile Overdraw
+- **严重程度**: warning
+- **平台**: mobile
+- **WHAT**: Tile Overdraw
+- **WHY**: 适配移动端带宽/功耗限制
+- **HOW**: 检查阈值是否超标: tile_overdraw_ratio
+- **描述**: 检测 Tile 级别的过度绘制
+- **阈值**:
+  - tile_overdraw_ratio: PC=2.5, Mobile=2.0
+- **标准来源**:
+  - tile_overdraw_ratio: Internal baseline (2025-01) (Baseline threshold for tile_overdraw_ratio)
+
+### TILE_002: Tile Memory
+- **严重程度**: warning
+- **平台**: mobile
+- **WHAT**: Tile Memory
+- **WHY**: 适配移动端带宽/功耗限制
+- **HOW**: 检查阈值是否超标: tile_memory_kb
+- **描述**: 检测单 Tile 内存估算超阈值
+- **阈值**:
+  - tile_memory_kb: PC=512.0, Mobile=256.0
+- **标准来源**:
+  - tile_memory_kb: Internal baseline (2025-01) (Baseline threshold for tile_memory_kb)
+
+### TILE_003: Tile RT Bytes
+- **严重程度**: warning
+- **平台**: mobile
+- **WHAT**: Tile RT Bytes
+- **WHY**: 适配移动端带宽/功耗限制
+- **HOW**: 检查阈值是否超标: tile_rt_bytes
+- **描述**: 检测单 Pass RT 字节量过高
+- **阈值**:
+  - tile_rt_bytes: PC=134217728, Mobile=67108864
+- **标准来源**:
+  - tile_rt_bytes: Internal baseline (2025-01) (Baseline threshold for tile_rt_bytes)
+
+### TILE_004: Tile Load/Store
+- **严重程度**: info
+- **平台**: mobile
+- **WHAT**: Tile Load/Store
+- **WHY**: 适配移动端带宽/功耗限制
+- **HOW**: 规则内部固定条件
+- **描述**: 检测 Load/Store 负载偏高
+- **阈值**: 规则内部固定条件（无配置阈值）
+- **标准来源**: 无阈值
+
+### TILE_005: Tile MSAA
+- **严重程度**: info
+- **平台**: mobile
+- **WHAT**: Tile MSAA
+- **WHY**: 适配移动端带宽/功耗限制
+- **HOW**: 规则内部固定条件
+- **描述**: 检测 MSAA 采样数对 Tile 成本的影响
+- **阈值**: 规则内部固定条件（无配置阈值）
+- **标准来源**: 无阈值
+
+### TILE_006: Tile Pass Switch
+- **严重程度**: info
+- **平台**: mobile
+- **WHAT**: Tile Pass Switch
+- **WHY**: 适配移动端带宽/功耗限制
+- **HOW**: 检查阈值是否超标: max_pass_count
+- **描述**: 检测 Pass 切换导致的 Tile 复用下降
+- **阈值**:
+  - max_pass_count: PC=30, Mobile=15
+- **标准来源**:
+  - max_pass_count: Internal baseline (2025-01) (Baseline threshold for max_pass_count)
 
 ---
 

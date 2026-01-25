@@ -46,6 +46,12 @@ py -3 -m rdc_analyzer analyze capture.rdc [OPTIONS]
   -o, --output PATH      输出路径 (默认: capture.html)
   --json PATH            额外输出 JSON 统计数据
   --format html|json     输出格式
+  --platform pc|mobile   目标平台 (默认: pc)
+  --enable-tile-analysis 启用 Tile-Based GPU 分析
+  --tile-gpu NAME        目标 Tile GPU 型号 (默认: Generic-Tile)
+  --enable-adreno-analysis 启用 Adreno 分析
+  --adreno-mode MODE     Adreno 模式: heuristic|profiler|auto
+  --adreno-profiler-path PATH  Snapdragon Profiler CLI 路径 (可选)
 ```
 
 **输出内容**:

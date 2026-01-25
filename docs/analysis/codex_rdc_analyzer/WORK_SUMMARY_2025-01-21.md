@@ -28,6 +28,7 @@
 ## 迁移说明
 - 原 `WORK_SUMMARY_2025-01-21.md` 已拆分，历史内容未删，仅重新分类。
 - "RDC → XML → HTML" 流程已集中在 `WORK_SUMMARY_ROUTES.md`。
+- 移动 GPU（Tile-Based/Adreno）分析进展记录在 `WORK_SUMMARY_ROADMAP.md`。
 
 ## 快速入口
 
