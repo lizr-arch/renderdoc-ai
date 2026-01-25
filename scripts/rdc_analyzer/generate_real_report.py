@@ -1102,30 +1102,39 @@ def load_bindings_json(bindings_path: Path) -> dict:
           ]
         },
         ...
-      ]
+      ],
+      "shaders": [...]  // 可选的 shader 统计数据
     }
     
     Returns:
-        {eventId: [constantBuffer, ...], ...}  按 eventId 索引的字典
+        {
+            "cb_by_eid": {eventId: [constantBuffer, ...], ...},  # 按 eventId 索引的 CB 字典
+            "shaders": [...]  # 原始 shaders 列表
+        }
     """
     if not bindings_path.exists():
         print(f"  [WARN] Bindings file not found: {bindings_path}")
-        return {}
+        return {"cb_by_eid": {}, "shaders": []}
     
     try:
         with open(bindings_path, 'r', encoding='utf-8') as f:
             data = json.load(f)
         
-        result = {}
+        cb_by_eid = {}
         events = data.get("events", [])
         for evt in events:
             eid = evt.get("eventId")
             cbs = evt.get("constantBuffers", [])
             if eid is not None and cbs:
-                result[eid] = cbs
+                cb_by_eid[eid] = cbs
         
-        print(f"  Loaded CB data for {len(result)} events from bindings.json")
-        return result
+        shaders = data.get("shaders", [])
+        
+        print(f"  Loaded CB data for {len(cb_by_eid)} events from bindings.json")
+        if shaders:
+            print(f"  Loaded {len(shaders)} shader entries from bindings.json")
+        
+        return {"cb_by_eid": cb_by_eid, "shaders": shaders}
     
     except (json.JSONDecodeError, IOError) as e:
         print(f"  [ERROR] Failed to load bindings.json: {e}")
@@ -1366,12 +1375,24 @@ def main():
     print("Converting to report format...")
     event_data = convert_to_report_format(rdc_data)
     
+    # 加载 shader 数据：优先从主 JSON 文件读取，回退到 bindings.json
+    all_shaders = rdc_data.get("shaders", [])  # 从主 JSON 文件读取
+    if all_shaders:
+        print(f"\n  Loaded {len(all_shaders)} shaders from main JSON")
+    
     # 加载并合并 CB 成员数据（如果提供了 bindings.json）
     if bindings_path:
         print(f"\nLoading CB bindings from {bindings_path}...")
-        cb_data = load_bindings_json(bindings_path)
-        if cb_data:
-            event_data = merge_cb_members_to_events(event_data, cb_data)
+        bindings_result = load_bindings_json(bindings_path)
+        if bindings_result:
+            cb_by_eid = bindings_result.get("cb_by_eid", {})
+            bindings_shaders = bindings_result.get("shaders", [])
+            # 如果主 JSON 没有 shaders，则使用 bindings.json 中的
+            if not all_shaders and bindings_shaders:
+                all_shaders = bindings_shaders
+                print(f"  Loaded {len(all_shaders)} shaders from bindings.json")
+            if cb_by_eid:
+                event_data = merge_cb_members_to_events(event_data, cb_by_eid)
     
     # 加载并合并 Pipeline State 数据（如果提供了 --pipeline-json）
     # 数据来自 extract_pipeline_state.py (需在 RenderDoc Python 环境中运行)
@@ -1462,6 +1483,7 @@ def main():
             "textures": textures,
             "buffers": [],  # 当前暂无 buffer 数据
             "draw_calls": [],
+            "shaders": all_shaders,  # 从主 JSON 文件或 bindings.json 加载的 shader 数据
             "frame_summary": {
                 "api": event_data.get("apiType", "Unknown"),
                 "draw_count": event_data.get("totalDraws", 0),
@@ -1569,6 +1591,7 @@ def main():
         frame_thumbnail=frame_thumbnail,
         optimization_data=optimization_data,
         performance_data=performance_data,
+        shader_data=all_shaders,  # TASK-205: 传入 Shader 列表用于资源浏览器
     )
     
     print(f"[OK] Report saved to: {output_path}")

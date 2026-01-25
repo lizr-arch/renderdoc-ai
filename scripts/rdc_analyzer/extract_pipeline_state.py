@@ -117,8 +117,14 @@ def get_format_name(fmt) -> str:
         return str(fmt)
 
 
-def extract_shader_info(state, stage) -> Optional[Dict[str, Any]]:
-    """提取指定着色器阶段的信息"""
+def extract_shader_info(state, stage, controller=None) -> Optional[Dict[str, Any]]:
+    """提取指定着色器阶段的信息
+    
+    Args:
+        state: PipelineState 对象
+        stage: ShaderStage 枚举值
+        controller: ReplayController (可选，用于反汇编)
+    """
     try:
         shader = state.GetShader(stage)
         if shader == rd.ResourceId.Null():
@@ -158,6 +164,58 @@ def extract_shader_info(state, stage) -> Optional[Dict[str, Any]]:
                             "isTexture": True,
                         }
                         info["textures"].append(tex_info)
+            
+            # 获取输入签名 (用于 UI 展示)
+            if refl.inputSignature:
+                info["inputSignature"] = []
+                for sig in refl.inputSignature:
+                    sig_info = {
+                        "semantic": sig.semanticName,
+                        "index": sig.semanticIndex,
+                        "register": sig.regIndex,
+                        "type": str(sig.varType),
+                        "components": sig.compCount,
+                    }
+                    info["inputSignature"].append(sig_info)
+            
+            # 获取输出签名
+            if refl.outputSignature:
+                info["outputSignature"] = []
+                for sig in refl.outputSignature:
+                    sig_info = {
+                        "semantic": sig.semanticName,
+                        "index": sig.semanticIndex,
+                        "register": sig.regIndex,
+                        "type": str(sig.varType),
+                        "components": sig.compCount,
+                    }
+                    info["outputSignature"].append(sig_info)
+            
+            # 获取反汇编代码 (如果有 controller)
+            if controller is not None:
+                try:
+                    # 获取可用的反汇编目标
+                    targets = controller.GetDisassemblyTargets(True)
+                    target = targets[0] if targets else ""
+                    
+                    # 获取 pipeline ResourceId
+                    pipeline = state.GetGraphicsPipelineObject()
+                    if pipeline == rd.ResourceId.Null():
+                        pipeline = state.GetComputePipelineObject()
+                    
+                    # 调用反汇编 API
+                    disasm = controller.DisassembleShader(pipeline, refl, target)
+                    if disasm:
+                        # 限制长度，避免 JSON 过大
+                        max_len = 50000  # 50KB
+                        if len(disasm) > max_len:
+                            info["sourceAsm"] = disasm[:max_len] + "\n\n// ... (truncated, total {} bytes)".format(len(disasm))
+                            info["sourceAsmTruncated"] = True
+                        else:
+                            info["sourceAsm"] = disasm
+                            info["sourceAsmTruncated"] = False
+                except Exception as disasm_err:
+                    info["sourceAsmError"] = str(disasm_err)
         
         return info
     except Exception as e:
@@ -350,8 +408,14 @@ def extract_depth_target(state) -> Optional[Dict[str, Any]]:
         return {"error": str(e)}
 
 
-def extract_event_pipeline_state(controller, action) -> Dict[str, Any]:
-    """提取单个事件的完整 Pipeline State"""
+def extract_event_pipeline_state(controller, action, include_disasm: bool = True) -> Dict[str, Any]:
+    """提取单个事件的完整 Pipeline State
+    
+    Args:
+        controller: ReplayController
+        action: Action 对象
+        include_disasm: 是否包含反汇编代码 (默认 True)
+    """
     
     # 导航到该事件
     controller.SetFrameEvent(action.eventId, False)
@@ -373,7 +437,7 @@ def extract_event_pipeline_state(controller, action) -> Dict[str, Any]:
         },
     }
     
-    # 提取各 Shader 阶段
+    # 提取各 Shader 阶段 (传入 controller 以获取反汇编)
     shader_stages = [
         (rd.ShaderStage.Vertex, "Vertex Shader"),
         (rd.ShaderStage.Hull, "Hull Shader"),
@@ -384,7 +448,11 @@ def extract_event_pipeline_state(controller, action) -> Dict[str, Any]:
     ]
     
     for stage, name in shader_stages:
-        shader_info = extract_shader_info(state, stage)
+        shader_info = extract_shader_info(
+            state, 
+            stage, 
+            controller if include_disasm else None
+        )
         if shader_info:
             pipeline_state["shaders"][name] = shader_info
     

@@ -78,7 +78,13 @@ class XMLToContextBridge:
         # 4. 转换缓冲区
         context.buffers = cls._convert_buffers(xml_data.get('buffers', []))
         
-        # 5. 生成帧摘要
+        # 5. 转换 Shader (TASK-201)
+        context.shaders = cls._convert_shaders(
+            xml_data.get('shaders', []),
+            context.draw_calls
+        )
+        
+        # 6. 生成帧摘要
         context.frame_summary = cls._convert_statistics(
             xml_data.get('statistics', {}),
             context.draw_calls,
@@ -213,6 +219,82 @@ class XMLToContextBridge:
             
             info.is_constant_buffer = 'ConstantBuffer' in usage or 'UniformBuffer' in usage
             info.is_dynamic = 'Dynamic' in usage or buf.get('cpuAccess', '') == 'Write'
+            
+            result.append(info)
+        
+        return result
+    
+    @classmethod
+    def _convert_shaders(
+        cls,
+        shaders: List[Dict],
+        draw_calls: List[DrawCallInfo]
+    ) -> List[ShaderInfo]:
+        """
+        将 JSON shaders 转换为 ShaderInfo 列表。
+        
+        同时计算每个 Shader 的使用次数 (bind_count)。
+        
+        TASK-201: Shader 数据桥接完善
+        """
+        result = []
+        
+        # 统计各 Shader ID 使用次数
+        shader_usage: Dict[str, int] = {}
+        for dc in draw_calls:
+            for shader_id in (dc.vs_id, dc.ps_id):
+                if shader_id:
+                    shader_usage[shader_id] = shader_usage.get(shader_id, 0) + 1
+        
+        for shader in shaders:
+            # 兼容两种格式：
+            # 1. 新格式 (bindings.json): resourceId, type, stats, cycles
+            # 2. XML解析格式 (parse_rdc_xml.py): id, stage, type, name
+            res_id = str(shader.get('resourceId', '') or shader.get('id', ''))
+            shader_type = shader.get('type', '') or shader.get('stage', '')  # VS, PS, CS, PIPELINE etc.
+            stats = shader.get('stats', {})
+            cycles = shader.get('cycles', {})
+            
+            # 构建 ShaderInfo (仅填充 Optimizer 需要的字段)
+            info = ShaderInfo(
+                resource_id=res_id,
+                type=shader_type,
+                name=shader.get('name', ''),
+                hash=shader.get('hash', ''),
+                bind_count=shader_usage.get(res_id, 0),
+            )
+            
+            # 添加 Mali Offline Compiler 风格的属性 (供 OptimizationAdvisor 使用)
+            # 这些属性在 ShaderInfo 基类中不存在，所以我们使用动态属性
+            # 但 OptimizationAdvisor 期望 ShaderAnalysisContext，所以我们创建兼容对象
+            info._analysis_context = {
+                'name': info.name,
+                'shader_type': 'vertex' if shader_type in ('VS', 'Vertex') else (
+                    'compute' if shader_type in ('CS', 'Compute') else 'fragment'
+                ),
+                'bound': shader.get('bound', 'Unknown'),
+                'cycles': {
+                    'arithmetic': cycles.get('arithmetic', 0),
+                    'texture': cycles.get('texture', 0),
+                    'load_store': cycles.get('loadStore', 0),
+                    'varying': cycles.get('varying', 0),
+                    'total': cycles.get('total', 0),
+                },
+                'registers': {
+                    'work': stats.get('tempRegisters', 0),
+                },
+                'has_loops': stats.get('hasLoops', False),
+                'has_branching': stats.get('hasBranching', False),
+                'has_discard': stats.get('hasDiscard', False),
+                'has_derivatives': stats.get('hasDerivatives', False),
+                'loop_depth': stats.get('loopDepth', 0),
+                'branch_depth': stats.get('branchDepth', 0),
+                'texture_count': stats.get('textureCount', 0),
+                'sampler_count': stats.get('samplerCount', 0),
+                'cbuffer_count': stats.get('cbufferCount', 0),
+                'temp_registers': stats.get('tempRegisters', 0),
+                'usage_count': shader_usage.get(res_id, 1),
+            }
             
             result.append(info)
         

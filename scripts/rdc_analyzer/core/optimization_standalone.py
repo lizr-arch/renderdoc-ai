@@ -572,27 +572,56 @@ def generate_optimization_from_context(context: Any) -> Dict:
     # 转换 shaders 为 analysis_results 格式
     analysis_results = []
     for shader in context.shaders:
-        result = {
-            'name': getattr(shader, 'name', 'Unknown'),
-            'type': getattr(shader, 'shader_type', 'fragment'),
-            'bound': getattr(shader, 'bound', 'Unknown'),
-            'cycles': getattr(shader, 'cycles', {}),
-            'registers': getattr(shader, 'registers', {}),
-            'category_counts': getattr(shader, 'category_counts', {}),
-            'mali_cycles': getattr(shader, 'mali_cycles', {}),
-            'has_loops': getattr(shader, 'has_loops', False),
-            'has_branching': getattr(shader, 'has_branching', False),
-            'has_discard': getattr(shader, 'has_discard', False),
-            'has_derivatives': getattr(shader, 'has_derivatives', False),
-            'loop_depth': getattr(shader, 'loop_depth', 0),
-            'branch_depth': getattr(shader, 'branch_depth', 0),
-            'texture_count': getattr(shader, 'texture_count', 0),
-            'sampler_count': getattr(shader, 'sampler_count', 0),
-            'cbuffer_count': getattr(shader, 'cbuffer_count', 0),
-            'temp_registers': getattr(shader, 'temp_registers', 0),
-            'usage_count': getattr(shader, 'usage_count', 1),
-            'success': True,
-        }
+        # 优先从 _analysis_context 读取 (TASK-201: Shader 数据桥接)
+        # 这是 XMLToContextBridge 为 ShaderInfo 附加的扩展属性
+        ctx = getattr(shader, '_analysis_context', None)
+        
+        if ctx and isinstance(ctx, dict):
+            # 从桥接的分析上下文读取
+            result = {
+                'name': ctx.get('name', getattr(shader, 'name', 'Unknown')),
+                'type': ctx.get('shader_type', 'fragment'),
+                'bound': ctx.get('bound', 'Unknown'),
+                'cycles': ctx.get('cycles', {}),
+                'registers': ctx.get('registers', {}),
+                'category_counts': ctx.get('category_counts', {}),
+                'mali_cycles': ctx.get('mali_cycles', {}),
+                'has_loops': ctx.get('has_loops', False),
+                'has_branching': ctx.get('has_branching', False),
+                'has_discard': ctx.get('has_discard', False),
+                'has_derivatives': ctx.get('has_derivatives', False),
+                'loop_depth': ctx.get('loop_depth', 0),
+                'branch_depth': ctx.get('branch_depth', 0),
+                'texture_count': ctx.get('texture_count', 0),
+                'sampler_count': ctx.get('sampler_count', 0),
+                'cbuffer_count': ctx.get('cbuffer_count', 0),
+                'temp_registers': ctx.get('temp_registers', 0),
+                'usage_count': ctx.get('usage_count', 1),
+                'success': True,
+            }
+        else:
+            # 回退：从 ShaderAnalysisContext 对象的属性读取
+            result = {
+                'name': getattr(shader, 'name', 'Unknown'),
+                'type': getattr(shader, 'shader_type', 'fragment'),
+                'bound': getattr(shader, 'bound', 'Unknown'),
+                'cycles': getattr(shader, 'cycles', {}),
+                'registers': getattr(shader, 'registers', {}),
+                'category_counts': getattr(shader, 'category_counts', {}),
+                'mali_cycles': getattr(shader, 'mali_cycles', {}),
+                'has_loops': getattr(shader, 'has_loops', False),
+                'has_branching': getattr(shader, 'has_branching', False),
+                'has_discard': getattr(shader, 'has_discard', False),
+                'has_derivatives': getattr(shader, 'has_derivatives', False),
+                'loop_depth': getattr(shader, 'loop_depth', 0),
+                'branch_depth': getattr(shader, 'branch_depth', 0),
+                'texture_count': getattr(shader, 'texture_count', 0),
+                'sampler_count': getattr(shader, 'sampler_count', 0),
+                'cbuffer_count': getattr(shader, 'cbuffer_count', 0),
+                'temp_registers': getattr(shader, 'temp_registers', 0),
+                'usage_count': getattr(shader, 'usage_count', 1),
+                'success': True,
+            }
         analysis_results.append(result)
     
     return generate_optimization_report(analysis_results, include_code_examples=True)

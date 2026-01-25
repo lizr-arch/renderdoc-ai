@@ -96,6 +96,36 @@ class RTIssue:
             "message": self.message,
             "suggestion": self.suggestion,
         }
+    
+    def to_canonical(self) -> 'CanonicalIssue':
+        """转换为 CanonicalIssue 格式"""
+        from .types import CanonicalIssue
+        
+        # 映射 issue_type 到 code
+        code_map = {
+            'redundant_clear': 'RT001',
+            'unused_rt': 'RT002',
+            'excessive_switches': 'RT003',
+        }
+        code = code_map.get(self.issue_type, f'RT_{self.issue_type.upper()}')
+        
+        return CanonicalIssue(
+            code=code,
+            severity=self.severity,
+            category='performance',  # RT 问题属于性能类别
+            message=self.message,
+            event_ids=self.event_ids,
+            resource_ids=[self.resource_id] if self.resource_id else [],
+            evidence={'issue_type': self.issue_type},
+            suggestion=self.suggestion if self.suggestion else None,
+        )
+
+
+# 导入 CanonicalIssue 用于类型提示
+try:
+    from .types import CanonicalIssue
+except ImportError:
+    pass  # 运行时会正常导入
 
 
 class RTTracker:

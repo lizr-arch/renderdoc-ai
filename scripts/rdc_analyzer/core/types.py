@@ -208,6 +208,75 @@ class Issue:
     suggestion: Optional[str] = None
     # 定位路径 (用于快速跳转)
     location_path: Optional[str] = None  # 如 "Pass 3 > Event 245 > Texture 0x1234"
+    
+    def to_canonical(self) -> 'CanonicalIssue':
+        """转换为 CanonicalIssue 格式"""
+        return CanonicalIssue(
+            code=self.code,
+            severity=self.severity,
+            category=self.category,
+            message=self.message,
+            event_ids=[self.event_id] if self.event_id is not None else [],
+            resource_ids=[self.resource_id] if self.resource_id else [],
+            evidence={
+                'threshold': self.threshold,
+                'actual': self.actual,
+                'location_path': self.location_path,
+            } if self.threshold is not None or self.actual is not None else {},
+            suggestion=self.suggestion,
+        )
+
+
+@dataclass
+class CanonicalIssue:
+    """
+    规范化 Issue 格式 (Canonical Schema v1.0)
+    
+    所有 Issue 类型（Issue, PerformanceIssue, RTIssue, BindingIssue）
+    都应能转换为此格式，确保 JSON 输出一致性。
+    
+    字段说明:
+        code: 规则 ID (如 BIND001, PERF003, RT001)
+        severity: 严重程度 (critical | warning | info)
+        category: 类别 (performance | memory | correctness | best_practice)
+        message: 人类可读的问题描述
+        event_ids: 关联的事件 ID 列表（支持单事件和多事件问题）
+        resource_ids: 关联的资源 ID 列表
+        evidence: 证据数据（阈值、实际值、影响分数等）
+        suggestion: 修复建议
+    """
+    code: str
+    severity: str
+    category: str
+    message: str
+    event_ids: List[int] = field(default_factory=list)
+    resource_ids: List[str] = field(default_factory=list)
+    evidence: Dict[str, Any] = field(default_factory=dict)
+    suggestion: Optional[str] = None
+    
+    def to_dict(self) -> Dict[str, Any]:
+        """转换为字典格式（用于 JSON 输出）"""
+        result = {
+            'code': self.code,
+            'severity': self.severity,
+            'category': self.category,
+            'message': self.message,
+        }
+        
+        # 只包含非空字段
+        if self.event_ids:
+            result['event_ids'] = self.event_ids
+        if self.resource_ids:
+            result['resource_ids'] = self.resource_ids
+        if self.evidence:
+            # 过滤掉 None 值
+            filtered_evidence = {k: v for k, v in self.evidence.items() if v is not None}
+            if filtered_evidence:
+                result['evidence'] = filtered_evidence
+        if self.suggestion:
+            result['suggestion'] = self.suggestion
+        
+        return result
 
 
 @dataclass
@@ -380,6 +449,44 @@ class PerformanceIssue:
     
     # 相关事件列表 (用于批量问题)
     related_events: List[int] = field(default_factory=list)
+    
+    def to_canonical(self) -> 'CanonicalIssue':
+        """转换为 CanonicalIssue 格式"""
+        # 构建 event_ids 列表
+        event_ids = []
+        if self.event_id is not None:
+            event_ids.append(self.event_id)
+        if self.event_range:
+            start, end = self.event_range
+            if start not in event_ids:
+                event_ids.append(start)
+            if end not in event_ids:
+                event_ids.append(end)
+        event_ids.extend([e for e in self.related_events if e not in event_ids])
+        
+        # 构建 evidence
+        evidence = {}
+        if self.actual_value is not None:
+            evidence['actual'] = self.actual_value
+        if self.threshold_value is not None:
+            evidence['threshold'] = self.threshold_value
+        if self.impact_score > 0:
+            evidence['impact_score'] = self.impact_score
+        if self.pass_index is not None:
+            evidence['pass_index'] = self.pass_index
+        if self.title:
+            evidence['title'] = self.title
+        
+        return CanonicalIssue(
+            code=self.rule_id,
+            severity=self.severity,
+            category=self.category,
+            message=self.message,
+            event_ids=event_ids,
+            resource_ids=[self.resource_id] if self.resource_id else [],
+            evidence=evidence,
+            suggestion=self.suggestion if self.suggestion else None,
+        )
 
 
 @dataclass

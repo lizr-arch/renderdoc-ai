@@ -16,6 +16,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 from rdc_parser import RDCParser, extract_textures, TextureInfo
 
 
+
 def format_size_mb(size_mb: float) -> str:
     """格式化大小"""
     if size_mb < 1:
