@@ -42,6 +42,9 @@ def register_all_rules():
     
     # 移动端规则
     from . import mobile
+    
+    # Tile-Based 规则
+    from . import tile_based
 
 
 __all__ = [
