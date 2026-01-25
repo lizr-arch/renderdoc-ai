@@ -211,6 +211,29 @@ def local_mali_rdc():
 - 虽然 `click_selector` 未匹配到事件元素，但徽标注入保证了“点击阶段可见变化”。
 - 若需验证真实事件点击效果，需进一步扩展选择器或基于页面结构定位可点击目标。
 
+### 7.6.2 Headless Chromium 报错刷屏调查（fallback_task_provider）
+
+- WHAT: 采集 headless Edge 运行日志，确认 `fallback_task_provider` 报错来源与频率。
+- WHY: 判断该报错是否影响 HTML 审阅功能，决定是否需要抑制或记录为已知噪声。
+- HOW: 运行脚本增加 `-LogFile edge_log`，检查 `edge_log.err` 中的报错行。
+
+**复现步骤**
+- 命令：  
+  `pwsh -File scripts/_tmp_html_ui_review_cdp.ps1 -Html "D:\renderdoc\goog pixel-9\g145_from_convert_report.html" -OutDir "docs/analysis/codex_rdc_analyzer/html_review" -LogFile "edge_log"`
+- 产物目录：`docs/analysis/codex_rdc_analyzer/html_review/run_20260125-202852/`
+
+**证据**
+- 日志：`edge_log.err` 多次出现  
+  `ERROR:chrome\browser\task_manager\providers\fallback_task_provider.cc:126`  
+  （示例行：7、10、19、21、22）
+- 环境：Edge 版本 `144.0.3719.92`，路径  
+  `C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe`
+- 功能产物：截图 7 张 + `review.json` 生成，哈希验证通过（可见变化满足）。
+
+**结论**
+- 当前证据表明该报错为 Chromium 内部告警，**不影响**本次 headless 审阅产物。
+- 处理策略：记录为“已知噪声”，保留日志用于后续排查；若未来出现功能异常再追溯。
+
 ---
 
 

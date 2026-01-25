@@ -1,0 +1,18 @@
+{
+  "screenshots": [
+    "01_baseline.png",
+    "02_scroll.png",
+    "03_zoom_in.png",
+    "04_zoom_out.png",
+    "05_scroll2.png",
+    "06_event_click.png",
+    "07_final.png"
+  ],
+  "html": "D:\\renderdoc\\goog pixel-9\\g145_from_convert_report.html",
+  "log_stderr": "D:\\Code\\git\\renderdoc\\docs\\analysis\\codex_rdc_analyzer\\html_review\\run_20260125-202852\\edge_log.err",
+  "run_dir": "D:\\Code\\git\\renderdoc\\docs\\analysis\\codex_rdc_analyzer\\html_review\\run_20260125-202852",
+  "edge_path": "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe",
+  "log_stdout": "D:\\Code\\git\\renderdoc\\docs\\analysis\\codex_rdc_analyzer\\html_review\\run_20260125-202852\\edge_log.out",
+  "edge_version": "144.0.3719.92",
+  "click_selector": null
+}

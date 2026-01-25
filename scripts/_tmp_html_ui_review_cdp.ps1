@@ -1,7 +1,8 @@
 param(
   [string]$Html,
   [string]$OutDir,
-  [int]$Port = 9222
+  [int]$Port = 9222,
+  [string]$LogFile = ""
 )
 
 if (-not (Test-Path $Html)) { throw "HTML not found: $Html" }
@@ -11,6 +12,19 @@ $runStamp = Get-Date -Format "yyyyMMdd-HHmmss"
 $runDir = Join-Path $OutDir ("run_" + $runStamp)
 if (-not (Test-Path $runDir)) { New-Item -ItemType Directory -Path $runDir | Out-Null }
 
+$logOut = $null
+$logErr = $null
+if ($LogFile -and $LogFile.Trim().Length -gt 0) {
+  $logBase = $LogFile
+  if (-not [IO.Path]::IsPathRooted($logBase)) {
+    $logBase = Join-Path $runDir $logBase
+  }
+  $logDir = Split-Path $logBase -Parent
+  if ($logDir -and -not (Test-Path $logDir)) { New-Item -ItemType Directory -Path $logDir | Out-Null }
+  $logOut = $logBase + ".out"
+  $logErr = $logBase + ".err"
+}
+
 function To-FileUrl([string]$path) {
   $p = $path.Replace('\','/')
   if ($p -match '^[A-Za-z]:/') { return "file:///$p" }
@@ -18,6 +32,30 @@ function To-FileUrl([string]$path) {
 }
 
 $fileUrl = To-FileUrl $Html
+
+function Resolve-EdgePath() {
+  $regPaths = @(
+    "HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\App Paths\\msedge.exe",
+    "HKCU:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\App Paths\\msedge.exe"
+  )
+  foreach ($rp in $regPaths) {
+    try {
+      $val = (Get-ItemProperty -Path $rp -ErrorAction Stop)."(default)"
+      if ($val -and (Test-Path $val)) { return $val }
+    } catch { }
+  }
+  $candidates = @(
+    "$env:ProgramFiles\\Microsoft\\Edge\\Application\\msedge.exe",
+    "$env:ProgramFiles(x86)\\Microsoft\\Edge\\Application\\msedge.exe"
+  )
+  foreach ($c in $candidates) {
+    if ($c -and (Test-Path $c)) { return $c }
+  }
+  throw "msedge.exe not found via App Paths or Program Files"
+}
+
+$edgePath = Resolve-EdgePath
+$edgeVersion = (Get-Item $edgePath).VersionInfo.FileVersion
 
 $args = @(
   "--headless=new",
@@ -28,7 +66,14 @@ $args = @(
   "--disable-web-security",
   "about:blank"
 )
-Start-Process "msedge.exe" -ArgumentList $args | Out-Null
+if ($logErr) {
+  $args += @("--enable-logging=stderr", "--v=1")
+  New-Item -ItemType File -Path $logOut -Force | Out-Null
+  New-Item -ItemType File -Path $logErr -Force | Out-Null
+  Start-Process $edgePath -ArgumentList $args -RedirectStandardOutput $logOut -RedirectStandardError $logErr | Out-Null
+} else {
+  Start-Process $edgePath -ArgumentList $args | Out-Null
+}
 Start-Sleep -Seconds 2
 
 function Get-Json([string]$url) {
@@ -122,7 +167,11 @@ Capture "07_final.png"
 $review = @{
   html = $Html
   run_dir = $runDir
+  edge_path = $edgePath
+  edge_version = $edgeVersion
   click_selector = $clickRes.result.result.value
+  log_stdout = $logOut
+  log_stderr = $logErr
   screenshots = @("01_baseline.png","02_scroll.png","03_zoom_in.png","04_zoom_out.png","05_scroll2.png","06_event_click.png","07_final.png")
 } | ConvertTo-Json -Depth 5
 $review | Set-Content -Path (Join-Path $runDir "review.json") -Encoding UTF8
