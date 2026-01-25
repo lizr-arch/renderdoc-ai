@@ -641,6 +641,14 @@ class AnalysisPipeline:
                     TileBasedAnalyzer(context).analyze()
                 except Exception as e:
                     logger.warning(f"Tile-Based 分析失败: {e}")
+            if self.options.enable_adreno_analysis:
+                try:
+                    from .analyzers.adreno_analyzer import AdrenoAnalyzer
+                    context.adreno_mode = self.options.adreno_mode
+                    context.adreno_profiler_path = self.options.adreno_profiler_path
+                    self._issues.extend(AdrenoAnalyzer(context).analyze())
+                except Exception as e:
+                    logger.warning(f"Adreno 分析失败: {e}")
             runner = RuleRunner(context)
 
             if self.options.enabled_rules:

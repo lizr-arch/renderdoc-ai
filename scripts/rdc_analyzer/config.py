@@ -17,6 +17,8 @@ DEFAULT_CONFIG = {
     "target_gpu": "Mali-G78",
     "output_dir": r"d:\Code\git\renderdoc\scripts\rdc_analyzer\output",
     "max_shaders": 50,
+    "adreno_profiler_path": "",
+    "adreno_target_gpu": "Adreno 740",
     
     # 支持的 GPU 列表 (运行 malioc --list 获取完整列表)
     "supported_gpus": [
@@ -64,6 +66,10 @@ def load_config():
             config['max_shaders'] = int(os.environ['MALI_MAX_SHADERS'])
         except ValueError:
             pass
+    if os.environ.get('ADRENO_PROFILER_PATH'):
+        config['adreno_profiler_path'] = os.environ['ADRENO_PROFILER_PATH']
+    if os.environ.get('ADRENO_TARGET_GPU'):
+        config['adreno_target_gpu'] = os.environ['ADRENO_TARGET_GPU']
     
     return config
 
@@ -129,6 +135,11 @@ def validate_config(config):
             print(f"[INFO] Created output directory: {output_dir}")
         except Exception as e:
             errors.append(f"Cannot create output directory: {e}")
+    
+    # 检查 Adreno Profiler 路径（可选）
+    adreno_profiler = config.get('adreno_profiler_path', '')
+    if adreno_profiler and not os.path.exists(adreno_profiler):
+        errors.append(f"Adreno profiler not found: {adreno_profiler}")
     
     return errors
 
