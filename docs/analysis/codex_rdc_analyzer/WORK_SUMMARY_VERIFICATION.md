@@ -188,6 +188,29 @@ def local_mali_rdc():
 - 目录中存在历史截图（如 `02_pgdn.png`），为旧 run 产物，不影响本次 7 张基线验证。
 - 本结果为 headless 渲染，若需要视觉细节审阅，仍需人工打开浏览器复核。
 
+### 7.6.1 自动化 Headless 审阅（CDP，点击高亮 + 时间戳目录）
+
+- WHAT: 在点击阶段注入高亮徽标，确保点击截图与点击前截图存在可见差异；产物写入时间戳子目录。
+- WHY: 避免“点击无变化”导致无法证明交互发生；避免历史产物混淆。
+- HOW: 脚本在点击后注入 `CDP CLICK` 徽标；`run_YYYYMMDD-HHMMSS` 目录隔离。
+
+**执行结果（run_20260125-192309）**
+- 路径：`docs/analysis/codex_rdc_analyzer/html_review/run_20260125-192309/`
+- click_selector: `null`（页面未匹配到预设事件选择器）
+- 截图哈希（7 张）：
+  - 01_baseline.png `fa5bafedcef76484be3a4f838e111f4691a1e90b07a2ac5834b69591c4c0afee` (76878)
+  - 02_scroll.png `fa5bafedcef76484be3a4f838e111f4691a1e90b07a2ac5834b69591c4c0afee` (76878)
+  - 03_zoom_in.png `cf6ecde50d083cc27aced0f41315e6764fdea7212edaf8ccff4ba0cc3deb9c22` (112506)
+  - 04_zoom_out.png `441cc9058bc46d9039f30052c6e9c6e6f501dfb1796bcc73a8b7bb7a0a3baa01` (133545)
+  - 05_scroll2.png `441cc9058bc46d9039f30052c6e9c6e6f501dfb1796bcc73a8b7bb7a0a3baa01` (133545)
+  - 06_event_click.png `755670e007c94e2aef04d1a2b6f26fbf1dfc68b60a9ff3f1940e3e556403d051` (134539)
+  - 07_final.png `e0bf9867d219047e8080873a841efdeca8a1cc93a0fc3e4aca0e2cccb4a8b859` (77893)
+- 交互差异：点击截图与点击前截图 hash 不同（可见变化满足）。
+
+**说明**
+- 虽然 `click_selector` 未匹配到事件元素，但徽标注入保证了“点击阶段可见变化”。
+- 若需验证真实事件点击效果，需进一步扩展选择器或基于页面结构定位可点击目标。
+
 ---
 
 

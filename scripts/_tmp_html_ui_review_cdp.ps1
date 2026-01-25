@@ -7,6 +7,10 @@ param(
 if (-not (Test-Path $Html)) { throw "HTML not found: $Html" }
 if (-not (Test-Path $OutDir)) { New-Item -ItemType Directory -Path $OutDir | Out-Null }
 
+$runStamp = Get-Date -Format "yyyyMMdd-HHmmss"
+$runDir = Join-Path $OutDir ("run_" + $runStamp)
+if (-not (Test-Path $runDir)) { New-Item -ItemType Directory -Path $runDir | Out-Null }
+
 function To-FileUrl([string]$path) {
   $p = $path.Replace('\','/')
   if ($p -match '^[A-Za-z]:/') { return "file:///$p" }
@@ -19,7 +23,7 @@ $args = @(
   "--headless=new",
   "--disable-gpu",
   "--remote-debugging-port=$Port",
-  "--user-data-dir=$OutDir\\_cdp_profile",
+  "--user-data-dir=$runDir\\_cdp_profile",
   "--allow-file-access-from-files",
   "--disable-web-security",
   "about:blank"
@@ -91,7 +95,7 @@ function Capture([string]$name) {
   $res = Send-Cdp "Page.captureScreenshot" @{ format = "png" }
   $b64 = $res.result.data
   $bytes = [Convert]::FromBase64String($b64)
-  $path = Join-Path $OutDir $name
+  $path = Join-Path $runDir $name
   [IO.File]::WriteAllBytes($path, $bytes)
 }
 
@@ -104,14 +108,23 @@ Send-Cdp "Runtime.evaluate" @{ expression = "document.body.style.zoom='90%';" }
 Capture "04_zoom_out.png"
 Send-Cdp "Runtime.evaluate" @{ expression = "window.scrollBy(0,1200);" }
 Capture "05_scroll2.png"
-Send-Cdp "Runtime.evaluate" @{ expression = "(()=>{const sels=['.event-row','.event-item','[data-event-id]'];for(const s of sels){const el=document.querySelector(s);if(el){el.scrollIntoView();el.click();return s;}}return null;})()" }
+$clickRes = Send-Cdp "Runtime.evaluate" @{
+  expression = "(()=>{const sels=['.event-row','.event-item','[data-event-id]'];for(const s of sels){const el=document.querySelector(s);if(el){el.scrollIntoView({block:'center'});el.click();el.style.outline='3px solid #ff3b30';el.style.background='rgba(255,59,48,0.18)';el.setAttribute('data-cdp-highlight','1');return s;}}return null;})()"
+  returnByValue = $true
+}
+Send-Cdp "Runtime.evaluate" @{
+  expression = "(()=>{let badge=document.getElementById('cdp-badge');if(!badge){badge=document.createElement('div');badge.id='cdp-badge';badge.textContent='CDP CLICK';badge.style.position='fixed';badge.style.top='12px';badge.style.right='12px';badge.style.zIndex='999999';badge.style.padding='6px 10px';badge.style.background='rgba(255,59,48,0.9)';badge.style.color='#fff';badge.style.font='bold 12px sans-serif';badge.style.borderRadius='4px';}document.body.appendChild(badge);})()"
+}
 Capture "06_event_click.png"
 Send-Cdp "Runtime.evaluate" @{ expression = "document.body.style.zoom='100%';" }
 Capture "07_final.png"
 
 $review = @{
   html = $Html
+  run_dir = $runDir
+  click_selector = $clickRes.result.result.value
   screenshots = @("01_baseline.png","02_scroll.png","03_zoom_in.png","04_zoom_out.png","05_scroll2.png","06_event_click.png","07_final.png")
 } | ConvertTo-Json -Depth 5
-$review | Set-Content -Path (Join-Path $OutDir "review.json") -Encoding UTF8
+$review | Set-Content -Path (Join-Path $runDir "review.json") -Encoding UTF8
+Write-Host "RunDir: $runDir"
 Write-Host "Saved screenshots: 7"

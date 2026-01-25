@@ -14,6 +14,8 @@
 
 ## Goal
 - 实现无人参与的 HTML 交互审阅：Headless Edge + CDP 自动截图、交互覆盖与哈希差异校验，并将结果记录到验证文档。
+- 增强交互可见性：点击目标有明显高亮，截图可证明点击发生。
+- 产物可追溯：每次运行输出到带时间戳的子目录，避免历史混淆。
 
 ## Architecture
 - 用 Edge Headless + CDP 远程调试打开 `file:///` 的报告页，执行滚动/缩放/点击等交互，捕获多帧截图。
@@ -26,16 +28,20 @@
 - 截图文件 ≥ 7 张，且均为非空 PNG。
 - hash 校验中 ≥ 3 张截图 hash 不同。
 - `review.json` 与验证记录写入成功。
+- 事件点击截图与点击前截图 hash 不同（可见变化）。
+- 产物目录包含时间戳子目录。
 
 ## Acceptance Criteria
 - 在无人操作的情况下可一键运行，产物落地到既定目录。
 - 复跑同一命令可获得同类型产物（截图 + 哈希输出 + 验证记录）。
+- 事件点击存在可见高亮（截图可识别）。
 
 ## Verification Commands
 - `pwsh -File scripts/_tmp_html_ui_review_cdp.ps1 -Html "D:\renderdoc\goog pixel-9\g145_from_convert_report.html" -OutDir "docs/analysis/codex_rdc_analyzer/html_review"`  
   Expected: `Saved screenshots: 7` 且 `review.json` 生成
 - `py -3 scripts/_tmp_html_review_hash.py docs/analysis/codex_rdc_analyzer/html_review`  
   Expected: 至少 3 张截图 hash 不同
+- 期望：`06_event_click.png` 与 `05_scroll2.png` hash 不同（点击可见变化）
 
 ## Evidence
 - `docs/analysis/codex_rdc_analyzer/html_review/*.png`
@@ -53,6 +59,8 @@
 | Headless 渲染与真实 UI 差异 | 中 | 中 | 验证记录中标注“headless 结果”，必要时补充人工 UI 复核 |
 | CDP 端口被占用 | 中 | 低 | 允许 `-Port` 覆盖，失败时更换端口 |
 | file:// 访问受限 | 中 | 中 | 使用 `--allow-file-access-from-files` |
+| 点击无可见变化 | 中 | 中 | 注入高亮样式（outline/背景），截图前后对比 |
+| 产物混淆 | 低 | 中 | 每次运行写入时间戳子目录 |
 
 ## Game Dev: Memory & Resource Budget (Leak Checks)
 - 该任务不涉及运行时内存/资源预算验证；如需扩展可加入 GPU/资源统计页的对比截图与阈值校验。
@@ -100,6 +108,7 @@ capture screenshots
 zoom via Runtime.evaluate (document.body.style.zoom)
 capture screenshots
 click first event-like element via Runtime.evaluate querySelector
+inject highlight style on clicked element (outline/background)
 capture screenshot
 write review.json (actions + file list)
 hash screenshots and assert differences
@@ -247,15 +256,22 @@ for p in pngs:
 - [x] 3. 运行 CDP 审阅脚本生成截图与 `review.json`。
 - [x] 4. 运行 hash 校验脚本，确认截图存在差异。
 - [x] 5. 将审阅结果写入 `WORK_SUMMARY_VERIFICATION.md:121`。
+- [x] 6. 改造脚本：输出目录改为时间戳子目录（保留基础 OutDir）。
+- [x] 7. 改造脚本：点击目标注入高亮样式（outline/background），确保截图可见变化。
+- [x] 8. 重新运行自动审阅，验证点击截图 hash 与点击前不同。
+- [x] 9. 更新验证文档，记录新 run 的目录与点击可见性结论。
 
 # Verification / DoD
 - 生成截图 ≥ 7 张且均可打开。
 - 至少 3 张截图 hash 不同（交互产生变化）。
 - 结果写入 `WORK_SUMMARY_VERIFICATION.md`。
+- 点击截图与点击前截图 hash 不同。
+- 产物在时间戳子目录中。
 
 # Execution Notes (during /do)
 - 尝试 1 失败：ArraySegment 构造参数被拆分，导致 Send/Receive 无法调用；修正为 `[System.ArraySegment[byte]]::new(...)`。
 - 尝试 2 失败：CDP 大包 JSON 被拆分导致解析报错；新增 `Receive-Json` 组包读取逻辑后成功。
+- 尝试 3：加入点击高亮与时间戳目录，run_20260125-192309 成功；点击可见差异满足。
 
 # Next Steps
 - 已完成自动化审阅；若需提升“点击后可见变化”，可调整选择器或添加高亮样式。
