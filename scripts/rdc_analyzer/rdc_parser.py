@@ -11,6 +11,7 @@ Version: 1.0.0
 import struct
 import os
 import json
+import hashlib
 from dataclasses import dataclass, field
 from enum import IntEnum, IntFlag
 from typing import List, Optional, Tuple, BinaryIO, Dict
@@ -212,6 +213,10 @@ class VulkanChunk(IntEnum):
     vkCmdBeginDebugUtilsLabelEXT = FIRST_DRIVER_CHUNK + 109  # = 1109 ★ Push Marker
     vkCmdEndDebugUtilsLabelEXT = FIRST_DRIVER_CHUNK + 110    # = 1110 ★ Pop Marker
     vkCmdInsertDebugUtilsLabelEXT = FIRST_DRIVER_CHUNK + 111 # = 1111 单点 Marker
+
+    # Shader Objects (VK_EXT_shader_object)
+    # NOTE: index resolved from renderdoc/driver/vulkan/vk_common.h (enum order)
+    vkCreateShadersEXT = FIRST_DRIVER_CHUNK + 208  # = 1208
 
 
 # 需要追踪的 Draw 相关 Chunk ID 集合
@@ -1589,8 +1594,22 @@ class RDCParser:
                 shader = self._extract_shader_from_chunk(fc_data, chunk)
                 if shader and shader.is_valid_spirv:
                     shaders.append(shader)
-        
-        return shaders
+            elif chunk.chunk_id == VulkanChunk.vkCreateShadersEXT:
+                shaders.extend(self._extract_spirv_blobs_from_chunk(fc_data, chunk))
+
+        # 去重（避免重复的 SPIR-V blob）
+        deduped = []
+        seen = set()
+        for shader in shaders:
+            if not shader or not shader.is_valid_spirv:
+                continue
+            digest = hashlib.sha1(shader.spirv_data).digest()
+            if digest in seen:
+                continue
+            seen.add(digest)
+            deduped.append(shader)
+
+        return deduped
     
     def _extract_shader_from_chunk(self, data: bytes, chunk: ChunkInfo) -> Optional[ShaderInfo]:
         """从 vkCreateShaderModule chunk 中提取 Shader
@@ -1674,6 +1693,33 @@ class RDCParser:
         except Exception as e:
             print(f"Warning: Failed to extract shader from chunk at {chunk.data_offset}: {e}")
             return None
+
+    def _extract_spirv_blobs_from_chunk(self, data: bytes, chunk: ChunkInfo) -> List[ShaderInfo]:
+        """在 chunk 范围内扫描所有 SPIR-V blob（用于 vkCreateShadersEXT）"""
+        try:
+            start = chunk.data_offset
+            end = start + chunk.length
+            magic_bytes = struct.pack('<I', SPIRV_MAGIC)
+            pos = data.find(magic_bytes, start, end)
+            shaders = []
+
+            while pos != -1 and pos < end - 4:
+                spirv_data = self._extract_spirv_blob(data, pos, end)
+                if spirv_data:
+                    shaders.append(ShaderInfo(
+                        resource_id=0,
+                        spirv_data=spirv_data,
+                        code_size=len(spirv_data),
+                        chunk_offset=chunk.data_offset
+                    ))
+                    pos = data.find(magic_bytes, pos + len(spirv_data), end)
+                else:
+                    pos = data.find(magic_bytes, pos + 4, end)
+
+            return shaders
+        except Exception as e:
+            print(f"Warning: Failed to scan SPIR-V in chunk at {chunk.data_offset}: {e}")
+            return []
     
     def _find_spirv_in_chunk(self, data: bytes, start: int, end: int) -> int:
         """在 chunk 数据中搜索 SPIR-V magic"""
