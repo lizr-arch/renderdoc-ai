@@ -414,6 +414,25 @@ def local_mali_rdc():
 
 ---
 
+### 7.12 纹理来源优先级与 UI 口径（2026-01-26）
+
+- WHAT: 引入 Replay API 作为纹理元数据权威来源，并将来源优先级改为 `manifest → replay_api → chunk_parse`。
+- WHY: 与 RenderDoc UI 口径一致，避免 `vkCreateImage` 造成的假阴性。
+- HOW:
+  - 新增选择逻辑测试：`py -3 -m pytest scripts/rdc_analyzer/tests/test_texture_source_selection.py`
+  - 新增 Replay API 读取路径：`OpenCaptureFile → OpenCapture → GetTextures`
+
+**执行结果**
+- `test_texture_source_selection.py`：`4 passed`
+- 说明：Replay API 需要本地回放支持；若不可用，将回退到 chunk 解析并提示原因。
+
+**待执行（实机/UI 验证）**
+- 使用 RenderDoc UI 或 renderdoccmd 回放环境验证 `texture_source`：
+  - `py -3 scripts/rdc_analyzer/export_textures.py "D:\renderdoc\goog pixel-9\g145-battle-2.rdc" -o "D:\renderdoc\goog pixel-9\g145-battle-2_textures"`
+  - 重新生成报告并确认 `texture_source = manifest/replay_api`，`texture_ratio` 以 UI 计数为基准
+
+---
+
 
 ## 8. CLI 使用示例
 

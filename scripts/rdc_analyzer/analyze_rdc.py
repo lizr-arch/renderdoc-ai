@@ -18,7 +18,7 @@ import subprocess
 import argparse
 from pathlib import Path
 from datetime import datetime
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Tuple
 
 # 添加模块路径
 sys.path.insert(0, str(Path(__file__).parent))
@@ -28,6 +28,12 @@ from mali_analyzer import MaliOfflineCompiler, ShaderAnalysisResult, MaliPerform
 
 RECONCILE_RATIO_THRESHOLD = 0.9
 
+try:
+    import renderdoc as rd
+    HAS_RENDERDOC = True
+except ImportError:
+    HAS_RENDERDOC = False
+
 
 def compute_reconcile_summary(
     shader_chunk_total: int,
@@ -35,6 +41,7 @@ def compute_reconcile_summary(
     shader_count: int,
     texture_count: int,
     threshold: float = RECONCILE_RATIO_THRESHOLD,
+    texture_total_label: str = "chunk",
 ) -> Dict[str, Any]:
     """Compute reconciliation ratios and approval requirement."""
     def ratio(count: int, total: int) -> float:
@@ -67,9 +74,90 @@ def compute_reconcile_summary(
         "shader_ratio": shader_ratio,
         "texture_ratio": texture_ratio,
         "threshold": threshold,
+        "texture_total_label": texture_total_label,
         "approval_required": bool(issues),
         "issues": issues,
     }
+
+
+def choose_texture_source(
+    exported_texture_list: List[Dict[str, Any]],
+    replay_textures: List[Dict[str, Any]],
+    chunk_textures: List[TextureInfo],
+) -> Tuple[List[Any], str]:
+    """Select texture source by priority: manifest -> replay API -> chunk parse."""
+    if exported_texture_list:
+        return exported_texture_list, "manifest"
+    if replay_textures:
+        return replay_textures, "replay_api"
+    if chunk_textures:
+        return chunk_textures, "chunk_parse"
+    return [], "none"
+
+
+def _infer_image_type(width: int, height: int, depth: int) -> int:
+    if depth > 1:
+        return 2
+    if height > 1:
+        return 1
+    return 0
+
+
+def _texture_detail_from_replay(tex_desc: Any, thumbnail_map: Dict[int, str]) -> Dict[str, Any]:
+    format_name = tex_desc.format.Name() if hasattr(tex_desc.format, "Name") else str(tex_desc.format)
+    resource_id = int(tex_desc.resourceId)
+    mip_levels = getattr(tex_desc, "mips", getattr(tex_desc, "mipLevels", 1))
+    array_layers = getattr(tex_desc, "arraysize", getattr(tex_desc, "arraySize", 1))
+    samples = getattr(tex_desc, "samples", 1)
+    usage = getattr(tex_desc, "usage", 0)
+    width = int(tex_desc.width)
+    height = int(tex_desc.height)
+    depth = int(tex_desc.depth)
+    image_type = _infer_image_type(width, height, depth)
+
+    return {
+        "resource_id": resource_id,
+        "custom_name": getattr(tex_desc, "name", ""),
+        "width": width,
+        "height": height,
+        "depth": depth,
+        "format": format_name,
+        "format_name": format_name,
+        "mip_levels": int(mip_levels),
+        "array_layers": int(array_layers),
+        "samples": int(samples),
+        "usage": usage,
+        "image_type": image_type,
+        "thumbnail": thumbnail_map.get(resource_id, ""),
+    }
+
+
+def extract_textures_via_replay(rdc_path: str) -> Tuple[List[Dict[str, Any]], str]:
+    """Extract texture metadata via RenderDoc replay API (authoritative)."""
+    if not HAS_RENDERDOC:
+        return [], "renderdoc module not available"
+
+    cap = rd.OpenCaptureFile()
+    status = cap.OpenFile(rdc_path, "", None)
+    if status != rd.ResultCode.Succeeded:
+        cap.Shutdown()
+        return [], f"OpenFile failed: {status}"
+
+    if cap.LocalReplaySupport() != rd.ReplaySupport.Supported:
+        cap.Shutdown()
+        return [], "Local replay not supported"
+
+    status, controller = cap.OpenCapture(rd.ReplayOptions(), None)
+    if status != rd.ResultCode.Succeeded:
+        cap.Shutdown()
+        return [], f"OpenCapture failed: {status}"
+
+    try:
+        textures = controller.GetTextures()
+        return list(textures), ""
+    finally:
+        controller.Shutdown()
+        cap.Shutdown()
 
 
 def load_texture_thumbnails(rdc_path: str, as_base64: bool = True) -> Dict[int, str]:
@@ -298,8 +386,38 @@ def analyze_rdc_file(
     
     # 1.5. 提取纹理信息
     print("\n[3/5] Extracting texture metadata...")
-    textures = extract_textures(rdc_path)
-    print(f"  Textures found: {len(textures)}")
+
+    # 优先读取导出的纹理清单（manifest/textures.json）
+    export_data = load_textures_from_export(rdc_path, as_base64=True)
+    thumbnail_map = export_data.get("thumbnails", {})
+    exported_texture_list = export_data.get("texture_list", [])
+
+    if thumbnail_map:
+        print(f"  Thumbnails available: {len(thumbnail_map)}")
+
+    # 若未导出清单，尝试 Replay API 获取权威纹理元数据
+    replay_textures = []
+    replay_reason = ""
+    if not exported_texture_list:
+        replay_textures, replay_reason = extract_textures_via_replay(rdc_path)
+
+    # 若 Replay 不可用，才回退到 chunk 解析
+    chunk_textures = []
+    if not exported_texture_list and not replay_textures:
+        chunk_textures = extract_textures(rdc_path)
+
+    _, texture_source = choose_texture_source(
+        exported_texture_list, replay_textures, chunk_textures
+    )
+
+    if texture_source == "manifest":
+        print(f"  Textures found: {len(exported_texture_list)} (manifest)")
+    elif texture_source == "replay_api":
+        print(f"  Textures found: {len(replay_textures)} (replay API)")
+    elif texture_source == "chunk_parse":
+        print(f"  Textures found: {len(chunk_textures)} (chunk)")
+    else:
+        print("  Textures found: 0")
     
     # 1.5.1 提取用户自定义资源名称
     resource_renames = extract_resource_renames(rdc_path)
@@ -474,18 +592,10 @@ def analyze_rdc_file(
     
     # 纹理详情
     texture_details = []
-    
-    # 加载导出的纹理数据（包含缩略图和完整元数据）
-    export_data = load_textures_from_export(rdc_path, as_base64=True)
-    thumbnail_map = export_data.get("thumbnails", {})
-    exported_texture_list = export_data.get("texture_list", [])
-    
-    if thumbnail_map:
-        print(f"  Thumbnails available: {len(thumbnail_map)}")
-    
-    if textures:
+
+    if texture_source == "chunk_parse":
         # Vulkan / OpenGL：使用 extract_textures 解析的原始数据
-        for tex in textures:
+        for tex in chunk_textures:
             format_name = VK_FORMAT_NAMES.get(tex.format, f"VK_FORMAT_{tex.format}")
             # 查找用户自定义名称
             custom_name = resource_renames.get(tex.resource_id, "")
@@ -506,34 +616,60 @@ def analyze_rdc_file(
                 "image_type": tex.image_type,  # 0=1D, 1=2D, 2=3D
                 "thumbnail": thumbnail  # Base64 Data URI（如果可用）
             })
-    elif exported_texture_list:
-        # D3D11 / D3D12：使用 renderdoccmd export 导出的 textures.json 数据
-        print(f"  [INFO] Using exported texture metadata ({len(exported_texture_list)} textures)")
+    elif texture_source == "replay_api":
+        for tex_desc in replay_textures:
+            detail = _texture_detail_from_replay(tex_desc, thumbnail_map)
+            # 优先使用资源重命名信息
+            resource_id = detail.get("resource_id", 0)
+            if resource_id in resource_renames:
+                detail["custom_name"] = resource_renames[resource_id]
+            texture_details.append(detail)
+    elif texture_source == "manifest":
+        # 导出清单（manifest/textures.json）直接使用
         texture_details = exported_texture_list
     
     texture_data_reason = ""
     if not texture_details:
+        reasons = []
+        if replay_reason:
+            reasons.append(f"Replay API unavailable: {replay_reason}.")
         if is_vulkan:
-            texture_data_reason = (
+            reasons.append(
                 "No vkCreateImage parsed and no manifest.json/textures.json found. "
                 "Run export_textures_rdoc.py or renderdoccmd export to provide texture metadata."
             )
         else:
-            texture_data_reason = f"{driver_name} capture - texture extraction not implemented."
+            reasons.append(f"{driver_name} capture - texture extraction not implemented.")
+        texture_data_reason = " ".join(reasons)
 
     # 更新 summary 包含纹理统计
     summary["total_textures"] = len(texture_details)
+    summary["texture_source"] = texture_source
+    if texture_source == "manifest":
+        summary["ui_texture_count"] = len(exported_texture_list)
+    elif texture_source == "replay_api":
+        summary["ui_texture_count"] = len(replay_textures)
     if texture_data_reason:
         summary["texture_data_reason"] = texture_data_reason
 
     if chunk_counts:
+        texture_total_label = "chunk"
+        texture_total_for_ratio = chunk_counts.get("vkCreateImage", 0)
+        ui_texture_count = summary.get("ui_texture_count")
+        if ui_texture_count is not None:
+            texture_total_label = "ui"
+            texture_total_for_ratio = ui_texture_count
+
         reconcile = compute_reconcile_summary(
             shader_chunk_total=chunk_counts.get("vkCreateShaderModule", 0)
             + chunk_counts.get("vkCreateShadersEXT", 0),
-            texture_chunk_total=chunk_counts.get("vkCreateImage", 0),
+            texture_chunk_total=texture_total_for_ratio,
             shader_count=len(shader_details),
             texture_count=len(texture_details),
+            texture_total_label=texture_total_label,
         )
+        if texture_total_label == "ui":
+            reconcile["texture_chunk_total_raw"] = chunk_counts.get("vkCreateImage", 0)
         summary["reconcile_chunks"] = reconcile
     
     return {
