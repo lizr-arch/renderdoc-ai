@@ -1,6 +1,6 @@
 # RDC Analyzer 规则文档
 
-> 自动生成于 2026-01-25 19:39:46，共 **42 条** 规则
+> 自动生成于 2026-01-26 14:36:25，共 **42 条** 规则
 
 **数据来源**: rules/*.py + config/thresholds.py
 
@@ -239,49 +239,45 @@
 - **标准来源**:
   - tile_memory_kb: Internal baseline (2025-01) (Baseline threshold for tile_memory_kb)
 
-### TILE_003: Tile RT Bytes
+### TILE_003: Unnecessary RT Load/Store
 - **严重程度**: warning
 - **平台**: mobile
-- **WHAT**: Tile RT Bytes
-- **WHY**: 适配移动端带宽/功耗限制
-- **HOW**: 检查阈值是否超标: tile_rt_bytes
-- **描述**: 检测单 Pass RT 字节量过高
-- **阈值**:
-  - tile_rt_bytes: PC=134217728, Mobile=67108864
-- **标准来源**:
-  - tile_rt_bytes: Internal baseline (2025-01) (Baseline threshold for tile_rt_bytes)
-
-### TILE_004: Tile Load/Store
-- **严重程度**: info
-- **平台**: mobile
-- **WHAT**: Tile Load/Store
+- **WHAT**: Unnecessary RT Load/Store
 - **WHY**: 适配移动端带宽/功耗限制
 - **HOW**: 规则内部固定条件
-- **描述**: 检测 Load/Store 负载偏高
+- **描述**: 检测到不必要的 Render Target Load/Store 操作
 - **阈值**: 规则内部固定条件（无配置阈值）
 - **标准来源**: 无阈值
 
-### TILE_005: Tile MSAA
-- **严重程度**: info
+### TILE_004: MSAA Resolve Missing
+- **严重程度**: warning
 - **平台**: mobile
-- **WHAT**: Tile MSAA
+- **WHAT**: MSAA Resolve Missing
 - **WHY**: 适配移动端带宽/功耗限制
 - **HOW**: 规则内部固定条件
-- **描述**: 检测 MSAA 采样数对 Tile 成本的影响
+- **描述**: 检测 MSAA Pass 未启用 Resolve 优化
 - **阈值**: 规则内部固定条件（无配置阈值）
 - **标准来源**: 无阈值
 
-### TILE_006: Tile Pass Switch
+### TILE_005: Transient Attachment
 - **严重程度**: info
 - **平台**: mobile
-- **WHAT**: Tile Pass Switch
+- **WHAT**: Transient Attachment
 - **WHY**: 适配移动端带宽/功耗限制
-- **HOW**: 检查阈值是否超标: max_pass_count
-- **描述**: 检测 Pass 切换导致的 Tile 复用下降
-- **阈值**:
-  - max_pass_count: PC=30, Mobile=15
-- **标准来源**:
-  - max_pass_count: Internal baseline (2025-01) (Baseline threshold for max_pass_count)
+- **HOW**: 规则内部固定条件
+- **描述**: 检测 Depth/Stencil 未启用 Transient Attachment
+- **阈值**: 规则内部固定条件（无配置阈值）
+- **标准来源**: 无阈值
+
+### TILE_006: Missing Debug Marker
+- **严重程度**: info
+- **平台**: mobile
+- **WHAT**: Missing Debug Marker
+- **WHY**: 适配移动端带宽/功耗限制
+- **HOW**: 规则内部固定条件
+- **描述**: 检测 Render Pass 缺少 Debug Marker
+- **阈值**: 规则内部固定条件（无配置阈值）
+- **标准来源**: 无阈值
 
 ---
 
