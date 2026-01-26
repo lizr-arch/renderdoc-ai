@@ -333,6 +333,22 @@ def local_mali_rdc():
 
 ---
 
+### 7.8 Full HTML 模式验收（2026-01-26）
+
+- WHAT: 增加 `analyze_rdc.py --html-mode full` 的 JSON 解析与纹理目录解析能力，并进行 TDD 验证。
+- WHY: 让新 RDC 能生成“完整报告 HTML”（含 Event Browser），与 UI 视觉验收脚本对齐。
+- HOW: `py -3 -m pytest scripts/rdc_analyzer/tests/test_full_report_mode.py`
+
+**执行结果**
+- 测试结果：`3 passed`
+- 说明：本次仅验证 full 模式的 JSON 路径解析逻辑，未包含端到端 HTML 生成与 UI 视觉审阅。
+
+**待完成（验收阻塞）**
+- 未执行：`analyze_rdc.py --html-mode full` 的实际 HTML 生成（需提供 `capture.json` / `<rdc>_data.json`）。
+- 未执行：对 full HTML 的 headless UI 视觉验收（CDP 截图 + click_found）。
+
+---
+
 
 ## 8. CLI 使用示例
 

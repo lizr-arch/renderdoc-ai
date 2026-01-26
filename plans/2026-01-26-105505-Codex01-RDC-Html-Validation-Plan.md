@@ -88,7 +88,7 @@ else { 走 analyze_rdc DOM 选择器清单，至少命中 1 个关键区块 }
     {n:'lite-textures', s:'#textureGrid, .texture-grid, .texture-card'},
     {n:'lite-sections', s:'section, .report-section, .card-header'}
     ```
-- [ ] 5. 更新验证文档与验收清单
+- [x] 5. 更新验证文档与验收清单
   - WHAT: 在 `WORK_SUMMARY_VERIFICATION.md` 追加本次 g145-battle-2 的运行记录与截图路径。
   - WHY: 留下可追溯的验收证据链，避免“看过但无记录”的问题。
   - HOW (完整代码片段):
