@@ -120,6 +120,7 @@ class RenderDocInProcess:
 ## Risks & Blockers
 - `renderdoc.dll` not loadable in-process (path or access issue).
 - Python hook point in game is limited (no per-frame callback).
+- Embedded Python lacks `ctypes` (ImportError) and the module is not present under `F:\Code\S1\Package`, so the ctypes-based helper cannot run without adding stdlib/native `_ctypes` support or using a different bridge.
 
 ## Verification / DoD
 - In target UI, invoking `trigger_capture()` produces a `.rdc` in the configured path.
