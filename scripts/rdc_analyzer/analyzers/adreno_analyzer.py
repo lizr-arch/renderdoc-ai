@@ -34,8 +34,17 @@ ADRENO_GPU_LIST: List[AdrenoGPUInfo] = [
     AdrenoGPUInfo("Adreno 640", architecture="A6xx", tier="premium", year=2019),
     AdrenoGPUInfo("Adreno 630", architecture="A6xx", tier="flagship", year=2018),
     AdrenoGPUInfo("Adreno 620", architecture="A6xx", tier="mainstream", year=2020),
+    AdrenoGPUInfo("Adreno 619", architecture="A6xx", tier="mainstream", year=2020),
     AdrenoGPUInfo("Adreno 618", architecture="A6xx", tier="entry", year=2020),
+    AdrenoGPUInfo("Adreno 616", architecture="A6xx", tier="entry", year=2019),
     AdrenoGPUInfo("Adreno 612", architecture="A6xx", tier="entry", year=2019),
+    AdrenoGPUInfo("Adreno 610", architecture="A6xx", tier="entry", year=2019),
+    AdrenoGPUInfo("Adreno 540", architecture="A5xx", tier="flagship", year=2017),
+    AdrenoGPUInfo("Adreno 530", architecture="A5xx", tier="flagship", year=2015),
+    AdrenoGPUInfo("Adreno 512", architecture="A5xx", tier="mainstream", year=2017),
+    AdrenoGPUInfo("Adreno 509", architecture="A5xx", tier="entry", year=2017),
+    AdrenoGPUInfo("Adreno 506", architecture="A5xx", tier="entry", year=2016),
+    AdrenoGPUInfo("Adreno 505", architecture="A5xx", tier="entry", year=2016),
 ]
 
 
