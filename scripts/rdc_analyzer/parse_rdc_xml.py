@@ -418,8 +418,70 @@ def parse_create_buffer(params):
     # 生成友好名称
     if buffer_info.get("resourceId"):
         buffer_info["name"] = f"Buffer_{buffer_info['resourceId']}"
-        
+    
     return buffer_info if buffer_info.get("resourceId") else None
+
+
+def _parse_vk_sample_count(value: str) -> int:
+    """解析 Vulkan sample count 字符串为整数。"""
+    if not value:
+        return 1
+    if "VK_SAMPLE_COUNT_" in value:
+        tail = value.split("VK_SAMPLE_COUNT_", 1)[-1]
+        token = tail.split("_", 1)[0]
+        try:
+            return int(token)
+        except ValueError:
+            return 1
+    try:
+        return int(value)
+    except ValueError:
+        return 1
+
+
+def parse_create_render_pass(params):
+    """解析 vkCreateRenderPass/vkCreateRenderPass2 参数，提取附件与 resolve 信息。"""
+    info = {
+        "attachments": [],
+        "resolveAttachmentCount": 0,
+        "hasResolve": False,
+    }
+
+    for p in params:
+        name = p.get("name", "")
+
+        if name in ("RenderPass", "renderPass"):
+            info["resourceId"] = p.get("value", "0")
+        elif name == "CreateInfo" and "fields" in p:
+            fields = p["fields"]
+
+            attachments = fields.get("pAttachments", {}).get("elements", [])
+            for index, att in enumerate(attachments):
+                if "fields" not in att:
+                    continue
+                att_fields = att["fields"]
+                samples_value = att_fields.get("samples", {}).get("value", "")
+                info["attachments"].append({
+                    "index": index,
+                    "format": att_fields.get("format", {}).get("value", ""),
+                    "samples": samples_value,
+                    "sampleCount": _parse_vk_sample_count(samples_value),
+                    "loadOp": att_fields.get("loadOp", {}).get("value", ""),
+                    "storeOp": att_fields.get("storeOp", {}).get("value", ""),
+                    "flags": att_fields.get("flags", {}).get("value", ""),
+                })
+
+            subpasses = fields.get("pSubpasses", {}).get("elements", [])
+            for subpass in subpasses:
+                if "fields" not in subpass:
+                    continue
+                sub_fields = subpass["fields"]
+                resolve = sub_fields.get("pResolveAttachments", {})
+                resolve_count = len(resolve.get("elements", []) or [])
+                info["resolveAttachmentCount"] += resolve_count
+
+    info["hasResolve"] = info["resolveAttachmentCount"] > 0
+    return info if info.get("resourceId") or info["attachments"] else None
 
 
 def get_format_bpp(format_str):
@@ -492,6 +554,7 @@ def parse_rdc_xml(xml_path):
     textures = {}
     buffers = {}
     render_passes = []
+    render_pass_infos = {}
     
     current_render_pass = None
     current_pass_events = []
@@ -599,8 +662,8 @@ def parse_rdc_xml(xml_path):
     marker_names = vk_marker_names + d3d_marker_names + gl_marker_names
     
     # Render pass begin/end
-    render_pass_begin = ["vkCmdBeginRenderPass", "vkCmdBeginRendering"]
-    render_pass_end = ["vkCmdEndRenderPass", "vkCmdEndRendering"]
+    render_pass_begin = ["vkCmdBeginRenderPass", "vkCmdBeginRenderPass2", "vkCmdBeginRendering"]
+    render_pass_end = ["vkCmdEndRenderPass", "vkCmdEndRenderPass2", "vkCmdEndRendering"]
     
     # OpenGL "render pass" equivalents (framebuffer binding)
     gl_framebuffer_binding = ["glBindFramebuffer", "glBindNamedFramebuffer"]
@@ -865,8 +928,10 @@ def parse_rdc_xml(xml_path):
             
             # 提取 render pass 信息
             for p in params:
-                if p["name"] == "pRenderPassBegin" and "fields" in p:
+                if p["name"] in ("pRenderPassBegin", "RenderPassBegin") and "fields" in p:
                     rp_info = p["fields"]
+                    if "renderPass" in rp_info:
+                        current_render_pass["renderPassId"] = rp_info["renderPass"].get("value", "")
                     if "renderArea" in rp_info and "fields" in rp_info["renderArea"]:
                         extent = rp_info["renderArea"]["fields"].get("extent", {})
                         if "fields" in extent:
@@ -903,6 +968,11 @@ def parse_rdc_xml(xml_path):
             buffer_info = parse_create_buffer(params)
             if buffer_info:
                 buffers[buffer_info["resourceId"]] = buffer_info
+        
+        elif chunk_name in ("vkCreateRenderPass", "vkCreateRenderPass2"):
+            rp_info = parse_create_render_pass(params)
+            if rp_info and rp_info.get("resourceId"):
+                render_pass_infos[rp_info["resourceId"]] = rp_info
     
     # 处理最后一个 render pass
     if current_render_pass:
@@ -912,6 +982,7 @@ def parse_rdc_xml(xml_path):
     # 转换 textures 字典为列表，便于后续处理
     textures_list = list(textures.values())
     buffers_list = list(buffers.values())
+    render_pass_infos_list = list(render_pass_infos.values())
     
     # ========== 收集全局 Shader 列表 ==========
     # 从所有事件的 pipelineState.shaders 中提取唯一 shader
@@ -962,6 +1033,7 @@ def parse_rdc_xml(xml_path):
         "apiType": api_type,
         "events": events,
         "renderPasses": render_passes,
+        "renderPassInfos": render_pass_infos_list,
         "textures": textures_list,
         "buffers": buffers_list,
         "shaders": shaders_list,

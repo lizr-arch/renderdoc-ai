@@ -165,6 +165,12 @@ class PassInfo:
     has_clear: bool = False  # 是否有 Clear 操作
     uses_scissor: bool = False  # 是否使用 Scissor
     marker_name: str = ""  # Debug Marker 名称
+    # === P2: Tile/RenderPass 扩展 ===
+    color_attachments: List[Dict[str, Any]] = field(default_factory=list)
+    depth_attachment: Optional[Dict[str, Any]] = None
+    sample_count: int = 1
+    has_resolve: bool = False
+    has_transient_attachment: bool = False
 
 
 # 兼容别名
@@ -316,6 +322,9 @@ class ParsedData:
     render_targets: List[Dict] = field(default_factory=list)
     buffer_updates: List[Dict] = field(default_factory=list)
     markers: List[Dict] = field(default_factory=list)
+    # Render pass / attachment metadata (XML parse)
+    render_passes: List[Dict] = field(default_factory=list)
+    render_pass_infos: Dict[str, Dict] = field(default_factory=dict)
     # 二进制解析特有
     chunks: List[Dict] = field(default_factory=list)
     # API 模式特有 (RenderDoc controller 对象)

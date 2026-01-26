@@ -371,6 +371,33 @@ class XMLToContextBridge:
         # 保留纹理和缓冲区原始数据
         parsed.textures = xml_data.get('textures', [])
         parsed.buffers = xml_data.get('buffers', [])
+
+        # 保留 RenderPass 原始数据
+        parsed.render_passes = xml_data.get('renderPasses', [])
+        raw_pass_infos = xml_data.get('renderPassInfos', [])
+        if isinstance(raw_pass_infos, dict):
+            parsed.render_pass_infos = {
+                str(k): v for k, v in raw_pass_infos.items()
+                if isinstance(v, dict)
+            }
+        else:
+            parsed.render_pass_infos = {}
+            for info in raw_pass_infos or []:
+                if not isinstance(info, dict):
+                    continue
+                key = info.get('resourceId') or info.get('id')
+                if key:
+                    parsed.render_pass_infos[str(key)] = info
+
+        # 保留 Debug Marker 事件 (用于 Pass/Tile 分析)
+        parsed.markers = [
+            {
+                "event_id": e.get("eventId", 0),
+                "name": e.get("markerName", "") or e.get("name", ""),
+            }
+            for e in xml_data.get('events', [])
+            if e.get('type') == 'marker'
+        ]
         
         return parsed
     
