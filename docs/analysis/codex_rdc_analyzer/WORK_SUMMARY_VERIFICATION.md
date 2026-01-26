@@ -373,6 +373,21 @@ def local_mali_rdc():
 
 ---
 
+### 7.10 g145-battle-2 重新生成报告（修复后）
+
+- WHAT: 重新生成 `g145-battle-2_report.html` 验证 shader/texture 列表不再为空。
+- WHY: 修复 `vkCreateShadersEXT` 解析与纹理元数据解析后需要实证。
+- HOW:
+  - `py -3 scripts/rdc_analyzer/analyze_rdc.py "D:\renderdoc\goog pixel-9\g145-battle-2.rdc" --output "D:\renderdoc\goog pixel-9\g145-battle-2_report.html"`
+
+**执行结果**
+- Shaders found: `109`
+- Textures found: `51`
+- Valid analyses: `105/109`
+- 备注：仍提示 `No texture manifest found`（缩略图缺失，但表格数据已生成）
+
+---
+
 
 ## 8. CLI 使用示例
 
