@@ -14,6 +14,7 @@ Version: 1.0.0
 import sys
 import os
 import json
+import subprocess
 import argparse
 from pathlib import Path
 from datetime import datetime
@@ -151,6 +152,43 @@ def load_textures_from_export(rdc_path: str, as_base64: bool = True) -> Dict[str
     
     print(f"  [INFO] No texture manifest found for {rdc_path.name}")
     return {"thumbnails": {}, "texture_list": []}
+
+
+def resolve_full_report_json(rdc_path: str, explicit_json: str) -> str:
+    """Resolve capture.json for full HTML report generation."""
+    candidates = []
+    if explicit_json:
+        candidates.append(Path(explicit_json))
+    base_path = Path(rdc_path)
+    candidates.append(base_path.with_suffix(".json"))
+    candidates.append(base_path.with_name(f"{base_path.stem}_data.json"))
+
+    for candidate in candidates:
+        if candidate and candidate.exists():
+            return str(candidate)
+    return ""
+
+
+def resolve_textures_dir(rdc_path: str, explicit_dir: str) -> str:
+    """Resolve textures directory that contains manifest.json or textures.json."""
+    if explicit_dir:
+        explicit_path = Path(explicit_dir)
+        if explicit_path.exists():
+            return str(explicit_path)
+        print(f"  [WARN] Textures dir not found: {explicit_dir}")
+
+    base_path = Path(rdc_path)
+    capture_name = base_path.stem
+    candidates = [
+        base_path.parent / f"{capture_name}_textures",
+        base_path.parent / "textures",
+        base_path.parent / "output" / "textures",
+        base_path.parent / "output",
+    ]
+    for candidate in candidates:
+        if (candidate / "manifest.json").exists() or (candidate / "textures.json").exists():
+            return str(candidate)
+    return ""
 
 
 def analyze_rdc_file(
@@ -2515,6 +2553,20 @@ def main():
         help="Output HTML report path"
     )
     parser.add_argument(
+        "--html-mode",
+        choices=["lite", "full"],
+        default="lite",
+        help="HTML output mode: lite (current) or full (generate_real_report)"
+    )
+    parser.add_argument(
+        "--full-json",
+        help="Capture JSON path for full HTML report (capture.json / *_data.json)"
+    )
+    parser.add_argument(
+        "--textures",
+        help="Textures directory for full HTML report (contains manifest.json)"
+    )
+    parser.add_argument(
         "--json",
         help="Also save raw results to JSON file"
     )
@@ -2531,6 +2583,29 @@ def main():
     )
     
     args = parser.parse_args()
+
+    if args.html_mode == "full":
+        if len(args.rdc_files) != 1:
+            print("Error: --html-mode full expects a single RDC file.")
+            return 1
+
+        json_path = resolve_full_report_json(args.rdc_files[0], args.full_json)
+        if not json_path:
+            print("[ERROR] Full report requires capture JSON. Provide --full-json or place")
+            print("        <rdc>.json / <rdc>_data.json next to the capture.")
+            return 1
+
+        textures_dir = resolve_textures_dir(args.rdc_files[0], args.textures)
+        if not textures_dir:
+            print("[WARN] Texture manifest missing. Run export_textures_rdoc.py first.")
+
+        report_script = Path(__file__).parent / "generate_real_report.py"
+        cmd = [sys.executable, str(report_script), json_path, args.output]
+        if textures_dir:
+            cmd += ["--textures", textures_dir]
+        print(f"[INFO] Full report cmd: {' '.join(cmd)}")
+        result = subprocess.run(cmd)
+        return result.returncode
     
     # 分析所有文件
     all_results = []
