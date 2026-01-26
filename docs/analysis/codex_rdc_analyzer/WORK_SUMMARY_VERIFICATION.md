@@ -349,6 +349,30 @@ def local_mali_rdc():
 
 ---
 
+### 7.9 g145-battle-2 内容缺失根因与验收缺口（2026-01-26）
+
+- WHAT: 解释 “Shader Details 为空 / Textures 为空” 的原因，并修复验收缺口。
+- WHY: 需要准确报告 + 验收能捕获此类问题。
+- HOW: 代码与验收脚本双向修复。
+
+**根因（Shader Details 为空）**
+- 解析逻辑仅覆盖 `vkCreateShaderModule`，未覆盖 `vkCreateShadersEXT`（Shader Object）。
+- `rdc_parser.extract_vulkan_shaders()` 已新增 `vkCreateShadersEXT` 扫描（SPIR-V magic）。
+
+**根因（Textures 为空）**
+- 未发现 `manifest.json/textures.json`，且 `extract_vulkan_textures()` 依赖旧的 `vkCreateImage` chunk 布局。
+- 当前报告加入 `texture_data_reason` 明确提示导出要求。
+
+**验收缺口**
+- 既有 headless 审阅仅验证 “可点击/可视变化”，未检查 shader/texture 数量。
+- 已在 `scripts/_tmp_html_ui_review_cdp.ps1` 增加 `shader_count/texture_count/content_ok` 输出。
+
+**验证结果**
+- `py -3 -m pytest scripts/rdc_analyzer/tests/test_shader_object_extraction.py` → 2 passed
+- `py -3 -m pytest scripts/rdc_analyzer/tests/test_html_content_checks.py` → 1 passed
+
+---
+
 
 ## 8. CLI 使用示例
 

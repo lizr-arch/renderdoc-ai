@@ -156,7 +156,7 @@ Capture "04_zoom_out.png"
 Send-Cdp "Runtime.evaluate" @{ expression = "window.scrollBy(0,1200);" }
 Capture "05_scroll2.png"
 $jsClick = @'
-(()=>{const stepLog=[];const log=(s)=>stepLog.push(s);try{log('doc_ready:'+document.readyState);log('doc_url:'+document.location.href);}catch(e){log('doc_state_error');}const styleId='cdp-style';if(!document.getElementById(styleId)){const s=document.createElement('style');s.id=styleId;s.textContent='[data-cdp-highlight="1"]{outline:3px solid #ff3b30 !important;background:rgba(255,59,48,0.18) !important;}';document.head.appendChild(s);log('inject-style');}const tryClick=(sel)=>{const el=document.querySelector(sel);if(el){el.click();log('clicked:'+sel);return true;}log('missing:'+sel);return false;};if(typeof showEventBrowser==='function'){try{showEventBrowser();log('showEventBrowser()');}catch(e){log('showEventBrowser_error');}}else{tryClick('#eventBrowserBtn');}if(typeof renderEventTree==='function'){try{renderEventTree();log('renderEventTree()');}catch(e){log('renderEventTree_error');}}const maxTries=20;let found=null;for(let i=0;i<maxTries;i++){found=document.querySelector('.event-node')||document.querySelector('.event-tree-list .event-node');if(found){log('event-node-ready');break;}}const selectors=[{n:'event-node',s:'.event-node'},{n:'event-node-eid',s:'.event-node .event-eid'},{n:'event-tree-list',s:'.event-tree-list .event-node'},{n:'data-event-id',s:'[data-event-id]'},{n:'data-eid',s:'[data-eid]'},{n:'data-eventid',s:'[data-eventid]'},{n:'data-action-id',s:'[data-action-id]'},{n:'event-row',s:'.event-row'},{n:'event-item',s:'.event-item'},{n:'eventRow',s:'.eventRow'},{n:'event-entry',s:'.event-entry'},{n:'action-row',s:'.action-row'},{n:'action-item',s:'.action-item'},{n:'event-list-item',s:'#eventBrowser li, #eventList li'}];function mark(el){const target=el.closest('.event-node')||el;target.scrollIntoView({block:'center'});target.click();target.setAttribute('data-cdp-highlight','1');}for(const q of selectors){const el=document.querySelector(q.s);if(el){mark(el);return {found:true,strategy:q.n,text:(el.textContent||'').trim().slice(0,80),step_log:stepLog};}}const textRe=/(EID\\s*\\d+|Draw|Dispatch|Present|Clear|Blit|Copy|Resolve|Barrier|Bind)/i;const containers=Array.from(document.querySelectorAll('[id*="event" i],[class*="event" i],[id*="action" i],[class*="action" i],[id*="call" i],[class*="call" i]')).slice(0,20);for(const c of containers){const nodes=c.querySelectorAll('div,li,span,tr');let scanned=0;for(const el of nodes){scanned++;if(scanned>500)break;const t=(el.textContent||'').trim();if(t.length>0 && t.length<120 && textRe.test(t)){mark(el);return {found:true,strategy:'container-text',text:t.slice(0,80),step_log:stepLog};}}}return {found:false,strategy:'fallback',text:'',step_log:stepLog};})()
+(()=>{const stepLog=[];const log=(s)=>stepLog.push(s);try{log('doc_ready:'+document.readyState);log('doc_url:'+document.location.href);}catch(e){log('doc_state_error');}let shaderCount=0;let textureCount=0;let contentOk=false;try{if(typeof analysisData!=='undefined'&&Array.isArray(analysisData)){analysisData.forEach(fd=>{shaderCount+=(fd.shaders||[]).length;textureCount+=(fd.textures||[]).length;});log('shader_count:'+shaderCount);log('texture_count:'+textureCount);contentOk=shaderCount>0&&textureCount>0;}else{log('analysisData_missing');}}catch(e){log('analysisData_error');}const styleId='cdp-style';if(!document.getElementById(styleId)){const s=document.createElement('style');s.id=styleId;s.textContent='[data-cdp-highlight="1"]{outline:3px solid #ff3b30 !important;background:rgba(255,59,48,0.18) !important;}';document.head.appendChild(s);log('inject-style');}const tryClick=(sel)=>{const el=document.querySelector(sel);if(el){el.click();log('clicked:'+sel);return true;}log('missing:'+sel);return false;};if(typeof showEventBrowser==='function'){try{showEventBrowser();log('showEventBrowser()');}catch(e){log('showEventBrowser_error');}}else{tryClick('#eventBrowserBtn');}if(typeof renderEventTree==='function'){try{renderEventTree();log('renderEventTree()');}catch(e){log('renderEventTree_error');}}const maxTries=20;let found=null;for(let i=0;i<maxTries;i++){found=document.querySelector('.event-node')||document.querySelector('.event-tree-list .event-node');if(found){log('event-node-ready');break;}}const selectors=[{n:'event-node',s:'.event-node'},{n:'event-node-eid',s:'.event-node .event-eid'},{n:'event-tree-list',s:'.event-tree-list .event-node'},{n:'data-event-id',s:'[data-event-id]'},{n:'data-eid',s:'[data-eid]'},{n:'data-eventid',s:'[data-eventid]'},{n:'data-action-id',s:'[data-action-id]'},{n:'event-row',s:'.event-row'},{n:'event-item',s:'.event-item'},{n:'eventRow',s:'.eventRow'},{n:'event-entry',s:'.event-entry'},{n:'action-row',s:'.action-row'},{n:'action-item',s:'.action-item'},{n:'event-list-item',s:'#eventBrowser li, #eventList li'}];function mark(el){const target=el.closest('.event-node')||el;target.scrollIntoView({block:'center'});target.click();target.setAttribute('data-cdp-highlight','1');}for(const q of selectors){const el=document.querySelector(q.s);if(el){mark(el);return {found:true,strategy:q.n,text:(el.textContent||'').trim().slice(0,80),shader_count:shaderCount,texture_count:textureCount,content_ok:contentOk,step_log:stepLog};}}const textRe=/(EID\\s*\\d+|Draw|Dispatch|Present|Clear|Blit|Copy|Resolve|Barrier|Bind)/i;const containers=Array.from(document.querySelectorAll('[id*="event" i],[class*="event" i],[id*="action" i],[class*="action" i],[id*="call" i],[class*="call" i]')).slice(0,20);for(const c of containers){const nodes=c.querySelectorAll('div,li,span,tr');let scanned=0;for(const el of nodes){scanned++;if(scanned>500)break;const t=(el.textContent||'').trim();if(t.length>0 && t.length<120 && textRe.test(t)){mark(el);return {found:true,strategy:'container-text',text:t.slice(0,80),shader_count:shaderCount,texture_count:textureCount,content_ok:contentOk,step_log:stepLog};}}}return {found:false,strategy:'fallback',text:'',shader_count:shaderCount,texture_count:textureCount,content_ok:contentOk,step_log:stepLog};})()
 '@
 $clickRes = Send-Cdp "Runtime.evaluate" @{
   expression = $jsClick
@@ -191,6 +191,12 @@ $strategyVal = Get-PropValue $clickInfo "strategy"
 if ($strategyVal) { $clickStrategy = $strategyVal }
 $textVal = Get-PropValue $clickInfo "text"
 if ($textVal) { $clickText = $textVal }
+$shaderCount = Get-PropValue $clickInfo "shader_count"
+if ($null -eq $shaderCount) { $shaderCount = 0 }
+$textureCount = Get-PropValue $clickInfo "texture_count"
+if ($null -eq $textureCount) { $textureCount = 0 }
+$contentOk = Get-PropValue $clickInfo "content_ok"
+if ($null -eq $contentOk) { $contentOk = $false }
 $stepVal = Get-PropValue $clickInfo "step_log"
 if ($stepVal) { $stepLog = $stepVal }
 
@@ -206,12 +212,15 @@ $review = @{
   click_found = $clickFound
   click_strategy = $clickStrategy
   click_text = $clickText
-  step_log = @("html_input:$htmlInput","html_abs:$Html","file_url:$fileUrl") + $stepLog
+  shader_count = $shaderCount
+  texture_count = $textureCount
+  content_ok = $contentOk
+  step_log = @("shader_count:$shaderCount","texture_count:$textureCount","content_ok:$contentOk","html_input:$htmlInput","html_abs:$Html","file_url:$fileUrl") + $stepLog
   log_stdout = $logOut
   log_stderr = $logErr
   screenshots = @("01_baseline.png","02_scroll.png","03_zoom_in.png","04_zoom_out.png","05_scroll2.png","06_event_click.png","07_final.png")
 } | ConvertTo-Json -Depth 6
-$consoleStepLog = @("html_input:$htmlInput","html_abs:$Html","file_url:$fileUrl") + $stepLog
+$consoleStepLog = @("shader_count:$shaderCount","texture_count:$textureCount","content_ok:$contentOk","html_input:$htmlInput","html_abs:$Html","file_url:$fileUrl") + $stepLog
 Write-Host ("StepLog: " + ($consoleStepLog -join "; "))
 $review | Set-Content -Path (Join-Path $runDir "review.json") -Encoding UTF8
 Write-Host "RunDir: $runDir"

@@ -330,6 +330,16 @@ def analyze_rdc_file(
         t = r.metrics.shader_type or "unknown"
         type_counts[t] = type_counts.get(t, 0) + 1
     
+    shader_data_reason = ""
+    if not shaders:
+        if is_vulkan:
+            shader_data_reason = (
+                "No SPIR-V extracted from vkCreateShaderModule/vkCreateShadersEXT. "
+                "Capture may use shader objects or an unsupported chunk layout."
+            )
+        else:
+            shader_data_reason = f"{driver_name} capture - shader extraction not implemented."
+
     summary = {
         "file": rdc_path,
         "file_name": os.path.basename(rdc_path),
@@ -353,6 +363,8 @@ def analyze_rdc_file(
         "graphics_pipelines": sum(1 for p in pipelines.values() if p.pipeline_type == 'graphics'),
         "compute_pipelines": sum(1 for p in pipelines.values() if p.pipeline_type == 'compute'),
     }
+    if shader_data_reason:
+        summary["shader_data_reason"] = shader_data_reason
     
     # 详细结果
     shader_details = []
@@ -452,8 +464,20 @@ def analyze_rdc_file(
         print(f"  [INFO] Using exported texture metadata ({len(exported_texture_list)} textures)")
         texture_details = exported_texture_list
     
+    texture_data_reason = ""
+    if not texture_details:
+        if is_vulkan:
+            texture_data_reason = (
+                "No vkCreateImage parsed and no manifest.json/textures.json found. "
+                "Run export_textures_rdoc.py or renderdoccmd export to provide texture metadata."
+            )
+        else:
+            texture_data_reason = f"{driver_name} capture - texture extraction not implemented."
+
     # 更新 summary 包含纹理统计
     summary["total_textures"] = len(texture_details)
+    if texture_data_reason:
+        summary["texture_data_reason"] = texture_data_reason
     
     return {
         "summary": summary,
@@ -1708,6 +1732,9 @@ def generate_html_report(analysis_results: List[Dict], output_path: str):
         total_events = s.get('total_draw_events', 0)
         total_pipelines = s.get('total_pipelines', 0)
         
+        shader_reason = s.get("shader_data_reason", "")
+        shader_reason_html = f'<div class="placeholder-hint">{shader_reason}</div>' if shader_reason else ""
+
         html += f"""
         <div id="file{file_idx}" class="tab-content{active}">
             <div class="card">
@@ -1766,6 +1793,7 @@ def generate_html_report(analysis_results: List[Dict], output_path: str):
                     <tbody>
                     </tbody>
                 </table>
+                {shader_reason_html}
             </div>
         </div>
 """
@@ -2372,7 +2400,15 @@ def generate_html_report(analysis_results: List[Dict], output_path: str):
                 if (!grid) return;
                 
                 if (textures.length === 0) {
-                    grid.innerHTML = '<div style="text-align: center; padding: 40px; color: var(--text-muted);">No textures found</div>';
+                    const reasons = [];
+                    analysisData.forEach(fileData => {
+                        const reason = fileData.summary?.texture_data_reason;
+                        if (reason) reasons.push(reason);
+                    });
+                    const reasonHtml = reasons.length
+                        ? `<div class="placeholder-hint">${reasons.join('<br>')}</div>`
+                        : '';
+                    grid.innerHTML = '<div style="text-align: center; padding: 40px; color: var(--text-muted);">No textures found</div>' + reasonHtml;
                     return;
                 }
                 
