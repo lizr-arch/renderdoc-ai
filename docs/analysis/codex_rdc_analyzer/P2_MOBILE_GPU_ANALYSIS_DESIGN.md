@@ -2,7 +2,7 @@
 
 > **创建时间**: 2025-01-21  
 > **优先级**: P2 (低优先级)  
-> **状态**: 设计阶段  
+> **状态**: 已实现 (2026-01-26)  
 > **前置依赖**: P0/P1 已完成，Mali 分析器已实现
 
 ---
@@ -19,6 +19,12 @@
 |------|------|----------|
 | Adreno 分析器 | 类似 Mali，支持高通 Adreno GPU 的 Shader 性能分析 | `analyzers/adreno_analyzer.py` |
 | Tile-Based 分析 | 通用 TBDR 效率问题检测（overdraw、tile memory、render pass 优化） | `analyzers/tile_based_analyzer.py` |
+
+### 实施进度
+
+- [x] **P2-3 Tile-Based 分析**：TILE_001..006 已实现并接入规则系统  
+- [x] **P2-2 Adreno 启发式分析**：ADRENO_001..003 已实现  
+- [x] **Adreno Profiler CLI**：提供可选入口（缺失时降级提示）  
 
 ### 优先级评估
 
@@ -451,10 +457,10 @@ class TestTileBasedAnalyzer:
 
 实现完成后需要更新的文档：
 
-- [ ] `scripts/rdc_analyzer/README.md` — 添加 Tile-Based 分析说明
-- [ ] `scripts/rdc_analyzer/RULES.md` — 添加新规则代码
-- [ ] `docs/analysis/codex_rdc_analyzer/WORK_SUMMARY_2025-01-21.md` — 更新文件结构
-- [ ] `scripts/rdc_analyzer/docs/ARCHITECTURE_V1.md` — 添加分析器架构图
+- [x] `scripts/rdc_analyzer/README.md` — 添加 Tile-Based 分析说明
+- [x] `scripts/rdc_analyzer/RULES.md` — 添加新规则代码
+- [x] `docs/analysis/codex_rdc_analyzer/WORK_SUMMARY_2025-01-21.md` — 更新文件结构
+- [x] `scripts/rdc_analyzer/docs/ARCHITECTURE_V1.md` — 添加分析器架构图
 
 ---
 

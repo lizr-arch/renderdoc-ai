@@ -201,3 +201,11 @@ else:
 - Snapdragon Profiler CLI 是否可用？其输出格式（JSON/XML）确定吗？
 - Tile memory 阈值与 overdraw 阈值是否需要与现有 mobile 规则统一？
 - 是否需要在 HTML 报告中新增 Tile/Adreno 专区（或仅 issues 列表即可）？
+
+## Progress Log
+- 2026-01-26: 补齐 P2 设计缺口（RenderPass 解析→PassInfo→Tile 规则对齐）
+  - 连接 XML renderPassInfos 到 ParsedData/PassAnalyzer；补充 marker/attachment 字段
+  - Tile 规则与设计对齐：TILE_003~006 分别为 Load/Store、MSAA Resolve、Transient、Debug Marker
+  - Adreno GPU 列表补全（A5xx/A6xx/A7xx），CLI 入口保留降级提示
+  - 文档：P2 设计状态与 ROADMAP 勾选完成；RULES.md 重新生成
+  - 验证：pytest tile/adreno 单测通过

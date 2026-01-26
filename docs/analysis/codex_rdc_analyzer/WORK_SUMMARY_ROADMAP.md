@@ -24,8 +24,8 @@
 ### 低优先级（P2）
 
 - [ ] 编译 `renderdoccmd export` 命令
-- [ ] 添加 Adreno GPU 专项分析
-- [ ] 添加 Tile-Based 效率分析
+- [x] 添加 Adreno GPU 专项分析（完成于 2026-01-26）
+- [x] 添加 Tile-Based 效率分析（完成于 2026-01-26）
 
 ---
 
