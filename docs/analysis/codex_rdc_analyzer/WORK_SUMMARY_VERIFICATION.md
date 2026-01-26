@@ -309,6 +309,26 @@ def local_mali_rdc():
 - html_abs: `D:\Code\git\renderdoc\scripts\rdc_analyzer\test_output\g145_report.html`
 - file_url: `file:///D:/Code/git/renderdoc/scripts/rdc_analyzer/test_output/g145_report.html`
 - step_log: `['doc_ready:complete','doc_url:file:///D:/Code/git/renderdoc/scripts/rdc_analyzer/test_output/g145_report.html','inject-style','showEventBrowser()','renderEventTree()','event-node-ready']`
+
+### 7.6.7 自动化 Headless 审阅（控制台 StepLog）
+
+- WHAT: 在脚本执行时将 step_log 同步输出到控制台。
+- WHY: 便于快速诊断，无需打开 review.json。
+- HOW: `scripts/_tmp_html_ui_review_cdp.ps1` 输出 `StepLog:` 行。
+
+**执行结果（run_20260126-102719）**
+- 控制台输出包含 `html_input/html_abs/file_url/doc_ready/doc_url`。
+- review.json 仍保留完整 step_log。
+
+### 7.7 新 RDC HTML 生成（g145-battle-2）
+
+- WHAT: 使用 `analyze_rdc.py` 对 `g145-battle-2.rdc` 生成 HTML。
+- WHY: 满足“用新的 rdc 跑一遍”的验收要求。
+- HOW: `py -3 scripts/rdc_analyzer/analyze_rdc.py "D:\renderdoc\goog pixel-9\g145-battle-2.rdc" --output "D:\renderdoc\goog pixel-9\g145-battle-2_report.html"`
+
+**执行结果**
+- 输出：`D:\renderdoc\goog pixel-9\g145-battle-2_report.html`
+- 备注：`[INFO] No texture manifest found for g145-battle-2.rdc`（纹理导出未提供）
 - 结论：点击前后截图 hash 不同，满足“真实点击可见变化”要求。
 
 ---

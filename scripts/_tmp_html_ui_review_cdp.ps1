@@ -206,11 +206,13 @@ $review = @{
   click_found = $clickFound
   click_strategy = $clickStrategy
   click_text = $clickText
-  step_log = $stepLog
+  step_log = @("html_input:$htmlInput","html_abs:$Html","file_url:$fileUrl") + $stepLog
   log_stdout = $logOut
   log_stderr = $logErr
   screenshots = @("01_baseline.png","02_scroll.png","03_zoom_in.png","04_zoom_out.png","05_scroll2.png","06_event_click.png","07_final.png")
 } | ConvertTo-Json -Depth 6
+$consoleStepLog = @("html_input:$htmlInput","html_abs:$Html","file_url:$fileUrl") + $stepLog
+Write-Host ("StepLog: " + ($consoleStepLog -join "; "))
 $review | Set-Content -Path (Join-Path $runDir "review.json") -Encoding UTF8
 Write-Host "RunDir: $runDir"
 Write-Host "Saved screenshots: 7"
