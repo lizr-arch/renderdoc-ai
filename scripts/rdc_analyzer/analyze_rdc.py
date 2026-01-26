@@ -26,6 +26,51 @@ sys.path.insert(0, str(Path(__file__).parent))
 from rdc_parser import RDCParser, ShaderInfo, extract_shaders, extract_textures, extract_resource_renames, TextureInfo, VK_FORMAT_NAMES, DrawEventContext, PipelineInfo
 from mali_analyzer import MaliOfflineCompiler, ShaderAnalysisResult, MaliPerformanceMetrics
 
+RECONCILE_RATIO_THRESHOLD = 0.9
+
+
+def compute_reconcile_summary(
+    shader_chunk_total: int,
+    texture_chunk_total: int,
+    shader_count: int,
+    texture_count: int,
+    threshold: float = RECONCILE_RATIO_THRESHOLD,
+) -> Dict[str, Any]:
+    """Compute reconciliation ratios and approval requirement."""
+    def ratio(count: int, total: int) -> float:
+        if total <= 0:
+            return 1.0 if count == 0 else 0.0
+        return round(count / float(total), 2)
+
+    shader_ratio = ratio(shader_count, shader_chunk_total)
+    texture_ratio = ratio(texture_count, texture_chunk_total)
+
+    issues = []
+    if shader_ratio < threshold:
+        missing = max(shader_chunk_total - shader_count, 0)
+        issues.append(
+            f"Shader ratio below threshold: {shader_ratio:.2f} < {threshold:.2f} "
+            f"(missing {missing} of {shader_chunk_total}). Allow pass?"
+        )
+    if texture_ratio < threshold:
+        missing = max(texture_chunk_total - texture_count, 0)
+        issues.append(
+            f"Texture ratio below threshold: {texture_ratio:.2f} < {threshold:.2f} "
+            f"(missing {missing} of {texture_chunk_total}). Allow pass?"
+        )
+
+    return {
+        "shader_chunk_total": shader_chunk_total,
+        "texture_chunk_total": texture_chunk_total,
+        "shader_count": shader_count,
+        "texture_count": texture_count,
+        "shader_ratio": shader_ratio,
+        "texture_ratio": texture_ratio,
+        "threshold": threshold,
+        "approval_required": bool(issues),
+        "issues": issues,
+    }
+
 
 def load_texture_thumbnails(rdc_path: str, as_base64: bool = True) -> Dict[int, str]:
     """加载纹理缩略图映射
@@ -209,7 +254,8 @@ def analyze_rdc_file(
     print(f"\n{'='*60}")
     print(f"Analyzing: {rdc_path}")
     print(f"{'='*60}")
-    
+
+    chunk_counts = {}
     # 1. 解析 RDC 文件头
     print("\n[1/5] Parsing RDC file...")
     with RDCParser(rdc_path) as parser:
@@ -224,6 +270,7 @@ def analyze_rdc_file(
         
         # 根据 API 类型分发不同的解析路径
         if is_vulkan:
+            chunk_counts = parser.count_vulkan_chunks()
             # Vulkan: 完整分析（SPIR-V + Mali）
             shaders = parser.extract_vulkan_shaders()
             print("\n[2/5] Extracting draw events and pipelines...")
@@ -478,6 +525,16 @@ def analyze_rdc_file(
     summary["total_textures"] = len(texture_details)
     if texture_data_reason:
         summary["texture_data_reason"] = texture_data_reason
+
+    if chunk_counts:
+        reconcile = compute_reconcile_summary(
+            shader_chunk_total=chunk_counts.get("vkCreateShaderModule", 0)
+            + chunk_counts.get("vkCreateShadersEXT", 0),
+            texture_chunk_total=chunk_counts.get("vkCreateImage", 0),
+            shader_count=len(shader_details),
+            texture_count=len(texture_details),
+        )
+        summary["reconcile_chunks"] = reconcile
     
     return {
         "summary": summary,
@@ -1734,6 +1791,35 @@ def generate_html_report(analysis_results: List[Dict], output_path: str):
         
         shader_reason = s.get("shader_data_reason", "")
         shader_reason_html = f'<div class="placeholder-hint">{shader_reason}</div>' if shader_reason else ""
+        reconcile = s.get("reconcile_chunks")
+        reconcile_html = ""
+        if reconcile:
+            shader_ratio = reconcile.get("shader_ratio", 0.0)
+            texture_ratio = reconcile.get("texture_ratio", 0.0)
+            threshold = reconcile.get("threshold", RECONCILE_RATIO_THRESHOLD)
+            approval_required = reconcile.get("approval_required", False)
+            issues = reconcile.get("issues", [])
+            issues_html = "<br>".join(issues) if issues else ""
+            reconcile_html = f"""
+            <div class="card">
+                <div class="card-title">✅ Reconciliation</div>
+                <div class="summary-grid">
+                    <div class="stat-card">
+                        <div class="stat-value {'danger' if shader_ratio < threshold else 'success'}">{shader_ratio:.2f}</div>
+                        <div class="stat-label">Shader Ratio</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value {'danger' if texture_ratio < threshold else 'success'}">{texture_ratio:.2f}</div>
+                        <div class="stat-label">Texture Ratio</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value info">{threshold:.2f}</div>
+                        <div class="stat-label">Threshold</div>
+                    </div>
+                </div>
+                {f'<div class="placeholder-hint">{issues_html}</div>' if approval_required else ''}
+            </div>
+            """
 
         html += f"""
         <div id="file{file_idx}" class="tab-content{active}">
@@ -1766,7 +1852,7 @@ def generate_html_report(analysis_results: List[Dict], output_path: str):
                     </div>
                 </div>
             </div>
-            
+            {reconcile_html}
             <div class="card">
                 <div class="card-title">📋 Shader Details <span style="font-size: 0.75rem; color: var(--text-secondary); font-weight: normal;">(Click row to expand resources)</span></div>
                 <table id="shader-table-{file_idx}" class="display" style="width:100%">

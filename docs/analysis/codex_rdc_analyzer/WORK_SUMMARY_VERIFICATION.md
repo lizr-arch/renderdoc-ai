@@ -388,6 +388,32 @@ def local_mali_rdc():
 
 ---
 
+### 7.11 g145-battle-2 完整性对齐（Chunk 统计 + 比例）（2026-01-26）
+
+- WHAT: 记录 Vulkan chunk 统计并与解析出的 shader/texture 数量做一致性对齐。
+- WHY: 用可量化比例判断解析完整性，低于阈值需要人工确认。
+- HOW: `py -3 scripts/rdc_analyzer/rdc_parser.py "D:\renderdoc\goog pixel-9\g145-battle-2.rdc" --chunk-counts`
+
+**执行结果**
+- chunk counts:
+  - vkCreateShaderModule: `109`
+  - vkCreateShadersEXT: `0`
+  - vkCreateImage: `155`
+- parsed counts:
+  - shader_count: `109`
+  - texture_count: `51`
+- ratios (threshold `0.90`):
+  - shader_ratio: `1.00`（通过）
+  - texture_ratio: `0.33`（未通过 → approval_required: YES）
+- 备注：texture_ratio < 0.9，需列出差异并询问是否允许通过。
+
+**待执行（UI 侧对齐）**
+- RenderDoc UI Python Shell:
+  - `exec(open(r'D:\Code\git\renderdoc\scripts\rdc_analyzer\ui_resource_counts.py').read())`
+- 预期输出：`ui_texture_count`, `ui_resource_count`
+
+---
+
 
 ## 8. CLI 使用示例
 

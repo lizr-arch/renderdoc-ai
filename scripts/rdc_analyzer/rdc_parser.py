@@ -12,6 +12,7 @@ import struct
 import os
 import json
 import hashlib
+from collections import Counter
 from dataclasses import dataclass, field
 from enum import IntEnum, IntFlag
 from typing import List, Optional, Tuple, BinaryIO, Dict
@@ -1513,6 +1514,24 @@ class RDCParser:
             offset = ((next_offset + CHUNK_ALIGNMENT - 1) // CHUNK_ALIGNMENT) * CHUNK_ALIGNMENT
         
         return chunks
+
+    def count_vulkan_chunks(self) -> Dict[str, int]:
+        """统计 Vulkan 关键资源相关的 chunk 数量"""
+        if self._rdc_info is None:
+            self.parse_header()
+
+        if not self._rdc_info.is_vulkan:
+            return {}
+
+        fc_data = self.get_frame_capture_data()
+        chunks = self.parse_chunks(fc_data)
+        counts = Counter(chunk.chunk_id for chunk in chunks)
+
+        return {
+            "vkCreateShaderModule": counts.get(VulkanChunk.vkCreateShaderModule, 0),
+            "vkCreateShadersEXT": counts.get(VulkanChunk.vkCreateShadersEXT, 0),
+            "vkCreateImage": counts.get(VulkanChunk.vkCreateImage, 0),
+        }
     
     def _parse_chunk_header(self, data: bytes, offset: int) -> Tuple[Optional[ChunkInfo], int]:
         """解析单个 Chunk Header"""
@@ -2916,6 +2935,11 @@ if __name__ == '__main__':
         print("Usage: python rdc_parser.py <rdc_file> [--extract-shaders]")
         sys.exit(1)
     
+    chunk_counts_only = False
+    if '--chunk-counts' in sys.argv:
+        chunk_counts_only = True
+        sys.argv.remove('--chunk-counts')
+
     rdc_path = sys.argv[1]
     
     if not os.path.exists(rdc_path):
@@ -2924,6 +2948,15 @@ if __name__ == '__main__':
     
     try:
         print_rdc_info(rdc_path)
+
+        if chunk_counts_only:
+            with RDCParser(rdc_path) as parser:
+                parser.parse_header()
+                counts = parser.count_vulkan_chunks()
+            print("\nChunk Counts:")
+            for key, value in counts.items():
+                print(f"  {key}: {value}")
+            sys.exit(0)
         
         if '--extract-shaders' in sys.argv:
             print(f"\n" + "=" * 60)
