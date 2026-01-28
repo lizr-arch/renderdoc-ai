@@ -430,6 +430,7 @@ def local_mali_rdc():
 - 使用 RenderDoc UI 或 renderdoccmd 回放环境验证 `texture_source`：
   - `py -3 scripts/rdc_analyzer/export_textures.py "D:\renderdoc\goog pixel-9\g145-battle-2.rdc" -o "D:\renderdoc\goog pixel-9\g145-battle-2_textures"`
   - 重新生成报告并确认 `texture_source = manifest/replay_api`，`texture_ratio` 以 UI 计数为基准
+  - 备注：当前无 Replay 环境（用户反馈），因此暂无法完成该验证。
 
 ---
 

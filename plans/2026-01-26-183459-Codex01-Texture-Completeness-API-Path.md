@@ -88,7 +88,7 @@ def compute_texture_ratio(parsed_count, ui_count=None, chunk_count=None):
     ratio = parsed / ui_count
     summary["texture_ratio_ui"] = ratio
     ```
-- [ ] 5. Update verification log
+- [ ] 5. Update verification log (blocked: no replay environment available)
   - WHAT: record source + ui counts + ratios.
   - WHY: evidence chain for acceptance.
   - HOW:
@@ -101,6 +101,7 @@ def compute_texture_ratio(parsed_count, ui_count=None, chunk_count=None):
 # Risks & Blockers
 - RenderDoc replay not supported locally → must fall back and flag in report.
 - Replay metadata path requires renderdoc module in runtime environment.
+- Blocker: 当前无 Replay 环境，无法实测 `texture_source=manifest/replay_api` 与 `texture_ratio_ui`。
 
 # Verification / DoD
 - Unit tests for source selection pass.
