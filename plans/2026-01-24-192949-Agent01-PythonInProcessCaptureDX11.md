@@ -51,6 +51,7 @@
 | ABI mismatch (MSC version) | High | Medium | Use MSVC toolchain matching `sys.version` (MSC v.1940) |
 | renderdoc.dll load fails | Medium | Medium | Use absolute path; ensure DLL is present and accessible |
 | Anti-cheat or sandbox blocks DLL load | Medium | Low | Test in QA2 branch and verify logs |
+| In-game verification pending | Medium | Medium | User runs console commands to validate import and capture |
 
 ## Game Dev: Memory & Resource Budget (Leak Checks)
 - Captures can be large; confirm `RenderDocCaptures` has enough disk space.
