@@ -150,6 +150,8 @@ Enable HAVE_DYNAMIC_LOADING in PC/pyconfig.h.
 
 ## Task Checklist (2–5 min each)
 
+- [ ] Task 1: Inspect Python init & patch points
+
 ### Task 1: Inspect Python init & patch points
 **Files:**
 - Read: `Engine/Sources/Runtime/Plugins/Python/Source/MPython.cpp:480`
@@ -171,6 +173,8 @@ print(imp.get_suffixes())
 ```bash
 git commit -m "chore(engine): document py27 dynload entry points"
 ```
+
+- [x] Task 2: Enable dynload/importdl in PythonCore build (pyconfig.h macro)
 
 ### Task 2: Enable dynload/importdl in PythonCore build
 **Files:**
@@ -198,6 +202,8 @@ print(imp.get_suffixes())
 ```bash
 git commit -m "fix(engine): enable py27 dynload for .pyd"
 ```
+
+- [ ] Task 3: Validate `rdoc_capture.pyd` import
 
 ### Task 3: Validate `rdoc_capture.pyd` import
 **Files:**
