@@ -1,133 +1,312 @@
-# Python In-Process Capture Plan (DX11)
+# Py27 RenderDoc In-Process Capture Extension Implementation Plan
+
+> **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
+
+## Plan Metadata
+- Version: 0.2
+- Owner: Agent01
+- Last Updated: 2026-01-26
+- Plan File: `plans/2026-01-24-192949-Agent01-PythonInProcessCaptureDX11.md`
+
+## Goal
+- Build a minimal **Python 2.7 C extension (.pyd)** that can load RenderDoc in-process and trigger frame capture without `ctypes`.
+
+## Architecture
+- Provide a tiny native Python module (`rdoc_capture`) that wraps RenderDoc App API: load `renderdoc.dll`, call `RENDERDOC_GetAPI`, then expose `trigger_capture()` and `set_capture_path/title()` to game scripts.
+- Copy the compiled `.pyd` into a directory already on the embedded Python `sys.path` so imports work without extra path tweaks.
+
+## Tech Stack
+- C/C++ (MSVC)
+- RenderDoc App API (`renderdoc/api/app/renderdoc_app.h`)
+- Python 2.7 C API (embedded in game)
+- Windows x64
+
+## Success Criteria (measurable)
+- In the game console, `import rdoc_capture` succeeds.
+- `rdoc_capture.is_available()` returns `True`.
+- `rdoc_capture.trigger_capture()` creates an `.rdc` under the configured path.
+
+## Acceptance Criteria
+- A capture taken from the target UI loads in RenderDoc and contains expected draw calls.
+
+## Verification Commands
+- `cmd /c "tasklist /m renderdoc.dll | findstr /i Game_x64h.exe"` (Expected: line showing `Game_x64h.exe` with `renderdoc.dll`)
+- In-game console:
+  - `import rdoc_capture; print(rdoc_capture.is_available())` (Expected: `True`)
+  - `rdoc_capture.set_capture_path(r"F:\Code\S1\RenderDocCaptures\capture"); rdoc_capture.trigger_capture()` (Expected: new `.rdc`)
+
+## Evidence
+- Screenshot/log of in-game console output showing `True`
+- `.rdc` file path under `F:\Code\S1\RenderDocCaptures\`
+
+## Estimation
+- Effort: 0.5–1.0 day
+- Story Points: 2
+- Original Estimate: 1 day
+
+## Risk Register
+| Risk | Impact | Likelihood | Mitigation |
+|---|---|---|---|
+| Python 2.7 dev headers/libs not found | High | Medium | Locate headers/libs in S1 tools; if missing, generate import lib from python27.dll or add a minimal SDK |
+| ABI mismatch (MSC version) | High | Medium | Use MSVC toolchain matching `sys.version` (MSC v.1940) |
+| renderdoc.dll load fails | Medium | Medium | Use absolute path; ensure DLL is present and accessible |
+| Anti-cheat or sandbox blocks DLL load | Medium | Low | Test in QA2 branch and verify logs |
+
+## Game Dev: Memory & Resource Budget (Leak Checks)
+- Captures can be large; confirm `RenderDocCaptures` has enough disk space.
+- Avoid frequent captures; gate with a UI state and one-shot flag.
+
+## Game Dev: Asset Pipeline
+- Treat `.rdc` outputs as debug artifacts; store under a dedicated `RenderDocCaptures/` directory.
+- Do not package `.rdc` into release builds.
+
+## Game Dev: Crash Repro + Dumps/Symbols
+- Repro steps: enter target UI, call `trigger_capture()`.
+- Dump/Core: minidump (if native crash occurs).
+- Symbols: PDB for game + RenderDoc build.
+- Build identity: record engine version + script version + git commit if available.
+
+---
 
 ## Scope
-- In: add a Python ctypes helper that runs **inside the game process** to call RenderDoc App API (TriggerCapture) and optionally set capture path/title.
-- Out: modifying game C++ code, changing RenderDoc core capture internals, or adding new UI in qrenderdoc.
+- In: add a **Python 2.7 native extension** to call RenderDoc App API.
+- Out: modifying game C++ code, changing RenderDoc core, or relying on `ctypes`.
 
 ## Assumptions
-- Game process already loads Python (`PythonCore_x64h.dll`, `Python_x64h.dll`) — confirmed.
-- Game runs DX11 (`--dx11`) and Python can execute inside the process (e.g., `--start=Python`).
-- `renderdoc.dll` is accessible to the process (either already loaded or loadable by path).
+- Embedded Python is 2.7.18 (MSC v.1940) and can load `.pyd` modules.
+- We can place `.pyd` into a directory already on `sys.path`.
+- Python headers available at `F:\Code\S1\doc\tools\Formation_Toos\venv\Include` (2.7.12 headers).
+- Python runtime DLL at `F:\Code\S1\Engine\Binaries\Win64\capture_texture\python27.dll` (2.7.18).
 
 ## Repo / File List
-- New (repo):
-  - `docs/analysis/rdoc_quick_capture_python.md` (integration guide)
-  - `scripts/rdoc_quick_capture/rdoc_inprocess_capture.py` (Python helper mirror)
-- New (external, game package):
-  - `F:\Code\S1\Package\rdoc_quick_capture\rdoc_inprocess_capture.py` (Python helper)
 - Reference:
-  - `renderdoc/api/app/renderdoc_app.h:622` — `RENDERDOC_API_1_6_0` layout
-  - `renderdoc/api/app/renderdoc_app.h:509` — `pRENDERDOC_TriggerCapture`
-  - `renderdoc/api/app/renderdoc_app.h:405` — `pRENDERDOC_SetCaptureFilePathTemplate`
-  - `renderdoc/api/app/renderdoc_app.h:37` — `RENDERDOC_CC __cdecl`
+  - `renderdoc/api/app/renderdoc_app.h:720-737` — `pRENDERDOC_GetAPI` typedef
+  - `renderdoc/replay/app_api.cpp:320-340` — `RENDERDOC_GetAPI` export
+  - `docs/in_application_api.rst:16-39` — signature and sample usage
+- New (repo):
+  - `util/rdoc_quick_capture_py27/rdoc_capture_py27.cpp`
+  - `util/rdoc_quick_capture_py27/build_py27_capture.cmd`
+  - `docs/analysis/rdoc_quick_capture_py27.md` (how-to + troubleshooting)
+- External (game package):
+  - `F:\Code\S1\Package\Script\Python\engine\Lib\rdoc_capture.pyd`
 
 ## Approach (Pseudo-code + Full Snippet)
-We load `renderdoc.dll`, call `RENDERDOC_GetAPI` to retrieve the function table, then call `TriggerCapture()` when your target UI state is reached. This avoids needing device pointers (DX11-specific) and avoids relying on RenderDoc hotkeys.
 
-```python
-# scripts/rdoc_quick_capture/rdoc_inprocess_capture.py
-import ctypes
-import os
+Pseudo-flow:
+1) `LoadLibraryW(renderdoc.dll)` or `GetModuleHandleW(renderdoc.dll)`
+2) `GetProcAddress("RENDERDOC_GetAPI")`
+3) Call `RENDERDOC_GetAPI(eRENDERDOC_API_Version_1_6_0, &api)`
+4) Expose Python functions: `is_available()`, `set_capture_path()`, `set_capture_title()`, `trigger_capture()`
 
-# RENDERDOC_Version
-RENDERDOC_API_VERSION_1_6_0 = 10600
+Core C++ skeleton (full snippet):
+```cpp
+// util/rdoc_quick_capture_py27/rdoc_capture_py27.cpp
+#include <Windows.h>
+#include "renderdoc/api/app/renderdoc_app.h"
+#include <Python.h>
 
-# Function pointer helpers (cdecl)
-CFN_void = ctypes.CFUNCTYPE(None)
-CFN_void_ccharp = ctypes.CFUNCTYPE(None, ctypes.c_char_p)
+static const char *g_last_error = "";
+static RENDERDOC_API_1_6_0 *g_rdoc = NULL;
+static HMODULE g_rdoc_module = NULL;
 
-class RENDERDOC_API_1_6_0(ctypes.Structure):
-    _fields_ = [
-        ("GetAPIVersion", ctypes.c_void_p),
-        ("SetCaptureOptionU32", ctypes.c_void_p),
-        ("SetCaptureOptionF32", ctypes.c_void_p),
-        ("GetCaptureOptionU32", ctypes.c_void_p),
-        ("GetCaptureOptionF32", ctypes.c_void_p),
-        ("SetFocusToggleKeys", ctypes.c_void_p),
-        ("SetCaptureKeys", ctypes.c_void_p),
-        ("GetOverlayBits", ctypes.c_void_p),
-        ("MaskOverlayBits", ctypes.c_void_p),
-        ("RemoveHooks", ctypes.c_void_p),
-        ("UnloadCrashHandler", ctypes.c_void_p),
-        ("SetCaptureFilePathTemplate", ctypes.c_void_p),
-        ("GetCaptureFilePathTemplate", ctypes.c_void_p),
-        ("GetNumCaptures", ctypes.c_void_p),
-        ("GetCapture", ctypes.c_void_p),
-        ("TriggerCapture", ctypes.c_void_p),
-        ("IsTargetControlConnected", ctypes.c_void_p),
-        ("LaunchReplayUI", ctypes.c_void_p),
-        ("SetActiveWindow", ctypes.c_void_p),
-        ("StartFrameCapture", ctypes.c_void_p),
-        ("IsFrameCapturing", ctypes.c_void_p),
-        ("EndFrameCapture", ctypes.c_void_p),
-        ("TriggerMultiFrameCapture", ctypes.c_void_p),
-        ("SetCaptureFileComments", ctypes.c_void_p),
-        ("DiscardFrameCapture", ctypes.c_void_p),
-        ("ShowReplayUI", ctypes.c_void_p),
-        ("SetCaptureTitle", ctypes.c_void_p),
-    ]
+static PyObject *rdoc_load(PyObject *, PyObject *args)
+{
+  const char *dllPath = NULL;
+  if(!PyArg_ParseTuple(args, "|s", &dllPath))
+    return NULL;
 
-class RenderDocInProcess:
-    def __init__(self, dll_path=None):
-        self._api = None
-        if dll_path and os.path.exists(dll_path):
-            rdoc = ctypes.CDLL(dll_path)
-        else:
-            rdoc = ctypes.CDLL("renderdoc.dll")
+  if(!g_rdoc_module)
+  {
+    g_rdoc_module = dllPath ? LoadLibraryA(dllPath) : GetModuleHandleA("renderdoc.dll");
+    if(!g_rdoc_module)
+      g_rdoc_module = LoadLibraryA("renderdoc.dll");
+  }
 
-        getapi = rdoc.RENDERDOC_GetAPI
-        getapi.restype = ctypes.c_int
-        getapi.argtypes = [ctypes.c_int, ctypes.POINTER(ctypes.c_void_p)]
+  if(!g_rdoc_module)
+  {
+    g_last_error = "renderdoc.dll not loaded";
+    Py_RETURN_FALSE;
+  }
 
-        api_ptr = ctypes.c_void_p()
-        ok = getapi(RENDERDOC_API_VERSION_1_6_0, ctypes.byref(api_ptr))
-        if ok and api_ptr.value:
-            self._api = ctypes.cast(api_ptr, ctypes.POINTER(RENDERDOC_API_1_6_0)).contents
+  pRENDERDOC_GetAPI getapi = (pRENDERDOC_GetAPI)GetProcAddress(g_rdoc_module, "RENDERDOC_GetAPI");
+  if(!getapi)
+  {
+    g_last_error = "RENDERDOC_GetAPI not found";
+    Py_RETURN_FALSE;
+  }
 
-    def is_available(self):
-        return self._api is not None
+  int ret = getapi(eRENDERDOC_API_Version_1_6_0, (void **)&g_rdoc);
+  if(!ret || !g_rdoc)
+  {
+    g_last_error = "RENDERDOC_GetAPI failed";
+    Py_RETURN_FALSE;
+  }
 
-    def set_capture_path(self, path):
-        if not self._api or not path:
-            return
-        fn = CFN_void_ccharp(self._api.SetCaptureFilePathTemplate)
-        fn(path.encode("utf-8"))
+  Py_RETURN_TRUE;
+}
 
-    def trigger_capture(self):
-        if not self._api:
-            return
-        fn = CFN_void(self._api.TriggerCapture)
-        fn()
+static PyObject *rdoc_is_available(PyObject *, PyObject *)
+{
+  if(g_rdoc)
+    Py_RETURN_TRUE;
+  Py_RETURN_FALSE;
+}
 
-# Example usage inside game Python update:
-# rdoc = RenderDocInProcess(r"F:\Code\S1\RenderDoc\renderdoc.dll")
-# if rdoc.is_available() and in_target_ui:
-#     rdoc.set_capture_path(r"F:\Code\S1\RenderDocCaptures\capture")
-#     rdoc.trigger_capture()
+static PyObject *rdoc_set_capture_path(PyObject *, PyObject *args)
+{
+  const char *path = NULL;
+  if(!PyArg_ParseTuple(args, "s", &path))
+    return NULL;
+  if(g_rdoc && path)
+    g_rdoc->SetCaptureFilePathTemplate(path);
+  Py_RETURN_NONE;
+}
+
+static PyObject *rdoc_set_capture_title(PyObject *, PyObject *args)
+{
+  const char *title = NULL;
+  if(!PyArg_ParseTuple(args, "s", &title))
+    return NULL;
+  if(g_rdoc && title)
+    g_rdoc->SetCaptureTitle(title);
+  Py_RETURN_NONE;
+}
+
+static PyObject *rdoc_trigger_capture(PyObject *, PyObject *)
+{
+  if(g_rdoc)
+    g_rdoc->TriggerCapture();
+  Py_RETURN_NONE;
+}
+
+static PyObject *rdoc_last_error(PyObject *, PyObject *)
+{
+  return PyString_FromString(g_last_error ? g_last_error : "");
+}
+
+static PyMethodDef RDocMethods[] = {
+    {"load", rdoc_load, METH_VARARGS, "Load renderdoc and get API"},
+    {"is_available", rdoc_is_available, METH_NOARGS, "Check API availability"},
+    {"set_capture_path", rdoc_set_capture_path, METH_VARARGS, "Set capture path template"},
+    {"set_capture_title", rdoc_set_capture_title, METH_VARARGS, "Set capture title"},
+    {"trigger_capture", rdoc_trigger_capture, METH_NOARGS, "Trigger capture"},
+    {"last_error", rdoc_last_error, METH_NOARGS, "Last error string"},
+    {NULL, NULL, 0, NULL}};
+
+PyMODINIT_FUNC initrdoc_capture(void)
+{
+  Py_InitModule("rdoc_capture", RDocMethods);
+}
 ```
 
+---
+
+## Task Checklist (2–5 min each)
+
+## Progress Checklist
+- [x] Task 1: Locate Python 2.7 headers and python27.dll paths.
+- [x] Task 2: Add native extension source + build script + def generator.
+- [ ] Task 3: Build and deploy `rdoc_capture.pyd` into `engine\Lib`.
+- [ ] Task 4: Add Py27-specific guide doc.
+
+### Task 1: Locate Python 2.7 dev headers/libs (embedded)
+**Files:**
+- Inspect (external): possible Python headers in `F:\Code\S1\tools\...`
+
+**Step 1: Write the failing test**
+```python
+# In-game console
+import rdoc_capture
+```
+
+**Step 2: Run test to verify it fails**
+- Expected: `ImportError: No module named rdoc_capture`
+
+**Step 3: Locate correct Python.h / libs**
+- Use Everything search for `Python.h`, `python27.dll`, `python27.lib`.
+- Verify version by reading `patchlevel.h` (expected 2.7.18, MSC v.1940).
+
+**Step 4: Document header/lib paths**
+- Record include/lib paths in plan or README.
+
+**Step 5: Commit**
+- `git commit -m "chore(plan): document py27 headers and libs"`
+
+### Task 2: Add native extension source + build script (repo)
+**Files:**
+- Create: `util/rdoc_quick_capture_py27/rdoc_capture_py27.cpp`
+- Create: `util/rdoc_quick_capture_py27/build_py27_capture.cmd`
+
+**Step 1: Write the failing test**
+```python
+# In-game console
+import rdoc_capture
+print(rdoc_capture.is_available())
+```
+
+**Step 2: Run test to verify it fails**
+- Expected: `ImportError` or `False`
+
+**Step 3: Write minimal implementation**
+- Add the C++ module above.
+- Build with a cmd script that calls `cl /LD` with proper include/lib.
+
+**Step 4: Run test to verify it passes**
+- Expected: `import rdoc_capture` succeeds and `is_available()` returns `True` after `load()`.
+
+**Step 5: Commit**
+```bash
+git add util/rdoc_quick_capture_py27/rdoc_capture_py27.cpp util/rdoc_quick_capture_py27/build_py27_capture.cmd
+git commit -m "feat(rdoc): add py27 capture extension source and build script"
+```
+
+### Task 3: Deploy `.pyd` into game package
+**Files:**
+- Copy to: `F:\Code\S1\Package\Script\Python\engine\Lib\rdoc_capture.pyd`
+
+**Step 1: Write the failing test**
+```python
+import rdoc_capture
+```
+
+**Step 2: Run test to verify it fails**
+- Expected: ImportError (before copy)
+
+**Step 3: Copy compiled module**
+- Copy `rdoc_capture.pyd` into `engine\Lib` (already on `sys.path`).
+
+**Step 4: Run test to verify it passes**
+- Expected: import succeeds
+
+**Step 5: Commit**
+- (No repo files changed)
+
+### Task 4: Update guide doc (Py27-specific)
+**Files:**
+- Create: `docs/analysis/rdoc_quick_capture_py27.md`
+
+**Step 1: Write the failing test**
+- N/A (doc-only)
+
+**Step 2: Write minimal content**
+- Explain why ctypes is missing and how to use `rdoc_capture`.
+
+**Step 3: Verify**
+- Review for accuracy vs plan.
+
+**Step 4: Commit**
+```bash
+git add docs/analysis/rdoc_quick_capture_py27.md
+git commit -m "docs(rdoc): add py27 in-process capture guide"
+```
+
+---
+
 ## Impact Analysis
-- Low risk to RenderDoc core; helper is standalone Python script.
-- Key risk: `renderdoc.dll` load failure or missing export `RENDERDOC_GetAPI`.
-- DX11-specific device pointers are not required because we use `TriggerCapture()`.
-
-## Action Items (2-5 min granularity)
-- [x] Add in-game Python helper at `F:\Code\S1\Package\rdoc_quick_capture\rdoc_inprocess_capture.py` (fixed syntax + version fallback).
-- [x] Add `docs/analysis/rdoc_quick_capture_python.md` with integration steps and troubleshooting (content verified, UTF-8).
-- [x] Mirror helper into repo for versioning.
-- [ ] Verify the script in-game: call `RenderDocInProcess(...).trigger_capture()` in target UI.
-
-## Risks & Blockers
-- `renderdoc.dll` not loadable in-process (path or access issue).
-- Python hook point in game is limited (no per-frame callback).
-- Embedded Python lacks `ctypes` (ImportError) and the module is not present under `F:\Code\S1\Package`, so the ctypes-based helper cannot run without adding stdlib/native `_ctypes` support or using a different bridge.
+- Low impact on RenderDoc core (external extension only).
+- Main risk is ABI mismatch with embedded Python 2.7.
+- If Python headers/libs are not available, we must generate an import lib from `python27.dll`.
 
 ## Verification / DoD
-- In target UI, invoking `trigger_capture()` produces a `.rdc` in the configured path.
+- In target UI, `rdoc_capture.trigger_capture()` produces a `.rdc`.
 - The `.rdc` opens in RenderDoc and shows the captured frame.
-
-## Open Questions
-- Placement confirmed: `F:\Code\S1\Package`.
-
-## Next Steps
-- Run in-game verification on target UI and confirm `.rdc` output path.
