@@ -44,6 +44,7 @@ cl /nologo /LD /EHsc ^
   /I "%PY_INC%" /I "%RENDERDOC_INC%" ^
   "%SCRIPT_DIR%rdoc_capture_py27.cpp" ^
   /link /OUT:"%OUT_DIR%\rdoc_capture.pyd" /LIBPATH:"%OUT_DIR%" python27.lib
+if errorlevel 1 exit /b 1
 
 echo Done: %OUT_DIR%\rdoc_capture.pyd
 endlocal

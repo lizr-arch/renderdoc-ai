@@ -206,7 +206,7 @@ PyMODINIT_FUNC initrdoc_capture(void)
 ## Progress Checklist
 - [x] Task 1: Locate Python 2.7 headers and python27.dll paths.
 - [x] Task 2: Add native extension source + build script + def generator.
-- [ ] Task 3: Build and deploy `rdoc_capture.pyd` into `engine\Lib`.
+- [x] Task 3: Build and deploy `rdoc_capture.pyd` into `engine\Lib`.
 - [x] Task 4: Add Py27-specific guide doc.
 
 ### Task 1: Locate Python 2.7 dev headers/libs (embedded)

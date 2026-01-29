@@ -3,7 +3,7 @@
 
 #include <Windows.h>
 
-#include "renderdoc/api/app/renderdoc_app.h"
+#include "renderdoc_app.h"
 
 #include <Python.h>
 
