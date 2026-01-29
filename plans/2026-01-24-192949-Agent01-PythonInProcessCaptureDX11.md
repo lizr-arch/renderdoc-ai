@@ -1,314 +1,230 @@
-# Py27 RenderDoc In-Process Capture Extension Implementation Plan
+# Enable .pyd Dynamic Modules in Embedded Py27 (RenderDoc Capture)
 
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
 ## Plan Metadata
-- Version: 0.2
+- Version: 0.3
 - Owner: Agent01
-- Last Updated: 2026-01-26
+- Last Updated: 2026-01-29
 - Plan File: `plans/2026-01-24-192949-Agent01-PythonInProcessCaptureDX11.md`
 
 ## Goal
-- Build a minimal **Python 2.7 C extension (.pyd)** that can load RenderDoc in-process and trigger frame capture without `ctypes`.
+- 在嵌入式 Python 2.7 中**启用 .pyd 动态模块加载**，使 `rdoc_capture.pyd` 可被 import，从而在游戏内触发 RenderDoc 截帧。
 
 ## Architecture
-- Provide a tiny native Python module (`rdoc_capture`) that wraps RenderDoc App API: load `renderdoc.dll`, call `RENDERDOC_GetAPI`, then expose `trigger_capture()` and `set_capture_path/title()` to game scripts.
-- Copy the compiled `.pyd` into a directory already on the embedded Python `sys.path` so imports work without extra path tweaks.
+- 目标是让 `imp.get_suffixes()` 返回 `.pyd`：这取决于 PythonCore 构建是否包含 **dynload_win/importdl**。
+- 在引擎侧定位 Python 初始化与补丁点（例如 `MPython.cpp`, `PythonPatch.cpp`），确认是否禁用了动态模块表 `_PyImport_DynLoadFiletab`。
+- 重新构建嵌入式 Python 或修复其构建配置，使 `.pyd` 后缀被注册并可加载。
 
 ## Tech Stack
-- C/C++ (MSVC)
-- RenderDoc App API (`renderdoc/api/app/renderdoc_app.h`)
-- Python 2.7 C API (embedded in game)
+- S1 Engine (C++)
+- Embedded Python 2.7.18 (MSC v.1940)
+- PythonCore 2.7.18 源码 (`Engine/Sources/External/PythonCore`)
 - Windows x64
 
 ## Success Criteria (measurable)
-- In the game console, `import rdoc_capture` succeeds.
-- `rdoc_capture.is_available()` returns `True`.
-- `rdoc_capture.trigger_capture()` creates an `.rdc` under the configured path.
+- 游戏内 `imp.get_suffixes()` 包含 `.pyd`
+- `import rdoc_capture` 成功
+- `rdoc_capture.trigger_capture()` 生成 `.rdc`
 
 ## Acceptance Criteria
-- A capture taken from the target UI loads in RenderDoc and contains expected draw calls.
+- 目标 UI 内触发的 `.rdc` 可被 RenderDoc 打开并包含 drawcall。
 
 ## Verification Commands
-- `cmd /c "tasklist /m renderdoc.dll | findstr /i Game_x64h.exe"` (Expected: line showing `Game_x64h.exe` with `renderdoc.dll`)
 - In-game console:
-  - `import rdoc_capture; print(rdoc_capture.is_available())` (Expected: `True`)
-  - `rdoc_capture.set_capture_path(r"F:\Code\S1\RenderDocCaptures\capture"); rdoc_capture.trigger_capture()` (Expected: new `.rdc`)
+  - `import imp; print(imp.get_suffixes())`  
+    Expected: 包含 `('.pyd', ...)`
+  - `import rdoc_capture; print(rdoc_capture.is_available())`  
+    Expected: `True`
+  - `rdoc_capture.set_capture_path(...); rdoc_capture.trigger_capture()`  
+    Expected: 新 `.rdc` 输出
+- Shell:
+  - `tasklist /m renderdoc.dll | findstr /i Game_x64h.exe`  
+    Expected: 行内包含 `renderdoc.dll`
 
 ## Evidence
-- Screenshot/log of in-game console output showing `True`
-- `.rdc` file path under `F:\Code\S1\RenderDocCaptures\`
+- 控制台输出截图（suffixes + is_available）
+- `.rdc` 文件路径 `F:\Code\S1\RenderDocCaptures\*.rdc`
 
 ## Estimation
-- Effort: 0.5–1.0 day
-- Story Points: 2
-- Original Estimate: 1 day
+- Effort: 0.5–1.5 days
+- Story Points: 3
+- Original Estimate: 1.5 days
 
 ## Risk Register
 | Risk | Impact | Likelihood | Mitigation |
 |---|---|---|---|
-| Python 2.7 dev headers/libs not found | High | Medium | Locate headers/libs in S1 tools; if missing, generate import lib from python27.dll or add a minimal SDK |
-| ABI mismatch (MSC version) | High | Medium | Use MSVC toolchain matching `sys.version` (MSC v.1940) |
-| renderdoc.dll load fails | Medium | Medium | Use absolute path; ensure DLL is present and accessible |
-| Anti-cheat or sandbox blocks DLL load | Medium | Low | Test in QA2 branch and verify logs |
-| In-game verification pending | Medium | Medium | User runs console commands to validate import and capture |
-| Embedded Python disables `.pyd` imports | High | Medium | Confirm `imp.get_suffixes()` includes `.pyd`; if not, enable dynamic modules in engine or pivot to engine-side C++ integration |
+| PythonCore 构建缺失 dynload/importdl | High | Medium | 检查并补齐 dynload_win.c/importdl.c 参与编译 |
+| ABI/编译器不匹配 | High | Medium | 使用与游戏一致的工具链 (MSC v.1940) |
+| 引擎禁用了动态模块 | High | Medium | 在初始化补丁点恢复动态模块表 |
+| 验证依赖用户环境 | Medium | Medium | 明确验证步骤与预期输出 |
 
 ## Game Dev: Memory & Resource Budget (Leak Checks)
-- Captures can be large; confirm `RenderDocCaptures` has enough disk space.
-- Avoid frequent captures; gate with a UI state and one-shot flag.
+- `.rdc` 体积大，建议一次性触发，避免频繁捕获。
 
 ## Game Dev: Asset Pipeline
-- Treat `.rdc` outputs as debug artifacts; store under a dedicated `RenderDocCaptures/` directory.
-- Do not package `.rdc` into release builds.
+- `.rdc` 只作调试产物，固定输出目录 `RenderDocCaptures/`。
 
 ## Game Dev: Crash Repro + Dumps/Symbols
-- Repro steps: enter target UI, call `trigger_capture()`.
-- Dump/Core: minidump (if native crash occurs).
-- Symbols: PDB for game + RenderDoc build.
-- Build identity: record engine version + script version + git commit if available.
+- Repro steps: 进入 UI → `rdoc_capture.trigger_capture()`
+- Dump/Core: minidump
+- Symbols: PDB
+- Build identity: 引擎版本 + 脚本版本 + commit
 
 ---
 
-## Scope
-- In: add a **Python 2.7 native extension** to call RenderDoc App API.
-- Out: modifying game C++ code, changing RenderDoc core, or relying on `ctypes`.
+## Navigation Evidence (Codemap)
 
-## Assumptions
-- Embedded Python is 2.7.18 (MSC v.1940) and can load `.pyd` modules.
-- We can place `.pyd` into a directory already on `sys.path`.
-- Python headers available at `F:\Code\S1\doc\tools\Formation_Toos\venv\Include` (2.7.12 headers).
-- Python runtime DLL at `F:\Code\S1\Engine\Binaries\Win64\capture_texture\python27.dll` (2.7.18).
+**Queries used**
+1) `codemap "PyImport_AppendInittab" -Num 20 -Repo engine_s1`
+2) `codemap "PyImport_ExtendInittab" -Num 20 -Repo engine_s1`
+3) `codemap "PyImport_ImportModule" -Num 20 -Repo engine_s1`
+
+**Candidate hits (3+)**
+- `[engine_s1] Engine/Sources/Programs/PythonMain/PythonMain.cpp:231`  
+  `PyImport_AppendInittab("MPythonMain", &PyInit_MPythonMain);`
+- `[engine_s1] Engine/Sources/Runtime/Plugins/Python/Source/MPython.cpp:480`  
+  `int ret = PyImport_ExtendInittab(_ExtendInittab);`
+- `[engine_s1] Engine/Sources/External/PythonCore/Patch/PythonPatch.cpp:150`  
+  `PyImport_ExtendInittab(_Builtin_Inittab);`
+
+**Dynload queries used (2026-01-29)**
+1) `codemap "PyImport_DynLoadFiletab" -Num 20 -Repo engine_s1`
+2) `codemap "PythonCore" -Num 20 -Repo engine_s1`
+
+**Dynload candidate hits (3+)**
+- `[engine_s1] Engine/Sources/External/PythonCore/Patch/PythonPatch.cpp:166`  
+  `const struct filedescr _PyImport_DynLoadFiletab[] = {`
+- `[engine_s1] Engine/Sources/External/PythonCore/Python-2.7.18/Python/dynload_win.c:18`  
+  `const struct filedescr _PyImport_DynLoadFiletab[] = {`
+- `[engine_s1] Engine/Sources/External/PythonCore/PythonCore.Build.py:11`  
+  `class PythonCoreBuildModule(BuildProject.ExternalProject):`
+
+**Follow-up targets**
+- `MPython.cpp`（引擎侧 Python 初始化入口）
+- `PythonPatch.cpp`（补丁点，可能影响动态模块表）
+- `PythonCore.Build.py`（确认 dynload/importdl 编译）
+- `PC/pyconfig.h`（确认 HAVE_DYNAMIC_LOADING 宏）
+
+**OpenGrok xref**
+- http://127.0.0.1:8080/source/xref/engine_s1/Engine/Sources/Runtime/Plugins/Python/Source/MPython.cpp#480
+- http://127.0.0.1:8080/source/xref/engine_s1/Engine/Sources/External/PythonCore/Patch/PythonPatch.cpp#150
+- http://127.0.0.1:8080/source/xref/engine_s1/Engine/Sources/External/PythonCore/PythonCore.Build.py#11
+- http://127.0.0.1:8080/source/xref/engine_s1/Engine/Sources/External/PythonCore/Python-2.7.18/PC/pyconfig.h#582
+
+---
 
 ## Repo / File List
-- Reference:
-  - `renderdoc/api/app/renderdoc_app.h:720-737` — `pRENDERDOC_GetAPI` typedef
-  - `renderdoc/replay/app_api.cpp:320-340` — `RENDERDOC_GetAPI` export
-  - `docs/in_application_api.rst:16-39` — signature and sample usage
-- New (repo):
-  - `util/rdoc_quick_capture_py27/rdoc_capture_py27.cpp`
-  - `util/rdoc_quick_capture_py27/build_py27_capture.cmd`
-  - `docs/analysis/rdoc_quick_capture_py27.md` (how-to + troubleshooting)
-- External (game package):
-  - `F:\Code\S1\Package\Script\Python\engine\Lib\rdoc_capture.pyd`
+
+**Engine (likely changes)**
+- `Engine/Sources/Runtime/Plugins/Python/Source/MPython.cpp:480`
+- `Engine/Sources/External/PythonCore/Patch/PythonPatch.cpp:150`
+- `Engine/Sources/External/PythonCore/Python-2.7.18/Python/import.c` (check dynload table)
+- `Engine/Sources/External/PythonCore/Python-2.7.18/PC/dynload_win.c` (ensure compiled)
+- `Engine/Sources/External/PythonCore/Python-2.7.18/PC/pyconfig.h` (HAVE_DYNAMIC_LOADING)
+- `Engine/Sources/External/PythonCore/PythonCore.Build.py` (dynload/importdl build list)
+
+**RenderDoc repo (reference only)**
+- `docs/analysis/rdoc_quick_capture_py27.md` (usage)
+
+---
 
 ## Approach (Pseudo-code + Full Snippet)
 
-Pseudo-flow:
-1) `LoadLibraryW(renderdoc.dll)` or `GetModuleHandleW(renderdoc.dll)`
-2) `GetProcAddress("RENDERDOC_GetAPI")`
-3) Call `RENDERDOC_GetAPI(eRENDERDOC_API_Version_1_6_0, &api)`
-4) Expose Python functions: `is_available()`, `set_capture_path()`, `set_capture_title()`, `trigger_capture()`
+**Check dynamic module support**
+```python
+import imp
+print(imp.get_suffixes())
+# Expect to see .pyd
+```
 
-Core C++ skeleton (full snippet):
-```cpp
-// util/rdoc_quick_capture_py27/rdoc_capture_py27.cpp
-#include <Windows.h>
-#include "renderdoc/api/app/renderdoc_app.h"
-#include <Python.h>
-
-static const char *g_last_error = "";
-static RENDERDOC_API_1_6_0 *g_rdoc = NULL;
-static HMODULE g_rdoc_module = NULL;
-
-static PyObject *rdoc_load(PyObject *, PyObject *args)
-{
-  const char *dllPath = NULL;
-  if(!PyArg_ParseTuple(args, "|s", &dllPath))
-    return NULL;
-
-  if(!g_rdoc_module)
-  {
-    g_rdoc_module = dllPath ? LoadLibraryA(dllPath) : GetModuleHandleA("renderdoc.dll");
-    if(!g_rdoc_module)
-      g_rdoc_module = LoadLibraryA("renderdoc.dll");
-  }
-
-  if(!g_rdoc_module)
-  {
-    g_last_error = "renderdoc.dll not loaded";
-    Py_RETURN_FALSE;
-  }
-
-  pRENDERDOC_GetAPI getapi = (pRENDERDOC_GetAPI)GetProcAddress(g_rdoc_module, "RENDERDOC_GetAPI");
-  if(!getapi)
-  {
-    g_last_error = "RENDERDOC_GetAPI not found";
-    Py_RETURN_FALSE;
-  }
-
-  int ret = getapi(eRENDERDOC_API_Version_1_6_0, (void **)&g_rdoc);
-  if(!ret || !g_rdoc)
-  {
-    g_last_error = "RENDERDOC_GetAPI failed";
-    Py_RETURN_FALSE;
-  }
-
-  Py_RETURN_TRUE;
-}
-
-static PyObject *rdoc_is_available(PyObject *, PyObject *)
-{
-  if(g_rdoc)
-    Py_RETURN_TRUE;
-  Py_RETURN_FALSE;
-}
-
-static PyObject *rdoc_set_capture_path(PyObject *, PyObject *args)
-{
-  const char *path = NULL;
-  if(!PyArg_ParseTuple(args, "s", &path))
-    return NULL;
-  if(g_rdoc && path)
-    g_rdoc->SetCaptureFilePathTemplate(path);
-  Py_RETURN_NONE;
-}
-
-static PyObject *rdoc_set_capture_title(PyObject *, PyObject *args)
-{
-  const char *title = NULL;
-  if(!PyArg_ParseTuple(args, "s", &title))
-    return NULL;
-  if(g_rdoc && title)
-    g_rdoc->SetCaptureTitle(title);
-  Py_RETURN_NONE;
-}
-
-static PyObject *rdoc_trigger_capture(PyObject *, PyObject *)
-{
-  if(g_rdoc)
-    g_rdoc->TriggerCapture();
-  Py_RETURN_NONE;
-}
-
-static PyObject *rdoc_last_error(PyObject *, PyObject *)
-{
-  return PyString_FromString(g_last_error ? g_last_error : "");
-}
-
-static PyMethodDef RDocMethods[] = {
-    {"load", rdoc_load, METH_VARARGS, "Load renderdoc and get API"},
-    {"is_available", rdoc_is_available, METH_NOARGS, "Check API availability"},
-    {"set_capture_path", rdoc_set_capture_path, METH_VARARGS, "Set capture path template"},
-    {"set_capture_title", rdoc_set_capture_title, METH_VARARGS, "Set capture title"},
-    {"trigger_capture", rdoc_trigger_capture, METH_NOARGS, "Trigger capture"},
-    {"last_error", rdoc_last_error, METH_NOARGS, "Last error string"},
-    {NULL, NULL, 0, NULL}};
-
-PyMODINIT_FUNC initrdoc_capture(void)
-{
-  Py_InitModule("rdoc_capture", RDocMethods);
-}
+**Engine-side fix concept**
+```
+Ensure dynload_win.c/importdl.c are built into PythonCore.
+Ensure _PyImport_DynLoadFiletab is not empty.
+Rebuild engine Python runtime.
+Enable HAVE_DYNAMIC_LOADING in PC/pyconfig.h.
 ```
 
 ---
 
 ## Task Checklist (2–5 min each)
 
-## Progress Checklist
-- [x] Task 1: Locate Python 2.7 headers and python27.dll paths.
-- [x] Task 2: Add native extension source + build script + def generator.
-- [x] Task 3: Build and deploy `rdoc_capture.pyd` into `engine\Lib`.
-- [x] Task 4: Add Py27-specific guide doc.
-
-### Task 1: Locate Python 2.7 dev headers/libs (embedded)
+### Task 1: Inspect Python init & patch points
 **Files:**
-- Inspect (external): possible Python headers in `F:\Code\S1\tools\...`
+- Read: `Engine/Sources/Runtime/Plugins/Python/Source/MPython.cpp:480`
+- Read: `Engine/Sources/External/PythonCore/Patch/PythonPatch.cpp:150`
 
 **Step 1: Write the failing test**
 ```python
-# In-game console
-import rdoc_capture
+import imp
+print(imp.get_suffixes())
 ```
 
-**Step 2: Run test to verify it fails**
-- Expected: `ImportError: No module named rdoc_capture`
+**Step 2: Verify failure**
+- Expected: only `.py` / `.pyc`
 
-**Step 3: Locate correct Python.h / libs**
-- Use Everything search for `Python.h`, `python27.dll`, `python27.lib`.
-- Verify version by reading `patchlevel.h` (expected 2.7.18, MSC v.1940).
+**Step 3: Identify where dynamic modules are disabled**
+- Note any custom inittab or stripped dynload tables.
 
-**Step 4: Document header/lib paths**
-- Record include/lib paths in plan or README.
+**Step 4: Commit (doc-only if applicable)**
+```bash
+git commit -m "chore(engine): document py27 dynload entry points"
+```
+
+### Task 2: Enable dynload/importdl in PythonCore build
+**Files:**
+- Modify: `Engine/Sources/External/PythonCore/Python-2.7.18/PC/pyconfig.h`
+- Verify: `Engine/Sources/External/PythonCore/PythonCore.Build.py`
+- Verify: `PC/dynload_win.c` is compiled
+
+**Step 1: Write failing test**
+```python
+import imp
+print(imp.get_suffixes())
+```
+
+**Step 2: Enable dynload (root cause)**
+- Define `HAVE_DYNAMIC_LOADING` in `PC/pyconfig.h` (**done**)
+- Confirm `dynload_win.c` and `importdl.c` stay in build list
+
+**Step 3: Rebuild engine**
+- Build command per engine pipeline
+
+**Step 4: Verify**
+- Expected: suffix list includes `.pyd`
 
 **Step 5: Commit**
-- `git commit -m "chore(plan): document py27 headers and libs"`
+```bash
+git commit -m "fix(engine): enable py27 dynload for .pyd"
+```
 
-### Task 2: Add native extension source + build script (repo)
+### Task 3: Validate `rdoc_capture.pyd` import
 **Files:**
-- Create: `util/rdoc_quick_capture_py27/rdoc_capture_py27.cpp`
-- Create: `util/rdoc_quick_capture_py27/build_py27_capture.cmd`
+- Use existing `rdoc_capture.pyd` in `engine\Lib`
 
-**Step 1: Write the failing test**
+**Step 1: Run test**
 ```python
-# In-game console
 import rdoc_capture
 print(rdoc_capture.is_available())
 ```
 
-**Step 2: Run test to verify it fails**
-- Expected: `ImportError` or `False`
-
-**Step 3: Write minimal implementation**
-- Add the C++ module above.
-- Build with a cmd script that calls `cl /LD` with proper include/lib.
-
-**Step 4: Run test to verify it passes**
-- Expected: `import rdoc_capture` succeeds and `is_available()` returns `True` after `load()`.
-
-**Step 5: Commit**
-```bash
-git add util/rdoc_quick_capture_py27/rdoc_capture_py27.cpp util/rdoc_quick_capture_py27/build_py27_capture.cmd
-git commit -m "feat(rdoc): add py27 capture extension source and build script"
-```
-
-### Task 3: Deploy `.pyd` into game package
-**Files:**
-- Copy to: `F:\Code\S1\Package\Script\Python\engine\Lib\rdoc_capture.pyd`
-
-**Step 1: Write the failing test**
+**Step 2: Verify capture**
 ```python
-import rdoc_capture
+rdoc_capture.set_capture_path(r"F:\Code\S1\RenderDocCaptures\capture")
+rdoc_capture.trigger_capture()
 ```
 
-**Step 2: Run test to verify it fails**
-- Expected: ImportError (before copy)
-
-**Step 3: Copy compiled module**
-- Copy `rdoc_capture.pyd` into `engine\Lib` (already on `sys.path`).
-
-**Step 4: Run test to verify it passes**
-- Expected: import succeeds
-
-**Step 5: Commit**
-- (No repo files changed)
-
-### Task 4: Update guide doc (Py27-specific)
-**Files:**
-- Create: `docs/analysis/rdoc_quick_capture_py27.md`
-
-**Step 1: Write the failing test**
-- N/A (doc-only)
-
-**Step 2: Write minimal content**
-- Explain why ctypes is missing and how to use `rdoc_capture`.
-
-**Step 3: Verify**
-- Review for accuracy vs plan.
-
-**Step 4: Commit**
-```bash
-git add docs/analysis/rdoc_quick_capture_py27.md
-git commit -m "docs(rdoc): add py27 in-process capture guide"
-```
+**Step 3: Evidence**
+- `.rdc` output path
 
 ---
 
 ## Impact Analysis
-- Low impact on RenderDoc core (external extension only).
-- Main risk is ABI mismatch with embedded Python 2.7.
-- If Python headers/libs are not available, we must generate an import lib from `python27.dll`.
+- 修改引擎 PythonCore 构建配置，风险集中在 Python 运行时行为变化。
+- 如果引擎禁用了动态模块加载作为安全策略，需评估安全风险。
 
 ## Verification / DoD
-- In target UI, `rdoc_capture.trigger_capture()` produces a `.rdc`.
-- The `.rdc` opens in RenderDoc and shows the captured frame.
+- `imp.get_suffixes()` 返回 `.pyd`
+- `import rdoc_capture` 成功
+- `.rdc` 捕获成功并可回放
