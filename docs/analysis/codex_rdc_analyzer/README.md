@@ -12,7 +12,6 @@
 > 说明：`WORK_SUMMARY_2025-01-21.md` 已改为**索引页**，用于汇总 5 份主题文档。
 
 - 索引入口：`docs/analysis/codex_rdc_analyzer/WORK_SUMMARY_2025-01-21.md`
-- 最新进度总览：`docs/analysis/codex_rdc_analyzer/2026-01-29-rdc-analyzer-progress-and-outlook.md`
 - 主题文档：
   1) `docs/analysis/codex_rdc_analyzer/WORK_SUMMARY_ARCH.md`
   2) `docs/analysis/codex_rdc_analyzer/WORK_SUMMARY_ROUTES.md`
@@ -23,23 +22,23 @@
 ---
 
 ## 1) 建议阅读顺序（按你关心的问题）
+
 1. **我只想先搞清楚“总览/入口/阅读顺序”**  
    - 读：`docs/analysis/codex_rdc_analyzer/WORK_SUMMARY_2025-01-21.md`（索引页）
-2. **我想快速了解当前进度、冲突点、下一步要做什么**  
-   - 读：`docs/analysis/codex_rdc_analyzer/2026-01-29-rdc-analyzer-progress-and-outlook.md`
-3. **我现在做到了什么？值不值？下一步先做什么？**  
+
+2. **我现在做到了什么？值不值？下一步先做什么？**  
    - 读：`docs/analysis/codex_rdc_analyzer/2026-01-19-rdc-analyzer-capability-scorecard.md`
 
-4. **每个模块到底是干什么的？为什么重要？现在项目里真实状态是什么？**  
+3. **每个模块到底是干什么的？为什么重要？现在项目里真实状态是什么？**  
    - 读：`docs/analysis/codex_rdc_analyzer/2026-01-19-rdc-analyzer-feature-details.md`
 
-5. **想把“极致/全方位”做成可信工具，最关键的 5~10 个点到底缺什么？**  
+4. **想把“极致/全方位”做成可信工具，最关键的 5–10 个点到底缺什么？**  
    - 读：`docs/analysis/codex_rdc_analyzer/2026-01-19-rdc-analyzer-key-deep-dive.md`
 
-6. **你列的 36 条规则，逐条是什么、为什么、怎么做、当前项目能不能跑起来？**  
+5. **你列的 36 条规则，逐条是什么、为什么、怎么做、当前项目能不能跑起来？**  
    - 读：本目录后续新增的 `*-rules-*.md`（按分类拆分，保证每份可读）
 
-7. **JSON/HTML/对比输出的“口径字段”到底是什么？为什么 compare 会不可信？怎么统一？**  
+6. **JSON/HTML/对比输出的“口径/字段”到底是什么？为什么 compare 会不可信？怎么统一？**  
    - 读：本目录后续新增的 `*-schema-*.md`
 
 ---

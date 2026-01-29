@@ -5,7 +5,6 @@
 - HOW: 按主题分拆为 5 份文档，本页提供阅读顺序与职责说明。
 
 ## 推荐阅读顺序
-0. `2026-01-29-rdc-analyzer-progress-and-outlook.md` — 进度 + 冲突 + P0 展望
 1. `WORK_SUMMARY_ARCH.md` — 架构/模块/文件结构
 2. `WORK_SUMMARY_ROUTES.md` — A/B/C 路线 + 导出流程 + 验证状态
 3. `WORK_SUMMARY_SCHEMA.md` — Schema / Pipeline / Bridge
@@ -14,7 +13,6 @@
 6. `WORK_SUMMARY_BUILD.md` — **编译环境 + Python 3.6 + Sphinx 文档**
 
 ## 文档索引
-- `2026-01-29-rdc-analyzer-progress-and-outlook.md`
 - `WORK_SUMMARY_ARCH.md`
 - `WORK_SUMMARY_ROUTES.md`
 - `WORK_SUMMARY_SCHEMA.md`
