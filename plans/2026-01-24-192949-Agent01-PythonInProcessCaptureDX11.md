@@ -52,6 +52,7 @@
 | renderdoc.dll load fails | Medium | Medium | Use absolute path; ensure DLL is present and accessible |
 | Anti-cheat or sandbox blocks DLL load | Medium | Low | Test in QA2 branch and verify logs |
 | In-game verification pending | Medium | Medium | User runs console commands to validate import and capture |
+| Embedded Python disables `.pyd` imports | High | Medium | Confirm `imp.get_suffixes()` includes `.pyd`; if not, enable dynamic modules in engine or pivot to engine-side C++ integration |
 
 ## Game Dev: Memory & Resource Budget (Leak Checks)
 - Captures can be large; confirm `RenderDocCaptures` has enough disk space.
