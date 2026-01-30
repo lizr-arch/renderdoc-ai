@@ -292,4 +292,19 @@ git commit -m "feat(rdc-analyzer): improve junit export and CI gating"
   - `py -3 -m pytest scripts/rdc_analyzer/tests/test_regression_detector.py -q` → **17 passed**
 
 **Deviations:** 计划中的 TDD“先写失败测试”步骤未执行，因为对应功能已在现有代码中实现并有测试覆盖。无代码变更、无提交。
-**Pending Evidence:** 未执行 `py -3 -m rdc_analyzer compare baseline.rdc target.rdc --samples 5 -o ./compare_output`，因未提供可用 baseline/target 样本；HTML/JSON 产物待补。
+**Pending Evidence:** ~~未执行 `py -3 -m rdc_analyzer compare baseline.rdc target.rdc --samples 5 -o ./compare_output`，因未提供可用 baseline/target 样本；HTML/JSON 产物待补。~~
+
+**补齐证据链（使用实际样本）**
+- 输入样本：  
+  - baseline: `D:\renderdoc\goog pixel-9\g145.rdc`  
+  - target: `D:\renderdoc\goog pixel-9\g145-battle-2.rdc`
+- 直接对 .rdc 失败（两处原因）：
+  1) Python 环境缺少 `renderdoc` 模块（提示需在 RenderDoc Python Shell 运行）。  
+  2) 内部调用 `renderdoccmd convert` 未传 `-f` 参数，导致转换失败。  
+- 手工补救：先用 `renderdoccmd` 转 XML，再对比 XML。  
+  - `renderdoccmd convert -f ... -c xml -o ...` → 成功  
+  - `py -3 -m rdc_analyzer compare g145.xml g145-battle-2.xml -o ... -q --json ...` → 成功
+- 输出产物（证据）：  
+  - `D:\renderdoc\goog pixel-9\compare_output\compare_20260130_142502.html`  
+  - `D:\renderdoc\goog pixel-9\compare_output\compare_20260130_142502.json`
+- 备注：首次不加 `-q` 会因控制台编码（gbk）在输出 ✓ 时抛异常；用 `-q` 规避。
