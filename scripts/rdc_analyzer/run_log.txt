@@ -1,0 +1,24 @@
+Loading g145_data.json...
+Converting to report format...
+  API: Vulkan
+  Events: 180
+  Draws: 136
+  Dispatches: 12
+  Copies: 32
+  Passes: 9
+  Frame Duration: 1574.66 ms
+
+Processing 100 textures...
+  Total texture memory: 108.60 MB
+  Hot textures: 10
+  Duplicate groups: 18
+
+Loading texture thumbnails from ..\..\output\g145_textures_v2...
+  Loaded 10 texture thumbnails from textures.json
+  Replacing XML textures with exported textures (IDs don't match)...
+  Created 10 textures from export manifest
+  Using 10 exported textures with 10 thumbnails
+
+Generating HTML report...
+[OK] Report saved to: g145_with_textures.html
+[OK] Report saved to: g145_with_textures.html

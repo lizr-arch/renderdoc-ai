@@ -1,0 +1,1128 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RDC Analyzer - Resource Viewer Demo</title>
+    <style>
+        :root {
+            --bg-primary: #1a1a2e;
+            --bg-secondary: #16213e;
+            --bg-tertiary: #0f3460;
+            --text-primary: #eee;
+            --text-secondary: #aaa;
+            --accent: #4a9eff;
+            --accent-hover: #6bb3ff;
+            --success: #69db7c;
+            --warning: #ffa94d;
+            --error: #ff6b6b;
+            --border: #2a2a4a;
+        }
+        
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.6;
+            padding: 20px;
+        }
+        
+        .header {
+            background: var(--bg-secondary);
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 20px;
+        }
+        
+        .header h1 { font-size: 24px; margin-bottom: 8px; }
+        .header p { color: var(--text-secondary); }
+        
+        /* Tab 导航 */
+        .tabs {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+        
+        .tab-btn {
+            padding: 12px 24px;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: var(--text-primary);
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.2s;
+        }
+        
+        .tab-btn:hover { background: var(--bg-tertiary); }
+        .tab-btn.active { 
+            background: var(--accent); 
+            border-color: var(--accent);
+            color: white;
+        }
+        
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+        
+        /* 资源卡片 */
+        .resource-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+            gap: 16px;
+        }
+        
+        .resource-card {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 20px;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        
+        .resource-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(0,0,0,0.3);
+        }
+        
+        .resource-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 12px;
+        }
+        
+        .resource-name {
+            font-size: 16px;
+            font-weight: 600;
+            color: var(--accent);
+            cursor: pointer;
+        }
+        
+        .resource-name:hover { text-decoration: underline; }
+        
+        .resource-type {
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+        
+        .type-buffer { background: rgba(74, 158, 255, 0.2); color: var(--accent); }
+        .type-texture { background: rgba(105, 219, 124, 0.2); color: var(--success); }
+        
+        /* 纹理预览缩略图 */
+        .texture-preview {
+            width: 100%;
+            height: 120px;
+            border-radius: 8px;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            overflow: hidden;
+            cursor: pointer;
+        }
+        
+        .texture-preview img {
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain;
+        }
+        
+        .texture-preview .placeholder {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+        
+        .texture-preview:hover .preview-overlay {
+            opacity: 1;
+        }
+        
+        .preview-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.7);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            transition: opacity 0.2s;
+            font-size: 14px;
+            color: white;
+        }
+        
+        .resource-info {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 8px;
+            font-size: 13px;
+        }
+        
+        .resource-info div {
+            display: flex;
+            justify-content: space-between;
+            padding: 6px 0;
+            border-bottom: 1px solid var(--border);
+        }
+        
+        .resource-info label { color: var(--text-secondary); }
+        .resource-info span { color: var(--text-primary); font-weight: 500; }
+        
+        /* 可点击的资源ID链接 */
+        .resource-link {
+            color: var(--accent);
+            cursor: pointer;
+            text-decoration: none;
+            border-bottom: 1px dashed var(--accent);
+            transition: all 0.2s;
+        }
+        
+        .resource-link:hover {
+            color: var(--accent-hover);
+            border-bottom-style: solid;
+        }
+        
+        .view-btn {
+            width: 100%;
+            margin-top: 12px;
+            padding: 10px;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--accent);
+            border-radius: 6px;
+            color: var(--accent);
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.2s;
+        }
+        
+        .view-btn:hover {
+            background: var(--accent);
+            color: white;
+        }
+        
+        /* 模态框 */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.8);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+        
+        .modal-overlay.active { display: flex; }
+        
+        .modal-content {
+            background: var(--bg-secondary);
+            border-radius: 16px;
+            width: 100%;
+            max-width: 1000px;
+            max-height: 90vh;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 25px 50px rgba(0, 0, 0, 0.5);
+        }
+        
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 20px 24px;
+            border-bottom: 1px solid var(--border);
+        }
+        
+        .modal-header h2 { font-size: 20px; }
+        
+        .modal-close {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background: var(--bg-tertiary);
+            border: none;
+            color: var(--text-primary);
+            cursor: pointer;
+            font-size: 18px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .modal-close:hover { background: var(--error); }
+        
+        .modal-tabs {
+            display: flex;
+            gap: 4px;
+            padding: 12px 24px;
+            background: var(--bg-primary);
+        }
+        
+        .modal-tab-btn {
+            padding: 8px 16px;
+            background: transparent;
+            border: none;
+            color: var(--text-secondary);
+            cursor: pointer;
+            border-radius: 6px;
+            font-size: 13px;
+            transition: all 0.2s;
+        }
+        
+        .modal-tab-btn:hover { color: var(--text-primary); background: var(--bg-secondary); }
+        .modal-tab-btn.active { color: var(--accent); background: var(--bg-secondary); }
+        
+        .modal-body {
+            padding: 24px;
+            overflow-y: auto;
+            flex: 1;
+        }
+        
+        /* 数据表格 */
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+        }
+        
+        .data-table th, .data-table td {
+            padding: 10px 12px;
+            text-align: left;
+            border-bottom: 1px solid var(--border);
+        }
+        
+        .data-table th {
+            background: var(--bg-tertiary);
+            color: var(--text-secondary);
+            font-weight: 500;
+            position: sticky;
+            top: 0;
+        }
+        
+        .data-table tr:hover { background: rgba(74, 158, 255, 0.1); }
+        
+        /* Hex Dump */
+        .hex-dump {
+            font-family: 'Monaco', 'Consolas', monospace;
+            font-size: 12px;
+            background: var(--bg-primary);
+            border-radius: 8px;
+            padding: 16px;
+            overflow-x: auto;
+        }
+        
+        .hex-row {
+            display: flex;
+            gap: 16px;
+            line-height: 1.8;
+        }
+        
+        .hex-offset {
+            color: var(--text-secondary);
+            min-width: 60px;
+        }
+        
+        .hex-bytes {
+            flex: 1;
+            color: var(--accent);
+        }
+        
+        .hex-ascii {
+            color: var(--success);
+            min-width: 120px;
+        }
+        
+        /* 资源信息面板 */
+        .resource-detail-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+        
+        .detail-item {
+            background: var(--bg-primary);
+            padding: 16px;
+            border-radius: 8px;
+        }
+        
+        .detail-label {
+            font-size: 12px;
+            color: var(--text-secondary);
+            margin-bottom: 4px;
+        }
+        
+        .detail-value {
+            font-size: 16px;
+            font-weight: 600;
+        }
+        
+        /* 纹理大图预览 */
+        .texture-full-preview {
+            width: 100%;
+            max-height: 400px;
+            border-radius: 12px;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 20px;
+        }
+        
+        .texture-full-preview img {
+            max-width: 100%;
+            max-height: 400px;
+            object-fit: contain;
+            border-radius: 8px;
+        }
+        
+        /* 访问时间线 */
+        .access-timeline {
+            margin-top: 24px;
+        }
+        
+        .access-timeline h3 {
+            margin-bottom: 16px;
+            font-size: 16px;
+        }
+        
+        .timeline-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 10px 0;
+            border-bottom: 1px solid var(--border);
+        }
+        
+        .timeline-event {
+            background: var(--bg-tertiary);
+            padding: 4px 12px;
+            border-radius: 4px;
+            font-size: 12px;
+            min-width: 80px;
+            text-align: center;
+        }
+        
+        .timeline-type {
+            padding: 4px 10px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 500;
+        }
+        
+        .timeline-type.read { background: rgba(74, 158, 255, 0.2); color: var(--accent); }
+        .timeline-type.write { background: rgba(255, 169, 77, 0.2); color: var(--warning); }
+        
+        .timeline-usage {
+            color: var(--text-secondary);
+            font-size: 13px;
+        }
+        
+        /* Draw Call 面板 */
+        .drawcall-panel {
+            background: var(--bg-secondary);
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        
+        .drawcall-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+        }
+        
+        .drawcall-title {
+            font-size: 18px;
+            font-weight: 600;
+        }
+        
+        .binding-section {
+            margin-bottom: 16px;
+        }
+        
+        .binding-section h4 {
+            color: var(--text-secondary);
+            font-size: 12px;
+            text-transform: uppercase;
+            margin-bottom: 8px;
+        }
+        
+        .binding-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+        
+        .binding-item {
+            background: var(--bg-primary);
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 13px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .binding-slot {
+            color: var(--text-secondary);
+            font-size: 11px;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🔍 RDC Analyzer - Resource Viewer Demo (Enhanced)</h1>
+        <p>点击资源名称、Resource ID 或缩略图可查看资源详情 | 支持纹理预览</p>
+    </div>
+    
+    <div class="tabs">
+        <button class="tab-btn active" onclick="switchTab('resources')">📦 Resources</button>
+        <button class="tab-btn" onclick="switchTab('drawcalls')">🎨 Draw Calls</button>
+        <button class="tab-btn" onclick="switchTab('help')">❓ Help</button>
+    </div>
+    
+    <div id="tab-resources" class="tab-content active">
+        <div class="resource-grid" id="resource-grid">
+            <!-- 资源卡片将由 JS 动态生成 -->
+        </div>
+    </div>
+    
+    <div id="tab-drawcalls" class="tab-content">
+        <div id="drawcall-list">
+            <!-- Draw Call 列表由 JS 生成 -->
+        </div>
+    </div>
+    
+    <div id="tab-help" class="tab-content">
+        <div style="background: var(--bg-secondary); padding: 24px; border-radius: 12px;">
+            <h3 style="margin-bottom: 16px;">如何使用资源查看器</h3>
+            <ol style="margin-left: 20px; color: var(--text-secondary);">
+                <li style="margin-bottom: 12px;"><strong>浏览资源</strong>：在 Resources 标签页中查看所有追踪到的资源</li>
+                <li style="margin-bottom: 12px;"><strong>纹理预览</strong>：纹理资源会显示缩略图预览，点击可查看大图</li>
+                <li style="margin-bottom: 12px;"><strong>点击 Resource ID</strong>：在任何地方看到的 <span class="resource-link">Resource_XXXX</span> 都可以点击</li>
+                <li style="margin-bottom: 12px;"><strong>Draw Calls</strong>：查看每个 Draw Call 绑定的 Buffer/Texture，点击可直接查看详情</li>
+            </ol>
+        </div>
+    </div>
+    
+    <!-- 资源详情模态框 -->
+    <div class="modal-overlay" id="resource-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="modal-title">Resource Details</h2>
+                <button class="modal-close" onclick="closeModal()">&times;</button>
+            </div>
+            <div class="modal-tabs">
+                <button class="modal-tab-btn active" onclick="switchModalTab('structured')">Structured</button>
+                <button class="modal-tab-btn" onclick="switchModalTab('hex')">Hex Dump</button>
+                <button class="modal-tab-btn" onclick="switchModalTab('raw')">Raw Bytes</button>
+                <button class="modal-tab-btn" onclick="switchModalTab('accesses')">Accesses</button>
+            </div>
+            <div class="modal-body" id="modal-body">
+                <!-- 内容由 JS 动态填充 -->
+            </div>
+        </div>
+    </div>
+    
+    <script>
+    // ============== 模拟纹理预览图数据 (使用 SVG 生成占位图) ==============
+    function generateTexturePreview(width, height, format, seed) {
+        // 生成一个模拟的渐变色纹理预览 SVG
+        const colors = [
+            ['#ff6b6b', '#feca57', '#48dbfb'],
+            ['#5f27cd', '#00d2d3', '#1dd1a1'],
+            ['#ff9f43', '#ee5a24', '#0abde3'],
+            ['#10ac84', '#22a6b3', '#4834d4']
+        ];
+        const palette = colors[seed % colors.length];
+        
+        return `data:image/svg+xml,${encodeURIComponent(`
+            <svg xmlns="http://www.w3.org/2000/svg" width="${Math.min(width, 256)}" height="${Math.min(height, 256)}" viewBox="0 0 256 256">
+                <defs>
+                    <linearGradient id="grad${seed}" x1="0%" y1="0%" x2="100%" y2="100%">
+                        <stop offset="0%" style="stop-color:${palette[0]};stop-opacity:1" />
+                        <stop offset="50%" style="stop-color:${palette[1]};stop-opacity:1" />
+                        <stop offset="100%" style="stop-color:${palette[2]};stop-opacity:1" />
+                    </linearGradient>
+                    <pattern id="checker${seed}" patternUnits="userSpaceOnUse" width="32" height="32">
+                        <rect width="16" height="16" fill="rgba(255,255,255,0.1)"/>
+                        <rect x="16" y="16" width="16" height="16" fill="rgba(255,255,255,0.1)"/>
+                    </pattern>
+                </defs>
+                <rect width="256" height="256" fill="url(#grad${seed})"/>
+                <rect width="256" height="256" fill="url(#checker${seed})"/>
+                <text x="128" y="128" text-anchor="middle" fill="white" font-family="Arial" font-size="14" opacity="0.8">${width}×${height}</text>
+                <text x="128" y="148" text-anchor="middle" fill="white" font-family="Arial" font-size="10" opacity="0.6">${format}</text>
+            </svg>
+        `)}`;
+    }
+    
+    // ============== 模拟数据 ==============
+    const resourceData = {
+        1001: {
+            id: 1001,
+            name: 'VB_MainCharacter',
+            type: 'BUFFER',
+            subtype: 'VERTEX_BUFFER',
+            size: 640,
+            stride: 32,
+            first_event: 10,
+            last_event: 500,
+            read_count: 45,
+            write_count: 1,
+            layout: [
+                { name: 'POSITION', format: 'R32G32B32_FLOAT', offset: 0 },
+                { name: 'NORMAL', format: 'R32G32B32_FLOAT', offset: 12 },
+                { name: 'TEXCOORD', format: 'R32G32_FLOAT', offset: 24 }
+            ],
+            vertices: [
+                { index: 0, POSITION: [0.0, 0.0, 0.0], NORMAL: [0.0, 1.0, 0.0], TEXCOORD: [0.0, 0.0] },
+                { index: 1, POSITION: [1.0, 2.0, 3.0], NORMAL: [0.0, 1.0, 0.0], TEXCOORD: [0.05, 0.05] },
+                { index: 2, POSITION: [2.0, 4.0, 6.0], NORMAL: [0.0, 1.0, 0.0], TEXCOORD: [0.1, 0.1] },
+                { index: 3, POSITION: [3.0, 6.0, 9.0], NORMAL: [0.0, 1.0, 0.0], TEXCOORD: [0.15, 0.15] },
+                { index: 4, POSITION: [4.0, 8.0, 12.0], NORMAL: [0.0, 1.0, 0.0], TEXCOORD: [0.2, 0.2] },
+            ],
+            bytes: [0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,128,63, 0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0],
+            accesses: [
+                { event_id: 10, access_type: 'Write', usage: 'CreateBuffer' },
+                { event_id: 50, access_type: 'Read', usage: 'IA VertexBuffer' },
+                { event_id: 120, access_type: 'Read', usage: 'IA VertexBuffer' },
+            ]
+        },
+        1002: {
+            id: 1002,
+            name: 'IB_MainCharacter',
+            type: 'BUFFER',
+            subtype: 'INDEX_BUFFER',
+            size: 120,
+            format: 'R16_UINT',
+            first_event: 10,
+            last_event: 500,
+            read_count: 45,
+            write_count: 1,
+            indices: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19],
+            bytes: [0,0, 1,0, 2,0, 3,0, 4,0, 5,0, 6,0, 7,0, 8,0, 9,0],
+            accesses: [
+                { event_id: 10, access_type: 'Write', usage: 'CreateBuffer' },
+                { event_id: 50, access_type: 'Read', usage: 'IA IndexBuffer' }
+            ]
+        },
+        2001: {
+            id: 2001,
+            name: 'CB_PerObject',
+            type: 'BUFFER',
+            subtype: 'CONSTANT_BUFFER',
+            size: 80,
+            first_event: 20,
+            last_event: 520,
+            read_count: 200,
+            write_count: 50,
+            constants: {
+                WorldMatrix: [[1,0,0,0], [0,1,0,0], [0,0,1,0], [0,0,0,1]],
+                DiffuseColor: [1.0, 0.5, 0.2, 1.0]
+            },
+            layout: [
+                { name: 'WorldMatrix', type: 'float4x4', offset: 0 },
+                { name: 'DiffuseColor', type: 'float4', offset: 64 }
+            ],
+            bytes: [0,0,128,63, 0,0,0,0, 0,0,0,0, 0,0,0,0],
+            accesses: [
+                { event_id: 20, access_type: 'Write', usage: 'UpdateBuffer' },
+                { event_id: 50, access_type: 'Read', usage: 'VS ConstantBuffer' }
+            ]
+        },
+        3001: {
+            id: 3001,
+            name: 'Tex_Diffuse',
+            type: 'TEXTURE',
+            subtype: 'TEXTURE_2D',
+            width: 1024,
+            height: 1024,
+            format: 'R8G8B8A8_UNORM',
+            mip_levels: 10,
+            size: 1024 * 1024 * 4,
+            first_event: 5,
+            last_event: 520,
+            read_count: 100,
+            write_count: 0,
+            bytes: Array.from({length: 64}, (_, i) => i),
+            accesses: [
+                { event_id: 5, access_type: 'Read', usage: 'CreateTexture2D' },
+                { event_id: 50, access_type: 'Read', usage: 'PS SRV' }
+            ]
+        },
+        3002: {
+            id: 3002,
+            name: 'Tex_Normal',
+            type: 'TEXTURE',
+            subtype: 'TEXTURE_2D',
+            width: 512,
+            height: 512,
+            format: 'R8G8B8A8_UNORM',
+            mip_levels: 9,
+            size: 512 * 512 * 4,
+            first_event: 5,
+            last_event: 520,
+            read_count: 80,
+            write_count: 0,
+            bytes: Array.from({length: 64}, (_, i) => i * 2),
+            accesses: [
+                { event_id: 5, access_type: 'Read', usage: 'CreateTexture2D' },
+                { event_id: 50, access_type: 'Read', usage: 'PS SRV' }
+            ]
+        },
+        4001: {
+            id: 4001,
+            name: 'RT_GBuffer_Albedo',
+            type: 'TEXTURE',
+            subtype: 'RENDER_TARGET',
+            width: 1920,
+            height: 1080,
+            format: 'R8G8B8A8_UNORM',
+            mip_levels: 1,
+            size: 1920 * 1080 * 4,
+            first_event: 100,
+            last_event: 450,
+            read_count: 10,
+            write_count: 5,
+            bytes: Array.from({length: 64}, (_, i) => i * 2),
+            accesses: [
+                { event_id: 100, access_type: 'Write', usage: 'OM RenderTarget' },
+                { event_id: 300, access_type: 'Read', usage: 'PS SRV' }
+            ]
+        }
+    };
+    
+    // 模拟 Draw Call 数据 (展示 Buffer 点击功能)
+    const drawCallData = [
+        {
+            event_id: 50,
+            name: 'DrawIndexed(300)',
+            bindings: {
+                vertex_buffers: [{ slot: 0, resource_id: 1001 }],
+                index_buffer: { resource_id: 1002 },
+                vs_cbuffers: [{ slot: 0, resource_id: 2001 }],
+                ps_srvs: [{ slot: 0, resource_id: 3001 }, { slot: 1, resource_id: 3002 }],
+                render_targets: [{ slot: 0, resource_id: 4001 }]
+            }
+        },
+        {
+            event_id: 120,
+            name: 'DrawIndexed(600)',
+            bindings: {
+                vertex_buffers: [{ slot: 0, resource_id: 1001 }],
+                index_buffer: { resource_id: 1002 },
+                vs_cbuffers: [{ slot: 0, resource_id: 2001 }],
+                ps_srvs: [{ slot: 0, resource_id: 3001 }],
+                render_targets: [{ slot: 0, resource_id: 4001 }]
+            }
+        }
+    ];
+    
+    let currentModalTab = 'structured';
+    let currentResource = null;
+    
+    // ============== Tab 切换 ==============
+    function switchTab(tabId) {
+        document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+        document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+        
+        document.querySelector(`.tab-btn[onclick="switchTab('${tabId}')"]`).classList.add('active');
+        document.getElementById('tab-' + tabId).classList.add('active');
+    }
+    
+    // ============== 生成资源卡片 ==============
+    function renderResourceCards() {
+        const grid = document.getElementById('resource-grid');
+        grid.innerHTML = '';
+        
+        for (const [id, res] of Object.entries(resourceData)) {
+            const card = document.createElement('div');
+            card.className = 'resource-card';
+            
+            const typeClass = res.type === 'BUFFER' ? 'type-buffer' : 'type-texture';
+            const sizeStr = formatSize(res.size);
+            
+            // 纹理预览部分
+            let previewHtml = '';
+            if (res.type === 'TEXTURE') {
+                const previewUrl = generateTexturePreview(res.width, res.height, res.format, res.id);
+                previewHtml = `
+                    <div class="texture-preview" onclick="openResourceModal(${id})">
+                        <img src="${previewUrl}" alt="${res.name}" />
+                        <div class="preview-overlay">🔍 点击查看详情</div>
+                    </div>
+                `;
+            }
+            
+            card.innerHTML = `
+                ${previewHtml}
+                <div class="resource-header">
+                    <span class="resource-name" onclick="openResourceModal(${id})">${res.name}</span>
+                    <span class="resource-type ${typeClass}">${res.subtype || res.type}</span>
+                </div>
+                <div class="resource-info">
+                    <div><label>Resource ID</label><span class="resource-link" onclick="openResourceModal(${id})">${res.id}</span></div>
+                    <div><label>Size</label><span>${sizeStr}</span></div>
+                    ${res.width ? `<div><label>Dimensions</label><span>${res.width} × ${res.height}</span></div>` : ''}
+                    ${res.format ? `<div><label>Format</label><span>${res.format}</span></div>` : ''}
+                    <div><label>Read Count</label><span>${res.read_count}</span></div>
+                    <div><label>Write Count</label><span>${res.write_count}</span></div>
+                </div>
+                <button class="view-btn" onclick="openResourceModal(${id})">🔍 查看数据</button>
+            `;
+            
+            grid.appendChild(card);
+        }
+    }
+    
+    // ============== 生成 Draw Call 列表 ==============
+    function renderDrawCalls() {
+        const container = document.getElementById('drawcall-list');
+        container.innerHTML = '';
+        
+        drawCallData.forEach(dc => {
+            const panel = document.createElement('div');
+            panel.className = 'drawcall-panel';
+            
+            let bindingsHtml = '';
+            
+            // Vertex Buffers
+            if (dc.bindings.vertex_buffers?.length) {
+                bindingsHtml += `
+                    <div class="binding-section">
+                        <h4>Vertex Buffers</h4>
+                        <div class="binding-list">
+                            ${dc.bindings.vertex_buffers.map(b => {
+                                const res = resourceData[b.resource_id];
+                                return `<div class="binding-item">
+                                    <span class="binding-slot">Slot ${b.slot}</span>
+                                    <span class="resource-link" onclick="openResourceModal(${b.resource_id})">${res?.name || 'Resource_' + b.resource_id}</span>
+                                </div>`;
+                            }).join('')}
+                        </div>
+                    </div>
+                `;
+            }
+            
+            // Index Buffer
+            if (dc.bindings.index_buffer) {
+                const res = resourceData[dc.bindings.index_buffer.resource_id];
+                bindingsHtml += `
+                    <div class="binding-section">
+                        <h4>Index Buffer</h4>
+                        <div class="binding-list">
+                            <div class="binding-item">
+                                <span class="resource-link" onclick="openResourceModal(${dc.bindings.index_buffer.resource_id})">${res?.name || 'Resource_' + dc.bindings.index_buffer.resource_id}</span>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+            
+            // VS Constant Buffers
+            if (dc.bindings.vs_cbuffers?.length) {
+                bindingsHtml += `
+                    <div class="binding-section">
+                        <h4>VS Constant Buffers</h4>
+                        <div class="binding-list">
+                            ${dc.bindings.vs_cbuffers.map(b => {
+                                const res = resourceData[b.resource_id];
+                                return `<div class="binding-item">
+                                    <span class="binding-slot">b${b.slot}</span>
+                                    <span class="resource-link" onclick="openResourceModal(${b.resource_id})">${res?.name || 'Resource_' + b.resource_id}</span>
+                                </div>`;
+                            }).join('')}
+                        </div>
+                    </div>
+                `;
+            }
+            
+            // PS SRVs (Textures)
+            if (dc.bindings.ps_srvs?.length) {
+                bindingsHtml += `
+                    <div class="binding-section">
+                        <h4>PS Shader Resources (Textures)</h4>
+                        <div class="binding-list">
+                            ${dc.bindings.ps_srvs.map(b => {
+                                const res = resourceData[b.resource_id];
+                                const isTexture = res?.type === 'TEXTURE';
+                                let preview = '';
+                                if (isTexture) {
+                                    const previewUrl = generateTexturePreview(res.width, res.height, res.format, b.resource_id);
+                                    preview = `<img src="${previewUrl}" style="width:32px;height:32px;border-radius:4px;margin-right:8px;" />`;
+                                }
+                                return `<div class="binding-item" style="cursor:pointer" onclick="openResourceModal(${b.resource_id})">
+                                    ${preview}
+                                    <span class="binding-slot">t${b.slot}</span>
+                                    <span class="resource-link">${res?.name || 'Resource_' + b.resource_id}</span>
+                                </div>`;
+                            }).join('')}
+                        </div>
+                    </div>
+                `;
+            }
+            
+            // Render Targets
+            if (dc.bindings.render_targets?.length) {
+                bindingsHtml += `
+                    <div class="binding-section">
+                        <h4>Render Targets</h4>
+                        <div class="binding-list">
+                            ${dc.bindings.render_targets.map(b => {
+                                const res = resourceData[b.resource_id];
+                                return `<div class="binding-item">
+                                    <span class="binding-slot">RT${b.slot}</span>
+                                    <span class="resource-link" onclick="openResourceModal(${b.resource_id})">${res?.name || 'Resource_' + b.resource_id}</span>
+                                </div>`;
+                            }).join('')}
+                        </div>
+                    </div>
+                `;
+            }
+            
+            panel.innerHTML = `
+                <div class="drawcall-header">
+                    <span class="drawcall-title">Event #${dc.event_id}: ${dc.name}</span>
+                </div>
+                ${bindingsHtml}
+            `;
+            
+            container.appendChild(panel);
+        });
+    }
+    
+    function formatSize(bytes) {
+        if (bytes < 1024) return bytes + ' B';
+        if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+        return (bytes / (1024 * 1024)).toFixed(2) + ' MB';
+    }
+    
+    // ============== 模态框 ==============
+    function openResourceModal(resourceId) {
+        const res = resourceData[resourceId];
+        if (!res) {
+            alert('Resource not found: ' + resourceId);
+            return;
+        }
+        
+        currentResource = res;
+        document.getElementById('modal-title').textContent = `${res.name} (ID: ${res.id})`;
+        
+        // 重置 tab
+        currentModalTab = 'structured';
+        document.querySelectorAll('.modal-tab-btn').forEach(btn => btn.classList.remove('active'));
+        document.querySelector('.modal-tab-btn').classList.add('active');
+        
+        renderModalContent();
+        document.getElementById('resource-modal').classList.add('active');
+    }
+    
+    function closeModal() {
+        document.getElementById('resource-modal').classList.remove('active');
+        currentResource = null;
+    }
+    
+    function switchModalTab(tabId) {
+        currentModalTab = tabId;
+        document.querySelectorAll('.modal-tab-btn').forEach(btn => btn.classList.remove('active'));
+        const tabs = ['structured', 'hex', 'raw', 'accesses'];
+        const idx = tabs.indexOf(tabId);
+        document.querySelectorAll('.modal-tab-btn')[idx].classList.add('active');
+        renderModalContent();
+    }
+    
+    function renderModalContent() {
+        const body = document.getElementById('modal-body');
+        const res = currentResource;
+        
+        if (!res) {
+            body.innerHTML = '<p>No resource selected</p>';
+            return;
+        }
+        
+        let html = '';
+        
+        // 纹理大图预览
+        if (res.type === 'TEXTURE') {
+            const previewUrl = generateTexturePreview(res.width, res.height, res.format, res.id);
+            html += `<div class="texture-full-preview">
+                <img src="${previewUrl}" alt="${res.name}" />
+            </div>`;
+        }
+        
+        // 资源详情网格
+        html += '<div class="resource-detail-grid">';
+        html += `<div class="detail-item"><div class="detail-label">Type</div><div class="detail-value">${res.subtype || res.type}</div></div>`;
+        html += `<div class="detail-item"><div class="detail-label">Size</div><div class="detail-value">${formatSize(res.size)}</div></div>`;
+        
+        if (res.width) {
+            html += `<div class="detail-item"><div class="detail-label">Dimensions</div><div class="detail-value">${res.width} × ${res.height}</div></div>`;
+        }
+        if (res.format) {
+            html += `<div class="detail-item"><div class="detail-label">Format</div><div class="detail-value">${res.format}</div></div>`;
+        }
+        if (res.stride) {
+            html += `<div class="detail-item"><div class="detail-label">Stride</div><div class="detail-value">${res.stride} bytes</div></div>`;
+        }
+        if (res.mip_levels) {
+            html += `<div class="detail-item"><div class="detail-label">Mip Levels</div><div class="detail-value">${res.mip_levels}</div></div>`;
+        }
+        html += '</div>';
+        
+        // 根据 Tab 渲染不同内容
+        if (currentModalTab === 'structured') {
+            html += renderStructuredView(res);
+        } else if (currentModalTab === 'hex') {
+            html += renderHexDump(res.bytes);
+        } else if (currentModalTab === 'raw') {
+            html += renderRawBytes(res.bytes);
+        } else if (currentModalTab === 'accesses') {
+            html += renderAccessTimeline(res.accesses);
+        }
+        
+        body.innerHTML = html;
+    }
+    
+    function renderStructuredView(res) {
+        let html = '<h3 style="margin-bottom: 16px;">Data Preview</h3>';
+        
+        if (res.vertices && res.vertices.length > 0) {
+            html += '<table class="data-table"><thead><tr><th>Index</th>';
+            if (res.layout) {
+                res.layout.forEach(attr => html += `<th>${attr.name}</th>`;
+            }
+            html += '</tr></thead><tbody>';
+            
+            res.vertices.forEach(v => {
+                html += `<tr><td>${v.index}</td>`;
+                if (res.layout) {
+                    res.layout.forEach(attr => {
+                        const val = v[attr.name];
+                        html += Array.isArray(val) 
+                            ? `<td>(${val.map(x => x.toFixed(2)).join(', ')})</td>`
+                            : `<td>${val}</td>`;
+                    });
+                }
+                html += '</tr>';
+            });
+            html += '</tbody></table>';
+        } else if (res.indices) {
+            html += `<div style="background: var(--bg-primary); padding: 16px; border-radius: 8px; font-family: monospace;">
+                <strong>Indices:</strong> ${res.indices.slice(0, 30).join(', ')}${res.indices.length > 30 ? '...' : ''}
+            </div>`;
+        } else if (res.constants) {
+            html += '<table class="data-table"><thead><tr><th>Name</th><th>Value</th></tr></thead><tbody>';
+            for (const [name, value] of Object.entries(res.constants)) {
+                html += `<tr><td>${name}</td><td>`;
+                if (Array.isArray(value) && Array.isArray(value[0])) {
+                    html += '<table style="margin:0;font-size:12px;">';
+                    value.forEach(row => {
+                        html += '<tr>' + row.map(c => `<td style="padding:4px 8px;border:1px solid var(--border);">${c.toFixed(2)}</td>`).join('') + '</tr>';
+                    });
+                    html += '</table>';
+                } else if (Array.isArray(value)) {
+                    html += `(${value.map(x => x.toFixed(3)).join(', ')})`;
+                } else {
+                    html += value;
+                }
+                html += '</td></tr>';
+            }
+            html += '</tbody></table>';
+        } else if (res.type === 'TEXTURE') {
+            html += `<div style="background: var(--bg-primary); padding: 24px; border-radius: 8px; text-align: center;">
+                <p style="color: var(--text-secondary);">Texture data shown as preview above.</p>
+                <p style="margin-top:8px;">Format: ${res.format} | Size: ${res.width} × ${res.height} | Mips: ${res.mip_levels}</p>
+            </div>`;
+        } else {
+            html += '<p style="color: var(--text-secondary);">No structured view available.</p>';
+        }
+        
+        return html;
+    }
+    
+    function renderHexDump(bytes) {
+        if (!bytes?.length) return '<p style="color: var(--text-secondary);">No byte data available.</p>';
+        
+        let html = '<div class="hex-dump">';
+        const bytesPerRow = 16;
+        for (let i = 0; i < bytes.length && i < 256; i += bytesPerRow) {
+            const rowBytes = bytes.slice(i, i + bytesPerRow);
+            const offset = i.toString(16).padStart(8, '0').toUpperCase();
+            const hexParts = rowBytes.map(b => b.toString(16).padStart(2, '0').toUpperCase());
+            while (hexParts.length < bytesPerRow) hexParts.push('  ');
+            const hexStr = hexParts.slice(0, 8).join(' ') + '  ' + hexParts.slice(8).join(' ');
+            const asciiStr = rowBytes.map(b => (b >= 32 && b < 127) ? String.fromCharCode(b) : '.').join('');
+            
+            html += `<div class="hex-row">
+                <span class="hex-offset">${offset}</span>
+                <span class="hex-bytes">${hexStr}</span>
+                <span class="hex-ascii">${asciiStr}</span>
+            </div>`;
+        }
+        if (bytes.length > 256) {
+            html += `<div style="color: var(--text-secondary); margin-top: 8px;">... and ${bytes.length - 256} more bytes</div>`;
+        }
+        html += '</div>';
+        return html;
+    }
+    
+    function renderRawBytes(bytes) {
+        if (!bytes?.length) return '<p style="color: var(--text-secondary);">No byte data available.</p>';
+        return `<div style="background: var(--bg-primary); padding: 16px; border-radius: 8px; font-family: monospace; font-size: 12px; word-break: break-all;">
+            ${bytes.slice(0, 512).map(b => b.toString(16).padStart(2, '0')).join(' ')}
+            ${bytes.length > 512 ? `<br><span style="color: var(--text-secondary);">... and ${bytes.length - 512} more bytes</span>` : ''}
+        </div>`;
+    }
+    
+    function renderAccessTimeline(accesses) {
+        if (!accesses?.length) return '<p style="color: var(--text-secondary);">No access records available.</p>';
+        
+        let html = '<div class="access-timeline"><h3>Access Timeline</h3>';
+        accesses.forEach(access => {
+            const typeClass = access.access_type === 'Read' ? 'read' : 'write';
+            html += `<div class="timeline-item">
+                <span class="timeline-event">Event #${access.event_id}</span>
+                <span class="timeline-type ${typeClass}">${access.access_type}</span>
+                <span class="timeline-usage">${access.usage}</span>
+            </div>`;
+        });
+        html += '</div>';
+        return html;
+    }
+    
+    // ============== 初始化 ==============
+    document.addEventListener('DOMContentLoaded', () => {
+        renderResourceCards();
+        renderDrawCalls();
+    });
+    
+    document.getElementById('resource-modal').addEventListener('click', (e) => {
+        if (e.target.classList.contains('modal-overlay')) closeModal();
+    });
+    
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') closeModal();
+    });
+    </script>
+</body>
+</html>

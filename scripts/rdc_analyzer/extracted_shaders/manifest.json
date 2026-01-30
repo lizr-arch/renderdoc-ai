@@ -1,0 +1,14 @@
+{
+  "total_draws": 2,
+  "extracted": 1,
+  "shaders": [
+    {
+      "eventId": 100,
+      "drawName": "Draw_SampleModel",
+      "vertex_shader": "vs_100.glsl",
+      "vs_target": "GLSL",
+      "fragment_shader": "ps_100.glsl",
+      "ps_target": "GLSL"
+    }
+  ]
+}

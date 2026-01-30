@@ -1,0 +1,1216 @@
+// Embedded data
+        const analysisData = {json_data};
+        
+        // State
+        let selectedCallId = null;
+        let currentFilter = 'all';
+        
+        // DOM elements
+        const searchInput = document.getElementById('search-input');
+        const callList = document.getElementById('call-list');
+        const callCount = document.getElementById('call-count');
+        
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            initTabs();
+            initFilters();
+            initSearch();
+            initCallList();
+        });
+        
+        // Tab switching
+        function initTabs() {
+            document.querySelectorAll('.tab').forEach(tab => {
+                tab.addEventListener('click', () => {
+                    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+                    document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+                    tab.classList.add('active');
+                    document.getElementById('tab-' + tab.dataset.tab).classList.add('active');
+                });
+            });
+        }
+        
+        // Filter buttons
+        function initFilters() {
+            document.querySelectorAll('.filter-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+                    btn.classList.add('active');
+                    currentFilter = btn.dataset.filter;
+                    filterCallList();
+                });
+            });
+        }
+        
+        // Search functionality
+        function initSearch() {
+            searchInput.addEventListener('input', debounce(() => {
+                filterCallList();
+            }, 200));
+        }
+        
+        // Call list interactions
+        function initCallList() {
+            document.querySelectorAll('.call-item').forEach(item => {
+                item.addEventListener('click', () => {
+                    selectCall(parseInt(item.dataset.eventId));
+                });
+            });
+        }
+        
+        function selectCall(eventId) {
+            selectedCallId = eventId;
+            
+            // Update UI
+            document.querySelectorAll('.call-item').forEach(item => {
+                item.classList.toggle('selected', parseInt(item.dataset.eventId) === eventId);
+            });
+            
+            // Update detail panel
+            const call = analysisData.draw_calls.find(d => d.event_id === eventId);
+            if (call) {
+                renderPipelineState(call);
+                updateIssuesBadge(eventId);
+            }
+            
+            // Update shaders tab
+            if (typeof updateShadersContent === 'function') {
+                updateShadersContent(eventId);
+            }
+        }
+        
+        function renderPipelineState(call) {
+            const container = document.getElementById('pipeline-content');
+            const empty = document.getElementById('pipeline-empty');
+            
+            if (!call.pipeline_state) {
+                empty.style.display = 'block';
+                container.innerHTML = '';
+                return;
+            }
+            
+            empty.style.display = 'none';
+            
+            let html = `
+                <div class="state-section">
+                    <h3>Draw Call Info</h3>
+                    <div class="state-grid">
+                        <div class="state-item">
+                            <div class="state-label">Event ID</div>
+                            <div class="state-value">#${call.event_id}</div>
+                        </div>
+                        <div class="state-item">
+                            <div class="state-label">Draw Type</div>
+                            <div class="state-value">${call.draw_type || 'N/A'}</div>
+                        </div>
+                        <div class="state-item">
+                            <div class="state-label">Vertex Count</div>
+                            <div class="state-value">${call.vertex_count}</div>
+                        </div>
+                        <div class="state-item">
+                            <div class="state-label">Instance Count</div>
+                            <div class="state-value">${call.instance_count}</div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            const ps = call.pipeline_state;
+            
+            // Input Assembly
+            if (ps.input_assembly) {
+                const ia = ps.input_assembly;
+                html += `
+                    <div class="state-section">
+                        <h3>Input Assembly</h3>
+                        <div class="state-grid">
+                            <div class="state-item">
+                                <div class="state-label">Topology</div>
+                                <div class="state-value">${ia.topology}</div>
+                            </div>
+                        </div>
+                        ${ia.vertex_buffers && ia.vertex_buffers.length > 0 ? `
+                            <table class="binding-table" style="margin-top: 12px;">
+                                <thead>
+                                    <tr>
+                                        <th>Slot</th>
+                                        <th>Resource ID</th>
+                                        <th>Stride</th>
+                                        <th>Size</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${ia.vertex_buffers.map(vb => `
+                                        <tr>
+                                            <td>${vb.slot}</td>
+                                            <td>${vb.resource_id}</td>
+                                            <td>${vb.stride || 'N/A'}</td>
+                                            <td>${formatBytes(vb.size_bytes)}</td>
+                                        </tr>
+                                    `).join('')}
+                                </tbody>
+                            </table>
+                        ` : ''}
+                    </div>
+                `;
+            }
+            
+            // Rasterizer
+            if (ps.rasterizer) {
+                const rs = ps.rasterizer;
+                html += `
+                    <div class="state-section">
+                        <h3>Rasterizer</h3>
+                        <div class="state-grid">
+                            <div class="state-item">
+                                <div class="state-label">Fill Mode</div>
+                                <div class="state-value">${rs.fill_mode}</div>
+                            </div>
+                            <div class="state-item">
+                                <div class="state-label">Cull Mode</div>
+                                <div class="state-value">${rs.cull_mode}</div>
+                            </div>
+                            <div class="state-item">
+                                <div class="state-label">Front CCW</div>
+                                <div class="state-value">${rs.front_ccw}</div>
+                            </div>
+                            <div class="state-item">
+                                <div class="state-label">Depth Bias</div>
+                                <div class="state-value">${rs.depth_bias}</div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+            
+            // Shader Stages
+            const shaderStages = ['vs', 'hs', 'ds', 'gs', 'ps', 'cs'];
+            const stageNames = {
+                'vs': 'Vertex Shader',
+                'hs': 'Hull Shader',
+                'ds': 'Domain Shader',
+                'gs': 'Geometry Shader',
+                'ps': 'Pixel Shader',
+                'cs': 'Compute Shader'
+            };
+            
+            shaderStages.forEach(stage => {
+                const bindings = ps[stage + '_bindings'];
+                if (bindings && bindings.shader_resource_id) {
+                    html += `
+                        <div class="state-section">
+                            <h3>${stageNames[stage]}</h3>
+                            <div class="state-grid">
+                                <div class="state-item">
+                                    <div class="state-label">Shader ID</div>
+                                    <div class="state-value">${bindings.shader_resource_id}</div>
+                                </div>
+                                ${bindings.shader_name ? `
+                                    <div class="state-item">
+                                        <div class="state-label">Name</div>
+                                        <div class="state-value">${bindings.shader_name}</div>
+                                    </div>
+                                ` : ''}
+                            </div>
+                            ${renderBindingsTable('Constant Buffers', bindings.constant_buffers)}
+                            ${renderBindingsTable('Shader Resources', bindings.shader_resources)}
+                            ${renderBindingsTable('UAVs', bindings.uavs)}
+                        </div>
+                    `;
+                }
+            });
+            
+            // Output Merger
+            if (ps.output_merger) {
+                const om = ps.output_merger;
+                html += `
+                    <div class="state-section">
+                        <h3>Output Merger</h3>
+                        ${om.render_targets && om.render_targets.length > 0 ? `
+                            <table class="binding-table">
+                                <thead>
+                                    <tr>
+                                        <th>Slot</th>
+                                        <th>Resource</th>
+                                        <th>Format</th>
+                                        <th>Size</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${om.render_targets.map(rt => `
+                                        <tr>
+                                            <td>${rt.slot}</td>
+                                            <td>${rt.resource_name || rt.resource_id}</td>
+                                            <td>${rt.format}</td>
+                                            <td>${rt.width}x${rt.height}</td>
+                                        </tr>
+                                    `).join('')}
+                                </tbody>
+                            </table>
+                        ` : ''}
+                        ${om.depth_stencil ? `
+                            <div style="margin-top: 16px;">
+                                <strong>Depth Stencil:</strong> ${om.depth_stencil.resource_name || om.depth_stencil.resource_id}
+                                (${om.depth_stencil.format}, ${om.depth_stencil.width}x${om.depth_stencil.height})
+                            </div>
+                        ` : ''}
+                    </div>
+                `;
+            }
+            
+            container.innerHTML = html;
+        }
+        
+        function renderBindingsTable(title, bindings) {
+            if (!bindings || bindings.length === 0) return '';
+            
+            // 检查是否是 Constant Buffers 且包含 members 数据
+            const isCB = title === 'Constant Buffers';
+            const hasCBMembers = isCB && bindings.some(b => b.members && b.members.length > 0);
+            
+            if (hasCBMembers) {
+                // 渲染带展开功能的 CB 表格
+                return renderCBWithMembers(bindings);
+            }
+            
+            return `
+                <div style="margin-top: 12px;">
+                    <strong style="font-size: 13px; color: var(--text-secondary);">${title}</strong>
+                    <table class="binding-table" style="margin-top: 8px;">
+                        <thead>
+                            <tr>
+                                <th>Slot</th>
+                                <th>Resource</th>
+                                <th>Type</th>
+                                <th>Size</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${bindings.map(b => `
+                                <tr>
+                                    <td>${b.slot}</td>
+                                    <td>${b.resource_name || b.resource_id}</td>
+                                    <td>${b.resource_type || 'N/A'}</td>
+                                    <td>${b.width ? `${b.width}x${b.height}` : formatBytes(b.size_bytes)}</td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                </div>
+            `;
+        }
+        
+        // 渲染带成员展开的 Constant Buffer 表格
+        function renderCBWithMembers(cbs) {
+            const cbId = 'cb-' + Math.random().toString(36).substr(2, 9);
+            
+            return `
+                <div style="margin-top: 12px;">
+                    <strong style="font-size: 13px; color: var(--text-secondary);">Constant Buffers</strong>
+                    <div class="cb-list" style="margin-top: 8px;">
+                        ${cbs.map((cb, idx) => {
+                            const hasMembers = cb.members && cb.members.length > 0;
+                            const cbItemId = cbId + '-' + idx;
+                            return `
+                                <div class="cb-item" style="border: 1px solid var(--border-color); border-radius: 6px; margin-bottom: 8px; overflow: hidden;">
+                                    <div class="cb-header" 
+                                         style="display: flex; justify-content: space-between; align-items: center; padding: 10px 12px; background: var(--bg-secondary); cursor: ${hasMembers ? 'pointer' : 'default'};"
+                                         ${hasMembers ? `onclick="toggleCBMembers('${cbItemId}')"` : ''}>
+                                        <div style="display: flex; align-items: center; gap: 12px;">
+                                            ${hasMembers ? `<span class="cb-expand-icon" id="${cbItemId}-icon" style="font-size: 10px; transition: transform 0.2s;">▶</span>` : '<span style="width: 10px;"></span>'}
+                                            <span style="font-weight: 600; color: var(--text-primary);">[${cb.slot}] ${cb.name || 'cb' + cb.slot}</span>
+                                        </div>
+                                        <div style="display: flex; gap: 16px; font-size: 12px; color: var(--text-secondary);">
+                                            <span>Size: ${formatBytes(cb.size || 0)}</span>
+                                            ${hasMembers ? `<span style="color: var(--accent-color);">${cb.members.length} members</span>` : ''}
+                                        </div>
+                                    </div>
+                                    ${hasMembers ? `
+                                        <div class="cb-members" id="${cbItemId}-members" style="display: none; border-top: 1px solid var(--border-color);">
+                                            <table class="binding-table" style="margin: 0; font-size: 11px;">
+                                                <thead>
+                                                    <tr style="background: var(--bg-tertiary);">
+                                                        <th style="padding: 6px 10px;">Name</th>
+                                                        <th style="padding: 6px 10px;">Type</th>
+                                                        <th style="padding: 6px 10px;">Value</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    ${renderCBMembers(cb.members)}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    ` : ''}
+                                </div>
+                            `;
+                        }).join('')}
+                    </div>
+                </div>
+            `;
+        }
+        
+        // 递归渲染 CB 成员（支持嵌套结构）
+        function renderCBMembers(members, indent = 0) {
+            if (!members || members.length === 0) return '';
+            
+            return members.map(m => {
+                const hasChildren = m.members && m.members.length > 0;
+                const indentPx = indent * 16;
+                const typeStr = formatCBType(m);
+                const valueStr = formatCBValue(m);
+                
+                let html = `
+                    <tr>
+                        <td style="padding: 4px 10px; padding-left: ${10 + indentPx}px;">
+                            ${hasChildren ? '<span style="color: var(--accent-color);">▸</span> ' : ''}
+                            <span style="font-family: monospace;">${m.name}</span>
+                        </td>
+                        <td style="padding: 4px 10px; color: var(--text-secondary);">${typeStr}</td>
+                        <td style="padding: 4px 10px; font-family: monospace; font-size: 10px; max-width: 300px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${valueStr}">${valueStr}</td>
+                    </tr>
+                `;
+                
+                // 递归渲染子成员
+                if (hasChildren) {
+                    html += renderCBMembers(m.members, indent + 1);
+                }
+                
+                return html;
+            }).join('');
+        }
+        
+        // 格式化 CB 变量类型
+        function formatCBType(member) {
+            const baseType = member.type || 'Unknown';
+            const rows = member.rows || 1;
+            const cols = member.columns || 1;
+            
+            if (rows > 1 && cols > 1) {
+                return `${baseType}${rows}x${cols}`; // 矩阵
+            } else if (rows > 1 || cols > 1) {
+                return `${baseType}${Math.max(rows, cols)}`; // 向量
+            }
+            return baseType;
+        }
+        
+        // 格式化 CB 变量值
+        function formatCBValue(member) {
+            if (member.members && member.members.length > 0) {
+                return `[struct: ${member.members.length} fields]`;
+            }
+            
+            const value = member.value;
+            if (!value || !Array.isArray(value)) return 'N/A';
+            
+            // 限制显示长度
+            const maxDisplay = 8;
+            const displayValues = value.slice(0, maxDisplay).map(v => {
+                if (typeof v === 'number') {
+                    return Math.abs(v) < 0.0001 ? '0' : v.toFixed(3);
+                }
+                return String(v);
+            });
+            
+            if (value.length > maxDisplay) {
+                displayValues.push('...');
+            }
+            
+            return '[' + displayValues.join(', ') + ']';
+        }
+        
+        // 切换 CB 成员展开/折叠
+        function toggleCBMembers(cbId) {
+            const membersDiv = document.getElementById(cbId + '-members');
+            const icon = document.getElementById(cbId + '-icon');
+            if (membersDiv && icon) {
+                const isExpanded = membersDiv.style.display !== 'none';
+                membersDiv.style.display = isExpanded ? 'none' : 'block';
+                icon.style.transform = isExpanded ? 'rotate(0deg)' : 'rotate(90deg)';
+            }
+        }
+        
+        function updateIssuesBadge(eventId) {
+            const issues = analysisData.issues.filter(i => i.event_id === eventId);
+            const badge = document.getElementById('issues-badge');
+            badge.textContent = issues.length > 0 ? `(${issues.length})` : '';
+        }
+        
+        function filterCallList() {
+            const searchTerm = searchInput.value.toLowerCase();
+            let visibleCount = 0;
+            
+            document.querySelectorAll('.call-item').forEach(item => {
+                const eventId = parseInt(item.dataset.eventId);
+                const call = analysisData.draw_calls.find(d => d.event_id === eventId);
+                const hasIssues = analysisData.issues.some(i => i.event_id === eventId);
+                const hasDeps = analysisData.dependencies.some(d => 
+                    d.source_event === eventId || d.target_event === eventId
+                );
+                
+                let visible = true;
+                
+                // Filter by type
+                if (currentFilter === 'issues' && !hasIssues) visible = false;
+                if (currentFilter === 'deps' && !hasDeps) visible = false;
+                
+                // Filter by search
+                if (searchTerm && visible) {
+                    const searchText = `${eventId} ${call?.name || ''}`.toLowerCase();
+                    visible = searchText.includes(searchTerm);
+                }
+                
+                item.style.display = visible ? 'flex' : 'none';
+                if (visible) visibleCount++;
+            });
+            
+            callCount.textContent = visibleCount;
+        }
+        
+        // Utilities
+        function formatBytes(bytes) {
+            if (!bytes) return 'N/A';
+            if (bytes < 1024) return bytes + ' B';
+            if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+            return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+        }
+        
+        function debounce(func, wait) {
+            let timeout;
+            return function executedFunction(...args) {
+                const later = () => {
+                    clearTimeout(timeout);
+                    func(...args);
+                };
+                clearTimeout(timeout);
+                timeout = setTimeout(later, wait);
+            };
+        }
+        
+        // =====================================================
+        // Resource Modal Functions
+        // =====================================================
+        
+        let currentResourceData = null;
+        
+        // Open resource modal with resource info
+        function openResourceModal(resourceId, resourceName, resourceType) {
+            const modal = document.getElementById('resource-modal');
+            const modalName = document.getElementById('modal-resource-name');
+            const modalType = document.getElementById('modal-resource-type');
+            const modalBody = document.getElementById('modal-body');
+            
+            modalName.textContent = resourceName || `Resource_${resourceId}`;
+            modalType.textContent = resourceType || 'UNKNOWN';
+            
+            // Find resource data from lifetimes
+            const resourceLifetime = analysisData.resource_lifetimes?.find(
+                r => r.resource_id === resourceId || r.resource_name === resourceName
+            );
+            
+            currentResourceData = {
+                id: resourceId,
+                name: resourceName,
+                type: resourceType,
+                lifetime: resourceLifetime
+            };
+            
+            // Render modal content
+            let bodyHtml = '';
+            
+            // Resource Info Grid
+            bodyHtml += `<div class="resource-info-grid">`;
+            bodyHtml += `
+                <div class="resource-info-item">
+                    <div class="resource-info-label">Resource ID</div>
+                    <div class="resource-info-value">${resourceId}</div>
+                </div>
+            `;
+            
+            if (resourceLifetime) {
+                bodyHtml += `
+                    <div class="resource-info-item">
+                        <div class="resource-info-label">First Access</div>
+                        <div class="resource-info-value">#${resourceLifetime.first_access_event}</div>
+                    </div>
+                    <div class="resource-info-item">
+                        <div class="resource-info-label">Last Access</div>
+                        <div class="resource-info-value">#${resourceLifetime.last_access_event}</div>
+                    </div>
+                    <div class="resource-info-item">
+                        <div class="resource-info-label">Read Count</div>
+                        <div class="resource-info-value">${resourceLifetime.read_count || 0}</div>
+                    </div>
+                    <div class="resource-info-item">
+                        <div class="resource-info-label">Write Count</div>
+                        <div class="resource-info-value">${resourceLifetime.write_count || 0}</div>
+                    </div>
+                `;
+            }
+            bodyHtml += `</div>`;
+            
+            // Data Preview Section
+            bodyHtml += `
+                <div class="data-preview">
+                    <div class="data-preview-header">
+                        <span class="data-preview-title">📊 Data Preview</span>
+                        <div class="data-preview-tabs">
+                            <button class="preview-tab active" onclick="switchPreviewTab(this, 'structured')">Structured</button>
+                            <button class="preview-tab" onclick="switchPreviewTab(this, 'hex')">Hex Dump</button>
+                            <button class="preview-tab" onclick="switchPreviewTab(this, 'raw')">Raw</button>
+                        </div>
+                    </div>
+                    <div class="data-preview-content" id="preview-content">
+                        ${renderResourcePreview(resourceId, resourceType, resourceLifetime)}
+                    </div>
+                </div>
+            `;
+            
+            // Access Timeline
+            if (resourceLifetime) {
+                bodyHtml += renderAccessTimeline(resourceLifetime);
+            }
+            
+            modalBody.innerHTML = bodyHtml;
+            modal.classList.add('active');
+            
+            // Close on overlay click
+            modal.onclick = function(e) {
+                if (e.target === modal) {
+                    closeResourceModal();
+                }
+            };
+            
+            // Close on Escape key
+            document.addEventListener('keydown', handleModalEscape);
+        }
+        
+        function closeResourceModal() {
+            const modal = document.getElementById('resource-modal');
+            modal.classList.remove('active');
+            document.removeEventListener('keydown', handleModalEscape);
+        }
+        
+        function handleModalEscape(e) {
+            if (e.key === 'Escape') {
+                closeResourceModal();
+            }
+        }
+        
+        function switchPreviewTab(btn, tabType) {
+            // Update active tab
+            btn.parentElement.querySelectorAll('.preview-tab').forEach(t => t.classList.remove('active'));
+            btn.classList.add('active');
+            
+            // Update content
+            const content = document.getElementById('preview-content');
+            if (currentResourceData) {
+                content.innerHTML = renderResourcePreview(
+                    currentResourceData.id,
+                    currentResourceData.type,
+                    currentResourceData.lifetime,
+                    tabType
+                );
+            }
+        }
+        
+        function renderResourcePreview(resourceId, resourceType, lifetime, viewType = 'structured') {
+            // Check if we have sample data embedded
+            // Note: resource_samples keys are strings, so convert resourceId to string
+            const sampleData = analysisData.resource_samples?.[String(resourceId)];
+            
+            if (!sampleData) {
+                return `
+                    <div style="text-align: center; padding: 40px; color: var(--text-secondary);">
+                        <div style="font-size: 32px; margin-bottom: 12px;">📭</div>
+                        <p>No preview data available for this resource.</p>
+                        <p style="font-size: 12px; margin-top: 8px;">
+                            Use the CLI tool to extract data:<br>
+                            <code style="background: var(--bg-primary); padding: 4px 8px; border-radius: 4px;">
+                                python inspect_resource.py --resource ${resourceId}
+                            </code>
+                        </p>
+                    </div>
+                `;
+            }
+            
+            if (viewType === 'hex') {
+                return renderHexDump(sampleData.bytes || []);
+            } else if (viewType === 'raw') {
+                return `<pre>${JSON.stringify(sampleData, null, 2)}</pre>`;
+            } else {
+                // Structured view
+                return renderStructuredData(sampleData, resourceType);
+            }
+        }
+        
+        function renderHexDump(bytes) {
+            if (!bytes || bytes.length === 0) {
+                return '<div style="color: var(--text-secondary);">No byte data available</div>';
+            }
+            
+            let html = '<div class="hex-dump">';
+            const bytesPerRow = 16;
+            
+            for (let offset = 0; offset < Math.min(bytes.length, 512); offset += bytesPerRow) {
+                const rowBytes = bytes.slice(offset, offset + bytesPerRow);
+                
+                // Offset column
+                html += `<span class="hex-dump-offset">${offset.toString(16).padStart(8, '0')}</span>`;
+                
+                // Hex bytes
+                const hexParts = rowBytes.map(b => b.toString(16).padStart(2, '0')).join(' ');
+                html += `<span class="hex-dump-bytes">${hexParts.padEnd(47, ' ')}</span>`;
+                
+                // ASCII representation
+                const asciiParts = rowBytes.map(b => (b >= 32 && b <= 126) ? String.fromCharCode(b) : '.').join('');
+                html += `<span class="hex-dump-ascii">${asciiParts}</span>`;
+            }
+            
+            html += '</div>';
+            
+            if (bytes.length > 512) {
+                html += `<div style="margin-top: 12px; color: var(--text-secondary); font-size: 12px;">
+                    Showing first 512 of ${bytes.length} bytes
+                </div>`;
+            }
+            
+            return html;
+        }
+        
+        function renderStructuredData(sampleData, resourceType) {
+            // Check if this is a texture/image type
+            if (resourceType === 'TEXTURE' || resourceType === 'RENDER_TARGET' || 
+                resourceType === 'DEPTH_STENCIL' || sampleData.image_base64 || sampleData.thumbnail) {
+                return renderTexturePreview(sampleData, resourceType);
+            }
+            
+            if (sampleData.vertices) {
+                // Vertex buffer
+                return renderVertexTable(sampleData.vertices, sampleData.layout);
+            } else if (sampleData.indices) {
+                // Index buffer
+                return renderIndexTable(sampleData.indices);
+            } else if (sampleData.constants) {
+                // Constant buffer
+                return renderConstantTable(sampleData.constants);
+            } else if (sampleData.floats) {
+                // Generic float array
+                return renderFloatTable(sampleData.floats);
+            }
+            
+            return '<div style="color: var(--text-secondary);">Unknown data format</div>';
+        }
+        
+        function renderTexturePreview(sampleData, resourceType) {
+            let html = '<div class="texture-preview-container">';
+            
+            // Texture metadata
+            const width = sampleData.width || 'Unknown';
+            const height = sampleData.height || 'Unknown';
+            const format = sampleData.format || 'Unknown';
+            const mipLevels = sampleData.mip_levels || 1;
+            const arraySize = sampleData.array_size || 1;
+            
+            html += `
+                <div class="texture-info-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 12px; margin-bottom: 16px;">
+                    <div class="texture-info-item" style="background: var(--bg-tertiary); padding: 10px; border-radius: 6px;">
+                        <div style="font-size: 11px; color: var(--text-secondary);">Dimensions</div>
+                        <div style="font-size: 14px; font-weight: 600;">${width} × ${height}</div>
+                    </div>
+                    <div class="texture-info-item" style="background: var(--bg-tertiary); padding: 10px; border-radius: 6px;">
+                        <div style="font-size: 11px; color: var(--text-secondary);">Format</div>
+                        <div style="font-size: 14px; font-weight: 600;">${format}</div>
+                    </div>
+                    <div class="texture-info-item" style="background: var(--bg-tertiary); padding: 10px; border-radius: 6px;">
+                        <div style="font-size: 11px; color: var(--text-secondary);">Mip Levels</div>
+                        <div style="font-size: 14px; font-weight: 600;">${mipLevels}</div>
+                    </div>
+                    <div class="texture-info-item" style="background: var(--bg-tertiary); padding: 10px; border-radius: 6px;">
+                        <div style="font-size: 11px; color: var(--text-secondary);">Array Size</div>
+                        <div style="font-size: 14px; font-weight: 600;">${arraySize}</div>
+                    </div>
+                </div>
+            `;
+            
+            // Image preview
+            if (sampleData.image_base64) {
+                // Real image data available
+                html += `
+                    <div class="texture-image-preview" style="text-align: center; background: var(--bg-tertiary); padding: 20px; border-radius: 8px;">
+                        <img src="data:image/png;base64,${sampleData.image_base64}" 
+                             alt="Texture Preview" 
+                             style="max-width: 100%; max-height: 400px; border-radius: 4px; image-rendering: pixelated;">
+                    </div>
+                `;
+            } else if (sampleData.thumbnail) {
+                // Thumbnail available
+                html += `
+                    <div class="texture-image-preview" style="text-align: center; background: var(--bg-tertiary); padding: 20px; border-radius: 8px;">
+                        <img src="data:image/png;base64,${sampleData.thumbnail}" 
+                             alt="Texture Thumbnail" 
+                             style="max-width: 100%; max-height: 200px; border-radius: 4px;">
+                        <div style="margin-top: 8px; font-size: 12px; color: var(--text-secondary);">Thumbnail preview</div>
+                    </div>
+                `;
+            } else {
+                // Generate placeholder based on type
+                const colors = {
+                    'RENDER_TARGET': ['#4a9eff', '#69db7c'],
+                    'DEPTH_STENCIL': ['#868e96', '#495057'],
+                    'TEXTURE': ['#ffa94d', '#ff6b6b']
+                };
+                const [c1, c2] = colors[resourceType] || ['#4a9eff', '#69db7c'];
+                
+                html += `
+                    <div class="texture-image-preview" style="text-align: center; background: var(--bg-tertiary); padding: 20px; border-radius: 8px;">
+                        <svg width="200" height="150" viewBox="0 0 200 150" style="border-radius: 4px;">
+                            <defs>
+                                <linearGradient id="texGrad_${Date.now()}" x1="0%" y1="0%" x2="100%" y2="100%">
+                                    <stop offset="0%" style="stop-color:${c1};stop-opacity:0.8" />
+                                    <stop offset="100%" style="stop-color:${c2};stop-opacity:0.8" />
+                                </linearGradient>
+                                <pattern id="grid_${Date.now()}" width="20" height="20" patternUnits="userSpaceOnUse">
+                                    <rect width="10" height="10" fill="rgba(255,255,255,0.1)"/>
+                                    <rect x="10" y="10" width="10" height="10" fill="rgba(255,255,255,0.1)"/>
+                                </pattern>
+                            </defs>
+                            <rect width="200" height="150" fill="url(#texGrad_${Date.now()})"/>
+                            <rect width="200" height="150" fill="url(#grid_${Date.now()})"/>
+                            <text x="100" y="70" text-anchor="middle" fill="white" font-size="14" font-weight="600">
+                                ${width} × ${height}
+                            </text>
+                            <text x="100" y="90" text-anchor="middle" fill="rgba(255,255,255,0.7)" font-size="11">
+                                ${format}
+                            </text>
+                        </svg>
+                        <div style="margin-top: 12px; font-size: 12px; color: var(--text-secondary);">
+                            📷 Placeholder - Run analysis with texture export to see actual image
+                        </div>
+                    </div>
+                `;
+            }
+            
+            html += '</div>';
+            return html;
+        }
+        
+        function renderVertexTable(vertices, layout) {
+            if (!vertices || vertices.length === 0) return '';
+            
+            // Get headers from first vertex or layout
+            const headers = layout?.elements?.map(e => e.semantic) || Object.keys(vertices[0] || {});
+            
+            let html = `
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th class="index-col">#</th>
+                            ${headers.map(h => `<th>${h}</th>`).join('')}
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
+            
+            vertices.slice(0, 100).forEach((v, i) => {
+                html += `<tr><td class="index-col">${i}</td>`;
+                headers.forEach(h => {
+                    const val = v[h];
+                    if (Array.isArray(val)) {
+                        html += `<td>${val.map(x => x.toFixed(3)).join(', ')}</td>`;
+                    } else if (typeof val === 'number') {
+                        html += `<td>${val.toFixed(3)}</td>`;
+                    } else {
+                        html += `<td>${val}</td>`;
+                    }
+                });
+                html += `</tr>`;
+            });
+            
+            html += '</tbody></table>';
+            
+            if (vertices.length > 100) {
+                html += `<div style="margin-top: 12px; color: var(--text-secondary); font-size: 12px;">
+                    Showing first 100 of ${vertices.length} vertices
+                </div>`;
+            }
+            
+            return html;
+        }
+        
+        function renderIndexTable(indices) {
+            let html = `
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th class="index-col">Triangle</th>
+                            <th>v0</th>
+                            <th>v1</th>
+                            <th>v2</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
+            
+            for (let i = 0; i < Math.min(indices.length, 300); i += 3) {
+                const triIdx = Math.floor(i / 3);
+                html += `<tr>
+                    <td class="index-col">${triIdx}</td>
+                    <td>${indices[i] ?? '-'}</td>
+                    <td>${indices[i + 1] ?? '-'}</td>
+                    <td>${indices[i + 2] ?? '-'}</td>
+                </tr>`;
+            }
+            
+            html += '</tbody></table>';
+            
+            if (indices.length > 300) {
+                html += `<div style="margin-top: 12px; color: var(--text-secondary); font-size: 12px;">
+                    Showing first 100 triangles of ${Math.floor(indices.length / 3)} total
+                </div>`;
+            }
+            
+            return html;
+        }
+        
+        function renderConstantTable(constants) {
+            let html = `
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th>Type</th>
+                            <th>Value</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
+            
+            Object.entries(constants).forEach(([name, data]) => {
+                const type = data.type || 'float4';
+                const value = Array.isArray(data.value) 
+                    ? data.value.map(v => typeof v === 'number' ? v.toFixed(4) : v).join(', ')
+                    : data.value;
+                html += `<tr>
+                    <td>${name}</td>
+                    <td>${type}</td>
+                    <td>${value}</td>
+                </tr>`;
+            });
+            
+            html += '</tbody></table>';
+            return html;
+        }
+        
+        function renderFloatTable(floats) {
+            let html = '<div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; font-family: monospace; font-size: 12px;">';
+            
+            floats.slice(0, 256).forEach((f, i) => {
+                html += `<div style="background: var(--bg-primary); padding: 4px 8px; border-radius: 4px;">
+                    <span style="color: var(--text-secondary);">[${i}]</span> ${f.toFixed(6)}
+                </div>`;
+            });
+            
+            html += '</div>';
+            
+            if (floats.length > 256) {
+                html += `<div style="margin-top: 12px; color: var(--text-secondary); font-size: 12px;">
+                    Showing first 256 of ${floats.length} values
+                </div>`;
+            }
+            
+            return html;
+        }
+        
+        function renderAccessTimeline(lifetime) {
+            if (!lifetime) return '';
+            
+            const reads = lifetime.read_events || [];
+            const writes = lifetime.write_events || [];
+            
+            if (reads.length === 0 && writes.length === 0) return '';
+            
+            let html = `
+                <div class="access-timeline">
+                    <div class="access-timeline-title">📍 Access Timeline</div>
+                    <div class="access-list">
+            `;
+            
+            // Combine and sort all events
+            const allEvents = [
+                ...reads.map(e => ({ event: e, type: 'read' })),
+                ...writes.map(e => ({ event: e, type: 'write' }))
+            ].sort((a, b) => a.event - b.event);
+            
+            // Show first 20 events
+            allEvents.slice(0, 20).forEach(e => {
+                const typeClass = e.type === 'read' ? 'read' : 'write';
+                const icon = e.type === 'read' ? '📖' : '✏️';
+                html += `<span class="access-marker ${typeClass}" onclick="selectCall(${e.event})">${icon} #${e.event}</span>`;
+            });
+            
+            if (allEvents.length > 20) {
+                html += `<span style="color: var(--text-secondary); padding: 6px;">+${allEvents.length - 20} more</span>`;
+            }
+            
+            html += '</div></div>';
+            return html;
+        }
+        
+        // Export functions
+        function exportResourceJSON() {
+            if (!currentResourceData) return;
+            
+            const dataStr = JSON.stringify(currentResourceData, null, 2);
+            downloadFile(dataStr, `resource_${currentResourceData.id}.json`, 'application/json');
+        }
+        
+        function exportResourceHex() {
+            if (!currentResourceData) return;
+            
+            const sampleData = analysisData.resource_samples?.[String(currentResourceData.id)];
+            if (!sampleData?.bytes) {
+                alert('No byte data available for export');
+                return;
+            }
+            
+            let hexStr = '';
+            sampleData.bytes.forEach((b, i) => {
+                hexStr += b.toString(16).padStart(2, '0');
+                hexStr += (i % 16 === 15) ? '\\n' : ' ';
+            });
+            
+            downloadFile(hexStr, `resource_${currentResourceData.id}.hex`, 'text/plain');
+        }
+        
+        function downloadFile(content, filename, mimeType) {
+            const blob = new Blob([content], { type: mimeType });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+        
+        // Make resource IDs clickable
+        function makeResourceLinksClickable() {
+            // Find all resource references in the page
+            document.querySelectorAll('[data-resource-id]').forEach(el => {
+                el.classList.add('resource-link');
+                el.onclick = function() {
+                    const id = parseInt(this.dataset.resourceId);
+                    const name = this.dataset.resourceName || this.textContent;
+                    const type = this.dataset.resourceType || 'BUFFER';
+                    openResourceModal(id, name, type);
+                };
+            });
+        }
+        
+        // Initialize resource links on page load
+        document.addEventListener('DOMContentLoaded', () => {
+            makeResourceLinksClickable();
+        });
+        
+        // ========== SHADER FUNCTIONS ==========
+        let currentShaderData = null;
+        let currentShaderCodeType = 'asm';
+        
+        function updateShadersContent(eventId) {
+            const content = document.getElementById('shaders-content');
+            const empty = document.getElementById('shaders-empty');
+            
+            // Find shaders for this event from analysisData
+            const drawCall = analysisData.draw_calls?.find(d => d.event_id === eventId);
+            const shaders = drawCall?.shaders || analysisData.shaders_by_event?.[eventId] || [];
+            
+            if (!shaders || shaders.length === 0) {
+                empty.style.display = 'block';
+                content.innerHTML = '';
+                return;
+            }
+            
+            empty.style.display = 'none';
+            
+            let html = '<div class="shaders-grid">';
+            
+            shaders.forEach((shader, index) => {
+                const stage = shader.type || shader.stage || 'Unknown';
+                const stageLower = stage.toLowerCase();
+                const name = shader.name || shader.entry_point || `Shader_${index}`;
+                const encoding = shader.encoding || 'Unknown';
+                const hasDebug = shader.has_debug_info ? '✓' : '✗';
+                const cbCount = shader.constant_blocks?.length || 0;
+                const srvCount = shader.read_only_resources?.length || 0;
+                const uavCount = shader.read_write_resources?.length || 0;
+                
+                html += `
+                    <div class="shader-card" onclick='openShaderModal(${JSON.stringify(shader).replace(/'/g, "\\'")})'>
+                        <div class="shader-card-header">
+                            <span class="shader-stage-badge ${stageLower}">${stage}</span>
+                            <span class="shader-card-name">${escapeHtml(name)}</span>
+                        </div>
+                        <div class="shader-card-info">
+                            <div>📦 Encoding: ${encoding}</div>
+                            <div>🔍 Debug Info: ${hasDebug}</div>
+                            ${shader.hash ? `<div>🔐 Hash: ${shader.hash}</div>` : ''}
+                        </div>
+                        <div class="shader-card-footer">
+                            ${cbCount > 0 ? `<span class="shader-resource-tag">${cbCount} CB</span>` : ''}
+                            ${srvCount > 0 ? `<span class="shader-resource-tag">${srvCount} SRV</span>` : ''}
+                            ${uavCount > 0 ? `<span class="shader-resource-tag">${uavCount} UAV</span>` : ''}
+                        </div>
+                    </div>
+                `;
+            });
+            
+            html += '</div>';
+            content.innerHTML = html;
+        }
+        
+        function openShaderModal(shader) {
+            currentShaderData = shader;
+            currentShaderCodeType = 'asm';
+            
+            const modal = document.getElementById('shader-modal');
+            const nameEl = document.getElementById('shader-modal-name');
+            const stageEl = document.getElementById('shader-modal-stage');
+            const headerEl = document.getElementById('shader-info-header');
+            const codeEl = document.getElementById('shader-code-content');
+            
+            // Set header info
+            nameEl.textContent = shader.name || shader.entry_point || 'Shader';
+            stageEl.textContent = shader.type || shader.stage || '?';
+            stageEl.className = `resource-type-badge shader-stage-badge ${(shader.type || '').toLowerCase()}`;
+            
+            // Build info header
+            let infoHtml = '<div class="info-row">';
+            if (shader.entry_point) {
+                infoHtml += `<div class="info-item"><span class="info-label">Entry:</span><span class="info-value">${escapeHtml(shader.entry_point)}</span></div>`;
+            }
+            if (shader.encoding) {
+                infoHtml += `<div class="info-item"><span class="info-label">Encoding:</span><span class="info-value">${shader.encoding}</span></div>`;
+            }
+            if (shader.hash) {
+                infoHtml += `<div class="info-item"><span class="info-label">Hash:</span><span class="info-value">${shader.hash}</span></div>`;
+            }
+            if (shader.debug_file) {
+                infoHtml += `<div class="info-item"><span class="info-label">Source:</span><span class="info-value">${escapeHtml(shader.debug_file)}</span></div>`;
+            }
+            infoHtml += '</div>';
+            
+            // Add signature info if available
+            if (shader.input_signature && shader.input_signature.length > 0) {
+                infoHtml += `<div class="info-row" style="margin-top: 8px;">
+                    <div class="info-item"><span class="info-label">Inputs:</span><span class="info-value">${shader.input_signature.map(s => s.semantic_name + s.semantic_index).join(', ')}</span></div>
+                </div>`;
+            }
+            
+            headerEl.innerHTML = infoHtml;
+            
+            // Set code content
+            updateShaderCodeContent();
+            
+            // Init code tabs
+            document.querySelectorAll('.shader-code-tab').forEach(tab => {
+                tab.classList.remove('active');
+                if (tab.dataset.code === 'asm') tab.classList.add('active');
+                
+                tab.onclick = () => {
+                    document.querySelectorAll('.shader-code-tab').forEach(t => t.classList.remove('active'));
+                    tab.classList.add('active');
+                    currentShaderCodeType = tab.dataset.code;
+                    updateShaderCodeContent();
+                };
+            });
+            
+            // Show modal
+            modal.classList.add('active');
+            
+            // ESC to close
+            document.addEventListener('keydown', handleShaderModalEscape);
+        }
+        
+        function updateShaderCodeContent() {
+            const codeEl = document.getElementById('shader-code-content').querySelector('code');
+            
+            if (!currentShaderData) {
+                codeEl.textContent = '// No shader data';
+                return;
+            }
+            
+            let code = '';
+            if (currentShaderCodeType === 'asm') {
+                code = currentShaderData.source_asm || '// No ASM disassembly available';
+            } else {
+                code = currentShaderData.source_hlsl || '// No HLSL source available\\n// (HLSL is only available if debug info was embedded during compilation)';
+            }
+            
+            // Apply basic syntax highlighting
+            codeEl.innerHTML = highlightShaderCode(code, currentShaderCodeType);
+        }
+        
+        function highlightShaderCode(code, type) {
+            // Escape HTML first
+            let highlighted = escapeHtml(code);
+            
+            // Apply syntax highlighting patterns
+            if (type === 'asm') {
+                // ASM/DXBC style highlighting
+                // Comments
+                highlighted = highlighted.replace(/(\/\/.*)/g, '<span class="comment">$1</span>');
+                // Registers (r0, v0, o0, cb0, etc.)
+                highlighted = highlighted.replace(/\\b([rvocst]\\d+)\\b/g, '<span class="register">$1</span>');
+                // Keywords
+                highlighted = highlighted.replace(/\\b(dcl_|def|mov|add|mul|div|mad|dp3|dp4|sample|ld|store|ret|if|else|endif|loop|endloop|call|break)\\b/gi, '<span class="keyword">$1</span>');
+            } else {
+                // HLSL style highlighting
+                // Comments
+                highlighted = highlighted.replace(/(\/\/.*)/g, '<span class="comment">$1</span>');
+                highlighted = highlighted.replace(/(\/\\*[\\s\\S]*?\\*\/)/g, '<span class="comment">$1</span>');
+                // Strings
+                highlighted = highlighted.replace(/(".*?")/g, '<span class="string">$1</span>');
+                // Keywords
+                highlighted = highlighted.replace(/\\b(struct|cbuffer|Texture2D|SamplerState|float|float2|float3|float4|int|uint|bool|void|return|if|else|for|while|do|switch|case|break|continue|discard|true|false)\\b/g, '<span class="keyword">$1</span>');
+                // Types
+                highlighted = highlighted.replace(/\\b(float4x4|float3x3|float2x2|half|double|sampler|texture)\\b/g, '<span class="type">$1</span>');
+                // Semantics
+                highlighted = highlighted.replace(/(:\\s*)(SV_\\w+|POSITION\\d*|TEXCOORD\\d*|COLOR\\d*|NORMAL\\d*)/gi, '$1<span class="semantic">$2</span>');
+                // Numbers
+                highlighted = highlighted.replace(/\\b(\\d+\\.\\d+f?|\\d+f?|0x[0-9a-fA-F]+)\\b/g, '<span class="number">$1</span>');
+            }
+            
+            return highlighted;
+        }
+        
+        function closeShaderModal() {
+            const modal = document.getElementById('shader-modal');
+            modal.classList.remove('active');
+            document.removeEventListener('keydown', handleShaderModalEscape);
+            currentShaderData = null;
+        }
+        
+        function handleShaderModalEscape(e) {
+            if (e.key === 'Escape') {
+                closeShaderModal();
+            }
+        }
+        
+        function copyShaderCode() {
+            if (!currentShaderData) return;
+            
+            const code = currentShaderCodeType === 'asm' 
+                ? (currentShaderData.source_asm || '') 
+                : (currentShaderData.source_hlsl || '');
+            
+            navigator.clipboard.writeText(code).then(() => {
+                // Show feedback
+                const btn = event.target;
+                const originalText = btn.innerHTML;
+                btn.innerHTML = '✓ Copied!';
+                setTimeout(() => { btn.innerHTML = originalText; }, 1500);
+            }).catch(err => {
+                console.error('Failed to copy:', err);
+            });
+        }
