@@ -3,6 +3,7 @@ import os
 import struct
 
 from unity_manifest import build_manifest
+from spirv_cross_bridge import require_spirv_cross, resolve_spirv_cross_path, run_spirv_cross
 
 
 def _stage_list(rd):
@@ -246,13 +247,15 @@ def export_textures(controller, pipe, out_dir):
     return textures
 
 
-def export_shaders(controller, pipe, out_dir, api):
+def export_shaders(controller, pipe, out_dir, api, spirv_cross_path=None):
     import renderdoc as rd
 
     shader_dir = os.path.join(out_dir, "shaders")
     os.makedirs(shader_dir, exist_ok=True)
 
     shaders = {}
+    spirv_path = resolve_spirv_cross_path(spirv_cross_path)
+    require_spirv_cross(api, spirv_path)
     targets = controller.GetDisassemblyTargets(True)
     target = None
     for pref in ["HLSL", "GLSL", "SPIR-V"]:
@@ -273,25 +276,44 @@ def export_shaders(controller, pipe, out_dir, api):
             continue
 
         res_id = pipe.GetShader(stage)
-        out_file = f"{stage_name}.txt"
+        fallback_out_file = f"{stage_name}.txt"
+        target_label = str(target) if target else ""
         if target and "hlsl" in str(target).lower():
-            out_file = f"{stage_name}.hlsl"
+            fallback_out_file = f"{stage_name}.hlsl"
         elif target and "glsl" in str(target).lower():
-            out_file = f"{stage_name}.glsl"
+            fallback_out_file = f"{stage_name}.glsl"
 
+        out_file = fallback_out_file
         out_path = os.path.join(shader_dir, out_file)
-        try:
-            source = controller.DisassembleShader(pipeline, refl, target)
-            if source:
+        used_spirv_cross = False
+        spirv_exc = None
+        if api == "vulkan" and spirv_path and hasattr(refl, "rawBytes") and refl.rawBytes:
+            try:
+                source = run_spirv_cross(spirv_path, bytes(refl.rawBytes))
+                out_file = f"{stage_name}.hlsl"
+                out_path = os.path.join(shader_dir, out_file)
                 with open(out_path, "w", encoding="utf-8") as handle:
                     handle.write(source)
-        except Exception as exc:
-            with open(out_path, "w", encoding="utf-8") as handle:
-                handle.write(f"// Disassemble failed: {exc}\n")
+                target_label = "SPIRV-Cross HLSL"
+                used_spirv_cross = True
+            except Exception as exc:
+                spirv_exc = exc
+
+        if not used_spirv_cross:
+            try:
+                source = controller.DisassembleShader(pipeline, refl, target)
+                if source:
+                    with open(out_path, "w", encoding="utf-8") as handle:
+                        if spirv_exc:
+                            handle.write(f"// SPIRV-Cross failed: {spirv_exc}\n")
+                        handle.write(source)
+            except Exception as exc:
+                with open(out_path, "w", encoding="utf-8") as handle:
+                    handle.write(f"// Disassemble failed: {exc}\n")
 
         shaders[stage_name] = {
             "resource_id": int(res_id),
-            "target": str(target) if target else "",
+            "target": target_label,
             "file": f"shaders/{out_file}",
             "api": api,
         }
@@ -299,7 +321,7 @@ def export_shaders(controller, pipe, out_dir, api):
     return shaders
 
 
-def export_unity_assets(rdc_path, event_id, api, out_dir):
+def export_unity_assets(rdc_path, event_id, api, out_dir, spirv_cross_path=None):
     import renderdoc as rd
 
     cap = rd.OpenCaptureFile()
@@ -322,7 +344,7 @@ def export_unity_assets(rdc_path, event_id, api, out_dir):
     textures = export_textures(controller, pipe, out_dir)
     first_texture = textures[0]["filename"] if textures else None
     mesh = export_mesh(controller, action, out_dir, texture_filename=first_texture)
-    shaders = export_shaders(controller, pipe, out_dir, api)
+    shaders = export_shaders(controller, pipe, out_dir, api, spirv_cross_path=spirv_cross_path)
 
     manifest = build_manifest(event_id, api, mesh, textures, shaders)
     os.makedirs(out_dir, exist_ok=True)

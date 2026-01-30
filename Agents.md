@@ -14,6 +14,7 @@
 - 编译说明：`docs/CONTRIBUTING/Compiling.md`
 - 开发指南：`docs/CONTRIBUTING/Developing-Change.md`
 - 代码结构说明：`docs/CONTRIBUTING/Code-Explanation.md`
+- **文档阅读入口（必读）**：`docs/analysis/codex_rdc_analyzer/DOC_INDEX.md`
 - **阅读总览（优先阅读/持续更新）**：`docs/analysis/codex_rdc_analyzer/WORK_SUMMARY_2025-01-21.md`
   - 说明：该文件已改为“索引页”，指向 5 份主题文档（架构/路线/Schema/验证/路线图）。
 

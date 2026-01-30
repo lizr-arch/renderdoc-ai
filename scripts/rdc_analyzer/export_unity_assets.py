@@ -29,7 +29,7 @@ def main() -> int:
     validate_args(args)
 
     try:
-        export_unity_assets(args.rdc, args.event, args.api, args.out)
+        export_unity_assets(args.rdc, args.event, args.api, args.out, spirv_cross_path=args.spirv_cross)
     except Exception as exc:
         print(f"[ERROR] {exc}", file=sys.stderr)
         return 1
