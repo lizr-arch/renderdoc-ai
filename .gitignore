@@ -69,8 +69,6 @@ docs/analysis/md_scan_*.txt
 .sdd/
 rdoc_capture_py27.obj
 util/rdoc_quick_capture_py27/out/
-scripts/rdc_analyzer/exporters/unity_manifest.py
-scripts/rdc_analyzer/tests/test_unity_manifest.py
 plans/2026-01-29-170725-Agent01-RenderDoc-NoBuild-Attach.md
 plans/2026-01-30-140000-Agent01-UnityExport.md
 
@@ -98,5 +96,3 @@ tests/conftest_local.py
 !scripts/rdc_analyzer/test_captures/**/*.html
 
 # Re-ignore specific local files (overrides allowlist above)
-scripts/rdc_analyzer/exporters/unity_manifest.py
-scripts/rdc_analyzer/tests/test_unity_manifest.py
