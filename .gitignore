@@ -96,3 +96,7 @@ tests/conftest_local.py
 !scripts/rdc_analyzer/test_captures/**/*.html
 
 # Re-ignore specific local files (overrides allowlist above)
+scripts/rdc_analyzer/exporters/unity_manifest.py
+scripts/rdc_analyzer/tests/test_unity_manifest.py
+scripts/rdc_analyzer/tests/test_unity_cli_smoke.py
+scripts/rdc_analyzer/export_unity_assets.py
