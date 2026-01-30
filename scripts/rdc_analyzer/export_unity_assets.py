@@ -1,7 +1,11 @@
 import argparse
+import os
 import sys
 
-from exporters.unity_exporter import export_unity_assets
+EXPORTERS_DIR = os.path.join(os.path.dirname(__file__), "exporters")
+sys.path.insert(0, os.path.abspath(EXPORTERS_DIR))
+
+from unity_exporter import export_unity_assets
 
 
 def main() -> int:
