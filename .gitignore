@@ -28,6 +28,7 @@ obj/
 *.VC.*db
 .vs/
 .vscode/
+.serena/
 *.pdb
 *.sln.ide/
 *.so
