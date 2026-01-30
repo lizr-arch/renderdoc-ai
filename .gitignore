@@ -65,6 +65,15 @@ docs/offline_reference/
 docs/analysis/md_scan_*.md
 docs/analysis/md_scan_*.txt
 
+# Local tool artifacts (user-specific)
+.sdd/
+rdoc_capture_py27.obj
+util/rdoc_quick_capture_py27/out/
+scripts/rdc_analyzer/exporters/unity_manifest.py
+scripts/rdc_analyzer/tests/test_unity_manifest.py
+plans/2026-01-29-170725-Agent01-RenderDoc-NoBuild-Attach.md
+plans/2026-01-30-140000-Agent01-UnityExport.md
+
 # RDC analyzer local outputs
 scripts/rdc_analyzer/output/
 scripts/rdc_analyzer/test_output/
