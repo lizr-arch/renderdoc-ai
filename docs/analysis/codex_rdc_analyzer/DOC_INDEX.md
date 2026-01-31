@@ -10,9 +10,12 @@
 1. `docs/analysis/codex_rdc_analyzer/WORK_SUMMARY_2025-01-21.md`（总索引）
 2. `docs/analysis/codex_rdc_analyzer/WORK_SUMMARY_ROUTES.md`（A/B/C 路线）
 3. `docs/analysis/codex_rdc_analyzer/WORK_SUMMARY_SCHEMA.md`（Schema/Bridge）
-4. `docs/analysis/codex_rdc_analyzer/WORK_SUMMARY_VERIFICATION.md`（验证流程）
-5. `docs/analysis/codex_rdc_analyzer/WORK_SUMMARY_ROADMAP.md`（优先级/计划）
-6. `docs/analysis/codex_rdc_analyzer/WORK_SUMMARY_BUILD.md`（环境/编译）
+4. `docs/analysis/codex_rdc_analyzer/2026-01-31-rdc-analyzer-data-richness-baseline.md`（数据丰富度基线）
+4. `docs/analysis/codex_rdc_analyzer/2026-01-31-rdc-analyzer-data-richness-baseline.md`（数据丰富度基线）
+4. `docs/analysis/codex_rdc_analyzer/2026-01-31-rdc-analyzer-data-richness-baseline.md`（数据丰富度基线）
+7. `docs/analysis/codex_rdc_analyzer/WORK_SUMMARY_VERIFICATION.md`（验证流程）
+7. `docs/analysis/codex_rdc_analyzer/WORK_SUMMARY_ROADMAP.md`（优先级/计划）
+7. `docs/analysis/codex_rdc_analyzer/WORK_SUMMARY_BUILD.md`（环境/编译）
 
 ---
 
@@ -35,6 +38,12 @@
 - 关键词：schema, bridge, canonical, diff
 - 适用链路：A/B
 - 路径：`docs/analysis/codex_rdc_analyzer/WORK_SUMMARY_SCHEMA.md`
+
+### 2026-01-31-rdc-analyzer-data-richness-baseline（数据丰富度基线）
+- 简介：对标 RenderDoc 源码字段，给出 A+C 覆盖/缺口与是否需 replay 的边界。
+- 关键词：data richness, coverage, RenderDoc baseline, replay
+- 适用路线：A/B/C
+- 路径：`docs/analysis/codex_rdc_analyzer/2026-01-31-rdc-analyzer-data-richness-baseline.md`
 
 ### WORK_SUMMARY_VERIFICATION（验证流程）
 - 简介：CLI 验证命令、通过记录、证据链要求。
