@@ -25,6 +25,7 @@
 | 文档 | 说明 | 关键词 |
 |------|------|--------|
 | [rdc_format_spec.md](rdc_format_spec.md) | RDC 文件格式规范 | RDC, 二进制, Section, Chunk |
+| [GPU_COMPATIBILITY_ANALYSIS.md](GPU_COMPATIBILITY_ANALYSIS.md) | **GPU 兼容性分析**：为什么 RDC 无法跨 GPU 解析（源码证据） | GPU, 兼容性, 跨平台, APIHardwareUnsupported |
 
 ### 🔧 环境与验证
 | 文档 | 说明 | 关键词 |
@@ -49,6 +50,7 @@
 | 如何导出 Unity 资产？ | [UNITY_EXPORT.md](UNITY_EXPORT.md) |
 | Mali 分析如何集成？ | [MALI_INTEGRATION_SUMMARY.md](MALI_INTEGRATION_SUMMARY.md) |
 | 代码架构是什么？ | [ARCHITECTURE_V1.md](ARCHITECTURE_V1.md) |
+| **为什么 RDC 无法跨 GPU 解析？** | [GPU_COMPATIBILITY_ANALYSIS.md](GPU_COMPATIBILITY_ANALYSIS.md) |
 
 ---
 
