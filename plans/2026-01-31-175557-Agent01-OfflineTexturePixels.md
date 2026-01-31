@@ -31,6 +31,7 @@
 - Output dir: `D:\backup\offline_tex\`
 - Manifest: `D:\backup\offline_tex\manifest.json`
 - Payload sample: `D:\backup\offline_tex\textures\tex_00000001.bin`
+- Offline run (2026-01-31): `offline_extract_textures.py` wrote manifest successfully.
 - Vulkan InitialContents serialises `type` then `ResourceId` at chunk start (`vk_initstate.cpp:1110-1111`), so chunk → resource_id mapping is feasible.
 - `VkResourceType` enum values: `eResDeviceMemory=5`, `eResImage=8` (`vk_resources.h:56-64`).
 
