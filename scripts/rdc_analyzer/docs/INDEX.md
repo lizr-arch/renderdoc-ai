@@ -1,6 +1,6 @@
 # RDC Analyzer 文档索引
 
-> **更新日期**: 2026-01-31 | **维护**: Codex Agent
+> **更新日期**: 2025-01-31 | **维护**: Codex Agent
 
 本目录包含 `rdc_analyzer` 工具的技术文档。
 
@@ -18,8 +18,17 @@
 | 文档 | 说明 | 关键词 |
 |------|------|--------|
 | [TEXTURE_EXTRACTION.md](TEXTURE_EXTRACTION.md) | **纹理提取三方案速查** | 纹理, 导出, SaveTexture, renderdoccmd |
+| [NO_GPU_TEXTURE_EXTRACTION.md](NO_GPU_TEXTURE_EXTRACTION.md) | **无 GPU 纹理提取技术分析** | 无GPU, GetStructuredData, SDFile, buffers |
 | [UNITY_EXPORT.md](UNITY_EXPORT.md) | Unity 资产导出指南 | Unity, 导出, mesh, shader |
 | [MALI_INTEGRATION_SUMMARY.md](MALI_INTEGRATION_SUMMARY.md) | Mali GPU 分析集成 | Mali, GPU, 性能分析 |
+
+### 🚀 无 GPU 纹理提取（新）
+| 文档 | 说明 | 关键词 |
+|------|------|--------|
+| [NO_GPU_TEXTURE_EXTRACTION_ARCHITECTURE.md](NO_GPU_TEXTURE_EXTRACTION_ARCHITECTURE.md) | **架构设计**：问题背景、方案对比、三步提取流程 | 无GPU, 架构, ZIP+XML, InitialContents |
+| [RDC_STRUCTURE_DEEP_ANALYSIS.md](RDC_STRUCTURE_DEEP_ANALYSIS.md) | **RDC 结构深度分析**：Chunk/Section 布局、Vulkan 资源映射链路 | RDC, Chunk, SystemChunk, vkCreateImage |
+| [NO_GPU_EXTRACTION_IMPLEMENTATION_GUIDE.md](NO_GPU_EXTRACTION_IMPLEMENTATION_GUIDE.md) | **实现指南**：工具使用、API 示例、格式处理、常见问题 | extract_texture_from_zipxml, BC7, 实现 |
+| [NO_GPU_EXTRACTION_ROADMAP.md](NO_GPU_EXTRACTION_ROADMAP.md) | **功能路线图**：当前状态、短期/中期/长期目标、技术挑战 | 路线图, v1.x, v2.x, D3D11, 软件回放 |
 
 ### 📝 格式与规范
 | 文档 | 说明 | 关键词 |
@@ -51,6 +60,11 @@
 | Mali 分析如何集成？ | [MALI_INTEGRATION_SUMMARY.md](MALI_INTEGRATION_SUMMARY.md) |
 | 代码架构是什么？ | [ARCHITECTURE_V1.md](ARCHITECTURE_V1.md) |
 | **为什么 RDC 无法跨 GPU 解析？** | [GPU_COMPATIBILITY_ANALYSIS.md](GPU_COMPATIBILITY_ANALYSIS.md) |
+| **如何无 GPU 提取纹理？** | [NO_GPU_TEXTURE_EXTRACTION.md](NO_GPU_TEXTURE_EXTRACTION.md) |
+| **无 GPU 提取的详细架构？** | [NO_GPU_TEXTURE_EXTRACTION_ARCHITECTURE.md](NO_GPU_TEXTURE_EXTRACTION_ARCHITECTURE.md) |
+| **RDC 内部结构详解？** | [RDC_STRUCTURE_DEEP_ANALYSIS.md](RDC_STRUCTURE_DEEP_ANALYSIS.md) |
+| **如何使用提取工具？** | [NO_GPU_EXTRACTION_IMPLEMENTATION_GUIDE.md](NO_GPU_EXTRACTION_IMPLEMENTATION_GUIDE.md) |
+| **无 GPU 提取未来规划？** | [NO_GPU_EXTRACTION_ROADMAP.md](NO_GPU_EXTRACTION_ROADMAP.md) |
 
 ---
 
@@ -70,3 +84,25 @@
 1. **新增文档**必须更新本索引
 2. **每条索引**包含：链接、说明、关键词
 3. **关键词**用于搜索（`rg "关键词" docs/`）
+
+
+## 自动同步（未归类）
+
+| 文档 | 说明 | 关键词 |
+|------|------|--------|
+| [ARCHITECTURE_V1.md](ARCHITECTURE_V1.md) | 未标注（原因：源文档无 WHAT 段） | 未标注（原因：源文档无关键词段） |
+| [GPU_COMPATIBILITY_ANALYSIS.md](GPU_COMPATIBILITY_ANALYSIS.md) | 未标注（原因：源文档无 WHAT 段） | 未标注（原因：源文档无关键词段） |
+| [MALI_INTEGRATION_SUMMARY.md](MALI_INTEGRATION_SUMMARY.md) | 未标注（原因：源文档无 WHAT 段） | 未标注（原因：源文档无关键词段） |
+| [MILESTONE_SUMMARY.md](MILESTONE_SUMMARY.md) | 未标注（原因：源文档无 WHAT 段） | 未标注（原因：源文档无关键词段） |
+| [NO_GPU_EXTRACTION_IMPLEMENTATION_GUIDE.md](NO_GPU_EXTRACTION_IMPLEMENTATION_GUIDE.md) | 未标注（原因：源文档无 WHAT 段） | 未标注（原因：源文档无关键词段） |
+| [NO_GPU_EXTRACTION_ROADMAP.md](NO_GPU_EXTRACTION_ROADMAP.md) | 未标注（原因：源文档无 WHAT 段） | 未标注（原因：源文档无关键词段） |
+| [NO_GPU_TEXTURE_EXTRACTION.md](NO_GPU_TEXTURE_EXTRACTION.md) | 未标注（原因：源文档无 WHAT 段） | 未标注（原因：源文档无关键词段） |
+| [NO_GPU_TEXTURE_EXTRACTION_ARCHITECTURE.md](NO_GPU_TEXTURE_EXTRACTION_ARCHITECTURE.md) | 未标注（原因：源文档无 WHAT 段） | 未标注（原因：源文档无关键词段） |
+| [P4_ENVIRONMENT_VERIFICATION.md](P4_ENVIRONMENT_VERIFICATION.md) | 未标注（原因：源文档无 WHAT 段） | 未标注（原因：源文档无关键词段） |
+| [PROGRESS_REPORT.md](PROGRESS_REPORT.md) | 未标注（原因：源文档无 WHAT 段） | 未标注（原因：源文档无关键词段） |
+| [rdc_format_spec.md](rdc_format_spec.md) | 未标注（原因：源文档无 WHAT 段） | 未标注（原因：源文档无关键词段） |
+| [RDC_STRUCTURE_DEEP_ANALYSIS.md](RDC_STRUCTURE_DEEP_ANALYSIS.md) | 未标注（原因：源文档无 WHAT 段） | 未标注（原因：源文档无关键词段） |
+| [REFACTOR_ANALYSIS.md](REFACTOR_ANALYSIS.md) | 未标注（原因：源文档无 WHAT 段） | 未标注（原因：源文档无关键词段） |
+| [TEXTURE_EXTRACTION.md](TEXTURE_EXTRACTION.md) | 未标注（原因：源文档无 WHAT 段） | 未标注（原因：源文档无关键词段） |
+| [TODO.md](TODO.md) | 未标注（原因：源文档无 WHAT 段） | 未标注（原因：源文档无关键词段） |
+| [UNITY_EXPORT.md](UNITY_EXPORT.md) | 未标注（原因：源文档无 WHAT 段） | 未标注（原因：源文档无关键词段） |

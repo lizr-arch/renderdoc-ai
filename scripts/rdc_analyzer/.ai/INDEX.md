@@ -217,3 +217,9 @@ py -3 generate_real_report.py capture_data.json textures/ report.html
 
 ### Q: 如何添加新的图形 API 支持？
 **A**: 修改 `parse_rdc_xml.py` 中的 `draw_call_names` 和 `binding_calls` 列表。
+
+
+## 外部文档索引（自动同步）
+
+- [DOC_INDEX.md](../../docs/analysis/codex_rdc_analyzer/DOC_INDEX.md)（总索引入口）
+- [数据丰富度基线](../../docs/analysis/codex_rdc_analyzer/2026-01-31-rdc-analyzer-data-richness-baseline.md)
