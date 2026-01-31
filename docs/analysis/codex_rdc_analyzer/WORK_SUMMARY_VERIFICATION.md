@@ -147,6 +147,13 @@ def local_mali_rdc():
 - HTML 内嵌 `eventPassData.events` 的长度为 136（与 draw calls 对齐），
   但日志显示 total events 为 180；说明 HTML 的“事件列表”当前以 draw call 事件为主。
 
+**事件字段完整性（新增）**
+- 抽样校验 `eventPassData.events` 至少包含 1 条事件满足：
+  - `pipelineState.bindings` 非空（资源绑定可展示）
+  - `meshInfo` 存在（Mesh Info 可展示）
+  - `params` 存在（API Call 参数可展示）
+  - 若任一项缺失：记为 FAIL，并回溯 A 路线 eventPassData 生成逻辑
+
 **发现差异（需追溯口径）**
 - HTML 内嵌 `total_texture_memory_mb = 123.87`
 - 生成日志打印 `Total texture memory = 108.60 MB`

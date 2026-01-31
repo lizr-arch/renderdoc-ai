@@ -258,9 +258,62 @@ def _run_simplified_performance_analysis(context: 'AnalysisContext') -> SimplePe
     return report
 
 
+def _merge_event_bindings(
+    pipeline_state: Optional[Dict[str, Any]],
+    resource_bindings: Optional[Dict[str, Any]]
+) -> Optional[Dict[str, Any]]:
+    """
+    将 XML 中的 resourceBindings / pipelineState 转换为 HTML 模板期望的 bindings 格式。
+    该函数只在 A 路线使用，避免引入新的回放依赖。
+    """
+    if not pipeline_state and not resource_bindings:
+        return pipeline_state
+
+    try:
+        # 复用 full 路线的转换逻辑（避免重复实现）
+        from generate_real_report import (
+            convert_resource_bindings_to_template_format,
+            convert_pipeline_state_to_bindings,
+        )
+    except Exception as e:
+        log(f"[WARN] Binding conversion unavailable: {e}")
+        return pipeline_state
+
+    bindings = {}
+    if resource_bindings:
+        bindings = convert_resource_bindings_to_template_format(resource_bindings)
+
+    if pipeline_state:
+        new_bindings = convert_pipeline_state_to_bindings(pipeline_state)
+        if new_bindings:
+            if bindings:
+                # 轻量合并：列表追加，非列表覆盖
+                for stage, data in new_bindings.items():
+                    if stage not in bindings:
+                        bindings[stage] = data
+                        continue
+                    stage_dict = bindings[stage]
+                    for key, value in data.items():
+                        if isinstance(value, list) and value:
+                            stage_dict.setdefault(key, [])
+                            stage_dict[key].extend(value)
+                        elif value is not None:
+                            stage_dict[key] = value
+            else:
+                bindings = new_bindings
+
+    if bindings:
+        if not pipeline_state:
+            pipeline_state = {}
+        pipeline_state["bindings"] = bindings
+
+    return pipeline_state
+
+
 def convert_perf_report_to_html_data(
     perf_report: 'PerformanceReport',
-    context: 'AnalysisContext'
+    context: 'AnalysisContext',
+    xml_data: Optional[Dict[str, Any]] = None
 ) -> Dict[str, Any]:
     """
     将 PerformanceReport 转换为 HTML 模板可用的 dict 格式
@@ -308,9 +361,18 @@ def convert_perf_report_to_html_data(
         })
     
     # 转换绘制调用为事件列表 (使用 DrawCallInfo 的实际属性)
+    # 构建 XML event 索引（按 eventId）
+    xml_events_by_id = {}
+    if xml_data:
+        for evt in xml_data.get('events', []):
+            eid = evt.get('eventId')
+            if eid is not None:
+                xml_events_by_id[eid] = evt
+
+    # 转换绘制调用为事件列表 (使用 DrawCallInfo 的实际属性)
     events = []
     for dc in context.draw_calls:
-        events.append({
+        event = {
             'eid': dc.event_id,
             'name': dc.type or f'Draw {dc.event_id}',
             'index_count': dc.index_count,
@@ -323,7 +385,31 @@ def convert_perf_report_to_html_data(
             'blend_enabled': dc.blend_enabled,
             'depth_test': dc.depth_test,
             'depth_write': dc.depth_write,
-        })
+        }
+
+        # 补充 XML 中的事件字段（用于 Event Browser）
+        xml_event = xml_events_by_id.get(dc.event_id)
+        if xml_event:
+            event['name'] = xml_event.get('name', event['name'])
+            event['type'] = xml_event.get('type', 'draw')
+            event['flags'] = xml_event.get('flags', [])
+            event['duration'] = xml_event.get('duration', 0)
+            if 'params' in xml_event:
+                event['params'] = xml_event.get('params', [])
+            if 'meshInfo' in xml_event:
+                event['meshInfo'] = xml_event.get('meshInfo')
+            if 'pipelineState' in xml_event:
+                event['pipelineState'] = xml_event.get('pipelineState')
+            if 'resourceBindings' in xml_event:
+                event['resourceBindings'] = xml_event.get('resourceBindings')
+
+            # 确保 pipelineState.bindings 可用于 HTML
+            event['pipelineState'] = _merge_event_bindings(
+                event.get('pipelineState'),
+                event.get('resourceBindings')
+            )
+
+        events.append(event)
     
     # 构建完整的 event_pass_data
     result = {
@@ -482,7 +568,7 @@ def run_analysis(xml_path: str, output_path: str, texture_dir: Optional[str] = N
         from generate_offline_report import generate_offline_html
         
         # 转换性能数据
-        performance_data = convert_perf_report_to_html_data(perf_report, context)
+        performance_data = convert_perf_report_to_html_data(perf_report, context, xml_data)
         
         # 加载纹理
         textures = load_textures_if_available(texture_dir, xml_data)

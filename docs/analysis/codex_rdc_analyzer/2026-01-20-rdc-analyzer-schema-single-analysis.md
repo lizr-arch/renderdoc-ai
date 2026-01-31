@@ -62,6 +62,14 @@
 }
 ```
 
+### 1.1.1 EventPassData（A 路线 HTML Event Browser 契约）
+
+- WHAT：A 路线生成 HTML 时，`eventPassData` 是 Event Browser 的数据契约，最小结构包括：
+  - `events[]`：每个事件至少包含 `eid/name/type/params/meshInfo/pipelineState.bindings`
+- WHY：Event Browser 的“资源绑定 / Mesh Info / API Call”面板直接读取这些字段，缺失会显示为空。
+- HOW：来源于 `parse_rdc_xml` 的事件字段；在 `analyze_xml_report.py` 合并 XML 事件，
+  并将 `resourceBindings/pipelineState` 转换为 `pipelineState.bindings`。
+
 ### 1.2 WHY：它已经能支撑什么？缺什么会卡住目标 1/2？
 
 它已经能支撑：
