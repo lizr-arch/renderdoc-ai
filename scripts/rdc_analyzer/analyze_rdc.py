@@ -2322,8 +2322,35 @@ def generate_html_report(analysis_results: List[Dict], output_path: str):
             }
         }
         
-        // Initialize DataTables
-        $(document).ready(function() {
+        function hasDataTables() {
+            return window.jQuery && window.jQuery.fn && window.jQuery.fn.DataTable;
+        }
+
+        function renderTableFallback(tableId, rows) {
+            const table = document.querySelector(tableId);
+            if (!table) return;
+            let tbody = table.querySelector('tbody');
+            if (!tbody) {
+                tbody = document.createElement('tbody');
+                table.appendChild(tbody);
+            }
+            tbody.innerHTML = '';
+            rows.forEach(row => {
+                const tr = document.createElement('tr');
+                row.forEach(cell => {
+                    const td = document.createElement('td');
+                    td.innerHTML = (cell === null || cell === undefined) ? '-' : cell;
+                    tr.appendChild(td);
+                });
+                tbody.appendChild(tr);
+            });
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const useDataTables = hasDataTables();
+            if (useDataTables) {
+                window.$ = window.jQuery;
+            }
             // Per-file tables with expandable rows
             analysisData.forEach((fileData, fileIdx) => {
                 const tableId = `#shader-table-${fileIdx}`;
@@ -2398,43 +2425,47 @@ def generate_html_report(analysis_results: List[Dict], output_path: str):
                     ];
                 });
                 
-                const table = $(tableId).DataTable({
-                    data: tableData,
-                    pageLength: 25,
-                    order: [[9, 'desc']], // Sort by cycles descending (column index shifted by 2)
-                    dom: 'Bfrtip',
-                    buttons: ['copy', 'csv', 'excel'],
-                    columnDefs: [
-                        {
-                            className: 'details-control',
-                            orderable: false,
-                            data: null,
-                            defaultContent: '',
-                            targets: 0
+                if (useDataTables) {
+                    const table = $(tableId).DataTable({
+                        data: tableData,
+                        pageLength: 25,
+                        order: [[9, 'desc']], // Sort by cycles descending (column index shifted by 2)
+                        dom: 'Bfrtip',
+                        buttons: ['copy', 'csv', 'excel'],
+                        columnDefs: [
+                            {
+                                className: 'details-control',
+                                orderable: false,
+                                data: null,
+                                defaultContent: '',
+                                targets: 0
+                            }
+                        ],
+                        language: {
+                            search: "Search:",
+                            lengthMenu: "Show _MENU_ shaders",
+                            info: "Showing _START_ to _END_ of _TOTAL_ shaders"
                         }
-                    ],
-                    language: {
-                        search: "Search:",
-                        lengthMenu: "Show _MENU_ shaders",
-                        info: "Showing _START_ to _END_ of _TOTAL_ shaders"
-                    }
-                });
-                
-                // Add click handler for expandable rows
-                $(tableId + ' tbody').on('click', 'td.details-control', function() {
-                    const tr = $(this).closest('tr');
-                    const row = table.row(tr);
-                    const rowIndex = row.data()[1]; // Index is in column 1 now
-                    const shader = fileData.shaders[rowIndex];
+                    });
                     
-                    if (row.child.isShown()) {
-                        row.child.hide();
-                        tr.removeClass('shown');
-                    } else {
-                        row.child(formatResourceDetail(shader), 'resource-detail').show();
-                        tr.addClass('shown');
-                    }
-                });
+                    // Add click handler for expandable rows
+                    $(tableId + ' tbody').on('click', 'td.details-control', function() {
+                        const tr = $(this).closest('tr');
+                        const row = table.row(tr);
+                        const rowIndex = row.data()[1]; // Index is in column 1 now
+                        const shader = fileData.shaders[rowIndex];
+                        
+                        if (row.child.isShown()) {
+                            row.child.hide();
+                            tr.removeClass('shown');
+                        } else {
+                            row.child(formatResourceDetail(shader), 'resource-detail').show();
+                            tr.addClass('shown');
+                        }
+                    });
+                } else {
+                    renderTableFallback(tableId, tableData);
+                }
             });
             
             // Comparison table (if multiple files)
@@ -2507,13 +2538,17 @@ def generate_html_report(analysis_results: List[Dict], output_path: str):
                     comparisonData.push(row);
                 });
                 
-                $('#comparison-table').DataTable({
-                    data: comparisonData,
-                    pageLength: 50,
-                    order: [[0, 'asc']], // Sort by index ascending
-                    dom: 'Bfrtip',
-                    buttons: ['copy', 'csv', 'excel']
-                });
+                if (useDataTables) {
+                    $('#comparison-table').DataTable({
+                        data: comparisonData,
+                        pageLength: 50,
+                        order: [[0, 'asc']], // Sort by index ascending
+                        dom: 'Bfrtip',
+                        buttons: ['copy', 'csv', 'excel']
+                    });
+                } else {
+                    renderTableFallback('#comparison-table', comparisonData);
+                }
             }
             
             // Texture table
@@ -2564,17 +2599,24 @@ def generate_html_report(analysis_results: List[Dict], output_path: str):
             });
             
             // Store texture table globally for cross-reference function
-            window.textureTable = $('#texture-table').DataTable({
-                data: textureData,
-                pageLength: 50,
-                order: [[3, 'desc']], // Sort by dimensions descending
-                dom: 'Bfrtip',
-                buttons: ['copy', 'csv', 'excel'],
-                language: {
-                    search: "Search:",
-                    info: "Showing _START_ to _END_ of _TOTAL_ textures"
-                }
-            });
+            if (useDataTables) {
+                window.textureTable = $('#texture-table').DataTable({
+                    data: textureData,
+                    pageLength: 50,
+                    order: [[3, 'desc']], // Sort by dimensions descending
+                    dom: 'Bfrtip',
+                    buttons: ['copy', 'csv', 'excel'],
+                    language: {
+                        search: "Search:",
+                        info: "Showing _START_ to _END_ of _TOTAL_ textures"
+                    }
+                });
+            } else {
+                renderTableFallback('#texture-table', textureData);
+                window.textureTable = {
+                    search: () => ({ draw: () => {} })
+                };
+            }
             
             // ========================================
             // V3 TEXTURE GRID & LIGHTBOX SYSTEM
