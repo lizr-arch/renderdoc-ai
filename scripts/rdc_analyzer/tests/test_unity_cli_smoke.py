@@ -1,10 +1,13 @@
+import os
 import subprocess
 import sys
 
 
 def test_cli_requires_args():
+    test_dir = os.path.dirname(__file__)
+    script_path = os.path.abspath(os.path.join(test_dir, "..", "export_unity_assets.py"))
     result = subprocess.run(
-        [sys.executable, "scripts/rdc_analyzer/export_unity_assets.py"],
+        [sys.executable, script_path],
         capture_output=True,
         text=True,
     )

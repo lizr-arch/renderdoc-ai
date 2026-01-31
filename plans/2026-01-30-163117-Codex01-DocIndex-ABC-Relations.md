@@ -83,7 +83,7 @@
 - [x] TASK-01: 明确 A/B/C 关系与 A+C 主路径（ROUTES 文档）
 - [x] TASK-02: 新建文档阅读入口索引（DOC_INDEX）
 - [x] TASK-03: Agents.md 增加阅读入口（规范必读）
-- [ ] TASK-04: 如有需要，补充 README 入口（可选）
+- [x] TASK-04: 如有需要，补充 README 入口（可选）
 
 ---
 
@@ -215,5 +215,7 @@ git commit -m "docs(readme): add doc index entry"
   - 验证：`rg -n "关键词|Tags|适用链路" docs/analysis/codex_rdc_analyzer/DOC_INDEX.md`
 - TASK-03 完成：`Agents.md` 增加 DOC_INDEX 必读入口。
   - 验证：`rg -n "DOC_INDEX" Agents.md`
+- TASK-04 完成：`README.md` 增加 DOC_INDEX 入口（可选项已执行）。
+  - 验证：`rg -n "DOC_INDEX" docs/analysis/codex_rdc_analyzer/README.md`
 
 **Deviations:** 无。

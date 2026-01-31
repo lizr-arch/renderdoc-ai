@@ -11,6 +11,7 @@
 
 > 说明：`WORK_SUMMARY_2025-01-21.md` 已改为**索引页**，用于汇总 5 份主题文档。
 
+- 文档阅读入口（必读）：`docs/analysis/codex_rdc_analyzer/DOC_INDEX.md`
 - 索引入口：`docs/analysis/codex_rdc_analyzer/WORK_SUMMARY_2025-01-21.md`
 - 主题文档：
   1) `docs/analysis/codex_rdc_analyzer/WORK_SUMMARY_ARCH.md`
