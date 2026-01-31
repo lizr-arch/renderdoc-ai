@@ -124,7 +124,7 @@ texture["coverage"] = {
 - [x] 更新 DOC_INDEX/WORK_SUMMARY/工具索引说明“数据丰富度基线”为标准入口。
 - [x] HTML V3 报告补充 DataTables 缺失时的渲染兜底（避免列表为空）。
 - [x] 添加回归测试：HTML 若使用 DataTable 则必须有兜底渲染函数。
-- [ ] 抽样 HTML 输出验证：确认 coverage/missing 原因正确出现。
+- [x] 抽样 HTML 输出验证：确认 coverage/missing 原因正确出现。
 
 ---
 
@@ -144,6 +144,7 @@ texture["coverage"] = {
 - 2026-01-31：新增 `schema/data_richness_baseline.py`，A 路线事件/纹理输出增加 `coverage`。
 - 2026-01-31：`analyze_rdc.py` 增加 DataTables 缺失兜底渲染，避免 shader/texture 列表为空。
 - 2026-01-31：运行 `py -3 -m pytest scripts/rdc_analyzer/tests/test_datatables_fallback.py` ✅
+- 2026-01-31：抽样验证 `g145_battle2_report_xml.html`（events=625/coverage 缺失原因存在；textures=155/coverage 缺失原因存在）。
 
 ---
 
