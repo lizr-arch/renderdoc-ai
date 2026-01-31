@@ -20,7 +20,9 @@
 - 代码结构说明：`docs/CONTRIBUTING/Code-Explanation.md`
 - **文档阅读入口（必读）**：`docs/analysis/codex_rdc_analyzer/DOC_INDEX.md`
 - **阅读总览（优先阅读/持续更新）**：`docs/analysis/codex_rdc_analyzer/WORK_SUMMARY_2025-01-21.md`
-  - 说明：该文件已改为“索引页”，指向 5 份主题文档（架构/路线/Schema/验证/路线图）。
+  - 说明：该文件已改为"索引页"，指向 5 份主题文档（架构/路线/Schema/验证/路线图）。
+- **工具文档索引**：`scripts/rdc_analyzer/docs/INDEX.md`
+  - 说明：包含纹理提取、Unity 导出、RDC 格式规范等实用指南。
 
 ## 0. COMMANDS (Executable Quick List)
 > 以下命令仅记录，不自动执行；执行前需确认权限与路径。构建类命令需用户授权。更多约束见下方 "Shell Protocol / 命令执行权限"。
