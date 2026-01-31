@@ -6,7 +6,10 @@ import struct
 from pathlib import Path
 from typing import Dict, Iterable, List, Optional, Tuple
 
-from rdc_parser import TextureInfo, extract_textures
+from rdc_parser import ChunkInfo, RDCParser, TextureInfo, extract_textures
+
+
+SYSTEM_CHUNK_INITIAL_CONTENTS = 3
 
 
 def parse_initial_contents_payload(chunk_data: bytes) -> Optional[Tuple[int, bytes]]:
@@ -29,6 +32,33 @@ def parse_initial_contents_payload(chunk_data: bytes) -> Optional[Tuple[int, byt
             return res_id, chunk_data[payload_start:payload_end]
 
     return None
+
+
+def extract_payloads_from_frame_capture_data(
+    frame_data: bytes, chunks: Iterable[ChunkInfo]
+) -> Dict[int, bytes]:
+    payloads: Dict[int, bytes] = {}
+    for chunk in chunks:
+        if chunk.chunk_id != SYSTEM_CHUNK_INITIAL_CONTENTS:
+            continue
+        start = chunk.data_offset
+        end = start + chunk.length
+        if start < 0 or end > len(frame_data):
+            continue
+        blob = frame_data[start:end]
+        parsed = parse_initial_contents_payload(blob)
+        if parsed:
+            res_id, payload = parsed
+            payloads[res_id] = payload
+    return payloads
+
+
+def extract_payloads_from_rdc(rdc_path: Path) -> Dict[int, bytes]:
+    with RDCParser(str(rdc_path)) as parser:
+        parser.parse_header()
+        frame_data = parser.get_frame_capture_data()
+        chunks = parser.parse_chunks(frame_data)
+    return extract_payloads_from_frame_capture_data(frame_data, chunks)
 
 
 def build_manifest_entries(
@@ -56,7 +86,8 @@ def build_manifest_entries(
         if tex.resource_id not in payloads:
             entry["reason"] = "no_initial_contents"
         else:
-            entry["reason"] = "payload_not_processed"
+            entry["status"] = "payload_present"
+            entry["reason"] = None
 
         entries.append(entry)
     return entries
@@ -72,7 +103,7 @@ def write_manifest(entries: List[dict], out_dir: Path) -> Path:
 
 def extract_textures_offline(rdc_path: Path, out_dir: Path) -> Path:
     textures = extract_textures(str(rdc_path))
-    payloads: Dict[int, bytes] = {}
+    payloads = extract_payloads_from_rdc(rdc_path)
     entries = build_manifest_entries(textures, payloads, out_dir)
     return write_manifest(entries, out_dir)
 
