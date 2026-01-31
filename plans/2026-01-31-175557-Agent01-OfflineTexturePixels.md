@@ -123,9 +123,9 @@ def offline_extract_textures(rdc_path, out_dir):
 - [x] Write failing test for “metadata-only when no payload”.
 - [x] Draft `offline_extract_textures.py` CLI skeleton (no new deps).
 - [x] Implement minimal payload parsing for InitialContents chunks (Vulkan only).
-- [ ] Emit raw payload files (no decode) and update manifest status.
+- [x] Emit raw payload files (no decode) and update manifest status.
 - [ ] Run tests; record output path in Evidence.
-- [ ] Update `TEXTURE_EXTRACTION.md` with offline pixel extraction findings.
+- [x] Update `TEXTURE_EXTRACTION.md` with offline pixel extraction findings.
 
 ## Risks & Blockers
 - Payload may be GPU-tiling or proprietary layout; offline decode may be infeasible.

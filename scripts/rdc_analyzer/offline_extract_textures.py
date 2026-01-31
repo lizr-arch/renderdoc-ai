@@ -93,6 +93,17 @@ def build_manifest_entries(
     return entries
 
 
+def write_payload_files(entries: List[dict], payloads: Dict[int, bytes], out_dir: Path) -> None:
+    tex_dir = out_dir / "textures"
+    tex_dir.mkdir(parents=True, exist_ok=True)
+    for entry in entries:
+        res_id = entry["resource_id"]
+        if res_id in payloads:
+            name = f"tex_{res_id:08x}.bin"
+            (tex_dir / name).write_bytes(payloads[res_id])
+            entry["file"] = f"textures/{name}"
+
+
 def write_manifest(entries: List[dict], out_dir: Path) -> Path:
     manifest = {"textures": entries}
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -105,6 +116,7 @@ def extract_textures_offline(rdc_path: Path, out_dir: Path) -> Path:
     textures = extract_textures(str(rdc_path))
     payloads = extract_payloads_from_rdc(rdc_path)
     entries = build_manifest_entries(textures, payloads, out_dir)
+    write_payload_files(entries, payloads, out_dir)
     return write_manifest(entries, out_dir)
 
 

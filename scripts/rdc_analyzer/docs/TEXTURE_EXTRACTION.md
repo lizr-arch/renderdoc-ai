@@ -11,8 +11,15 @@
 | **1. CLI 命令** | `renderdoccmd export` | ✅ 需要 | PNG/JPG/DDS/BMP/TGA | 自动化流水线、批量导出 |
 | **2. Python API** | `export_textures.py` | ✅ 需要 | PNG + manifest.json | RenderDoc GUI 内交互 |
 | **3. 元数据解析** | `rdc_parser.extract_textures()` | ❌ 不需要 | TextureInfo 列表 | 仅需纹理信息（不含像素） |
+| **4. Offline payload** | `offline_extract_textures.py` | No | manifest.json + textures/*.bin | Offline bytes only |
 
 ---
+
+## 方案 4: Offline InitialContents payload（实验）
+
+- Parse `SystemChunk::InitialContents` and emit raw payload bytes (`textures/*.bin`).
+- No layout/tiling fix and no decode; payload may be GPU-native layout.
+- Use for forensic inspection or later conversion (DDS/KTX2, engine-specific).
 
 ## 方案 1：renderdoccmd export（推荐）
 

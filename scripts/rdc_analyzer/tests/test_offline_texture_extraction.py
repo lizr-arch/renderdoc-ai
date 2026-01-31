@@ -82,3 +82,10 @@ def test_extract_textures_offline_uses_payloads(
     data = json.loads(manifest_path.read_text(encoding="utf-8"))
 
     assert data["textures"][0]["status"] == "payload_present"
+
+
+def test_payload_file_written(tmp_path: Path) -> None:
+    tex = _make_texture(resource_id=1)
+    entries = oet.build_manifest_entries([tex], {1: b"DATA"}, tmp_path)
+    oet.write_payload_files(entries, {1: b"DATA"}, tmp_path)
+    assert (tmp_path / "textures" / "tex_00000001.bin").exists()
