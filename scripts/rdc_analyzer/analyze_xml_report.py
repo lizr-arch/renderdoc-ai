@@ -487,12 +487,16 @@ def run_analysis(xml_path: str, output_path: str, texture_dir: Optional[str] = N
         # 加载纹理
         textures = load_textures_if_available(texture_dir, xml_data)
         
+        # 从 XML 数据中提取 Shader 列表（A 路线默认应包含）
+        shader_data = xml_data.get('shaders', [])
+        
         # 生成 HTML
         generate_offline_html(
             textures=textures,
             rdc_name=xml_path.stem,
             output_path=output_path,
-            event_pass_data=performance_data
+            event_pass_data=performance_data,
+            shader_data=shader_data
         )
         log(f"  Report generated: {output_path}")
     except Exception as e:

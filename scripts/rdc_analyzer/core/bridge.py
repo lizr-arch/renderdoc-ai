@@ -476,11 +476,12 @@ class XMLToContextBridge:
     def _extract_shader_id(cls, shaders: Dict, *keys: str) -> str:
         """从 shaders dict 提取指定类型的 Shader ID"""
         for key in keys:
-            if key in shaders:
-                shader = shaders[key]
-                if isinstance(shader, dict):
-                    return str(shader.get('resourceId', ''))
-                return str(shader)
+            for variant in (key, key.lower()):
+                if variant in shaders:
+                    shader = shaders[variant]
+                    if isinstance(shader, dict):
+                        return str(shader.get('resourceId', '') or shader.get('id', ''))
+                    return str(shader)
         return ""
     
     @classmethod

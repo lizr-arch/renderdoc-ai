@@ -9,6 +9,10 @@
 > - 掌握 Replay 机制和各图形 API 驱动的解析入口
 > - 使用 Python API 实现自动化分析脚本
 
+## 项目核心目标（SSOT）
+1. **单帧极致分析**：从 `.rdc/XML` 中提取性能问题并生成可执行建议  
+2. **双帧全方位对比**：baseline vs target 差异分析与结论输出  
+
 ## 索引文档
 - 项目索引与贡献指南：`docs/CONTRIBUTING.md`
 - 编译说明：`docs/CONTRIBUTING/Compiling.md`
