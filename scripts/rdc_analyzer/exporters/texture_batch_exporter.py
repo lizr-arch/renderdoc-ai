@@ -32,6 +32,17 @@ except ImportError:
     except ImportError:
         DECODER_AVAILABLE = False
 
+# 尝试导入 D3D11 解析器
+try:
+    from parsers.d3d11_texture_parser import (
+        parse_d3d11_xml,
+        detect_api_type,
+        D3D11TextureInfo,
+    )
+    D3D11_PARSER_AVAILABLE = True
+except ImportError:
+    D3D11_PARSER_AVAILABLE = False
+
 # 尝试导入 renderdoc
 try:
     import renderdoc as rd
@@ -370,6 +381,123 @@ class XmlZipExportEngine(BaseExportEngine):
             self._zip_file = None
 
 
+class D3D11XmlZipExportEngine(BaseExportEngine):
+    """D3D11 XML+ZIP 离线导出引擎"""
+    
+    def __init__(self, xml_path: Path, zip_path: Optional[Path] = None):
+        super().__init__(xml_path)
+        self.xml_path = xml_path
+        
+        # 推断 ZIP 路径
+        if zip_path is None:
+            # 尝试多种可能的 ZIP 路径
+            candidates = [
+                xml_path.parent / xml_path.name.replace('.xml', ''),
+                xml_path.with_suffix(''),
+                xml_path.parent / (xml_path.stem + '.zip'),
+            ]
+            for candidate in candidates:
+                if candidate.exists():
+                    zip_path = candidate
+                    break
+            else:
+                zip_path = candidates[0]  # 默认第一个
+        
+        self.zip_path = zip_path
+        self._zip_file: Optional[zipfile.ZipFile] = None
+        self._zip_namelist: List[str] = []
+        
+        # D3D11 纹理数据
+        self._d3d11_textures: Dict[int, D3D11TextureInfo] = {}
+        self._parsed = False
+    
+    def _parse_xml(self):
+        """解析 D3D11 XML 文件"""
+        if self._parsed:
+            return
+        
+        print(f"  Parsing D3D11 XML: {self.xml_path.name}...")
+        
+        if not D3D11_PARSER_AVAILABLE:
+            raise RuntimeError("D3D11 parser not available. Check parsers/d3d11_texture_parser.py")
+        
+        self._d3d11_textures, api_type = parse_d3d11_xml(self.xml_path)
+        
+        if api_type != "D3D11":
+            raise ValueError(f"Not a D3D11 capture. Detected: {api_type}")
+        
+        self._parsed = True
+        
+        extractable = sum(1 for t in self._d3d11_textures.values() if t.has_initial_contents)
+        print(f"    Found {len(self._d3d11_textures)} textures, {extractable} extractable")
+    
+    def scan_textures(self) -> List[TextureInfo]:
+        """扫描可导出的纹理"""
+        self._parse_xml()
+        
+        extractable = []
+        for tex in self._d3d11_textures.values():
+            if tex.has_initial_contents and tex.subresources:
+                # 获取 mip 0 的 buffer 索引
+                mip0_subres = next(
+                    (s for s in tex.subresources if s.subresource_index == 0),
+                    tex.subresources[0] if tex.subresources else None
+                )
+                
+                if mip0_subres:
+                    extractable.append(TextureInfo(
+                        resource_id=tex.resource_id,
+                        width=tex.width,
+                        height=tex.height,
+                        depth=tex.depth,
+                        format=tex.format,
+                        mip_levels=tex.mip_levels,
+                        array_layers=tex.array_size,
+                        buffer_index=mip0_subres.buffer_index,
+                        buffer_offset=0,  # D3D11 每个子资源独立存储
+                        data_size=mip0_subres.data_size,
+                    ))
+        
+        # 按尺寸排序（大的在前）
+        extractable.sort(key=lambda t: t.width * t.height, reverse=True)
+        return extractable
+    
+    def extract_texture_data(self, texture: TextureInfo) -> Optional[bytes]:
+        """从 ZIP 提取纹理数据"""
+        if texture.buffer_index is None:
+            return None
+        
+        if self._zip_file is None:
+            if not self.zip_path.exists():
+                raise FileNotFoundError(f"ZIP file not found: {self.zip_path}")
+            self._zip_file = zipfile.ZipFile(self.zip_path, 'r')
+            self._zip_namelist = self._zip_file.namelist()
+        
+        # RenderDoc ZIP 格式可能是:
+        # - "buffers/buffer{index}"
+        # - "{index:06d}"
+        possible_names = [
+            f"buffers/buffer{texture.buffer_index}",
+            f"{texture.buffer_index:06d}",
+            f"buffer{texture.buffer_index}",
+        ]
+        
+        for name in possible_names:
+            if name in self._zip_namelist:
+                try:
+                    return self._zip_file.read(name)
+                except Exception:
+                    continue
+        
+        return None
+    
+    def close(self):
+        """关闭 ZIP 文件"""
+        if self._zip_file:
+            self._zip_file.close()
+            self._zip_file = None
+
+
 class RdcReplayExportEngine(BaseExportEngine):
     """RDC 直接回放导出引擎（需要 GPU）"""
     
@@ -501,15 +629,73 @@ def create_export_engine(path: Path) -> BaseExportEngine:
     
     Returns:
         对应的导出引擎实例
+    
+    自动检测:
+        - XML 文件: 检测 API 类型 (Vulkan/D3D11/D3D12/OpenGL)
+        - RDC 文件: 使用 RenderDoc 回放引擎
     """
     suffix = path.suffix.lower()
     
     if suffix == '.xml':
-        return XmlZipExportEngine(path)
+        # 检测 API 类型
+        api_type = _detect_xml_api_type(path)
+        print(f"  Detected API: {api_type}")
+        
+        if api_type == "D3D11":
+            if not D3D11_PARSER_AVAILABLE:
+                print("  Warning: D3D11 parser not available, falling back to Vulkan parser")
+                return XmlZipExportEngine(path)
+            return D3D11XmlZipExportEngine(path)
+        elif api_type == "D3D12":
+            # TODO: D3D12 支持
+            raise ValueError("D3D12 capture support not yet implemented")
+        elif api_type == "OpenGL":
+            # TODO: OpenGL 支持
+            raise ValueError("OpenGL capture support not yet implemented")
+        else:
+            # Vulkan 或未知 → 使用默认 Vulkan 引擎
+            return XmlZipExportEngine(path)
+    
     elif suffix == '.rdc':
         return RdcReplayExportEngine(path)
+    
     else:
         raise ValueError(f"Unsupported file type: {suffix}. Expected .rdc or .xml")
+
+
+def _detect_xml_api_type(xml_path: Path) -> str:
+    """
+    快速检测 XML 文件的 API 类型
+    
+    Args:
+        xml_path: XML 文件路径
+    
+    Returns:
+        "Vulkan", "D3D11", "D3D12", "OpenGL", 或 "Unknown"
+    """
+    # 只读取文件前 64KB 进行检测
+    with open(xml_path, 'rb') as f:
+        header = f.read(65536)
+    
+    # D3D11 特征
+    if b'ID3D11Device::CreateTexture2D' in header:
+        return "D3D11"
+    if b'ID3D11Device3::CreateTexture2D1' in header:
+        return "D3D11"
+    
+    # D3D12 特征
+    if b'ID3D12Device::CreateCommittedResource' in header:
+        return "D3D12"
+    
+    # Vulkan 特征
+    if b'vkCreateImage' in header:
+        return "Vulkan"
+    
+    # OpenGL 特征
+    if b'glTexImage2D' in header or b'glTextureStorage2D' in header:
+        return "OpenGL"
+    
+    return "Unknown"
 
 
 def generate_html_gallery(summary: BatchExportSummary, output_dir: Path) -> Path:
