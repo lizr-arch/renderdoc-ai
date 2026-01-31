@@ -7,16 +7,13 @@
 ---
 
 ## 阅读顺序（建议）
-1. `docs/analysis/codex_rdc_analyzer/WORK_SUMMARY_2025-01-21.md`（总索引）
+1. `docs/analysis/codex_rdc_analyzer/WORK_SUMMARY_2025-01-21.md`（阅读总览）
 2. `docs/analysis/codex_rdc_analyzer/WORK_SUMMARY_ROUTES.md`（A/B/C 路线）
 3. `docs/analysis/codex_rdc_analyzer/WORK_SUMMARY_SCHEMA.md`（Schema/Bridge）
 4. `docs/analysis/codex_rdc_analyzer/2026-01-31-rdc-analyzer-data-richness-baseline.md`（数据丰富度基线）
-4. `docs/analysis/codex_rdc_analyzer/2026-01-31-rdc-analyzer-data-richness-baseline.md`（数据丰富度基线）
-4. `docs/analysis/codex_rdc_analyzer/2026-01-31-rdc-analyzer-data-richness-baseline.md`（数据丰富度基线）
-7. `docs/analysis/codex_rdc_analyzer/WORK_SUMMARY_VERIFICATION.md`（验证流程）
-7. `docs/analysis/codex_rdc_analyzer/WORK_SUMMARY_ROADMAP.md`（优先级/计划）
+5. `docs/analysis/codex_rdc_analyzer/WORK_SUMMARY_VERIFICATION.md`（验证流程）
+6. `docs/analysis/codex_rdc_analyzer/WORK_SUMMARY_ROADMAP.md`（优先级/计划）
 7. `docs/analysis/codex_rdc_analyzer/WORK_SUMMARY_BUILD.md`（环境/编译）
-
 ---
 
 ## 索引条目（简介 + 关键词 + 适用链路）
