@@ -84,6 +84,24 @@
 - 适用链路：A/B/C
 - 路径：`docs/analysis/codex_rdc_analyzer/WORK_SUMMARY_ARCH.md`
 
+### scripts/rdc_analyzer/docs/INDEX（工具文档索引）
+- 简介：rdc_analyzer 工具的本地文档索引，含纹理提取、Unity 导出、Mali 集成等。
+- 关键词：texture, unity, mali, rdc format
+- 适用链路：A/B/C
+- 路径：`scripts/rdc_analyzer/docs/INDEX.md`
+
+### TEXTURE_EXTRACTION（纹理提取速查）
+- 简介：三种纹理提取方案（CLI/Python/元数据）对比与用法。
+- 关键词：texture, export, SaveTexture, renderdoccmd
+- 适用链路：C
+- 路径：`scripts/rdc_analyzer/docs/TEXTURE_EXTRACTION.md`
+
+### rdc_format_spec（RDC 格式规范）
+- 简介：RDC 文件二进制结构、Section 布局、Chunk 格式。
+- 关键词：rdc, binary, section, chunk
+- 适用链路：A/B/C
+- 路径：`scripts/rdc_analyzer/docs/rdc_format_spec.md`
+
 ---
 
 ## 维护约定
