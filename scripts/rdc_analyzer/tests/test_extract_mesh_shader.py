@@ -54,6 +54,16 @@ class _FakePipeState:
         self._d3d11 = d3d11
         self._vk = vk
 
+    def GetGraphicsPipelineObject(self):
+        return 999
+
+    def GetShader(self, stage):
+        if isinstance(stage, str) and stage.lower().startswith("v"):
+            return 201
+        if isinstance(stage, str) and stage.lower().startswith("f"):
+            return 202
+        return 200
+
     def GetD3D11PipelineState(self):
         return self._d3d11
 
@@ -84,6 +94,12 @@ class _FakeController:
     def GetBufferData(self, _resource_id, _offset, length):
         return bytes([0xAB]) * int(length)
 
+    def GetShader(self, _pipeline, shader_id, _entry):
+        return {"shader_id": shader_id}
+
+    def DisassembleShader(self, _pipeline, _refl, _target):
+        return "disasm text"
+
 
 def _make_fake_d3d11_controller():
     vbs = [_FakeBuffer(10, 0, 16, 8)]
@@ -110,3 +126,12 @@ def test_extract_mesh_shader_writes_vb_ib(tmp_path):
 
     assert (tmp_path / "vertex_buffers").exists()
     assert (tmp_path / "index_buffers").exists()
+
+
+def test_extract_shader_disassembly(tmp_path):
+    from extract_mesh_shader import _extract_shaders
+
+    controller = _make_fake_d3d11_controller()
+    _extract_shaders(controller, out_dir=tmp_path)
+
+    assert (tmp_path / "shaders" / "vertex.asm").exists()
