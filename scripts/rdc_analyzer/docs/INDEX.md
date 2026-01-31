@@ -36,6 +36,8 @@
 
 |------|------|--------|
 
+| [BATCH_EXPORT.md](BATCH_EXPORT.md) | **纹理批量导出 CLI** - 一键导出所有纹理 (v1.4.0) | 批量导出, CLI, gallery, manifest |
+
 | [TEXTURE_EXTRACTION.md](TEXTURE_EXTRACTION.md) | **纹理提取三方案速查** | 纹理, 导出, SaveTexture, renderdoccmd |
 
 | [TEXTURE_DECODERS.md](TEXTURE_DECODERS.md) | **纹理解码器模块** (v1.3.0) - 48种格式支持 | 解码, BCn, ASTC, ETC2, PNG, decode_texture |
