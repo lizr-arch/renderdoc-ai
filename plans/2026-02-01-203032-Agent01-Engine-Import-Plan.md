@@ -275,7 +275,7 @@ git commit -m "docs(rdc-analyzer): add unity/unreal import stubs"
 
 ## Progress
 - [x] Task 1 — Deterministic GUID helper
-- [ ] Task 2 — Repository skeleton writer
+- [x] Task 2 — Repository skeleton writer
 - [ ] Task 3 — Material mapping (shader‑driven, Unlit fallback)
 - [ ] Task 4 — Messiah CLI entry (consume intermediate)
 - [ ] Task 5 — Unity / Unreal import stubs (docs + scaffolding)

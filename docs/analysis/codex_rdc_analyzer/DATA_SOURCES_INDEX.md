@@ -115,3 +115,22 @@
 - **纹理完整元数据**：`byteSize/cubemap/msQual` 等  
 - **PipelineState 全量**：API-specific state + descriptor 访问  
 - **Buffers/Descriptors/DebugMessages/Counters**：需 ReplayController API 接入  
+
+### 5.6 字段级清单（Buffers / Debug / Counters / Descriptors）
+
+**BufferDescription（字段全集）**  
+- 字段：`resourceId, creationFlags, gpuAddress, length`  
+- 覆盖现状：A/C 缺失；B 可通过 Replay 获取  
+
+**DebugMessage（字段全集）**  
+- 字段：`eventId, category, severity, source, messageID, description`  
+- 覆盖现状：A/C 缺失；B 可通过 Replay 获取  
+
+**CounterDescription（字段全集）**  
+- 字段：`counter, name, category, description, resultType, resultByteWidth, unit, uuid`  
+- 覆盖现状：A/C 缺失；B 可通过 Replay 获取  
+
+**DescriptorStoreDescription（字段已知 + 待补充）**  
+- 已知字段：`firstDescriptorOffset, descriptorCount`  
+- 待补充：`Descriptor, SamplerDescriptor, DescriptorLogicalLocation` 等细节字段  
+- 覆盖现状：A/C 缺失；B 可通过 Replay 获取  
