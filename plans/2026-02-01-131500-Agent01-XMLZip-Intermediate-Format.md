@@ -2,7 +2,7 @@
 
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
-**Version:** 1.2.0  
+**Version:** 1.3.0  
 **Owner:** Agent01 (Codex)  
 **Last Updated:** 2026-02-01  
 
@@ -42,7 +42,7 @@
 ---
 
 ## Plan Metadata
-- Version: 1.2.0
+- Version: 1.3.0
 - Owner: Agent01 (Codex)
 - Last Updated: 2026-02-01
 - Plan File: plans/2026-02-01-131500-Agent01-XMLZip-Intermediate-Format.md
@@ -345,9 +345,9 @@ git commit -m "docs(rdc-analyzer): add intermediate format spec"
 ## Open Questions
 - Resolved: Add JSON schema files for validation (starting with mesh/shader manifest).
 ## New Open Questions (ZIP + Full Writer)
-- ZIP 内 `resourceId` → `zip entry` 的命名规则（是否基于十六进制 ID / 统一前缀）？
-- 纹理输出是保留原始压缩块还是统一解码为 RGBA8？
-- Shader 输出是否要求同时保留 bytecode + disassembly？
+- Resolved: ZIP entry 命名使用候选名列表命中（`buffers/buffer{index}` / `{index:06d}` / `buffer{index}`），并记录命中名。
+- Resolved: 纹理输出统一 RGBA8（压缩由引擎处理）。
+- Resolved: Shader 输出保留 bytecode + disassembly。
 
 ## Next Steps
 - After /do, design Unity/UE/Messiah converters on top of intermediate.
@@ -360,6 +360,8 @@ git commit -m "docs(rdc-analyzer): add intermediate format spec"
 - [x] Task 4: Intermediate format doc + index update (Unity/UE/Messiah mapping)
 - [x] Task 5: ZIP entry resolution + binary extraction for buffers/shaders/textures
 - [x] Task 6: Full intermediate writer (mesh/material/shader/texture)
+- [x] Task 7: ZIP entry 候选命名 + 读取策略落地（统一命中与记录）
+- [x] Task 8: RGBA8 纹理解码 + Shader bytecode+disassembly 写出
 
 ## Execution Notes (/do)
 - Task 0 combined test creation + schema implementation before running pytest (no functional change, tests passed).
@@ -369,6 +371,94 @@ git commit -m "docs(rdc-analyzer): add intermediate format spec"
 - Task 4 added INTERMEDIATE_FORMAT.md and indexed it in docs.
 - Task 5 followed TDD (zip reader missing -> test fail -> zip index loader -> pass).
 - Task 6 followed TDD (missing material/shader/texture outputs -> test fail -> writer -> pass).
+- Task 7 followed TDD (candidate resolver missing -> test fail -> resolver -> pass).
+- Task 8 followed TDD (shader disassembly missing -> test fail -> write disassembly -> pass).
+
+---
+
+## Plan Addendum: ZIP 命名规则 + RGBA8 + Shader 输出（Task 7-8）
+
+### Task 7: ZIP entry 候选命名 + 命中记录
+**Files:**
+- Modify: `scripts/rdc_analyzer/xmlzip_event_extractor.py`
+- Create: `scripts/rdc_analyzer/tests/test_xmlzip_zip_candidates.py`
+
+**Step 1: Write failing test**
+```python
+def test_zip_entry_candidate_resolution(tmp_path):
+    from xmlzip_event_extractor import resolve_zip_entry_candidates
+    zip_index = {"buffers/buffer12": b"x"}
+    assert resolve_zip_entry_candidates(12, zip_index) == "buffers/buffer12"
+```
+
+**Step 2: Run test to verify it fails**
+Run: `py -3 -m pytest scripts/rdc_analyzer/tests/test_xmlzip_zip_candidates.py -k candidate_resolution`
+Expected: FAIL
+
+**Step 3: Write minimal implementation**
+```python
+def resolve_zip_entry_candidates(buffer_index, zip_index):
+    candidates = [f"buffers/buffer{buffer_index}", f"{buffer_index:06d}", f"buffer{buffer_index}"]
+    for name in candidates:
+        if name in zip_index:
+            return name
+    return None
+```
+
+**Step 4: Run test to verify it passes**
+Run: `py -3 -m pytest scripts/rdc_analyzer/tests/test_xmlzip_zip_candidates.py -k candidate_resolution`
+Expected: PASS
+
+**Step 5: Commit**
+```bash
+git add scripts/rdc_analyzer/xmlzip_event_extractor.py scripts/rdc_analyzer/tests/test_xmlzip_zip_candidates.py
+git commit -m "feat(rdc-analyzer): add zip entry candidate resolution"
+```
+
+### Task 8: RGBA8 纹理解码 + Shader bytecode+disassembly 写出
+**Files:**
+- Modify: `scripts/rdc_analyzer/xmlzip_event_extractor.py`
+- Modify: `scripts/rdc_analyzer/intermediate_schema.py`
+- Create: `scripts/rdc_analyzer/tests/test_xmlzip_rgba_writer.py`
+
+**Step 1: Write failing test**
+```python
+def test_writer_outputs_rgba_and_shader_artifacts(tmp_path):
+    from xmlzip_event_extractor import EventState, BufferBinding, write_intermediate
+    state = EventState(
+        index_buffer=BufferBinding(resource_id=20, byte_offset=0, byte_size=12),
+        vertex_buffers=[BufferBinding(resource_id=10, byte_offset=0, byte_size=16)],
+        textures=[{"texture_id": 42, "path": "tex_42.bin", "format": "RGBA8"}],
+        shaders=[{"stage": "vs", "path": "vs.bin", "disassembly": "vs.asm"}],
+    )
+    write_intermediate(tmp_path, state, buffers={}, shaders={"vs.bin": b"xx"}, textures={"tex_42.bin": b"yy"})
+    assert (tmp_path / "intermediate" / "textures" / "tex_42.bin").exists()
+    assert (tmp_path / "intermediate" / "shaders" / "vs.bin").exists()
+    assert (tmp_path / "intermediate" / "shaders" / "vs.json").exists()
+```
+
+**Step 2: Run test to verify it fails**
+Run: `py -3 -m pytest scripts/rdc_analyzer/tests/test_xmlzip_rgba_writer.py -k rgba_and_shader`
+Expected: FAIL
+
+**Step 3: Write minimal implementation**
+```python
+# ensure RGBA8 buffer is written and disassembly stored in shader json
+```
+
+**Step 4: Run test to verify it passes**
+Run: `py -3 -m pytest scripts/rdc_analyzer/tests/test_xmlzip_rgba_writer.py -k rgba_and_shader`
+Expected: PASS
+
+**Step 5: Commit**
+```bash
+git add scripts/rdc_analyzer/xmlzip_event_extractor.py scripts/rdc_analyzer/intermediate_schema.py scripts/rdc_analyzer/tests/test_xmlzip_rgba_writer.py
+git commit -m "feat(rdc-analyzer): write rgba8 textures and shader artifacts"
+```
+
+## Verification / DoD (extended)
+- Tests pass for zip candidate resolution + rgba writer.
+- Intermediate output includes RGBA8 textures + shader disassembly records.
 
 ---
 
