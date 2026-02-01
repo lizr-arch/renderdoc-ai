@@ -68,3 +68,50 @@
 - 本表为**长期维护表**，后续补充时**只增不删**，避免丢失历史来源。  
 - 任何链路变更（A/B/C）都必须同步更新本表。  
 - 若来源不可用，必须写明“不可用原因 + 替代路线”。  
+
+---
+
+## 5. 数据丰富度对标（RenderDoc 基线）
+
+> 来源基线：`docs/analysis/codex_rdc_analyzer/2026-01-31-rdc-analyzer-data-richness-baseline.md`  
+> 原则：对标 RenderDoc 官方字段全集，标注 **已有/缺失/可扩充/需新增**。
+
+### 5.1 对标基线（官方字段全集）
+
+**ActionDescription（事件/动作）**  
+- 官方字段：`eventId, actionId, customName, flags, markerColor, numIndices, numInstances, baseVertex, indexOffset, vertexOffset, instanceOffset, dispatchDimension, dispatchThreadsDimension, dispatchBase, copySource, copyDestination, outputs, depthOut, events, children`
+
+**TextureDescription（纹理元数据）**  
+- 官方字段：`format, dimension, type, width, height, depth, resourceId, cubemap, mips, arraysize, creationFlags, msQual, msSamp, byteSize`
+
+**PipeState（通用管线状态）**  
+- 官方入口：`renderdoc/api/replay/pipestate.h`（API-specific state 完整快照）
+
+### 5.2 A/C 已覆盖（已有）
+
+- **事件基础字段（A/XML）**：`eid, name, index_count, vertex_count, instance_count, shader_vs/ps, render_targets, depth_target`  
+- **事件合并字段（A/XML）**：`type, flags, duration, params, meshInfo, pipelineState, resourceBindings`
+- **纹理基础字段（A/XML）**：`id, name, width, height, depth, format, mips, arrayLayers`
+- **统计层（C/Compare）**：`summary, textures, shaders, buffers, draw_calls, events, statistics`
+
+### 5.3 缺失字段（没有）
+
+- **ActionDescription 缺口**：`outputs, depthOut, copySource, copyDestination, children, actionId, markerColor`  
+- **TextureDescription 缺口**：`resourceId, cubemap, creationFlags, msQual, msSamp, byteSize`  
+- **PipeState 缺口**：API-specific state / descriptor 细节 / 完整 bindings 快照  
+- **其他缺口**：`buffers/resource details, descriptors, debug messages, counters`
+
+### 5.4 可扩充入口（已有代码）
+
+- `analyze_xml_report.py`：可扩充 XML 字段映射与 coverage 标注  
+- `rdc_to_html.py`：Replay 路线入口，可拉取官方字段全集  
+- `analyze_rdc.py`：Replay + Mali 分析入口  
+- `export_textures.py` → `generate_offline_report.py`：离线纹理导出链路  
+- `compare_rdc.py`：`load_json_data` / `export_json_diff`（对比链路结构）
+
+### 5.5 需新增点（无代码 / 需补充）
+
+- **事件树/拷贝/输出字段**：需要 replay 才能完整  
+- **纹理完整元数据**：`byteSize/cubemap/msQual` 等  
+- **PipelineState 全量**：API-specific state + descriptor 访问  
+- **Buffers/Descriptors/DebugMessages/Counters**：需 ReplayController API 接入  
