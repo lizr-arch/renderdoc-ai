@@ -1,6 +1,6 @@
 # 纹理解码器模块文档
 
-> **版本**: 1.5.0 | **更新日期**: 2026-02-01 | **维护**: Codex Agent
+> **版本**: 1.6.0 | **更新日期**: 2026-02-01 | **维护**: Codex Agent
 >
 > **关键词**: 纹理, 解码, BCn, ASTC, ETC2, Vulkan, D3D11, PNG, 格式转换
 
@@ -12,7 +12,7 @@
 
 ### 特性
 
-- ✅ **76 种纹理格式支持** (v1.5.0)
+- ✅ **88 种纹理格式支持** (v1.6.0)
 - ✅ **跨平台**：Desktop (BCn) + Mobile (ASTC/ETC2) + **D3D11 (DXGI)** + **Vulkan**
 - ✅ **纯 Python BCn 实现**：无需额外依赖
 - ✅ **可选移动端支持**：通过 `texture2ddecoder` 库扩展
@@ -444,6 +444,58 @@ rgba = decode_texture(data, 512, 512, 'ATC_RGBA')
 | D16_UNORM | VK_FORMAT_D16_UNORM | 2 | 灰度深度 |
 | S8_UINT | VK_FORMAT_S8_UINT | 1 | 灰度模板 |
 
+### Vulkan 第二批格式 - 10 种 (v1.6.0 新增)
+
+> **说明**: 这批格式添加了有符号归一化 (SNORM)、有符号浮点 (SFLOAT) 和 Vulkan 命名的深度模板格式。
+
+#### SNORM 格式 (有符号归一化)
+
+| 内部名 | Vulkan 格式 | 每像素字节 | 说明 |
+|--------|-------------|------------|------|
+| R8_SNORM | VK_FORMAT_R8_SNORM | 1 | 单通道 8-bit 有符号归一化 |
+| R16_SNORM | VK_FORMAT_R16_SNORM | 2 | 单通道 16-bit 有符号归一化 |
+| R8G8_SNORM | VK_FORMAT_R8G8_SNORM | 2 | 双通道 8-bit (法线贴图) |
+| R16G16_SNORM | VK_FORMAT_R16G16_SNORM | 4 | 双通道 16-bit (高精度法线) |
+
+> **用途**: 法线贴图（存储 X/Y 分量，Z 可推导）、位移/偏移数据
+
+#### SFLOAT 格式 (有符号浮点)
+
+| 内部名 | Vulkan 格式 | 每像素字节 | 说明 |
+|--------|-------------|------------|------|
+| R16_SFLOAT | VK_FORMAT_R16_SFLOAT | 2 | Half-float 单通道 |
+| R32_SFLOAT | VK_FORMAT_R32_SFLOAT | 4 | Float 单通道 |
+
+> **用途**: 深度数据、HDR 单通道、科学计算纹理
+
+#### Vulkan 深度+模板组合格式
+
+| 内部名 | Vulkan 格式 | 每像素字节 | 输出 |
+|--------|-------------|------------|------|
+| D24_UNORM_S8_UINT | VK_FORMAT_D24_UNORM_S8_UINT | 4 | R=深度, G=模板 |
+| D32_SFLOAT_S8_UINT | VK_FORMAT_D32_SFLOAT_S8_UINT | 8 | R=深度, G=模板 |
+
+> **注意**: 这两个格式与 D24S8/D32S8 功能相同，提供 Vulkan 完整命名支持。
+
+#### 第二批格式示例
+
+```python
+from scripts.rdc_analyzer.decoders import decode_texture
+
+# SNORM 法线贴图 (双通道)
+rgba = decode_texture(data, 1024, 1024, 'VK_FORMAT_R8G8_SNORM')
+# 输出: R/G 通道映射 [-1,1] → [0,255]，B=128 (中性值)
+
+# 高精度 SNORM
+rgba = decode_texture(data, 2048, 2048, 'VK_FORMAT_R16G16_SNORM')
+
+# 有符号浮点深度
+rgba = decode_texture(data, 1920, 1080, 'VK_FORMAT_R32_SFLOAT')
+
+# Vulkan 深度模板
+rgba = decode_texture(data, 1920, 1080, 'VK_FORMAT_D32_SFLOAT_S8_UINT')
+```
+
 #### Vulkan 格式示例
 
 ```python
@@ -544,6 +596,7 @@ save_as_png(rgba, tex_info['width'], tex_info['height'], 'output.png')
 
 | 版本 | 日期 | 变更 |
 |------|------|------|
+| 1.6.0 | 2026-02-01 | **Vulkan 第二批格式**: 10种 SNORM/SFLOAT/深度模板格式 (R8_SNORM, R16_SNORM, R8G8_SNORM, R16G16_SNORM, R16_SFLOAT, R32_SFLOAT, D24_UNORM_S8_UINT, D32_SFLOAT_S8_UINT)，**总计 88 种格式** |
 | 1.5.0 | 2026-02-01 | **Vulkan 格式支持**: 8种 Vulkan 特有格式 (B10G11R11F, A2R10G10B10, A2B10G10R10, A8B8G8R8, R16_UNORM, R16G16_UNORM, D16_UNORM, S8_UINT)，总计 76 种格式 |
 | 1.4.0 | 2026-02-01 | **D3D11 格式支持**: 15种未压缩/浮点/深度格式 (R8, RG16F, R11G11B10F, D32S8 等) |
 | 1.3.0 | 2025-01-31 | 添加移动端格式 (ASTC/ETC2/PVRTC/ATC) |
