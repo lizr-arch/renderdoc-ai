@@ -1,0 +1,387 @@
+"""
+Report UI Shell - 四视图报告骨架
+
+职责：
+- 生成统一的 HTML 报告壳
+- 提供四个主视图：Issues, Events, Resources, Performance
+- 渲染 Manifest 状态栏
+- 支持深色/浅色主题
+
+设计原则：
+- 渐进增强：骨架先行，内容后填
+- 模块化：每个视图独立渲染函数
+- 主题化：CSS 变量支持切换
+"""
+from dataclasses import dataclass, field
+from typing import List, Dict, Any, Optional
+import html as html_module
+
+from scripts.rdc_analyzer.report_contract import ReportDataContract, build_manifest
+from scripts.rdc_analyzer.core.issue_detector import Issue, detect_all_issues
+
+
+# =============================================================================
+# 配置类
+# =============================================================================
+
+@dataclass
+class ReportUIConfig:
+    """UI 渲染配置"""
+    theme: str = "dark"  # "dark" or "light"
+    show_manifest_bar: bool = True
+    default_view: str = "issues"  # "issues", "events", "resources", "performance"
+    embed_css: bool = True  # 是否内嵌 CSS（否则引用外部文件）
+
+
+# =============================================================================
+# CSS 模板
+# =============================================================================
+
+DARK_THEME_CSS = """
+:root {
+    --bg-primary: #1e1e1e;
+    --bg-secondary: #252526;
+    --bg-tertiary: #2d2d30;
+    --text-primary: #d4d4d4;
+    --text-secondary: #9d9d9d;
+    --accent-color: #569cd6;
+    --success-color: #4ec9b0;
+    --warning-color: #dcdcaa;
+    --error-color: #f14c4c;
+    --border-color: #3c3c3c;
+}
+"""
+
+LIGHT_THEME_CSS = """
+:root {
+    --bg-primary: #ffffff;
+    --bg-secondary: #f3f3f3;
+    --bg-tertiary: #e8e8e8;
+    --text-primary: #1e1e1e;
+    --text-secondary: #6e6e6e;
+    --accent-color: #0066cc;
+    --success-color: #107c10;
+    --warning-color: #ca5010;
+    --error-color: #d13438;
+    --border-color: #d4d4d4;
+}
+"""
+
+BASE_CSS = """
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    line-height: 1.5;
+}
+.container { max-width: 1400px; margin: 0 auto; padding: 16px; }
+
+/* Manifest Bar */
+.manifest-bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 16px;
+    background: var(--bg-secondary);
+    border-bottom: 1px solid var(--border-color);
+    font-size: 13px;
+}
+.manifest-bar .coverage { font-weight: 600; }
+.manifest-bar .coverage.warning { color: var(--warning-color); }
+.manifest-bar .coverage.ok { color: var(--success-color); }
+.manifest-bar .stats { color: var(--text-secondary); }
+
+/* Navigation Tabs */
+.nav-tabs {
+    display: flex;
+    background: var(--bg-secondary);
+    border-bottom: 1px solid var(--border-color);
+}
+.nav-tab {
+    padding: 12px 24px;
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    color: var(--text-secondary);
+    transition: all 0.2s;
+}
+.nav-tab:hover { color: var(--text-primary); background: var(--bg-tertiary); }
+.nav-tab.active { 
+    color: var(--accent-color); 
+    border-bottom-color: var(--accent-color);
+}
+
+/* View Panels */
+.view-panel { display: none; padding: 16px; }
+.view-panel.active { display: block; }
+
+/* Issues View */
+.issue-group { margin-bottom: 24px; }
+.issue-group-title {
+    font-size: 14px;
+    font-weight: 600;
+    text-transform: uppercase;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--border-color);
+    margin-bottom: 12px;
+}
+.issue-group-title.critical { color: var(--error-color); }
+.issue-group-title.warning { color: var(--warning-color); }
+.issue-group-title.info { color: var(--text-secondary); }
+
+.issue-card {
+    padding: 12px;
+    background: var(--bg-secondary);
+    border-radius: 4px;
+    margin-bottom: 8px;
+    border-left: 3px solid var(--border-color);
+}
+.issue-card.critical { border-left-color: var(--error-color); }
+.issue-card.warning { border-left-color: var(--warning-color); }
+.issue-card.info { border-left-color: var(--accent-color); }
+
+.issue-title { font-weight: 600; margin-bottom: 4px; }
+.issue-desc { font-size: 13px; color: var(--text-secondary); }
+.issue-suggestion { font-size: 12px; color: var(--success-color); margin-top: 8px; }
+
+/* Empty State */
+.empty-state {
+    text-align: center;
+    padding: 48px;
+    color: var(--text-secondary);
+}
+.empty-state .icon { font-size: 48px; margin-bottom: 16px; }
+
+/* Placeholder Views */
+.placeholder-view {
+    text-align: center;
+    padding: 64px;
+    color: var(--text-secondary);
+}
+"""
+
+# =============================================================================
+# HTML 模板
+# =============================================================================
+
+HTML_TEMPLATE = """<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{title}</title>
+    <style>
+{theme_css}
+{base_css}
+    </style>
+</head>
+<body>
+{manifest_bar}
+<nav class="nav-tabs">
+    <div class="nav-tab{issues_active}" data-view="issues">🔍 Issues</div>
+    <div class="nav-tab{events_active}" data-view="events">📋 Events</div>
+    <div class="nav-tab{resources_active}" data-view="resources">📦 Resources</div>
+    <div class="nav-tab{performance_active}" data-view="performance">📊 Performance</div>
+</nav>
+<main class="container">
+    <div id="view-issues" class="view-panel{issues_panel_active}">
+{issues_content}
+    </div>
+    <div id="view-events" class="view-panel{events_panel_active}">
+{events_content}
+    </div>
+    <div id="view-resources" class="view-panel{resources_panel_active}">
+{resources_content}
+    </div>
+    <div id="view-performance" class="view-panel{performance_panel_active}">
+{performance_content}
+    </div>
+</main>
+<script>
+document.querySelectorAll('.nav-tab').forEach(tab => {{
+    tab.addEventListener('click', () => {{
+        document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+        document.querySelectorAll('.view-panel').forEach(p => p.classList.remove('active'));
+        tab.classList.add('active');
+        document.getElementById('view-' + tab.dataset.view).classList.add('active');
+    }});
+}});
+</script>
+</body>
+</html>
+"""
+
+
+# =============================================================================
+# 渲染函数
+# =============================================================================
+
+def render_manifest_bar(manifest: Dict[str, Any]) -> str:
+    """
+    渲染 Manifest 状态栏
+    
+    Args:
+        manifest: build_manifest() 返回的字典
+        
+    Returns:
+        HTML 字符串
+    """
+    coverage = manifest.get("coverage_percent", 0)
+    counts = manifest.get("counts", {})
+    
+    # 覆盖率状态
+    coverage_class = "warning" if coverage < 80 else "ok"
+    
+    # 统计信息
+    stats_parts = []
+    if counts.get("textures", 0) > 0:
+        stats_parts.append(f"Textures: {counts['textures']}")
+    if counts.get("events", 0) > 0:
+        stats_parts.append(f"Events: {counts['events']}")
+    if counts.get("shaders", 0) > 0:
+        stats_parts.append(f"Shaders: {counts['shaders']}")
+    
+    stats_html = " | ".join(stats_parts) if stats_parts else "No data loaded"
+    
+    return f'''<div class="manifest-bar">
+    <span class="coverage {coverage_class}">Coverage: {coverage:.1f}%</span>
+    <span class="stats">{stats_html}</span>
+</div>'''
+
+
+def render_issues_view(issues: List[Issue]) -> str:
+    """
+    渲染 Issues 视图
+    
+    Args:
+        issues: Issue 对象列表
+        
+    Returns:
+        HTML 字符串
+    """
+    if not issues:
+        return '''<div class="empty-state">
+    <div class="icon">✅</div>
+    <p>No issues detected. Your frame looks good!</p>
+</div>'''
+    
+    # 按严重性分组
+    grouped = {"critical": [], "warning": [], "info": []}
+    for issue in issues:
+        grouped[issue.severity.value].append(issue)
+    
+    html_parts = []
+    for severity in ["critical", "warning", "info"]:
+        group_issues = grouped[severity]
+        if not group_issues:
+            continue
+        
+        html_parts.append(f'<div class="issue-group">')
+        html_parts.append(f'<div class="issue-group-title {severity}">{severity.upper()} ({len(group_issues)})</div>')
+        
+        for issue in group_issues:
+            title = html_module.escape(issue.title)
+            desc = html_module.escape(issue.description)
+            
+            card = f'''<div class="issue-card {severity}">
+    <div class="issue-title">{title}</div>
+    <div class="issue-desc">{desc}</div>'''
+            
+            if issue.suggestion:
+                suggestion = html_module.escape(issue.suggestion)
+                card += f'\n    <div class="issue-suggestion">💡 {suggestion}</div>'
+            
+            card += '\n</div>'
+            html_parts.append(card)
+        
+        html_parts.append('</div>')
+    
+    return '\n'.join(html_parts)
+
+
+def render_events_view(events: List[Dict[str, Any]]) -> str:
+    """渲染 Events 视图（Phase 1 占位）"""
+    return '''<div class="placeholder-view">
+    <h2>📋 Events Browser</h2>
+    <p>Event hierarchy will be implemented in Phase 2</p>
+</div>'''
+
+
+def render_resources_view(contract: ReportDataContract) -> str:
+    """渲染 Resources 视图（Phase 1 占位）"""
+    return '''<div class="placeholder-view">
+    <h2>📦 Resource Explorer</h2>
+    <p>Texture, buffer, and shader browser will be implemented in Phase 2</p>
+</div>'''
+
+
+def render_performance_view(performance: Dict[str, Any]) -> str:
+    """渲染 Performance 视图（Phase 1 占位）"""
+    return '''<div class="placeholder-view">
+    <h2>📊 Performance Dashboard</h2>
+    <p>Performance graphs and metrics will be implemented in Phase 3</p>
+</div>'''
+
+
+def render_report_shell(
+    contract: ReportDataContract,
+    config: Optional[ReportUIConfig] = None
+) -> str:
+    """
+    渲染完整报告骨架
+    
+    Args:
+        contract: ReportDataContract 实例
+        config: UI 配置（可选）
+        
+    Returns:
+        完整的 HTML 字符串
+    """
+    if config is None:
+        config = ReportUIConfig()
+    
+    # 构建 Manifest
+    manifest = build_manifest(contract)
+    
+    # 检测问题
+    issues = detect_all_issues(contract)
+    
+    # 选择主题 CSS
+    theme_css = DARK_THEME_CSS if config.theme == "dark" else LIGHT_THEME_CSS
+    
+    # 确定激活的视图
+    active_view = config.default_view
+    
+    def active_class(view: str) -> str:
+        return " active" if view == active_view else ""
+    
+    # 渲染各视图内容
+    issues_content = render_issues_view(issues)
+    events_content = render_events_view(contract.events)
+    resources_content = render_resources_view(contract)
+    performance_content = render_performance_view(contract.performance)
+    
+    # Manifest 状态栏
+    manifest_bar = render_manifest_bar(manifest) if config.show_manifest_bar else ""
+    
+    # 标题
+    title = contract.meta.get("title", "RDC Analysis Report")
+    
+    return HTML_TEMPLATE.format(
+        title=html_module.escape(title),
+        theme_css=theme_css,
+        base_css=BASE_CSS,
+        manifest_bar=manifest_bar,
+        issues_active=active_class("issues"),
+        events_active=active_class("events"),
+        resources_active=active_class("resources"),
+        performance_active=active_class("performance"),
+        issues_panel_active=active_class("issues"),
+        events_panel_active=active_class("events"),
+        resources_panel_active=active_class("resources"),
+        performance_panel_active=active_class("performance"),
+        issues_content=issues_content,
+        events_content=events_content,
+        resources_content=resources_content,
+        performance_content=performance_content,
+    )
