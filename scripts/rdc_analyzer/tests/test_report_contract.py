@@ -193,6 +193,11 @@ class TestValidateManifest(unittest.TestCase):
         is_valid, msg = validate_manifest(manifest, min_coverage=0.5)
         self.assertTrue(is_valid)
 
+    def test_validate_manifest_tool_exists(self):
+        """验证 manifest 工具存在"""
+        tool_path = Path(__file__).parent.parent / "tools" / "validate_manifest.py"
+        self.assertTrue(tool_path.exists())
+
 
 if __name__ == "__main__":
     unittest.main()
