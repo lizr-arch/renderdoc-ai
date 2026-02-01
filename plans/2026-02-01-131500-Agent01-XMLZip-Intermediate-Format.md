@@ -2,7 +2,7 @@
 
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
-**Version:** 1.1.0  
+**Version:** 1.2.0  
 **Owner:** Agent01 (Codex)  
 **Last Updated:** 2026-02-01  
 
@@ -42,7 +42,7 @@
 ---
 
 ## Plan Metadata
-- Version: 1.1.0
+- Version: 1.2.0
 - Owner: Agent01 (Codex)
 - Last Updated: 2026-02-01
 - Plan File: plans/2026-02-01-131500-Agent01-XMLZip-Intermediate-Format.md
@@ -344,6 +344,10 @@ git commit -m "docs(rdc-analyzer): add intermediate format spec"
 
 ## Open Questions
 - Resolved: Add JSON schema files for validation (starting with mesh/shader manifest).
+## New Open Questions (ZIP + Full Writer)
+- ZIP 内 `resourceId` → `zip entry` 的命名规则（是否基于十六进制 ID / 统一前缀）？
+- 纹理输出是保留原始压缩块还是统一解码为 RGBA8？
+- Shader 输出是否要求同时保留 bytecode + disassembly？
 
 ## Next Steps
 - After /do, design Unity/UE/Messiah converters on top of intermediate.
@@ -354,6 +358,8 @@ git commit -m "docs(rdc-analyzer): add intermediate format spec"
 - [x] Task 2: XML event-state extractor (Vulkan + D3D11 bindings)
 - [x] Task 3: ZIP reader + intermediate writer
 - [x] Task 4: Intermediate format doc + index update (Unity/UE/Messiah mapping)
+- [x] Task 5: ZIP entry resolution + binary extraction for buffers/shaders/textures
+- [x] Task 6: Full intermediate writer (mesh/material/shader/texture)
 
 ## Execution Notes (/do)
 - Task 0 combined test creation + schema implementation before running pytest (no functional change, tests passed).
@@ -361,3 +367,90 @@ git commit -m "docs(rdc-analyzer): add intermediate format spec"
 - Task 2 files were already present in branch history; verified tests and kept existing structure.
 - Task 3 followed TDD (missing write_intermediate -> test fail -> minimal writer -> pass).
 - Task 4 added INTERMEDIATE_FORMAT.md and indexed it in docs.
+- Task 5 followed TDD (zip reader missing -> test fail -> zip index loader -> pass).
+- Task 6 followed TDD (missing material/shader/texture outputs -> test fail -> writer -> pass).
+
+---
+
+## Plan Addendum: ZIP 读取 + 完整中间态写出（Task 5-6）
+
+### Task 5: ZIP entry resolution + binary extraction
+**Files:**
+- Modify: `scripts/rdc_analyzer/xmlzip_event_extractor.py`
+- Create: `scripts/rdc_analyzer/tests/test_xmlzip_zip_reader.py`
+
+**Step 1: Write failing test**
+```python
+def test_zip_reader_resolves_entries(tmp_path):
+    from xmlzip_event_extractor import resolve_zip_entry
+    assert resolve_zip_entry("buf_10.bin", {"buf_10.bin": b"xx"}) == "buf_10.bin"
+```
+
+**Step 2: Run test to verify it fails**
+Run: `py -3 -m pytest scripts/rdc_analyzer/tests/test_xmlzip_zip_reader.py -k resolves_entries`
+Expected: FAIL
+
+**Step 3: Write minimal implementation**
+```python
+def resolve_zip_entry(expected_name, zip_index):
+    return expected_name if expected_name in zip_index else None
+```
+
+**Step 4: Run test to verify it passes**
+Run: `py -3 -m pytest scripts/rdc_analyzer/tests/test_xmlzip_zip_reader.py -k resolves_entries`
+Expected: PASS
+
+**Step 5: Commit**
+```bash
+git add scripts/rdc_analyzer/xmlzip_event_extractor.py scripts/rdc_analyzer/tests/test_xmlzip_zip_reader.py
+git commit -m "feat(rdc-analyzer): add zip entry resolver"
+```
+
+### Task 6: Full intermediate writer (mesh/material/shader/texture)
+**Files:**
+- Modify: `scripts/rdc_analyzer/xmlzip_event_extractor.py`
+- Modify: `scripts/rdc_analyzer/intermediate_schema.py`
+- Create: `scripts/rdc_analyzer/tests/test_xmlzip_intermediate_writer.py`
+
+**Step 1: Write failing test**
+```python
+def test_write_intermediate_full_outputs(tmp_path):
+    from xmlzip_event_extractor import EventState, BufferBinding, write_intermediate
+    state = EventState(
+        index_buffer=BufferBinding(resource_id=20, byte_offset=0, byte_size=12),
+        vertex_buffers=[BufferBinding(resource_id=10, byte_offset=0, byte_size=16)],
+        textures=[{"texture_id": 42, "path": "tex_42.bin"}],
+        shaders=[{"stage": "vs", "path": "vs.bin"}],
+    )
+    write_intermediate(tmp_path, state, buffers={}, shaders={}, textures={})
+    assert (tmp_path / "intermediate" / "materials" / "material.json").exists()
+    assert (tmp_path / "intermediate" / "shaders" / "vs.json").exists()
+    assert (tmp_path / "intermediate" / "textures" / "tex_42.bin").exists()
+```
+
+**Step 2: Run test to verify it fails**
+Run: `py -3 -m pytest scripts/rdc_analyzer/tests/test_xmlzip_intermediate_writer.py -k full_outputs`
+Expected: FAIL
+
+**Step 3: Write minimal implementation**
+```python
+def write_intermediate(out_dir, state, buffers, shaders, textures):
+    out_path = Path(out_dir)
+    (out_path / "intermediate" / "materials").mkdir(parents=True, exist_ok=True)
+    (out_path / "intermediate" / "shaders").mkdir(parents=True, exist_ok=True)
+    (out_path / "intermediate" / "textures").mkdir(parents=True, exist_ok=True)
+```
+
+**Step 4: Run test to verify it passes**
+Run: `py -3 -m pytest scripts/rdc_analyzer/tests/test_xmlzip_intermediate_writer.py -k full_outputs`
+Expected: PASS
+
+**Step 5: Commit**
+```bash
+git add scripts/rdc_analyzer/xmlzip_event_extractor.py scripts/rdc_analyzer/intermediate_schema.py scripts/rdc_analyzer/tests/test_xmlzip_intermediate_writer.py
+git commit -m "feat(rdc-analyzer): add full intermediate writer"
+```
+
+## Verification / DoD (extended)
+- Tests pass for zip reader + full writer.
+- Intermediate output contains mesh/material/shader/texture files for one event.
