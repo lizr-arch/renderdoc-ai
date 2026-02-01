@@ -1,457 +1,1306 @@
-#!/usr/bin/env python3
-"""
-XML 离线分析报告生成器
-
-从 RenderDoc 导出的 XML 文件生成包含性能分析的 HTML 报告。
-整合 parse_rdc_xml -> XMLToContextBridge -> PerformanceAnalyzer -> generate_offline_html 流程。
-
-用法:
-    py -3 analyze_xml_report.py capture.xml -o report.html
-    py -3 analyze_xml_report.py capture.xml --texture-dir textures/
-    
-依赖:
-    - parse_rdc_xml.py (XML 解析器)
-    - core/bridge.py (XMLToContextBridge)
-    - analyzers/performance_analyzer.py (PerformanceAnalyzer)
-    - generate_offline_report.py (HTML 生成器)
-
-Author: RenderDoc Analyzer
-Version: 1.0.0
-"""
-
-import sys
-import json
-import argparse
-from pathlib import Path
-from datetime import datetime
-from typing import Dict, List, Any, Optional
-
-# Data richness baseline (RenderDoc fields)
-from schema.data_richness_baseline import (
-    ACTION_FIELD_MAP,
-    TEXTURE_FIELD_MAP,
-    compute_field_coverage,
-    MISSING_REASON_REPLAY,
-)
-# 确保可以导入本地模块
-SCRIPT_DIR = Path(__file__).parent.resolve()
-if str(SCRIPT_DIR) not in sys.path:
-    sys.path.insert(0, str(SCRIPT_DIR))
-
-
-def log(msg: str):
-    """输出日志"""
-    print(f"[analyze_xml_report] {msg}")
-
-
-# ============================================================================
-# 简化版性能分析数据类型 (避免包导入问题)
-# ============================================================================
-
-from dataclasses import dataclass, field
-
-
-@dataclass
-class SimplePerformanceIssue:
-    """简化版性能问题"""
-    rule_id: str
-    severity: str  # critical | warning | info
-    category: str
-    title: str
-    message: str
-    event_id: Optional[int] = None
-    resource_id: Optional[str] = None
-    impact_score: float = 0.0
-    suggestion: str = ""
-    actual_value: Any = None
-    threshold_value: Any = None
-
-
-@dataclass
-class SimplePerformanceReport:
-    """简化版性能报告"""
-    total_draw_calls: int = 0
-    total_triangles: int = 0
-    total_vertices: int = 0
-    total_instances: int = 0
-    total_shader_changes: int = 0
-    total_rt_changes: int = 0
-    total_blend_changes: int = 0
-    unique_textures: int = 0
-    unique_buffers: int = 0
-    total_texture_memory_mb: float = 0.0
-    issues: List[SimplePerformanceIssue] = field(default_factory=list)
-    critical_count: int = 0
-    warning_count: int = 0
-    info_count: int = 0
-    overall_score: float = 100.0
-    recommendations: List[str] = field(default_factory=list)
-
-
-# 压缩纹理格式列表
-COMPRESSED_FORMATS = {
-    "BC1", "BC2", "BC3", "BC4", "BC5", "BC6H", "BC7",
-    "DXGI_FORMAT_BC1_UNORM", "DXGI_FORMAT_BC1_UNORM_SRGB",
-    "DXGI_FORMAT_BC2_UNORM", "DXGI_FORMAT_BC2_UNORM_SRGB",
-    "DXGI_FORMAT_BC3_UNORM", "DXGI_FORMAT_BC3_UNORM_SRGB",
-    "DXGI_FORMAT_BC4_UNORM", "DXGI_FORMAT_BC4_SNORM",
-    "DXGI_FORMAT_BC5_UNORM", "DXGI_FORMAT_BC5_SNORM",
-    "DXGI_FORMAT_BC6H_UF16", "DXGI_FORMAT_BC6H_SF16",
-    "DXGI_FORMAT_BC7_UNORM", "DXGI_FORMAT_BC7_UNORM_SRGB",
-    "ETC1", "ETC2", "ASTC", "DXT1", "DXT3", "DXT5",
-}
-
-
-def is_compressed_format(format_str: str) -> bool:
-    """检查纹理格式是否为压缩格式"""
-    format_upper = format_str.upper()
-    for cf in COMPRESSED_FORMATS:
-        if cf in format_upper:
-            return True
-    return False
-
-
-def _run_simplified_performance_analysis(context: 'AnalysisContext') -> SimplePerformanceReport:
-    """
-    简化版性能分析
-    
-    实现 PERF001-PERF007 的核心检测逻辑，无需依赖复杂的模块导入。
-    """
-    report = SimplePerformanceReport()
-    
-    # 基础统计
-    total_verts = 0
-    total_tris = 0
-    total_instances = 0
-    small_batch_count = 0
-    small_batch_threshold = 100
-    
-    for dc in context.draw_calls:
-        vc = dc.index_count or dc.vertex_count or 0
-        inst = dc.instance_count or 1
-        
-        total_verts += vc * inst
-        total_tris += (vc // 3) * inst
-        total_instances += inst
-        
-        if vc < small_batch_threshold and vc > 0:
-            small_batch_count += 1
-    
-    report.total_draw_calls = len(context.draw_calls)
-    report.total_vertices = total_verts
-    report.total_triangles = total_tris
-    report.total_instances = total_instances
-    
-    # 状态变更统计 (使用 frame_summary 属性)
-    fs = context.frame_summary if hasattr(context, 'frame_summary') else None
-    report.total_shader_changes = getattr(fs, 'shader_changes', 0) if fs else 0
-    report.total_rt_changes = getattr(fs, 'render_target_changes', 0) if fs else 0
-    report.total_blend_changes = getattr(fs, 'blend_state_changes', 0) if fs else 0
-    
-    # 纹理统计
-    report.unique_textures = len(context.textures)
-    report.unique_buffers = len(context.buffers)
-    
-    total_texture_mem = 0.0
-    uncompressed_count = 0
-    large_texture_count = 0
-    large_threshold = 2048
-    
-    for tex in context.textures:
-        w = tex.width
-        h = tex.height
-        fmt = tex.format
-        
-        # 估算内存
-        bpp = 4.0
-        if is_compressed_format(fmt):
-            bpp = 0.5
-        else:
-            uncompressed_count += 1
-            
-        mem = w * h * bpp
-        total_texture_mem += mem
-        
-        # PERF004: 大纹理检测
-        if w > large_threshold or h > large_threshold:
-            large_texture_count += 1
-            report.issues.append(SimplePerformanceIssue(
-                rule_id='PERF004',
-                severity='warning',
-                category='texture',
-                title='Large Texture',
-                message=f'Texture {tex.name or tex.resource_id} ({w}x{h}) exceeds threshold {large_threshold}',
-                resource_id=str(tex.resource_id),
-                impact_score=5 + min((w * h) // (large_threshold * large_threshold), 10),
-                actual_value=f'{w}x{h}',
-                threshold_value=f'{large_threshold}x{large_threshold}',
-                suggestion='Consider using mipmaps or reducing texture resolution'
-            ))
-        
-        # PERF005: 未压缩纹理检测
-        if not is_compressed_format(fmt) and w >= 256 and h >= 256:
-            report.issues.append(SimplePerformanceIssue(
-                rule_id='PERF005',
-                severity='info',
-                category='texture',
-                title='Uncompressed Texture',
-                message=f'Texture {tex.name or tex.resource_id} ({w}x{h}, {fmt}) is not compressed',
-                resource_id=str(tex.resource_id),
-                impact_score=3,
-                actual_value=fmt,
-                suggestion='Consider using BC/DXT compression for diffuse textures'
-            ))
-    
-    report.total_texture_memory_mb = total_texture_mem / (1024 * 1024)
-    
-    # PERF003: 小批次检测
-    if report.total_draw_calls > 0:
-        small_batch_ratio = small_batch_count / report.total_draw_calls
-        if small_batch_ratio > 0.3:
-            report.issues.append(SimplePerformanceIssue(
-                rule_id='PERF003',
-                severity='warning',
-                category='batch',
-                title='Small Batch Draws',
-                message=f'{small_batch_count}/{report.total_draw_calls} ({small_batch_ratio*100:.0f}%) draw calls have < {small_batch_threshold} vertices',
-                impact_score=small_batch_ratio * 20,
-                actual_value=f'{small_batch_ratio*100:.0f}%',
-                threshold_value='30%',
-                suggestion='Consider batching small draws together or using instancing'
-            ))
-    
-    # PERF006: Alpha 混合过度使用检测
-    blend_count = sum(1 for dc in context.draw_calls if dc.blend_enabled)
-    if report.total_draw_calls > 0:
-        blend_ratio = blend_count / report.total_draw_calls
-        if blend_ratio > 0.5:
-            report.issues.append(SimplePerformanceIssue(
-                rule_id='PERF006',
-                severity='info',
-                category='blend',
-                title='High Alpha Blend Usage',
-                message=f'{blend_count}/{report.total_draw_calls} ({blend_ratio*100:.0f}%) draw calls use alpha blending',
-                impact_score=blend_ratio * 10,
-                actual_value=f'{blend_ratio*100:.0f}%',
-                threshold_value='50%',
-                suggestion='Review if all alpha blending is necessary'
-            ))
-    
-    # 汇总问题统计
-    for issue in report.issues:
-        if issue.severity == 'critical':
-            report.critical_count += 1
-        elif issue.severity == 'warning':
-            report.warning_count += 1
-        else:
-            report.info_count += 1
-    
-    # 计算总体评分
-    deductions = (
-        report.critical_count * 15 +
-        report.warning_count * 5 +
-        report.info_count * 1
-    )
-    report.overall_score = max(0, 100 - deductions)
-    
-    # 生成建议
-    if large_texture_count > 0:
-        report.recommendations.append(f'Consider optimizing {large_texture_count} large textures')
-    if uncompressed_count > 5:
-        report.recommendations.append(f'Consider compressing {uncompressed_count} uncompressed textures')
-    if small_batch_count > 10:
-        report.recommendations.append('Consider batching small draw calls')
-    
-    return report
-
-
-def _merge_event_bindings(
-    pipeline_state: Optional[Dict[str, Any]],
-    resource_bindings: Optional[Dict[str, Any]]
-) -> Optional[Dict[str, Any]]:
-    """
-    将 XML 中的 resourceBindings / pipelineState 转换为 HTML 模板期望的 bindings 格式。
-    该函数只在 A 路线使用，避免引入新的回放依赖。
-    """
-    if not pipeline_state and not resource_bindings:
-        return pipeline_state
-
-    try:
-        # 复用 full 路线的转换逻辑（避免重复实现）
-        from generate_real_report import (
-            convert_resource_bindings_to_template_format,
-            convert_pipeline_state_to_bindings,
-        )
-    except Exception as e:
-        log(f"[WARN] Binding conversion unavailable: {e}")
-        return pipeline_state
-
-    bindings = {}
-    if resource_bindings:
-        bindings = convert_resource_bindings_to_template_format(resource_bindings)
-
-    if pipeline_state:
-        new_bindings = convert_pipeline_state_to_bindings(pipeline_state)
-        if new_bindings:
-            if bindings:
-                # 轻量合并：列表追加，非列表覆盖
-                for stage, data in new_bindings.items():
-                    if stage not in bindings:
-                        bindings[stage] = data
-                        continue
-                    stage_dict = bindings[stage]
-                    for key, value in data.items():
-                        if isinstance(value, list) and value:
-                            stage_dict.setdefault(key, [])
-                            stage_dict[key].extend(value)
-                        elif value is not None:
-                            stage_dict[key] = value
-            else:
-                bindings = new_bindings
-
-    if bindings:
-        if not pipeline_state:
-            pipeline_state = {}
-        pipeline_state["bindings"] = bindings
-
-    return pipeline_state
-
-
-def convert_perf_report_to_html_data(
-    perf_report: 'PerformanceReport',
-    context: 'AnalysisContext',
-    xml_data: Optional[Dict[str, Any]] = None
-) -> Dict[str, Any]:
-    """
-    将 PerformanceReport 转换为 HTML 模板可用的 dict 格式
-    
-    Args:
-        perf_report: PerformanceAnalyzer 生成的报告
-        context: 分析上下文
-        
-    Returns:
-        event_pass_data 字典，可传递给 generate_offline_html()
-    """
-    # 基础统计
-    summary = {
-        'total_draw_calls': perf_report.total_draw_calls,
-        'total_triangles': perf_report.total_triangles,
-        'total_vertices': perf_report.total_vertices,
-        'total_instances': perf_report.total_instances,
-        'total_shader_changes': perf_report.total_shader_changes,
-        'total_rt_changes': perf_report.total_rt_changes,
-        'total_blend_changes': perf_report.total_blend_changes,
-        'unique_textures': perf_report.unique_textures,
-        'unique_buffers': perf_report.unique_buffers,
-        'total_texture_memory_mb': round(perf_report.total_texture_memory_mb, 2),
-        'overall_score': round(perf_report.overall_score, 1),
-        'critical_count': perf_report.critical_count,
-        'warning_count': perf_report.warning_count,
-        'info_count': perf_report.info_count,
-    }
-    
-    # 转换问题列表
-    issues = []
-    for issue in perf_report.issues:
-        issues.append({
-            'rule_id': issue.rule_id,
-            'severity': issue.severity,
-            'category': issue.category,
-            'title': issue.title,
-            'message': issue.message,
-            'event_id': issue.event_id,
-            'resource_id': issue.resource_id,
-            'impact_score': issue.impact_score,
-            'suggestion': issue.suggestion,
-            'actual_value': str(issue.actual_value) if issue.actual_value is not None else None,
-            'threshold_value': str(issue.threshold_value) if issue.threshold_value is not None else None,
-        })
-    
-    # 转换绘制调用为事件列表 (使用 DrawCallInfo 的实际属性)
-    # 构建 XML event 索引（按 eventId）
-    xml_events_by_id = {}
-    if xml_data:
-        for evt in xml_data.get('events', []):
-            eid = evt.get('eventId')
-            if eid is not None:
-                xml_events_by_id[eid] = evt
-
-    # 转换绘制调用为事件列表 (使用 DrawCallInfo 的实际属性)
-    events = []
-    for dc in context.draw_calls:
-        event = {
-            'eid': dc.event_id,
-            'name': dc.type or f'Draw {dc.event_id}',
-            'index_count': dc.index_count,
-            'vertex_count': dc.vertex_count,
-            'instance_count': dc.instance_count,
-            'shader_vs': dc.vs_id,
-            'shader_ps': dc.ps_id,
-            'render_targets': dc.rt_ids,
-            'depth_target': dc.ds_id,
-            'blend_enabled': dc.blend_enabled,
-            'depth_test': dc.depth_test,
-            'depth_write': dc.depth_write,
-        }
-
-        # 补充 XML 中的事件字段（用于 Event Browser）
-        xml_event = xml_events_by_id.get(dc.event_id)
-        if xml_event:
-            event['name'] = xml_event.get('name', event['name'])
-            event['type'] = xml_event.get('type', 'draw')
-            event['flags'] = xml_event.get('flags', [])
-            event['duration'] = xml_event.get('duration', 0)
-            if 'params' in xml_event:
-                event['params'] = xml_event.get('params', [])
-            if 'meshInfo' in xml_event:
-                event['meshInfo'] = xml_event.get('meshInfo')
-            if 'pipelineState' in xml_event:
-                event['pipelineState'] = xml_event.get('pipelineState')
-            if 'resourceBindings' in xml_event:
-                event['resourceBindings'] = xml_event.get('resourceBindings')
-
-            # 确保 pipelineState.bindings 可用于 HTML
-            event['pipelineState'] = _merge_event_bindings(
-                event.get('pipelineState'),
-                event.get('resourceBindings')
-            )
-
-        # 数据丰富度覆盖（不允许近似，缺失需给原因）
-        event['coverage'] = compute_field_coverage(
-            ACTION_FIELD_MAP,
-            event,
-            MISSING_REASON_REPLAY,
-        )
-
-        events.append(event)
-    
-    # 构建完整的 event_pass_data
-    result = {
-        'summary': summary,
-        'issues': issues,
-        'events': events,
-        'recommendations': perf_report.recommendations,
-        'generated_at': datetime.now().isoformat(),
-        'analyzer_version': '1.0.0',
-    }
-    
-    return result
-
-
-def load_textures_if_available(
-    texture_dir: Optional[str],
-    xml_data: Dict[str, Any]
-) -> List[Dict[str, Any]]:
-    """
-    尝试从目录或 XML 数据加载纹理信息
-    
-    Args:
-        texture_dir: 纹理目录路径（可选）
-        xml_data: 解析后的 XML 数据
-        
-    Returns:
-        纹理列表，用于 HTML 报告
-    """
+#!/usr/bin/env python3
+
+
+"""
+
+
+XML 离线分析报告生成器
+
+
+
+
+
+从 RenderDoc 导出的 XML 文件生成包含性能分析的 HTML 报告。
+
+
+整合 parse_rdc_xml -> XMLToContextBridge -> PerformanceAnalyzer -> generate_offline_html 流程。
+
+
+
+
+
+用法:
+
+
+    py -3 analyze_xml_report.py capture.xml -o report.html
+
+
+    py -3 analyze_xml_report.py capture.xml --texture-dir textures/
+
+
+    
+
+
+依赖:
+
+
+    - parse_rdc_xml.py (XML 解析器)
+
+
+    - core/bridge.py (XMLToContextBridge)
+
+
+    - analyzers/performance_analyzer.py (PerformanceAnalyzer)
+
+
+    - generate_offline_report.py (HTML 生成器)
+
+
+
+
+
+Author: RenderDoc Analyzer
+
+
+Version: 1.0.0
+
+
+"""
+
+
+
+
+
+import sys
+
+
+import json
+
+
+import argparse
+
+from pathlib import Path
+
+from datetime import datetime
+
+from typing import Dict, List, Any, Optional
+
+
+
+# Data richness baseline (RenderDoc fields)
+
+from schema.data_richness_baseline import (
+
+    ACTION_FIELD_MAP,
+
+    TEXTURE_FIELD_MAP,
+
+    compute_field_coverage,
+
+    MISSING_REASON_REPLAY,
+
+)
+
+# 确保可以导入本地模块
+
+
+SCRIPT_DIR = Path(__file__).parent.resolve()
+
+
+if str(SCRIPT_DIR) not in sys.path:
+
+
+    sys.path.insert(0, str(SCRIPT_DIR))
+
+from schema import rdc_manifest
+from tools import report_linking
+
+
+
+
+
+
+
+
+
+def log(msg: str):
+
+
+    """输出日志"""
+
+
+    print(f"[analyze_xml_report] {msg}")
+
+
+
+
+
+
+
+
+# ============================================================================
+
+
+# 简化版性能分析数据类型 (避免包导入问题)
+
+
+# ============================================================================
+
+
+
+
+
+from dataclasses import dataclass, field
+
+
+
+
+
+
+
+
+@dataclass
+
+
+class SimplePerformanceIssue:
+
+
+    """简化版性能问题"""
+
+
+    rule_id: str
+
+
+    severity: str  # critical | warning | info
+
+
+    category: str
+
+
+    title: str
+
+
+    message: str
+
+
+    event_id: Optional[int] = None
+
+
+    resource_id: Optional[str] = None
+
+
+    impact_score: float = 0.0
+
+
+    suggestion: str = ""
+
+
+    actual_value: Any = None
+
+
+    threshold_value: Any = None
+
+
+
+
+
+
+
+
+@dataclass
+
+
+class SimplePerformanceReport:
+
+
+    """简化版性能报告"""
+
+
+    total_draw_calls: int = 0
+
+
+    total_triangles: int = 0
+
+
+    total_vertices: int = 0
+
+
+    total_instances: int = 0
+
+
+    total_shader_changes: int = 0
+
+
+    total_rt_changes: int = 0
+
+
+    total_blend_changes: int = 0
+
+
+    unique_textures: int = 0
+
+
+    unique_buffers: int = 0
+
+
+    total_texture_memory_mb: float = 0.0
+
+
+    issues: List[SimplePerformanceIssue] = field(default_factory=list)
+
+
+    critical_count: int = 0
+
+
+    warning_count: int = 0
+
+
+    info_count: int = 0
+
+
+    overall_score: float = 100.0
+
+
+    recommendations: List[str] = field(default_factory=list)
+
+
+
+
+
+
+
+
+# 压缩纹理格式列表
+
+
+COMPRESSED_FORMATS = {
+
+
+    "BC1", "BC2", "BC3", "BC4", "BC5", "BC6H", "BC7",
+
+
+    "DXGI_FORMAT_BC1_UNORM", "DXGI_FORMAT_BC1_UNORM_SRGB",
+
+
+    "DXGI_FORMAT_BC2_UNORM", "DXGI_FORMAT_BC2_UNORM_SRGB",
+
+
+    "DXGI_FORMAT_BC3_UNORM", "DXGI_FORMAT_BC3_UNORM_SRGB",
+
+
+    "DXGI_FORMAT_BC4_UNORM", "DXGI_FORMAT_BC4_SNORM",
+
+
+    "DXGI_FORMAT_BC5_UNORM", "DXGI_FORMAT_BC5_SNORM",
+
+
+    "DXGI_FORMAT_BC6H_UF16", "DXGI_FORMAT_BC6H_SF16",
+
+
+    "DXGI_FORMAT_BC7_UNORM", "DXGI_FORMAT_BC7_UNORM_SRGB",
+
+
+    "ETC1", "ETC2", "ASTC", "DXT1", "DXT3", "DXT5",
+
+
+}
+
+
+
+
+
+
+
+
+def is_compressed_format(format_str: str) -> bool:
+
+
+    """检查纹理格式是否为压缩格式"""
+
+
+    format_upper = format_str.upper()
+
+
+    for cf in COMPRESSED_FORMATS:
+
+
+        if cf in format_upper:
+
+
+            return True
+
+
+    return False
+
+
+
+
+
+
+
+
+def _run_simplified_performance_analysis(context: 'AnalysisContext') -> SimplePerformanceReport:
+
+
+    """
+
+
+    简化版性能分析
+
+
+    
+
+
+    实现 PERF001-PERF007 的核心检测逻辑，无需依赖复杂的模块导入。
+
+
+    """
+
+
+    report = SimplePerformanceReport()
+
+
+    
+
+
+    # 基础统计
+
+
+    total_verts = 0
+
+
+    total_tris = 0
+
+
+    total_instances = 0
+
+
+    small_batch_count = 0
+
+
+    small_batch_threshold = 100
+
+
+    
+
+
+    for dc in context.draw_calls:
+
+
+        vc = dc.index_count or dc.vertex_count or 0
+
+
+        inst = dc.instance_count or 1
+
+
+        
+
+
+        total_verts += vc * inst
+
+
+        total_tris += (vc // 3) * inst
+
+
+        total_instances += inst
+
+
+        
+
+
+        if vc < small_batch_threshold and vc > 0:
+
+
+            small_batch_count += 1
+
+
+    
+
+
+    report.total_draw_calls = len(context.draw_calls)
+
+
+    report.total_vertices = total_verts
+
+
+    report.total_triangles = total_tris
+
+
+    report.total_instances = total_instances
+
+
+    
+
+
+    # 状态变更统计 (使用 frame_summary 属性)
+
+
+    fs = context.frame_summary if hasattr(context, 'frame_summary') else None
+
+
+    report.total_shader_changes = getattr(fs, 'shader_changes', 0) if fs else 0
+
+
+    report.total_rt_changes = getattr(fs, 'render_target_changes', 0) if fs else 0
+
+
+    report.total_blend_changes = getattr(fs, 'blend_state_changes', 0) if fs else 0
+
+
+    
+
+
+    # 纹理统计
+
+
+    report.unique_textures = len(context.textures)
+
+
+    report.unique_buffers = len(context.buffers)
+
+
+    
+
+
+    total_texture_mem = 0.0
+
+
+    uncompressed_count = 0
+
+
+    large_texture_count = 0
+
+
+    large_threshold = 2048
+
+
+    
+
+
+    for tex in context.textures:
+
+
+        w = tex.width
+
+
+        h = tex.height
+
+
+        fmt = tex.format
+
+
+        
+
+
+        # 估算内存
+
+
+        bpp = 4.0
+
+
+        if is_compressed_format(fmt):
+
+
+            bpp = 0.5
+
+
+        else:
+
+
+            uncompressed_count += 1
+
+
+            
+
+
+        mem = w * h * bpp
+
+
+        total_texture_mem += mem
+
+
+        
+
+
+        # PERF004: 大纹理检测
+
+
+        if w > large_threshold or h > large_threshold:
+
+
+            large_texture_count += 1
+
+
+            report.issues.append(SimplePerformanceIssue(
+
+
+                rule_id='PERF004',
+
+
+                severity='warning',
+
+
+                category='texture',
+
+
+                title='Large Texture',
+
+
+                message=f'Texture {tex.name or tex.resource_id} ({w}x{h}) exceeds threshold {large_threshold}',
+
+
+                resource_id=str(tex.resource_id),
+
+
+                impact_score=5 + min((w * h) // (large_threshold * large_threshold), 10),
+
+
+                actual_value=f'{w}x{h}',
+
+
+                threshold_value=f'{large_threshold}x{large_threshold}',
+
+
+                suggestion='Consider using mipmaps or reducing texture resolution'
+
+
+            ))
+
+
+        
+
+
+        # PERF005: 未压缩纹理检测
+
+
+        if not is_compressed_format(fmt) and w >= 256 and h >= 256:
+
+
+            report.issues.append(SimplePerformanceIssue(
+
+
+                rule_id='PERF005',
+
+
+                severity='info',
+
+
+                category='texture',
+
+
+                title='Uncompressed Texture',
+
+
+                message=f'Texture {tex.name or tex.resource_id} ({w}x{h}, {fmt}) is not compressed',
+
+
+                resource_id=str(tex.resource_id),
+
+
+                impact_score=3,
+
+
+                actual_value=fmt,
+
+
+                suggestion='Consider using BC/DXT compression for diffuse textures'
+
+
+            ))
+
+
+    
+
+
+    report.total_texture_memory_mb = total_texture_mem / (1024 * 1024)
+
+
+    
+
+
+    # PERF003: 小批次检测
+
+
+    if report.total_draw_calls > 0:
+
+
+        small_batch_ratio = small_batch_count / report.total_draw_calls
+
+
+        if small_batch_ratio > 0.3:
+
+
+            report.issues.append(SimplePerformanceIssue(
+
+
+                rule_id='PERF003',
+
+
+                severity='warning',
+
+
+                category='batch',
+
+
+                title='Small Batch Draws',
+
+
+                message=f'{small_batch_count}/{report.total_draw_calls} ({small_batch_ratio*100:.0f}%) draw calls have < {small_batch_threshold} vertices',
+
+
+                impact_score=small_batch_ratio * 20,
+
+
+                actual_value=f'{small_batch_ratio*100:.0f}%',
+
+
+                threshold_value='30%',
+
+
+                suggestion='Consider batching small draws together or using instancing'
+
+
+            ))
+
+
+    
+
+
+    # PERF006: Alpha 混合过度使用检测
+
+
+    blend_count = sum(1 for dc in context.draw_calls if dc.blend_enabled)
+
+
+    if report.total_draw_calls > 0:
+
+
+        blend_ratio = blend_count / report.total_draw_calls
+
+
+        if blend_ratio > 0.5:
+
+
+            report.issues.append(SimplePerformanceIssue(
+
+
+                rule_id='PERF006',
+
+
+                severity='info',
+
+
+                category='blend',
+
+
+                title='High Alpha Blend Usage',
+
+
+                message=f'{blend_count}/{report.total_draw_calls} ({blend_ratio*100:.0f}%) draw calls use alpha blending',
+
+
+                impact_score=blend_ratio * 10,
+
+
+                actual_value=f'{blend_ratio*100:.0f}%',
+
+
+                threshold_value='50%',
+
+
+                suggestion='Review if all alpha blending is necessary'
+
+
+            ))
+
+
+    
+
+
+    # 汇总问题统计
+
+
+    for issue in report.issues:
+
+
+        if issue.severity == 'critical':
+
+
+            report.critical_count += 1
+
+
+        elif issue.severity == 'warning':
+
+
+            report.warning_count += 1
+
+
+        else:
+
+
+            report.info_count += 1
+
+
+    
+
+
+    # 计算总体评分
+
+
+    deductions = (
+
+
+        report.critical_count * 15 +
+
+
+        report.warning_count * 5 +
+
+
+        report.info_count * 1
+
+
+    )
+
+
+    report.overall_score = max(0, 100 - deductions)
+
+
+    
+
+
+    # 生成建议
+
+
+    if large_texture_count > 0:
+
+
+        report.recommendations.append(f'Consider optimizing {large_texture_count} large textures')
+
+
+    if uncompressed_count > 5:
+
+
+        report.recommendations.append(f'Consider compressing {uncompressed_count} uncompressed textures')
+
+
+    if small_batch_count > 10:
+
+
+        report.recommendations.append('Consider batching small draw calls')
+
+
+    
+
+
+    return report
+
+
+
+
+
+
+
+
+def _merge_event_bindings(
+
+    pipeline_state: Optional[Dict[str, Any]],
+
+    resource_bindings: Optional[Dict[str, Any]]
+
+) -> Optional[Dict[str, Any]]:
+
+    """
+
+    将 XML 中的 resourceBindings / pipelineState 转换为 HTML 模板期望的 bindings 格式。
+
+    该函数只在 A 路线使用，避免引入新的回放依赖。
+
+    """
+
+    if not pipeline_state and not resource_bindings:
+
+        return pipeline_state
+
+
+
+    try:
+
+        # 复用 full 路线的转换逻辑（避免重复实现）
+
+        from generate_real_report import (
+
+            convert_resource_bindings_to_template_format,
+
+            convert_pipeline_state_to_bindings,
+
+        )
+
+    except Exception as e:
+
+        log(f"[WARN] Binding conversion unavailable: {e}")
+
+        return pipeline_state
+
+
+
+    bindings = {}
+
+    if resource_bindings:
+
+        bindings = convert_resource_bindings_to_template_format(resource_bindings)
+
+
+
+    if pipeline_state:
+
+        new_bindings = convert_pipeline_state_to_bindings(pipeline_state)
+
+        if new_bindings:
+
+            if bindings:
+
+                # 轻量合并：列表追加，非列表覆盖
+
+                for stage, data in new_bindings.items():
+
+                    if stage not in bindings:
+
+                        bindings[stage] = data
+
+                        continue
+
+                    stage_dict = bindings[stage]
+
+                    for key, value in data.items():
+
+                        if isinstance(value, list) and value:
+
+                            stage_dict.setdefault(key, [])
+
+                            stage_dict[key].extend(value)
+
+                        elif value is not None:
+
+                            stage_dict[key] = value
+
+            else:
+
+                bindings = new_bindings
+
+
+
+    if bindings:
+
+        if not pipeline_state:
+
+            pipeline_state = {}
+
+        pipeline_state["bindings"] = bindings
+
+
+
+    return pipeline_state
+
+
+
+
+
+def convert_perf_report_to_html_data(
+
+    perf_report: 'PerformanceReport',
+
+    context: 'AnalysisContext',
+
+    xml_data: Optional[Dict[str, Any]] = None
+
+) -> Dict[str, Any]:
+
+    """
+
+
+    将 PerformanceReport 转换为 HTML 模板可用的 dict 格式
+
+
+    
+
+
+    Args:
+
+
+        perf_report: PerformanceAnalyzer 生成的报告
+
+
+        context: 分析上下文
+
+
+        
+
+
+    Returns:
+
+
+        event_pass_data 字典，可传递给 generate_offline_html()
+
+
+    """
+
+
+    # 基础统计
+
+
+    summary = {
+
+
+        'total_draw_calls': perf_report.total_draw_calls,
+
+
+        'total_triangles': perf_report.total_triangles,
+
+
+        'total_vertices': perf_report.total_vertices,
+
+
+        'total_instances': perf_report.total_instances,
+
+
+        'total_shader_changes': perf_report.total_shader_changes,
+
+
+        'total_rt_changes': perf_report.total_rt_changes,
+
+
+        'total_blend_changes': perf_report.total_blend_changes,
+
+
+        'unique_textures': perf_report.unique_textures,
+
+
+        'unique_buffers': perf_report.unique_buffers,
+
+
+        'total_texture_memory_mb': round(perf_report.total_texture_memory_mb, 2),
+
+
+        'overall_score': round(perf_report.overall_score, 1),
+
+
+        'critical_count': perf_report.critical_count,
+
+
+        'warning_count': perf_report.warning_count,
+
+
+        'info_count': perf_report.info_count,
+
+
+    }
+
+
+    
+
+
+    # 转换问题列表
+
+
+    issues = []
+
+
+    for issue in perf_report.issues:
+
+
+        issues.append({
+
+
+            'rule_id': issue.rule_id,
+
+
+            'severity': issue.severity,
+
+
+            'category': issue.category,
+
+
+            'title': issue.title,
+
+
+            'message': issue.message,
+
+
+            'event_id': issue.event_id,
+
+
+            'resource_id': issue.resource_id,
+
+
+            'impact_score': issue.impact_score,
+
+
+            'suggestion': issue.suggestion,
+
+
+            'actual_value': str(issue.actual_value) if issue.actual_value is not None else None,
+
+
+            'threshold_value': str(issue.threshold_value) if issue.threshold_value is not None else None,
+
+
+        })
+
+
+    
+
+
+    # 转换绘制调用为事件列表 (使用 DrawCallInfo 的实际属性)
+
+
+    # 构建 XML event 索引（按 eventId）
+
+    xml_events_by_id = {}
+
+    if xml_data:
+
+        for evt in xml_data.get('events', []):
+
+            eid = evt.get('eventId')
+
+            if eid is not None:
+
+                xml_events_by_id[eid] = evt
+
+
+
+    # 转换绘制调用为事件列表 (使用 DrawCallInfo 的实际属性)
+
+    events = []
+
+    for dc in context.draw_calls:
+
+        event = {
+
+            'eid': dc.event_id,
+
+            'name': dc.type or f'Draw {dc.event_id}',
+
+            'index_count': dc.index_count,
+
+            'vertex_count': dc.vertex_count,
+
+            'instance_count': dc.instance_count,
+
+            'shader_vs': dc.vs_id,
+
+            'shader_ps': dc.ps_id,
+
+            'render_targets': dc.rt_ids,
+
+            'depth_target': dc.ds_id,
+
+            'blend_enabled': dc.blend_enabled,
+
+            'depth_test': dc.depth_test,
+
+            'depth_write': dc.depth_write,
+
+        }
+
+
+
+        # 补充 XML 中的事件字段（用于 Event Browser）
+
+        xml_event = xml_events_by_id.get(dc.event_id)
+
+        if xml_event:
+
+            event['name'] = xml_event.get('name', event['name'])
+
+            event['type'] = xml_event.get('type', 'draw')
+
+            event['flags'] = xml_event.get('flags', [])
+
+            event['duration'] = xml_event.get('duration', 0)
+
+            if 'params' in xml_event:
+
+                event['params'] = xml_event.get('params', [])
+
+            if 'meshInfo' in xml_event:
+
+                event['meshInfo'] = xml_event.get('meshInfo')
+
+            if 'pipelineState' in xml_event:
+
+                event['pipelineState'] = xml_event.get('pipelineState')
+
+            if 'resourceBindings' in xml_event:
+
+                event['resourceBindings'] = xml_event.get('resourceBindings')
+
+
+
+            # 确保 pipelineState.bindings 可用于 HTML
+
+            event['pipelineState'] = _merge_event_bindings(
+
+                event.get('pipelineState'),
+
+                event.get('resourceBindings')
+
+            )
+
+
+
+
+        # 数据丰富度覆盖（不允许近似，缺失需给原因）
+
+        event['coverage'] = compute_field_coverage(
+
+            ACTION_FIELD_MAP,
+
+            event,
+
+            MISSING_REASON_REPLAY,
+
+        )
+
+
+
+        events.append(event)
+
+    
+
+
+
+
+    result = {
+
+
+        'summary': summary,
+
+
+        'issues': issues,
+
+
+        'events': events,
+
+
+        'recommendations': perf_report.recommendations,
+
+
+        'generated_at': datetime.now().isoformat(),
+
+
+        'analyzer_version': '1.0.0',
+
+
+    }
+
+
+    
+
+
+    return result
+
+
+
+
+
+
+
+
+
+def write_offline_manifest(
+    output_path: Path | str,
+    performance_data: Dict[str, Any],
+    textures: List[Dict[str, Any]],
+    shader_data: List[Dict[str, Any]],
+    capture_id: Optional[str] = None,
+    report_links: Optional[Dict[str, str]] = None,
+) -> Dict[str, Any]:
+    output_path = Path(output_path)
+
+    if not capture_id:
+        capture_id = report_linking.compute_capture_id([str(output_path)])
+
+    summary = performance_data.get("summary", {})
+    events = performance_data.get("events", [])
+    event_count = len(events) if isinstance(events, list) else 0
+    if event_count == 0:
+        event_count = summary.get("total_draw_calls", performance_data.get("total_draw_calls", 0))
+
+    texture_count = len(textures) if isinstance(textures, list) else 0
+    if texture_count == 0:
+        texture_count = summary.get("unique_textures", performance_data.get("unique_textures", 0))
+
+    shader_count = len(shader_data) if isinstance(shader_data, list) else 0
+
+    missing_reason = []
+    if texture_count == 0:
+        missing_reason.append({
+            "field": "textures",
+            "reason": "No textures.json or texture dir provided.",
+        })
+    if shader_count == 0:
+        missing_reason.append({
+            "field": "shaders",
+            "reason": "No shader list found in XML.",
+        })
+
+    counts = {
+        "events": event_count,
+        "textures": texture_count,
+        "shaders": shader_count,
+    }
+    count_reason = {
+        "events": "xml",
+        "textures": "xml",
+        "shaders": "xml",
+    }
+
+    report_links = report_links or report_linking.default_report_links(output_path, "texture")
+    manifest = rdc_manifest.build_manifest(
+        capture_id=capture_id,
+        source="C",
+        counts=counts,
+        count_reason=count_reason,
+        missing=missing_reason,
+        report_links=report_links,
+    )
+    report_linking.write_manifest_bundle(output_path, manifest, report_links)
+    return manifest
+
+
+def load_textures_if_available(
+
+
+    texture_dir: Optional[str],
+
+
+    xml_data: Dict[str, Any]
+
+
+) -> List[Dict[str, Any]]:
+
+
+    """
+
+
+    尝试从目录或 XML 数据加载纹理信息
+
+
+    
+
+
+    Args:
+
+
+        texture_dir: 纹理目录路径（可选）
+
+
+        xml_data: 解析后的 XML 数据
+
+
+        
+
+
+    Returns:
+
+
+        纹理列表，用于 HTML 报告
+
+
+    """
+
+
     textures = []
 
     def _apply_texture_coverage(tex_list: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
@@ -463,223 +1312,652 @@ def load_textures_if_available(
                     MISSING_REASON_REPLAY,
                 )
         return tex_list
-
-    
-    # 方式 1: 从指定目录加载
-    if texture_dir:
-        tex_path = Path(texture_dir)
-        manifest_path = tex_path / "textures.json"
-        if manifest_path.exists():
-            try:
-                with open(manifest_path, 'r', encoding='utf-8') as f:
-                    manifest = json.load(f)
-                tex_list = manifest if isinstance(manifest, list) else manifest.get('textures', [])
-                log(f"Loaded {len(tex_list)} textures from {manifest_path}")
+
+
+
+    
+
+
+    # 方式 1: 从指定目录加载
+
+
+    if texture_dir:
+
+
+        tex_path = Path(texture_dir)
+
+
+        manifest_path = tex_path / "textures.json"
+
+
+        if manifest_path.exists():
+
+
+            try:
+
+
+                with open(manifest_path, 'r', encoding='utf-8') as f:
+
+
+                    manifest = json.load(f)
+
+
+                tex_list = manifest if isinstance(manifest, list) else manifest.get('textures', [])
+
+
+                log(f"Loaded {len(tex_list)} textures from {manifest_path}")
+
+
                 return _apply_texture_coverage(tex_list)
-            except Exception as e:
-                log(f"[WARN] Failed to load texture manifest: {e}")
-    
-    # 方式 2: 从 XML 数据提取纹理元数据（无缩略图）
-    xml_textures = xml_data.get('textures', [])
-    if xml_textures:
-        # 支持列表或字典格式
-        if isinstance(xml_textures, dict):
-            tex_items = list(xml_textures.items())
-        else:
-            # 列表格式，每个元素自带 id
-            tex_items = [(t.get('id', f'tex_{i}'), t) for i, t in enumerate(xml_textures)]
-        
-        for tex_id, tex_info in tex_items:
-            textures.append({
-                'id': tex_id,
-                'name': tex_info.get('name', ''),
-                'width': tex_info.get('width', 0),
-                'height': tex_info.get('height', 0),
-                'depth': tex_info.get('depth', 1),
-                'format': tex_info.get('format', 'Unknown'),
-                'mips': tex_info.get('mipLevels', 1),
-                'arrayLayers': tex_info.get('arrayLayers', 1),
-                'thumbnail': '',  # XML 模式无缩略图
-            })
-        log(f"Extracted {len(textures)} texture metadata from XML")
-    
+            except Exception as e:
+
+
+                log(f"[WARN] Failed to load texture manifest: {e}")
+
+
+    
+
+
+    # 方式 2: 从 XML 数据提取纹理元数据（无缩略图）
+
+
+    xml_textures = xml_data.get('textures', [])
+
+
+    if xml_textures:
+
+
+        # 支持列表或字典格式
+
+
+        if isinstance(xml_textures, dict):
+
+
+            tex_items = list(xml_textures.items())
+
+
+        else:
+
+
+            # 列表格式，每个元素自带 id
+
+
+            tex_items = [(t.get('id', f'tex_{i}'), t) for i, t in enumerate(xml_textures)]
+
+
+        
+
+
+        for tex_id, tex_info in tex_items:
+
+
+            textures.append({
+
+
+                'id': tex_id,
+
+
+                'name': tex_info.get('name', ''),
+
+
+                'width': tex_info.get('width', 0),
+
+
+                'height': tex_info.get('height', 0),
+
+
+                'depth': tex_info.get('depth', 1),
+
+
+                'format': tex_info.get('format', 'Unknown'),
+
+
+                'mips': tex_info.get('mipLevels', 1),
+
+
+                'arrayLayers': tex_info.get('arrayLayers', 1),
+
+
+                'thumbnail': '',  # XML 模式无缩略图
+
+
+            })
+
+
+        log(f"Extracted {len(textures)} texture metadata from XML")
+
+
+    
+
+
     return _apply_texture_coverage(textures)
-
-
-def run_analysis(xml_path: str, output_path: str, texture_dir: Optional[str] = None) -> bool:
-    """
-    执行完整的分析流程
-    
-    Args:
-        xml_path: XML 文件路径
-        output_path: 输出 HTML 路径
-        texture_dir: 纹理目录（可选）
-        
-    Returns:
-        成功返回 True
-    """
-    xml_path = Path(xml_path)
-    
-    if not xml_path.exists():
-        log(f"[ERROR] XML file not found: {xml_path}")
-        return False
-    
-    log(f"Input: {xml_path}")
-    log(f"Output: {output_path}")
-    
-    # Step 1: 解析 XML
-    log("Step 1/4: Parsing XML...")
-    try:
-        from parse_rdc_xml import parse_rdc_xml
-        xml_data = parse_rdc_xml(str(xml_path))
-        event_count = len(xml_data.get('events', []))
-        texture_count = len(xml_data.get('textures', {}))
-        log(f"  Parsed {event_count} events, {texture_count} textures")
-    except Exception as e:
-        log(f"[ERROR] Failed to parse XML: {e}")
-        import traceback
-        traceback.print_exc()
-        return False
-    
-    # Step 2: Bridge 转换
-    log("Step 2/4: Converting to AnalysisContext...")
-    try:
-        from core.bridge import XMLToContextBridge
-        context = XMLToContextBridge.convert(xml_data, str(xml_path))
-        log(f"  Context: {len(context.draw_calls)} draw calls, {len(context.textures)} textures")
-    except Exception as e:
-        log(f"[ERROR] Bridge conversion failed: {e}")
-        import traceback
-        traceback.print_exc()
-        return False
-    
-    # Step 3: 性能分析
-    log("Step 3/4: Running performance analysis...")
-    try:
-        # 使用 importlib 动态导入以避免相对导入问题
-        import importlib.util
-        
-        # 加载 performance_analyzer 模块
-        perf_analyzer_path = SCRIPT_DIR / "analyzers" / "performance_analyzer.py"
-        spec = importlib.util.spec_from_file_location("performance_analyzer", perf_analyzer_path)
-        perf_module = importlib.util.module_from_spec(spec)
-        
-        # 需要先确保依赖模块可用
-        # 手动处理相对导入的依赖
-        sys.modules['analyzers'] = type(sys)('analyzers')
-        sys.modules['analyzers.performance_analyzer'] = perf_module
-        
-        # 加载 base 模块
-        base_path = SCRIPT_DIR / "analyzers" / "base.py"
-        base_spec = importlib.util.spec_from_file_location("base", base_path)
-        base_module = importlib.util.module_from_spec(base_spec)
-        sys.modules['analyzers.base'] = base_module
-        
-        # 执行加载 (可能会有相对导入问题，使用备用方案)
-        # 备用方案：直接使用简化的性能分析
-        perf_report = _run_simplified_performance_analysis(context)
-        
-        log(f"  Issues: {perf_report.critical_count} critical, {perf_report.warning_count} warning, {perf_report.info_count} info")
-        log(f"  Score: {perf_report.overall_score:.1f}/100")
-    except Exception as e:
-        log(f"[ERROR] Performance analysis failed: {e}")
-        import traceback
-        traceback.print_exc()
-        return False
-    
-    # Step 4: 生成 HTML 报告
-    log("Step 4/4: Generating HTML report...")
-    try:
-        from generate_offline_report import generate_offline_html
-        
-        # 转换性能数据
-        performance_data = convert_perf_report_to_html_data(perf_report, context, xml_data)
-        
-        # 加载纹理
-        textures = load_textures_if_available(texture_dir, xml_data)
-        
-        # 从 XML 数据中提取 Shader 列表（A 路线默认应包含）
-        shader_data = xml_data.get('shaders', [])
-        
-        # 生成 HTML
-        generate_offline_html(
-            textures=textures,
-            rdc_name=xml_path.stem,
-            output_path=output_path,
-            event_pass_data=performance_data,
-            shader_data=shader_data
-        )
-        log(f"  Report generated: {output_path}")
-    except Exception as e:
-        log(f"[ERROR] HTML generation failed: {e}")
-        import traceback
-        traceback.print_exc()
-        return False
-    
-    return True
-
-
-def main():
-    parser = argparse.ArgumentParser(
-        description="XML 离线分析报告生成器 - 从 RenderDoc XML 导出生成性能分析 HTML 报告",
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog="""
-示例:
-  # 基本用法
-  py -3 analyze_xml_report.py capture.xml
-  
-  # 指定输出路径
-  py -3 analyze_xml_report.py capture.xml -o my_report.html
-  
-  # 包含纹理缩略图
-  py -3 analyze_xml_report.py capture.xml --texture-dir ./textures/
-
-注意:
-  XML 文件由 RenderDoc 的 renderdoccmd 工具导出:
-  renderdoccmd capture.rdc --export-xml capture.xml
-"""
-    )
-    
-    parser.add_argument(
-        "xml_path",
-        help="RenderDoc 导出的 XML 文件路径"
-    )
-    parser.add_argument(
-        "-o", "--output",
-        help="输出 HTML 文件路径 (默认: <xml_name>_report.html)"
-    )
-    parser.add_argument(
-        "--texture-dir",
-        help="纹理目录路径（包含 textures.json 和 PNG 文件）"
-    )
-    parser.add_argument(
-        "-v", "--verbose",
-        action="store_true",
-        help="详细输出"
-    )
-    
-    args = parser.parse_args()
-    
-    # 确定输出路径
-    xml_path = Path(args.xml_path)
-    if args.output:
-        output_path = args.output
-    else:
-        output_path = str(xml_path.parent / f"{xml_path.stem}_report.html")
-    
-    # 执行分析
-    success = run_analysis(
-        xml_path=str(xml_path),
-        output_path=output_path,
-        texture_dir=args.texture_dir
-    )
-    
-    if success:
-        log("Done!")
-        return 0
-    else:
-        return 1
-
-
-if __name__ == "__main__":
-    sys.exit(main())
+
+
+
+
+
+
+def run_analysis(xml_path: str, output_path: str, texture_dir: Optional[str] = None) -> bool:
+
+
+    """
+
+
+    执行完整的分析流程
+
+
+    
+
+
+    Args:
+
+
+        xml_path: XML 文件路径
+
+
+        output_path: 输出 HTML 路径
+
+
+        texture_dir: 纹理目录（可选）
+
+
+        
+
+
+    Returns:
+
+
+        成功返回 True
+
+
+    """
+
+
+    xml_path = Path(xml_path)
+
+
+    
+
+
+    if not xml_path.exists():
+
+
+        log(f"[ERROR] XML file not found: {xml_path}")
+
+
+        return False
+
+
+    
+
+
+    log(f"Input: {xml_path}")
+
+
+    log(f"Output: {output_path}")
+
+
+    
+
+
+    # Step 1: 解析 XML
+
+
+    log("Step 1/4: Parsing XML...")
+
+
+    try:
+
+
+        from parse_rdc_xml import parse_rdc_xml
+
+
+        xml_data = parse_rdc_xml(str(xml_path))
+
+
+        event_count = len(xml_data.get('events', []))
+
+
+        texture_count = len(xml_data.get('textures', {}))
+
+
+        log(f"  Parsed {event_count} events, {texture_count} textures")
+
+
+    except Exception as e:
+
+
+        log(f"[ERROR] Failed to parse XML: {e}")
+
+
+        import traceback
+
+
+        traceback.print_exc()
+
+
+        return False
+
+
+    
+
+
+    # Step 2: Bridge 转换
+
+
+    log("Step 2/4: Converting to AnalysisContext...")
+
+
+    try:
+
+
+        from core.bridge import XMLToContextBridge
+
+
+        context = XMLToContextBridge.convert(xml_data, str(xml_path))
+
+
+        log(f"  Context: {len(context.draw_calls)} draw calls, {len(context.textures)} textures")
+
+
+    except Exception as e:
+
+
+        log(f"[ERROR] Bridge conversion failed: {e}")
+
+
+        import traceback
+
+
+        traceback.print_exc()
+
+
+        return False
+
+
+    
+
+
+    # Step 3: 性能分析
+
+
+    log("Step 3/4: Running performance analysis...")
+
+
+    try:
+
+
+        # 使用 importlib 动态导入以避免相对导入问题
+
+
+        import importlib.util
+
+
+        
+
+
+        # 加载 performance_analyzer 模块
+
+
+        perf_analyzer_path = SCRIPT_DIR / "analyzers" / "performance_analyzer.py"
+
+
+        spec = importlib.util.spec_from_file_location("performance_analyzer", perf_analyzer_path)
+
+
+        perf_module = importlib.util.module_from_spec(spec)
+
+
+        
+
+
+        # 需要先确保依赖模块可用
+
+
+        # 手动处理相对导入的依赖
+
+
+        sys.modules['analyzers'] = type(sys)('analyzers')
+
+
+        sys.modules['analyzers.performance_analyzer'] = perf_module
+
+
+        
+
+
+        # 加载 base 模块
+
+
+        base_path = SCRIPT_DIR / "analyzers" / "base.py"
+
+
+        base_spec = importlib.util.spec_from_file_location("base", base_path)
+
+
+        base_module = importlib.util.module_from_spec(base_spec)
+
+
+        sys.modules['analyzers.base'] = base_module
+
+
+        
+
+
+        # 执行加载 (可能会有相对导入问题，使用备用方案)
+
+
+        # 备用方案：直接使用简化的性能分析
+
+
+        perf_report = _run_simplified_performance_analysis(context)
+
+
+        
+
+
+        log(f"  Issues: {perf_report.critical_count} critical, {perf_report.warning_count} warning, {perf_report.info_count} info")
+
+
+        log(f"  Score: {perf_report.overall_score:.1f}/100")
+
+
+    except Exception as e:
+
+
+        log(f"[ERROR] Performance analysis failed: {e}")
+
+
+        import traceback
+
+
+        traceback.print_exc()
+
+
+        return False
+
+
+    
+
+
+    # Step 4: 生成 HTML 报告
+
+
+    log("Step 4/4: Generating HTML report...")
+
+
+    try:
+
+
+        from generate_offline_report import generate_offline_html
+
+
+        
+
+
+        # 转换性能数据
+
+        performance_data = convert_perf_report_to_html_data(perf_report, context, xml_data)
+
+        
+
+        # 加载纹理
+
+        textures = load_textures_if_available(texture_dir, xml_data)
+
+        
+
+        # 从 XML 数据中提取 Shader 列表（A 路线默认应包含）
+
+        shader_data = xml_data.get('shaders', [])
+
+        
+
+        # 生成 HTML
+
+        report_links = report_linking.default_report_links(Path(output_path), "texture")
+        generate_offline_html(
+
+            textures=textures,
+
+            rdc_name=xml_path.stem,
+
+            output_path=output_path,
+
+
+            shader_data=shader_data,
+
+            report_links=report_links,
+        )
+
+        write_offline_manifest(
+            output_path=output_path,
+            performance_data=performance_data,
+            textures=textures,
+            shader_data=shader_data,
+            capture_id=report_linking.compute_capture_id([str(xml_path)]),
+            report_links=report_links,
+        )
+
+        log(f"  Report generated: {output_path}")
+
+
+    except Exception as e:
+
+
+        log(f"[ERROR] HTML generation failed: {e}")
+
+
+        import traceback
+
+
+        traceback.print_exc()
+
+
+        return False
+
+
+    
+
+
+    return True
+
+
+
+
+
+
+
+
+def main():
+
+
+    parser = argparse.ArgumentParser(
+
+
+        description="XML 离线分析报告生成器 - 从 RenderDoc XML 导出生成性能分析 HTML 报告",
+
+
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+
+
+        epilog="""
+
+
+示例:
+
+
+  # 基本用法
+
+
+  py -3 analyze_xml_report.py capture.xml
+
+
+  
+
+
+  # 指定输出路径
+
+
+  py -3 analyze_xml_report.py capture.xml -o my_report.html
+
+
+  
+
+
+  # 包含纹理缩略图
+
+
+  py -3 analyze_xml_report.py capture.xml --texture-dir ./textures/
+
+
+
+
+
+注意:
+
+
+  XML 文件由 RenderDoc 的 renderdoccmd 工具导出:
+
+
+  renderdoccmd capture.rdc --export-xml capture.xml
+
+
+"""
+
+
+    )
+
+
+    
+
+
+    parser.add_argument(
+
+
+        "xml_path",
+
+
+        help="RenderDoc 导出的 XML 文件路径"
+
+
+    )
+
+
+    parser.add_argument(
+
+
+        "-o", "--output",
+
+
+        help="输出 HTML 文件路径 (默认: <xml_name>_report.html)"
+
+
+    )
+
+
+    parser.add_argument(
+
+
+        "--texture-dir",
+
+
+        help="纹理目录路径（包含 textures.json 和 PNG 文件）"
+
+
+    )
+
+
+    parser.add_argument(
+
+
+        "-v", "--verbose",
+
+
+        action="store_true",
+
+
+        help="详细输出"
+
+
+    )
+
+
+    
+
+
+    args = parser.parse_args()
+
+
+    
+
+
+    # 确定输出路径
+
+
+    xml_path = Path(args.xml_path)
+
+
+    if args.output:
+
+
+        output_path = args.output
+
+
+    else:
+
+
+        output_path = str(xml_path.parent / f"{xml_path.stem}_report.html")
+
+
+    
+
+
+    # 执行分析
+
+
+    success = run_analysis(
+
+
+        xml_path=str(xml_path),
+
+
+        output_path=output_path,
+
+
+        texture_dir=args.texture_dir
+
+
+    )
+
+
+    
+
+
+    if success:
+
+
+        log("Done!")
+
+
+        return 0
+
+
+    else:
+
+
+        return 1
+
+
+
+
+
+
+
+
+if __name__ == "__main__":
+
+
+    sys.exit(main())
+
+

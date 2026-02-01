@@ -157,7 +157,8 @@ def generate_offline_html(textures: list, rdc_name: str, output_path: str,
                           event_pass_data: dict = None, frame_thumbnail: str = None,
                           optimization_data: dict = None, performance_data: dict = None,
                           rt_tracking_data: dict = None, hotspot_data: dict = None,
-                          shader_data: list = None, texture_usage_map: dict = None):
+                          shader_data: list = None, texture_usage_map: dict = None,
+                          report_links: dict = None):
     """生成纯离线 HTML 报告
     
     Args:
@@ -185,6 +186,7 @@ def generate_offline_html(textures: list, rdc_name: str, output_path: str,
     performance_json = json.dumps(performance_data or {}, ensure_ascii=False)
     shader_json = json.dumps(shader_data or [], ensure_ascii=False)
     texture_usage_map_json = json.dumps(texture_usage_map or {}, ensure_ascii=False)
+    report_links_json = json.dumps(report_links or {}, ensure_ascii=False)
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     
     html = f'''<!DOCTYPE html>
@@ -6817,6 +6819,8 @@ def generate_offline_html(textures: list, rdc_name: str, output_path: str,
         const usageAnalysis = {usage_json};
         // Event/Pass 数据
         const eventPassData = {event_pass_json};
+        // 报告互链
+        const reportLinks = {report_links_json};
         // 帧缩略图
         const frameThumbnail = {frame_thumbnail_json};
         // 优化建议数据 (TASK-009)
