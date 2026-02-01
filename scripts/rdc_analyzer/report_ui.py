@@ -693,6 +693,38 @@ def _render_issue_card(issue: Dict[str, Any]) -> str:
     return '\n'.join(html_parts)
 
 
+def _issues_to_dicts(issues: List[Issue]) -> List[Dict[str, Any]]:
+    """
+    将 Issue 对象列表转换为字典列表
+    
+    Args:
+        issues: Issue dataclass 对象列表
+        
+    Returns:
+        字典列表，适用于 render_issues_view
+    """
+    result = []
+    for issue in issues:
+        # 映射 severity: critical/warning/info -> critical/high/medium/low/info
+        severity_map = {
+            'critical': 'critical',
+            'warning': 'medium',
+            'info': 'info'
+        }
+        severity = severity_map.get(issue.severity.value, 'info')
+        
+        result.append({
+            'id': issue.issue_id or '',
+            'title': issue.title,
+            'severity': severity,
+            'category': issue.category.value if hasattr(issue.category, 'value') else 'other',
+            'description': issue.description,
+            'details': issue.suggestion or '',
+            'affected_resources': issue.affected_resources or []
+        })
+    return result
+
+
 def render_report_shell(
     contract: ReportDataContract,
     config: Optional[ReportUIConfig] = None
@@ -713,8 +745,9 @@ def render_report_shell(
     # 构建 Manifest
     manifest = build_manifest(contract)
     
-    # 检测问题
-    issues = detect_all_issues(contract)
+    # 检测问题并转换为 dict 格式
+    issues_raw = detect_all_issues(contract)
+    issues = _issues_to_dicts(issues_raw)
     
     # 选择主题 CSS
     theme_css = DARK_THEME_CSS if config.theme == "dark" else LIGHT_THEME_CSS
