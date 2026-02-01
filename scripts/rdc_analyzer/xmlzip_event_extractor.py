@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 import json
 from pathlib import Path
+import zipfile
 import xml.etree.ElementTree as ET
 
 
@@ -34,6 +35,17 @@ def _parse_buffer(elem):
         byte_offset=_to_int(elem.get("byte_offset")),
         byte_size=_to_int(elem.get("byte_size")),
     )
+
+
+def load_zip_index(zip_path):
+    with zipfile.ZipFile(zip_path, "r") as handle:
+        return {name: handle.read(name) for name in handle.namelist()}
+
+
+def resolve_zip_entry(expected_name, zip_index):
+    if expected_name in zip_index:
+        return expected_name
+    return None
 
 
 def extract_event_state(xml_path, event_id):
