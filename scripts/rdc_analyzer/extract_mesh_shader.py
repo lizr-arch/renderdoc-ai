@@ -130,6 +130,8 @@ def _write_manifest(out_dir, manifest):
 
 def _base_manifest(rdc_path, event_id, out_dir):
     return {
+        "schema_version": "1.0",
+        "schema_path": "schema/mesh_shader_manifest.schema.json",
         "rdc_path": str(rdc_path),
         "event_id": int(event_id),
         "outputs": {
