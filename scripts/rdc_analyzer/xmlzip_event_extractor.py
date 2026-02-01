@@ -60,6 +60,12 @@ def resolve_zip_entry_candidates(buffer_index, zip_index):
     return None
 
 
+def decode_texture_rgba(data, width, height, format_name):
+    from decoders.texture_decoder import decode_texture
+
+    return decode_texture(data, width, height, format_name)
+
+
 def extract_event_state(xml_path, event_id):
     tree = ET.parse(xml_path)
     root = tree.getroot()
