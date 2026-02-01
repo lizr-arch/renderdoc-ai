@@ -33,3 +33,24 @@ def test_extract_event_bindings_from_xml(tmp_path):
     assert state.index_buffer is not None
     assert state.index_buffer.resource_id == 20
     assert len(state.vertex_buffers) == 2
+
+
+def test_write_intermediate_outputs(tmp_path):
+    from xmlzip_event_extractor import EventState, BufferBinding, write_intermediate
+
+    state = EventState(
+        index_buffer=BufferBinding(resource_id=20, byte_offset=0, byte_size=12),
+        vertex_buffers=[BufferBinding(resource_id=10, byte_offset=0, byte_size=16)],
+        textures=[],
+        shaders=[],
+    )
+
+    write_intermediate(
+        out_dir=str(tmp_path),
+        state=state,
+        buffers={},
+        shaders={},
+        textures={},
+    )
+
+    assert (tmp_path / "intermediate" / "mesh" / "mesh.json").exists()

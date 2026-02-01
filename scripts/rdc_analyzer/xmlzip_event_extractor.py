@@ -1,4 +1,6 @@
 from dataclasses import dataclass
+import json
+from pathlib import Path
 import xml.etree.ElementTree as ET
 
 
@@ -60,3 +62,19 @@ def extract_event_state(xml_path, event_id):
         textures=[],
         shaders=[],
     )
+
+
+def write_intermediate(out_dir, state, buffers, shaders, textures):
+    out_path = Path(out_dir)
+    mesh_dir = out_path / "intermediate" / "mesh"
+    mesh_dir.mkdir(parents=True, exist_ok=True)
+
+    try:
+        from intermediate_schema import build_mesh_schema
+    except Exception:
+        build_mesh_schema = None
+
+    mesh = build_mesh_schema() if build_mesh_schema else {}
+    mesh_path = mesh_dir / "mesh.json"
+    mesh_path.write_text(json.dumps({"mesh": mesh}, indent=2), encoding="utf-8")
+    return mesh_path
