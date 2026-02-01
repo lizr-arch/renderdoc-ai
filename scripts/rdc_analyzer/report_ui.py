@@ -249,54 +249,6 @@ def render_manifest_bar(manifest: Dict[str, Any]) -> str:
 </div>'''
 
 
-def render_issues_view(issues: List[Issue]) -> str:
-    """
-    渲染 Issues 视图
-    
-    Args:
-        issues: Issue 对象列表
-        
-    Returns:
-        HTML 字符串
-    """
-    if not issues:
-        return '''<div class="empty-state">
-    <div class="icon">✅</div>
-    <p>No issues detected. Your frame looks good!</p>
-</div>'''
-    
-    # 按严重性分组
-    grouped = {"critical": [], "warning": [], "info": []}
-    for issue in issues:
-        grouped[issue.severity.value].append(issue)
-    
-    html_parts = []
-    for severity in ["critical", "warning", "info"]:
-        group_issues = grouped[severity]
-        if not group_issues:
-            continue
-        
-        html_parts.append(f'<div class="issue-group">')
-        html_parts.append(f'<div class="issue-group-title {severity}">{severity.upper()} ({len(group_issues)})</div>')
-        
-        for issue in group_issues:
-            title = html_module.escape(issue.title)
-            desc = html_module.escape(issue.description)
-            
-            card = f'''<div class="issue-card {severity}">
-    <div class="issue-title">{title}</div>
-    <div class="issue-desc">{desc}</div>'''
-            
-            if issue.suggestion:
-                suggestion = html_module.escape(issue.suggestion)
-                card += f'\n    <div class="issue-suggestion">💡 {suggestion}</div>'
-            
-            card += '\n</div>'
-            html_parts.append(card)
-        
-        html_parts.append('</div>')
-    
-    return '\n'.join(html_parts)
 
 
 def render_events_view(events: List[Dict[str, Any]]) -> str:
@@ -585,6 +537,158 @@ def render_performance_view(performance: Dict[str, Any]) -> str:
     
     html_parts.append('  </div>')
     html_parts.append('</div>')
+    
+    return '\n'.join(html_parts)
+
+
+# ============================================================================
+# Issues 视图渲染器
+# ============================================================================
+
+# 严重程度排序权重（越小越靠前）
+SEVERITY_ORDER = {
+    'critical': 0,
+    'high': 1,
+    'medium': 2,
+    'low': 3,
+    'info': 4
+}
+
+# 严重程度配置
+SEVERITY_CONFIG = {
+    'critical': {'icon': '🔴', 'label': 'Critical', 'class': 'severity-critical'},
+    'high': {'icon': '🟠', 'label': 'High', 'class': 'severity-high'},
+    'medium': {'icon': '🟡', 'label': 'Medium', 'class': 'severity-medium'},
+    'low': {'icon': '🟢', 'label': 'Low', 'class': 'severity-low'},
+    'info': {'icon': 'ℹ️', 'label': 'Info', 'class': 'severity-info'}
+}
+
+# 分类配置
+CATEGORY_CONFIG = {
+    'texture': {'icon': '🖼️', 'label': 'Texture'},
+    'shader': {'icon': '💠', 'label': 'Shader'},
+    'performance': {'icon': '⚡', 'label': 'Performance'},
+    'memory': {'icon': '💾', 'label': 'Memory'},
+    'drawcall': {'icon': '🎨', 'label': 'DrawCall'},
+    'other': {'icon': '📋', 'label': 'Other'}
+}
+
+
+def render_issues_view(issues: List[Dict[str, Any]]) -> str:
+    """
+    渲染 Issues 视图 - 问题卡片列表
+    
+    Args:
+        issues: 问题列表，每个问题包含:
+            - id: 问题ID
+            - title: 标题
+            - severity: 严重程度 (critical/high/medium/low/info)
+            - category: 分类 (texture/shader/performance/memory/drawcall/other)
+            - description: 描述
+            - details: 详细建议 (可选)
+            - affected_resources: 受影响资源列表 (可选)
+    
+    Returns:
+        HTML 字符串
+    """
+    html_parts = ['<div class="issues-view">']
+    
+    if not issues:
+        html_parts.append('  <div class="empty-state">')
+        html_parts.append('    <p class="no-data">✅ No issues detected - Great job!</p>')
+        html_parts.append('  </div>')
+        html_parts.append('</div>')
+        return '\n'.join(html_parts)
+    
+    # 按严重程度排序
+    sorted_issues = sorted(
+        issues,
+        key=lambda x: SEVERITY_ORDER.get(x.get('severity', 'info'), 99)
+    )
+    
+    # 统计摘要
+    severity_counts = {}
+    for issue in sorted_issues:
+        sev = issue.get('severity', 'info')
+        severity_counts[sev] = severity_counts.get(sev, 0) + 1
+    
+    # 摘要栏
+    html_parts.append('  <div class="issues-summary">')
+    html_parts.append(f'    <span class="issue-count">{len(sorted_issues)} issues found</span>')
+    for sev in ['critical', 'high', 'medium', 'low', 'info']:
+        count = severity_counts.get(sev, 0)
+        if count > 0:
+            cfg = SEVERITY_CONFIG.get(sev, SEVERITY_CONFIG['info'])
+            html_parts.append(f'    <span class="summary-badge {cfg["class"]}">{cfg["icon"]} {count} {cfg["label"]}</span>')
+    html_parts.append('  </div>')
+    
+    # 问题卡片列表
+    html_parts.append('  <div class="issue-cards">')
+    
+    for issue in sorted_issues:
+        html_parts.append(_render_issue_card(issue))
+    
+    html_parts.append('  </div>')
+    html_parts.append('</div>')
+    
+    return '\n'.join(html_parts)
+
+
+def _render_issue_card(issue: Dict[str, Any]) -> str:
+    """渲染单个问题卡片"""
+    html_parts = []
+    
+    issue_id = html_module.escape(str(issue.get('id', '')))
+    title = html_module.escape(str(issue.get('title', 'Unknown Issue')))
+    severity = issue.get('severity', 'info')
+    category = issue.get('category', 'other')
+    description = html_module.escape(str(issue.get('description', '')))
+    details = issue.get('details', '')
+    affected = issue.get('affected_resources', [])
+    
+    sev_cfg = SEVERITY_CONFIG.get(severity, SEVERITY_CONFIG['info'])
+    cat_cfg = CATEGORY_CONFIG.get(category, CATEGORY_CONFIG['other'])
+    
+    html_parts.append(f'    <div class="issue-card {sev_cfg["class"]}">')
+    
+    # 头部：标题 + 徽章
+    html_parts.append('      <div class="issue-header">')
+    html_parts.append(f'        <span class="severity-badge {sev_cfg["class"]}">{sev_cfg["icon"]} {sev_cfg["label"]}</span>')
+    html_parts.append(f'        <span class="category-tag">{cat_cfg["icon"]} {cat_cfg["label"]}</span>')
+    if issue_id:
+        html_parts.append(f'        <span class="issue-id">{issue_id}</span>')
+    html_parts.append('      </div>')
+    
+    # 标题
+    html_parts.append(f'      <h4 class="issue-title">{title}</h4>')
+    
+    # 描述
+    html_parts.append(f'      <p class="issue-description">{description}</p>')
+    
+    # 可折叠详情（如果有）
+    if details or affected:
+        html_parts.append('      <details class="issue-details">')
+        html_parts.append('        <summary>查看详情 / 建议</summary>')
+        html_parts.append('        <div class="details-content">')
+        
+        if details:
+            details_escaped = html_module.escape(str(details))
+            html_parts.append(f'          <p class="suggestion">{details_escaped}</p>')
+        
+        if affected:
+            html_parts.append('          <div class="affected-resources">')
+            html_parts.append('            <span class="affected-label">受影响资源:</span>')
+            for res in affected[:5]:  # 最多显示5个
+                res_escaped = html_module.escape(str(res))
+                html_parts.append(f'            <span class="resource-tag">{res_escaped}</span>')
+            if len(affected) > 5:
+                html_parts.append(f'            <span class="more-count">+{len(affected) - 5} more</span>')
+            html_parts.append('          </div>')
+        
+        html_parts.append('        </div>')
+        html_parts.append('      </details>')
+    
+    html_parts.append('    </div>')
     
     return '\n'.join(html_parts)
 
