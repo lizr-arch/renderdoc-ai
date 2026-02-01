@@ -66,6 +66,13 @@ def decode_texture_rgba(data, width, height, format_name):
     return decode_texture(data, width, height, format_name)
 
 
+def build_decode_manifest(zip_entry, decode_status):
+    return {
+        "zip_entry": zip_entry,
+        "decode_status": decode_status,
+    }
+
+
 def extract_event_state(xml_path, event_id):
     tree = ET.parse(xml_path)
     root = tree.getroot()
