@@ -79,14 +79,64 @@ def extract_event_state(xml_path, event_id):
 def write_intermediate(out_dir, state, buffers, shaders, textures):
     out_path = Path(out_dir)
     mesh_dir = out_path / "intermediate" / "mesh"
+    material_dir = out_path / "intermediate" / "materials"
+    shader_dir = out_path / "intermediate" / "shaders"
+    texture_dir = out_path / "intermediate" / "textures"
     mesh_dir.mkdir(parents=True, exist_ok=True)
+    material_dir.mkdir(parents=True, exist_ok=True)
+    shader_dir.mkdir(parents=True, exist_ok=True)
+    texture_dir.mkdir(parents=True, exist_ok=True)
 
     try:
-        from intermediate_schema import build_mesh_schema
+        from intermediate_schema import (
+            build_mesh_schema,
+            build_material_schema,
+            build_shader_schema,
+            build_texture_schema,
+        )
     except Exception:
         build_mesh_schema = None
+        build_material_schema = None
+        build_shader_schema = None
+        build_texture_schema = None
 
     mesh = build_mesh_schema() if build_mesh_schema else {}
     mesh_path = mesh_dir / "mesh.json"
     mesh_path.write_text(json.dumps({"mesh": mesh}, indent=2), encoding="utf-8")
+
+    material = build_material_schema() if build_material_schema else {}
+    if isinstance(material, dict):
+        material["textures"] = list(state.textures or [])
+    (material_dir / "material.json").write_text(
+        json.dumps({"material": material}, indent=2), encoding="utf-8"
+    )
+
+    for shader in state.shaders or []:
+        stage = shader.get("stage", "unknown")
+        shader_schema = build_shader_schema() if build_shader_schema else {}
+        if isinstance(shader_schema, dict):
+            shader_schema["stage"] = stage
+        shader_json = shader_dir / f"{stage}.json"
+        shader_json.write_text(
+            json.dumps({"shader": shader_schema}, indent=2), encoding="utf-8"
+        )
+
+        shader_path = shader.get("path")
+        if shader_path:
+            shader_bin = shader_dir / shader_path
+            data = shaders.get(shader_path)
+            if data is None and stage in shaders:
+                data = shaders.get(stage)
+            shader_bin.write_bytes(data or b"")
+
+    for texture in state.textures or []:
+        texture_path = texture.get("path")
+        if not texture_path:
+            texture_id = texture.get("texture_id", 0)
+            texture_path = f"tex_{texture_id}.bin"
+        data = textures.get(texture_path)
+        if data is None:
+            data = textures.get(texture.get("texture_id"))
+        (texture_dir / texture_path).write_bytes(data or b"")
+
     return mesh_path
