@@ -1437,7 +1437,7 @@ def load_textures_if_available(
 
 
 
-def run_analysis(xml_path: str, output_path: str, texture_dir: Optional[str] = None) -> bool:
+def run_analysis(xml_path: str, output_path: str, texture_dir: Optional[str] = None, ui_version: str = "v1") -> bool:
 
 
     """
@@ -1459,6 +1459,7 @@ def run_analysis(xml_path: str, output_path: str, texture_dir: Optional[str] = N
 
 
         texture_dir: 纹理目录（可选）
+        ui_version: UI 版本 ("v1" 或 "v2")
 
 
         
@@ -1689,10 +1690,7 @@ def run_analysis(xml_path: str, output_path: str, texture_dir: Optional[str] = N
     try:
 
 
-        from generate_offline_report import generate_offline_html
-
-
-        
+        # 转换性能数据（两种 UI 都需要）
 
 
         # 转换性能数据
@@ -1713,28 +1711,57 @@ def run_analysis(xml_path: str, output_path: str, texture_dir: Optional[str] = N
 
         
 
-        # 生成 HTML
+        # ===== UI 版本分支 =====
+        if ui_version == "v2":
+            # 新四视图 UI
+            from report_contract import ReportDataContract, build_manifest
+            from report_ui import render_report_shell
 
-        report_links = report_linking.default_report_links(Path(output_path), "texture")
-        manifest = write_offline_manifest(
-            output_path=output_path,
-            performance_data=performance_data,
-            textures=textures,
-            shader_data=shader_data,
-            capture_id=report_linking.compute_capture_id([str(xml_path)]),
-            report_links=report_links,
-        )
-        generate_offline_html(
-            textures=textures,
-            rdc_name=xml_path.stem,
-            output_path=output_path,
-            event_pass_data=performance_data,
-            shader_data=shader_data,
-            report_links=report_links,
-            manifest_data=manifest,
-        )
+            # 构建 Data Contract
+            contract = ReportDataContract(
+                textures=textures,
+                shaders=shader_data,
+                events=xml_data.get('events', []),
+                passes=xml_data.get('passes', []),
+                performance=performance_data,
+                metadata={
+                    'capture_name': xml_path.stem,
+                    'source': 'xml',
+                    'xml_path': str(xml_path)
+                }
+            )
+            
+            # 生成 HTML
+            html_content = render_report_shell(contract)
+            
+            with open(output_path, 'w', encoding='utf-8') as f:
+                f.write(html_content)
+            
+            log(f"  Report generated (v2 UI): {output_path}")
+        else:
+            # 传统 v1 UI
+            from generate_offline_report import generate_offline_html
+            
+            report_links = report_linking.default_report_links(Path(output_path), "texture")
+            manifest = write_offline_manifest(
+                output_path=output_path,
+                performance_data=performance_data,
+                textures=textures,
+                shader_data=shader_data,
+                capture_id=report_linking.compute_capture_id([str(xml_path)]),
+                report_links=report_links,
+            )
+            generate_offline_html(
+                textures=textures,
+                rdc_name=xml_path.stem,
+                output_path=output_path,
+                event_pass_data=performance_data,
+                shader_data=shader_data,
+                report_links=report_links,
+                manifest_data=manifest,
+            )
 
-        log(f"  Report generated: {output_path}")
+            log(f"  Report generated (v1 UI): {output_path}")
 
 
     except Exception as e:
@@ -1877,6 +1904,14 @@ def main():
 
     )
 
+    # UI 版本选择（新 UI 系统 Feature Flag）
+    parser.add_argument(
+        "--ui-version",
+        choices=["v1", "v2"],
+        default="v1",
+        help="报告 UI 版本: v1=传统视图(默认), v2=新四视图架构"
+    )
+
 
     
 
@@ -1920,7 +1955,8 @@ def main():
         output_path=output_path,
 
 
-        texture_dir=args.texture_dir
+        texture_dir=args.texture_dir,
+        ui_version=getattr(args, 'ui_version', 'v1')
 
 
     )
