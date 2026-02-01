@@ -26,4 +26,5 @@ py -3 scripts/rdc_analyzer/export_unity_assets.py --rdc <path> --event <id> --ap
 - Mesh is exported as `mesh/mesh.obj` (+ optional `mesh/mesh.mtl`) and a `mesh/to_max.ms` MaxScript stub.
 - Sampler-bound textures are exported as PNGs in `textures/`.
 - Shader disassembly is exported per-stage in `shaders/` (HLSL/GLSL if available).
+- For raw VB/IB + shader disassembly by eventId, see `MESH_SHADER_EXTRACTION.md` and `extract_mesh_shader.py`.
 - Vulkan shader export requires SPIRV-Cross: pass `--spirv-cross <path>` or set `SPIRV_CROSS`.
