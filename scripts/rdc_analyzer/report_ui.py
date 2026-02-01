@@ -390,11 +390,103 @@ def render_events_view(events: List[Dict[str, Any]]) -> str:
 
 
 def render_resources_view(contract: ReportDataContract) -> str:
-    """渲染 Resources 视图（Phase 1 占位）"""
-    return '''<div class="placeholder-view">
-    <h2>📦 Resource Explorer</h2>
-    <p>Texture, buffer, and shader browser will be implemented in Phase 2</p>
+    """
+    渲染 Resources 视图 - 资源浏览器
+    
+    Args:
+        contract: ReportDataContract 实例，包含 textures 和 shaders
+    
+    Returns:
+        HTML 字符串
+    """
+    textures = contract.textures or []
+    shaders = contract.shaders or []
+    
+    has_textures = len(textures) > 0
+    has_shaders = len(shaders) > 0
+    
+    # 空资源状态
+    if not has_textures and not has_shaders:
+        return '''<div class="resources-view">
+    <div class="placeholder-view">
+        <h2>📦 Resource Explorer</h2>
+        <p>No resources found in this capture</p>
+    </div>
 </div>'''
+    
+    html_parts = ['<div class="resources-view">']
+    
+    # 纹理分区
+    if has_textures:
+        html_parts.append('  <div class="resource-section texture-section">')
+        html_parts.append(f'    <h3 class="section-heading">🖼️ Textures ({len(textures)})</h3>')
+        html_parts.append('    <div class="texture-grid">')
+        
+        for tex in textures:
+            tex_id = tex.get('resource_id', 'unknown')
+            name = html_module.escape(str(tex.get('name', 'Unnamed')))
+            width = tex.get('width', 0)
+            height = tex.get('height', 0)
+            fmt = tex.get('format', 'Unknown')
+            mips = tex.get('mips', 1)
+            thumbnail = tex.get('thumbnail', '')
+            
+            # 缩略图或占位符
+            if thumbnail:
+                thumb_html = f'<img src="{thumbnail}" alt="{name}" class="texture-thumb" />'
+            else:
+                thumb_html = '<div class="texture-thumb-placeholder">📷</div>'
+            
+            html_parts.append(f'''      <div class="texture-card" data-id="{tex_id}">
+        {thumb_html}
+        <div class="texture-info">
+          <div class="texture-name" title="{name}">{name}</div>
+          <div class="texture-dims">{width} × {height}</div>
+          <div class="texture-format">{fmt}</div>
+          <div class="texture-mips">Mips: {mips}</div>
+        </div>
+      </div>''')
+        
+        html_parts.append('    </div>')
+        html_parts.append('  </div>')
+    
+    # Shader 分区
+    if has_shaders:
+        html_parts.append('  <div class="resource-section shader-section">')
+        html_parts.append(f'    <h3 class="section-heading">📜 Shaders ({len(shaders)})</h3>')
+        html_parts.append('    <div class="shader-list">')
+        
+        # Shader 类型图标
+        shader_icons = {
+            'vertex': '🔺 VS',
+            'pixel': '🎨 PS',
+            'fragment': '🎨 FS',
+            'compute': '⚡ CS',
+            'geometry': '🔷 GS',
+            'hull': '📐 HS',
+            'domain': '📏 DS',
+        }
+        
+        for shader in shaders:
+            shader_id = shader.get('resource_id', 'unknown')
+            name = html_module.escape(str(shader.get('name', 'Unnamed')))
+            shader_type = shader.get('type', 'unknown').lower()
+            entry = shader.get('entry_point', 'main')
+            
+            type_badge = shader_icons.get(shader_type, f'📄 {shader_type.upper()}')
+            
+            html_parts.append(f'''      <div class="shader-card" data-id="{shader_id}" data-type="{shader_type}">
+        <span class="shader-type-badge">{type_badge}</span>
+        <span class="shader-name" title="{name}">{name}</span>
+        <span class="shader-entry">entry: {entry}</span>
+      </div>''')
+        
+        html_parts.append('    </div>')
+        html_parts.append('  </div>')
+    
+    html_parts.append('</div>')
+    
+    return '\n'.join(html_parts)
 
 
 def render_performance_view(performance: Dict[str, Any]) -> str:
