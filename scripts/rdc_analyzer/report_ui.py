@@ -16,8 +16,13 @@ from dataclasses import dataclass, field
 from typing import List, Dict, Any, Optional
 import html as html_module
 
-from scripts.rdc_analyzer.report_contract import ReportDataContract, build_manifest
-from scripts.rdc_analyzer.core.issue_detector import Issue, detect_all_issues
+# NOTE: 支持脚本直跑与包内导入两种方式
+try:
+    from report_contract import ReportDataContract, build_manifest
+    from core.issue_detector import Issue, detect_all_issues
+except ImportError:
+    from scripts.rdc_analyzer.report_contract import ReportDataContract, build_manifest
+    from scripts.rdc_analyzer.core.issue_detector import Issue, detect_all_issues
 
 
 # =============================================================================
@@ -226,7 +231,8 @@ def render_manifest_bar(manifest: Dict[str, Any]) -> str:
     Returns:
         HTML 字符串
     """
-    coverage = manifest.get("coverage_percent", 0)
+    # coverage 统一为 0~1，展示时转为百分比
+    coverage = manifest.get("coverage", 0) * 100
     counts = manifest.get("counts", {})
     
     # 覆盖率状态
@@ -548,6 +554,7 @@ def render_performance_view(performance: Dict[str, Any]) -> str:
 # 严重程度排序权重（越小越靠前）
 SEVERITY_ORDER = {
     'critical': 0,
+    'warning': 1,
     'high': 1,
     'medium': 2,
     'low': 3,
@@ -557,6 +564,7 @@ SEVERITY_ORDER = {
 # 严重程度配置
 SEVERITY_CONFIG = {
     'critical': {'icon': '🔴', 'label': 'Critical', 'class': 'severity-critical'},
+    'warning': {'icon': '🟠', 'label': 'Warning', 'class': 'severity-warning'},
     'high': {'icon': '🟠', 'label': 'High', 'class': 'severity-high'},
     'medium': {'icon': '🟡', 'label': 'Medium', 'class': 'severity-medium'},
     'low': {'icon': '🟢', 'label': 'Low', 'class': 'severity-low'},
@@ -599,6 +607,10 @@ def render_issues_view(issues: List[Dict[str, Any]]) -> str:
         html_parts.append('  </div>')
         html_parts.append('</div>')
         return '\n'.join(html_parts)
+
+    # 支持 Issue 对象输入
+    if issues and not isinstance(issues[0], dict):
+        issues = _issues_to_dicts(issues)
     
     # 按严重程度排序
     sorted_issues = sorted(
@@ -707,20 +719,27 @@ def _issues_to_dicts(issues: List[Issue]) -> List[Dict[str, Any]]:
     for issue in issues:
         # 映射 severity: critical/warning/info -> critical/high/medium/low/info
         severity_map = {
-            'critical': 'critical',
-            'warning': 'medium',
-            'info': 'info'
+            "critical": "critical",
+            "warning": "warning",
+            "info": "info",
         }
-        severity = severity_map.get(issue.severity.value, 'info')
-        
+        severity = severity_map.get(issue.severity.value, "info")
+
+        # 兼容：resource_id / metadata
+        issue_id = issue.metadata.get("issue_id") if hasattr(issue, "metadata") else ""
+        resource_id = issue.resource_id or ""
+        affected_resources = []
+        if hasattr(issue, "metadata"):
+            affected_resources = issue.metadata.get("affected_resources", [])
+
         result.append({
-            'id': issue.issue_id or '',
-            'title': issue.title,
-            'severity': severity,
-            'category': issue.category.value if hasattr(issue.category, 'value') else 'other',
-            'description': issue.description,
-            'details': issue.suggestion or '',
-            'affected_resources': issue.affected_resources or []
+            "id": issue_id or resource_id,
+            "title": issue.title,
+            "severity": severity,
+            "category": issue.category.value if hasattr(issue.category, "value") else "other",
+            "description": issue.description,
+            "details": issue.suggestion or "",
+            "affected_resources": affected_resources,
         })
     return result
 

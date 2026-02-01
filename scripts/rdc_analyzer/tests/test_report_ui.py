@@ -112,7 +112,7 @@ class TestManifestBar(unittest.TestCase):
     def test_coverage_display(self):
         """测试覆盖率显示"""
         manifest = {
-            "coverage_percent": 85.5,
+            "coverage": 0.855,
             "counts": {"textures": 10, "events": 100},
         }
         html = render_manifest_bar(manifest)
@@ -123,7 +123,7 @@ class TestManifestBar(unittest.TestCase):
     def test_low_coverage_warning(self):
         """测试低覆盖率警告"""
         manifest = {
-            "coverage_percent": 50.0,
+            "coverage": 0.50,
             "counts": {"textures": 0, "events": 0},
         }
         html = render_manifest_bar(manifest)
