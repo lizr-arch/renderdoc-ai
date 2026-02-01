@@ -1,0 +1,64 @@
+# 数据来源方式总表（可持续补充）
+
+> **版本**: 1.0.0 | **日期**: 2026-02-01 | **状态**: 维护中
+
+- WHAT：统一记录 RDC Analyzer 的**全部数据来源方式**与可用性/限制，避免“空数据/误期待”。  
+- WHY：不同链路（A/C/B）依赖的数据源不同，必须可追溯、可扩展。  
+- HOW：按“来源分类 → WHAT/WHY/HOW → 可用性/限制 → 关联入口”记录，后续新增来源只需补表。
+
+**关联文档（双向索引）**  
+- `scripts/rdc_analyzer/docs/REPORT_ARCHITECTURE.md`  
+- `docs/analysis/codex_rdc_analyzer/WORK_SUMMARY_ROUTES.md`  
+- `docs/analysis/codex_rdc_analyzer/WORK_SUMMARY_SCHEMA.md`  
+
+---
+
+## 1. 分类总表（WHAT / WHY / HOW）
+
+> 说明：每条记录都必须包含 WHAT/WHY/HOW。  
+> 可用性：A=离线 XML 路线，B=Replay 路线，C=CLI 导出路线。
+
+| 分类 | 来源 | WHAT | WHY | HOW（入口/工具/文件） | 可用性/限制 | 关联入口 |
+|---|---|---|---|---|---|---|
+| 原始捕获 | `.rdc` | GPU 捕获原始二进制 | 一切分析的唯一源头 | RenderDoc 捕获生成 | A/B/C 基础输入 | `WORK_SUMMARY_ROUTES.md` |
+| CLI 导出 | XML | 结构化事件/资源/统计 | A/C 离线分析主干数据 | `renderdoccmd convert -c xml` + `analyze_xml_report.py` | ✅A/C；字段不全 | `analyze_xml_report.py` |
+| CLI 导出 | 纹理/metadata/bindings | 资源与绑定补充数据 | 缓解 XML 字段缺口 | `renderdoccmd`（纹理/metadata/bindings 子命令） | ⚠️命令边界待确认 | `README.md`(export 说明) |
+| Replay API | RenderDoc Python | Pipeline/Bindings/Shader 反编译等高保真数据 | 补全 XML 缺失字段 | `renderdoc.OpenCaptureFile()` + `ReplayController` | 需 GPU/驱动/设备 | `WORK_SUMMARY_ROUTES.md` |
+| 外部工具 | Mali 报告 | Shader 性能细项 | Shader 深度分析 | `renderdoc_mali_shell.py` → `mali_analysis.json` | 依赖 Mali 工具链 | `REPORT_ARCHITECTURE.md` |
+| 结构化契约 | manifest.json | 页面链接 + counts + data_sources | 统一入口与可追溯 | 生成器输出 | ✅A/C | `REPORT_ARCHITECTURE.md` |
+| 输出结构 | Analyzer JSON | 单帧分析输出（供对比/验收） | compare 的输入基础 | `export_json_*` | ✅A/C | `WORK_SUMMARY_SCHEMA.md` |
+| 输出结构 | Diff JSON | 双帧对比输出 | 形成结论与差异 | `export_json_diff` | ✅A/B | `WORK_SUMMARY_SCHEMA.md` |
+| 规则库 | RULES.md | 阈值与问题规则 | 解释“为什么提示” | `scripts/rdc_analyzer/RULES.md` | ✅A/B | `RULES.md` |
+| 衍生分析 | Issues/Recommendations | 性能问题与建议 | 建议闭环 | `issue_detector` / analyzer | ✅A/C | `WORK_SUMMARY_VERIFICATION.md` |
+
+---
+
+## 2. 补充规则（新增来源时必须填写）
+
+新增/补充任意数据来源时，请在表格新增一行，并填写以下字段：
+
+1) **来源名称**（稳定且唯一）  
+2) **分类**（原始/导出/Replay/外部/结构/规则/衍生）  
+3) **WHAT/WHY/HOW**（三要素缺一不可）  
+4) **可用性与限制**（A/B/C、依赖条件、是否需要 replay）  
+5) **入口位置**（脚本/命令/文档链接）
+
+---
+
+## 3. 已关联文档索引
+
+- `scripts/rdc_analyzer/docs/REPORT_ARCHITECTURE.md`  
+  - 说明：页面与 manifest 结构定义（含 data_sources）  
+- `docs/analysis/codex_rdc_analyzer/WORK_SUMMARY_ROUTES.md`  
+  - 说明：A/B/C 链路边界与依赖  
+- `docs/analysis/codex_rdc_analyzer/WORK_SUMMARY_SCHEMA.md`  
+  - 说明：输入/输出结构与 compare 可信度  
+
+---
+
+## 4. 维护说明
+
+- 本表为**长期维护表**，后续补充时**只增不删**，避免丢失历史来源。  
+- 任何链路变更（A/B/C）都必须同步更新本表。  
+- 若来源不可用，必须写明“不可用原因 + 替代路线”。  
+

@@ -66,6 +66,12 @@
 - 适用链路：A/C
 - 路径：`docs/analysis/codex_rdc_analyzer/2026-02-01-ui-refactor-summary.md`
 
+### DATA_SOURCES_INDEX（数据来源方式总表）
+- 简介：统一记录数据来源分类、可用性与限制（可持续补充）。
+- 关键词：data sources, xml, json, replay, mali
+- 适用链路：A/B/C
+- 路径：`docs/analysis/codex_rdc_analyzer/DATA_SOURCES_INDEX.md`
+
 ### TASK_TRACKER（任务追踪）
 - 简介：A-first/B-mode 任务状态、DoD 完成度、P0 列表。
 - 关键词：task tracker, DoD, status
