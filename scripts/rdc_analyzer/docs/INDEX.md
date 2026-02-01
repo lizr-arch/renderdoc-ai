@@ -37,6 +37,7 @@
 |------|------|--------|
 
 | [BATCH_EXPORT.md](BATCH_EXPORT.md) | **纹理批量导出 CLI** - 一键导出所有纹理 (v1.4.0) | 批量导出, CLI, gallery, manifest |
+| [D3D11_SUPPORT.md](D3D11_SUPPORT.md) | **D3D11 纹理提取** - 支持 DirectX 11 离线提取 (v1.5.0) | D3D11, DirectX, DXGI, 离线提取 |
 
 | [TEXTURE_EXTRACTION.md](TEXTURE_EXTRACTION.md) | **纹理提取三方案速查** | 纹理, 导出, SaveTexture, renderdoccmd |
 
@@ -127,6 +128,7 @@
 | **为什么 RDC 无法跨 GPU 解析？** | [GPU_COMPATIBILITY_ANALYSIS.md](GPU_COMPATIBILITY_ANALYSIS.md) |
 
 | **如何无 GPU 提取纹理？** | [NO_GPU_TEXTURE_EXTRACTION.md](NO_GPU_TEXTURE_EXTRACTION.md) |
+| **如何提取 D3D11 纹理？** | [D3D11_SUPPORT.md](D3D11_SUPPORT.md) |
 
 | **无 GPU 提取的详细架构？** | [NO_GPU_TEXTURE_EXTRACTION_ARCHITECTURE.md](NO_GPU_TEXTURE_EXTRACTION_ARCHITECTURE.md) |
 
