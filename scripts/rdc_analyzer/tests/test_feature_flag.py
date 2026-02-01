@@ -56,6 +56,15 @@ class TestUIVersionIntegration(unittest.TestCase):
         self.assertIn("report_ui", source)
         self.assertIn("render_report_shell", source)
 
+    def test_v2_contract_fields_match(self):
+        """测试 v2 构建 ReportDataContract 字段对齐"""
+        source_path = Path(__file__).parent.parent / "analyze_xml_report.py"
+        source = source_path.read_text(encoding="utf-8")
+        
+        # 不应使用 metadata / passes 作为 ReportDataContract 字段
+        self.assertNotIn("metadata=", source)
+        self.assertNotIn("passes=", source)
+
 
 if __name__ == "__main__":
     unittest.main()

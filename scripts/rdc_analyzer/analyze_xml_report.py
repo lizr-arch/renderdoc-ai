@@ -1717,18 +1717,20 @@ def run_analysis(xml_path: str, output_path: str, texture_dir: Optional[str] = N
             from report_contract import ReportDataContract, build_manifest
             from report_ui import render_report_shell
 
-            # 构建 Data Contract
+            # performance 数据补充 passes（原字段来自 XML）
+            performance_data["passes"] = xml_data.get("passes", [])
+
+            # 构建 Data Contract（字段与 ReportDataContract 对齐）
             contract = ReportDataContract(
                 textures=textures,
                 shaders=shader_data,
-                events=xml_data.get('events', []),
-                passes=xml_data.get('passes', []),
+                events=xml_data.get("events", []),
                 performance=performance_data,
-                metadata={
-                    'capture_name': xml_path.stem,
-                    'source': 'xml',
-                    'xml_path': str(xml_path)
-                }
+                meta={
+                    "capture_name": xml_path.stem,
+                    "source": "xml",
+                    "xml_path": str(xml_path),
+                },
             )
             
             # 生成 HTML
