@@ -1,3 +1,4 @@
+import argparse
 import pathlib
 
 try:
@@ -106,3 +107,22 @@ def extract_mesh_shader(rdc_path, event_id, out_dir):
     if event_id is None:
         raise ValueError("event_id required")
     raise NotImplementedError("mesh/shader extraction not implemented yet")
+
+
+def _build_arg_parser():
+    parser = argparse.ArgumentParser(
+        description="Extract vertex/index buffers and shader disassembly for a draw event."
+    )
+    parser.add_argument("--rdc", required=True, help="Path to .rdc capture")
+    parser.add_argument("--event", required=True, type=int, help="EventId to extract")
+    parser.add_argument("--out", required=True, help="Output directory")
+    return parser
+
+
+def main(argv=None):
+    parser = _build_arg_parser()
+    parser.parse_args(argv)
+
+
+if __name__ == "__main__":
+    main()
