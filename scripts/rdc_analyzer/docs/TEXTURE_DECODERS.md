@@ -1,8 +1,8 @@
 # 纹理解码器模块文档
 
-> **版本**: 1.3.0 | **更新日期**: 2025-01-31 | **维护**: Codex Agent
+> **版本**: 1.5.0 | **更新日期**: 2026-02-01 | **维护**: Codex Agent
 >
-> **关键词**: 纹理, 解码, BCn, ASTC, ETC2, PNG, 格式转换
+> **关键词**: 纹理, 解码, BCn, ASTC, ETC2, Vulkan, D3D11, PNG, 格式转换
 
 ---
 
@@ -12,8 +12,8 @@
 
 ### 特性
 
-- ✅ **48 种纹理格式支持**
-- ✅ **跨平台**：Desktop (BCn) + Mobile (ASTC/ETC2)
+- ✅ **76 种纹理格式支持** (v1.5.0)
+- ✅ **跨平台**：Desktop (BCn) + Mobile (ASTC/ETC2) + **D3D11 (DXGI)** + **Vulkan**
 - ✅ **纯 Python BCn 实现**：无需额外依赖
 - ✅ **可选移动端支持**：通过 `texture2ddecoder` 库扩展
 
@@ -358,6 +358,123 @@ rgba = decode_texture(data, 512, 512, 'ATC_RGBA')
 | ATC_RGBA | Adreno RGBA (显式) |
 | ATC_RGBA8 | 同上 (别名) |
 
+### 未压缩/浮点/深度格式 - 15 种 (v1.4.0 新增)
+
+> **说明**: 这些格式常见于 D3D11/DXGI 渲染目标和深度缓冲，现已完整支持。
+
+#### 单通道格式
+
+| 内部名 | DXGI 格式 | 每像素字节 | 输出 |
+|--------|-----------|------------|------|
+| R8 | DXGI_FORMAT_R8_UNORM | 1 | 灰度 → RGBA |
+| R16F | DXGI_FORMAT_R16_FLOAT | 2 | Half-float 灰度 |
+| R32F | DXGI_FORMAT_R32_FLOAT | 4 | Float 灰度 |
+
+#### 双通道格式
+
+| 内部名 | DXGI 格式 | 每像素字节 | 输出 |
+|--------|-----------|------------|------|
+| RG8 | DXGI_FORMAT_R8G8_UNORM | 2 | RG → RGBA (B=0) |
+| RG16F | DXGI_FORMAT_R16G16_FLOAT | 4 | 双 Half-float |
+| RG32F | DXGI_FORMAT_R32G32_FLOAT | 8 | 双 Float |
+
+#### 四通道格式
+
+| 内部名 | DXGI 格式 | 每像素字节 | 输出 |
+|--------|-----------|------------|------|
+| RGBA8 | DXGI_FORMAT_R8G8B8A8_UNORM | 4 | 直接拷贝 |
+| BGRA8 | DXGI_FORMAT_B8G8R8A8_UNORM | 4 | 通道交换 |
+| RGBA16F | DXGI_FORMAT_R16G16B16A16_FLOAT | 8 | 四 Half-float |
+| RGBA32F | DXGI_FORMAT_R32G32B32A32_FLOAT | 16 | 四 Float |
+
+#### HDR 打包格式
+
+| 内部名 | DXGI 格式 | 每像素字节 | 说明 |
+|--------|-----------|------------|------|
+| R11G11B10F | DXGI_FORMAT_R11G11B10_FLOAT | 4 | R11+G11+B10 无符号浮点 |
+
+#### 深度/模板格式
+
+| 内部名 | DXGI 格式 | 每像素字节 | 输出 |
+|--------|-----------|------------|------|
+| D32F | DXGI_FORMAT_D32_FLOAT | 4 | 深度灰度 |
+| D24S8 | DXGI_FORMAT_D24_UNORM_S8_UINT | 4 | R=深度, G=模板 |
+| D32S8 | DXGI_FORMAT_D32_FLOAT_S8X24_UINT | 8 | R=深度, G=模板 |
+
+> **注意**: `DXGI_FORMAT_R32G8X24_TYPELESS` 自动映射为 `D32S8` 处理。
+
+### Vulkan 特有格式 - 8 种 (v1.5.0 新增)
+
+> **说明**: 这些格式是 Vulkan 专有的未压缩格式，命名和通道布局与 DXGI 有所不同。
+
+#### HDR 打包格式 (Vulkan)
+
+| 内部名 | Vulkan 格式 | 每像素字节 | 说明 |
+|--------|-------------|------------|------|
+| B10G11R11F | VK_FORMAT_B10G11R11_UFLOAT_PACK32 | 4 | B10+G11+R11 (通道顺序与 R11G11B10F 相反) |
+
+#### 10-bit HDR 格式
+
+| 内部名 | Vulkan 格式 | 每像素字节 | 说明 |
+|--------|-------------|------------|------|
+| A2R10G10B10 | VK_FORMAT_A2R10G10B10_UNORM_PACK32 | 4 | 2-bit Alpha + 10-bit RGB |
+| A2B10G10R10 | VK_FORMAT_A2B10G10R10_UNORM_PACK32 | 4 | 通道顺序不同 |
+
+> **用途**: HDR 渲染目标、Wide Color Gamut 显示输出
+
+#### 8-bit RGBA 变体
+
+| 内部名 | Vulkan 格式 | 每像素字节 | 说明 |
+|--------|-------------|------------|------|
+| A8B8G8R8 | VK_FORMAT_A8B8G8R8_UNORM_PACK32 | 4 | Vulkan 专用打包格式 |
+
+#### 16-bit 归一化格式
+
+| 内部名 | Vulkan 格式 | 每像素字节 | 说明 |
+|--------|-------------|------------|------|
+| R16_UNORM | VK_FORMAT_R16_UNORM | 2 | 单通道 16-bit 归一化 |
+| R16G16_UNORM | VK_FORMAT_R16G16_UNORM | 4 | 双通道 16-bit 归一化 |
+
+> **用途**: 高精度高度图、法线贴图
+
+#### Vulkan 深度/模板格式
+
+| 内部名 | Vulkan 格式 | 每像素字节 | 输出 |
+|--------|-------------|------------|------|
+| D16_UNORM | VK_FORMAT_D16_UNORM | 2 | 灰度深度 |
+| S8_UINT | VK_FORMAT_S8_UINT | 1 | 灰度模板 |
+
+#### Vulkan 格式示例
+
+```python
+from scripts.rdc_analyzer.decoders import decode_texture
+
+# HDR 渲染目标
+rgba = decode_texture(data, 1920, 1080, 'VK_FORMAT_B10G11R11_UFLOAT_PACK32')
+
+# 10-bit HDR
+rgba = decode_texture(data, 1920, 1080, 'VK_FORMAT_A2B10G10R10_UNORM_PACK32')
+
+# 16-bit 高精度
+rgba = decode_texture(data, 2048, 2048, 'VK_FORMAT_R16G16_UNORM')
+```
+
+---
+
+#### 深度/模板可视化说明
+
+深度模板格式解码后：
+- **R 通道**: 深度值 (归一化到 0-255)
+- **G 通道**: 模板值 (原始 8-bit)
+- **B 通道**: 0
+- **A 通道**: 255
+
+```python
+# 示例: 提取深度缓冲
+rgba = decode_texture(data, 1920, 1080, 'DXGI_FORMAT_D32_FLOAT_S8X24_UINT')
+# R = 深度可视化, G = 模板值
+```
+
 ---
 
 ## 错误处理
@@ -427,6 +544,8 @@ save_as_png(rgba, tex_info['width'], tex_info['height'], 'output.png')
 
 | 版本 | 日期 | 变更 |
 |------|------|------|
+| 1.5.0 | 2026-02-01 | **Vulkan 格式支持**: 8种 Vulkan 特有格式 (B10G11R11F, A2R10G10B10, A2B10G10R10, A8B8G8R8, R16_UNORM, R16G16_UNORM, D16_UNORM, S8_UINT)，总计 76 种格式 |
+| 1.4.0 | 2026-02-01 | **D3D11 格式支持**: 15种未压缩/浮点/深度格式 (R8, RG16F, R11G11B10F, D32S8 等) |
 | 1.3.0 | 2025-01-31 | 添加移动端格式 (ASTC/ETC2/PVRTC/ATC) |
 | 1.2.0 | 2025-01-30 | 添加 BC2/BC6H，纹理元数据结构 |
 | 1.1.1 | 2025-01-29 | 添加 BC4/BC5 |
