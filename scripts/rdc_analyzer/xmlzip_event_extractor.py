@@ -48,6 +48,18 @@ def resolve_zip_entry(expected_name, zip_index):
     return None
 
 
+def resolve_zip_entry_candidates(buffer_index, zip_index):
+    candidates = [
+        f"buffers/buffer{buffer_index}",
+        f"{buffer_index:06d}",
+        f"buffer{buffer_index}",
+    ]
+    for name in candidates:
+        if name in zip_index:
+            return name
+    return None
+
+
 def extract_event_state(xml_path, event_id):
     tree = ET.parse(xml_path)
     root = tree.getroot()
