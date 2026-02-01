@@ -94,6 +94,8 @@ def normalize_format_name(format_name: str) -> str:
         "BC7_SRGB" -> "BC7"
         "VK_FORMAT_ASTC_4x4_UNORM_BLOCK" -> "ASTC_4x4"
         "VK_FORMAT_ETC2_R8G8B8_UNORM_BLOCK" -> "ETC2_RGB"
+        "DXGI_FORMAT_R16G16_FLOAT" -> "RG16F"
+        "DXGI_FORMAT_D32_FLOAT_S8X24_UINT" -> "D32S8"
     """
     fmt = format_name.upper()
     
@@ -143,8 +145,62 @@ def normalize_format_name(format_name: str) -> str:
         if bc in fmt:
             return bc
     
-    # 检查是否是未压缩格式
-    uncompressed = ['R8G8B8A8', 'B8G8R8A8', 'R8_UNORM', 'R16', 'R32']
+    # ========== DXGI 特殊格式 ==========
+    
+    # 深度+模板格式
+    if 'D32_FLOAT_S8X24' in fmt or 'D32_S8X24' in fmt:
+        return 'D32S8'
+    if 'R32G8X24_TYPELESS' in fmt:
+        return 'D32S8'  # 通常用作深度模板
+    if 'D24_UNORM_S8' in fmt or 'D24S8' in fmt:
+        return 'D24S8'
+    if 'D32_FLOAT' in fmt:
+        return 'D32F'
+    if 'D16_UNORM' in fmt:
+        return 'R16F'  # 作为灰度处理
+    
+    # R11G11B10 浮点
+    if 'R11G11B10' in fmt:
+        return 'R11G11B10F'
+    
+    # RGBA 浮点格式
+    if 'R16G16B16A16' in fmt and 'FLOAT' in fmt:
+        return 'RGBA16F'
+    if 'R32G32B32A32' in fmt and 'FLOAT' in fmt:
+        return 'RGBA32F'
+    
+    # RG 浮点格式
+    if 'R16G16' in fmt and 'FLOAT' in fmt:
+        return 'RG16F'
+    if 'R32G32' in fmt and 'FLOAT' in fmt:
+        return 'RG32F'
+    
+    # R 单通道浮点
+    if 'R16' in fmt and 'FLOAT' in fmt:
+        return 'R16F'
+    if 'R32' in fmt and 'FLOAT' in fmt:
+        return 'R32F'
+    
+    # RGBA8/BGRA8 格式
+    if 'R8G8B8A8' in fmt:
+        return 'RGBA8'
+    if 'B8G8R8A8' in fmt or 'B8G8R8X8' in fmt:
+        return 'BGRA8'
+    
+    # RG8 格式
+    if 'R8G8' in fmt and 'B8' not in fmt:
+        return 'RG8'
+    
+    # R8 单通道 (例如 DXGI_FORMAT_R8_UNORM)
+    if 'R8_UNORM' in fmt or 'R8_SNORM' in fmt or 'R8_UINT' in fmt or 'R8_SINT' in fmt:
+        return 'R8'
+    
+    # 仅 R8（需要排除 R8G8 等）
+    if re.search(r'_R8$', fmt) or fmt == 'R8':
+        return 'R8'
+    
+    # 检查是否是未压缩格式 (兜底)
+    uncompressed = ['R8G8B8A8', 'B8G8R8A8']
     for uc in uncompressed:
         if uc in fmt:
             return 'UNCOMPRESSED'
@@ -333,6 +389,7 @@ def decode_uncompressed(data: bytes, width: int, height: int) -> bytes:
 
 
 @register_decoder('R8_UNORM')
+@register_decoder('R8')
 def decode_r8_unorm(data: bytes, width: int, height: int) -> bytes:
     """解码单通道灰度图为 RGBA"""
     expected = width * height
@@ -347,6 +404,333 @@ def decode_r8_unorm(data: bytes, width: int, height: int) -> bytes:
         result[idx + 3] = 255   # A
     
     return bytes(result)
+
+
+@register_decoder('RG8')
+def decode_rg8(data: bytes, width: int, height: int) -> bytes:
+    """解码双通道 RG8 为 RGBA"""
+    expected = width * height * 2
+    result = bytearray(width * height * 4)
+    
+    for i in range(min(len(data) // 2, width * height)):
+        r = data[i * 2]
+        g = data[i * 2 + 1]
+        idx = i * 4
+        result[idx] = r        # R
+        result[idx + 1] = g    # G
+        result[idx + 2] = 0    # B
+        result[idx + 3] = 255  # A
+    
+    return bytes(result)
+
+
+@register_decoder('RGBA8')
+def decode_rgba8(data: bytes, width: int, height: int) -> bytes:
+    """RGBA8 直接拷贝"""
+    expected = width * height * 4
+    if len(data) >= expected:
+        return data[:expected]
+    result = bytearray(expected)
+    result[:len(data)] = data
+    return bytes(result)
+
+
+@register_decoder('BGRA8')
+@register_decoder('BGRX8')
+def decode_bgra8(data: bytes, width: int, height: int) -> bytes:
+    """BGRA8 转换为 RGBA"""
+    expected = width * height * 4
+    result = bytearray(expected)
+    
+    for i in range(min(len(data) // 4, width * height)):
+        src = i * 4
+        dst = i * 4
+        if src + 3 < len(data):
+            result[dst] = data[src + 2]      # R <- B
+            result[dst + 1] = data[src + 1]  # G
+            result[dst + 2] = data[src]      # B <- R
+            result[dst + 3] = data[src + 3]  # A
+    
+    return bytes(result)
+
+
+@register_decoder('R16F')
+def decode_r16f(data: bytes, width: int, height: int) -> bytes:
+    """解码 R16F (half float) 为 RGBA"""
+    expected = width * height * 2
+    result = bytearray(width * height * 4)
+    
+    for i in range(min(len(data) // 2, width * height)):
+        # 读取 16 位 half float
+        half_val = struct.unpack('<H', data[i*2:i*2+2])[0]
+        # 转换为 float 再映射到 0-255
+        f = _half_to_float(half_val)
+        gray = int(max(0, min(255, f * 255)))
+        
+        idx = i * 4
+        result[idx] = gray      # R
+        result[idx + 1] = gray  # G
+        result[idx + 2] = gray  # B
+        result[idx + 3] = 255   # A
+    
+    return bytes(result)
+
+
+@register_decoder('RG16F')
+def decode_rg16f(data: bytes, width: int, height: int) -> bytes:
+    """解码 RG16F (dual half float) 为 RGBA"""
+    expected = width * height * 4
+    result = bytearray(width * height * 4)
+    
+    for i in range(min(len(data) // 4, width * height)):
+        # 读取两个 16 位 half float
+        r_half = struct.unpack('<H', data[i*4:i*4+2])[0]
+        g_half = struct.unpack('<H', data[i*4+2:i*4+4])[0]
+        
+        r = int(max(0, min(255, _half_to_float(r_half) * 255)))
+        g = int(max(0, min(255, _half_to_float(g_half) * 255)))
+        
+        idx = i * 4
+        result[idx] = r        # R
+        result[idx + 1] = g    # G
+        result[idx + 2] = 0    # B
+        result[idx + 3] = 255  # A
+    
+    return bytes(result)
+
+
+@register_decoder('RGBA16F')
+def decode_rgba16f(data: bytes, width: int, height: int) -> bytes:
+    """解码 RGBA16F (four half floats) 为 RGBA"""
+    expected = width * height * 8
+    result = bytearray(width * height * 4)
+    
+    for i in range(min(len(data) // 8, width * height)):
+        offset = i * 8
+        r_half = struct.unpack('<H', data[offset:offset+2])[0]
+        g_half = struct.unpack('<H', data[offset+2:offset+4])[0]
+        b_half = struct.unpack('<H', data[offset+4:offset+6])[0]
+        a_half = struct.unpack('<H', data[offset+6:offset+8])[0]
+        
+        r = int(max(0, min(255, _half_to_float(r_half) * 255)))
+        g = int(max(0, min(255, _half_to_float(g_half) * 255)))
+        b = int(max(0, min(255, _half_to_float(b_half) * 255)))
+        a = int(max(0, min(255, _half_to_float(a_half) * 255)))
+        
+        idx = i * 4
+        result[idx] = r
+        result[idx + 1] = g
+        result[idx + 2] = b
+        result[idx + 3] = a
+    
+    return bytes(result)
+
+
+@register_decoder('R32F')
+@register_decoder('D32F')
+def decode_r32f(data: bytes, width: int, height: int) -> bytes:
+    """解码 R32F / D32F (32-bit float) 为灰度 RGBA"""
+    expected = width * height * 4
+    result = bytearray(width * height * 4)
+    
+    for i in range(min(len(data) // 4, width * height)):
+        f = struct.unpack('<f', data[i*4:i*4+4])[0]
+        # 深度值通常在 0-1 范围，映射到 0-255
+        gray = int(max(0, min(255, f * 255)))
+        
+        idx = i * 4
+        result[idx] = gray
+        result[idx + 1] = gray
+        result[idx + 2] = gray
+        result[idx + 3] = 255
+    
+    return bytes(result)
+
+
+@register_decoder('D32S8')
+@register_decoder('D32_S8X24')
+def decode_d32s8(data: bytes, width: int, height: int) -> bytes:
+    """
+    解码 D32_FLOAT_S8X24_UINT 格式为 RGBA
+    
+    布局: 32-bit float depth + 8-bit stencil + 24-bit padding = 8 bytes/pixel
+    输出: R=深度可视化, G=模板值, B=0, A=255
+    """
+    expected = width * height * 8
+    result = bytearray(width * height * 4)
+    
+    for i in range(min(len(data) // 8, width * height)):
+        offset = i * 8
+        depth = struct.unpack('<f', data[offset:offset+4])[0]
+        stencil = data[offset + 4] if offset + 4 < len(data) else 0
+        
+        # 深度映射到灰度
+        gray = int(max(0, min(255, depth * 255)))
+        
+        idx = i * 4
+        result[idx] = gray      # R = 深度
+        result[idx + 1] = stencil  # G = 模板
+        result[idx + 2] = 0     # B
+        result[idx + 3] = 255   # A
+    
+    return bytes(result)
+
+
+@register_decoder('D24S8')
+def decode_d24s8(data: bytes, width: int, height: int) -> bytes:
+    """
+    解码 D24_UNORM_S8_UINT 格式为 RGBA
+    
+    布局: 24-bit depth + 8-bit stencil = 4 bytes/pixel
+    """
+    expected = width * height * 4
+    result = bytearray(width * height * 4)
+    
+    for i in range(min(len(data) // 4, width * height)):
+        offset = i * 4
+        # D24: 低 24 位是深度 (UNORM)
+        depth_raw = struct.unpack('<I', data[offset:offset+4])[0] & 0xFFFFFF
+        stencil = data[offset + 3] if offset + 3 < len(data) else 0
+        
+        # 24位深度归一化到 0-255
+        gray = int((depth_raw / 0xFFFFFF) * 255)
+        
+        idx = i * 4
+        result[idx] = gray      # R = 深度
+        result[idx + 1] = stencil  # G = 模板
+        result[idx + 2] = 0     # B
+        result[idx + 3] = 255   # A
+    
+    return bytes(result)
+
+
+@register_decoder('R11G11B10F')
+def decode_r11g11b10f(data: bytes, width: int, height: int) -> bytes:
+    """
+    解码 R11G11B10_FLOAT 格式为 RGBA
+    
+    布局 (32 bits): R (11 bits) | G (11 bits) | B (10 bits)
+    每个通道是无符号浮点: mantissa + exponent (无符号数)
+    """
+    expected = width * height * 4
+    result = bytearray(width * height * 4)
+    
+    for i in range(min(len(data) // 4, width * height)):
+        val = struct.unpack('<I', data[i*4:i*4+4])[0]
+        
+        # 解包各通道
+        r_raw = val & 0x7FF          # bits 0-10
+        g_raw = (val >> 11) & 0x7FF  # bits 11-21
+        b_raw = (val >> 22) & 0x3FF  # bits 22-31
+        
+        # R11/G11: 6-bit mantissa + 5-bit exponent
+        r = _decode_float11(r_raw)
+        g = _decode_float11(g_raw)
+        # B10: 5-bit mantissa + 5-bit exponent
+        b = _decode_float10(b_raw)
+        
+        # HDR 值映射到 0-255 (简单 tonemap)
+        idx = i * 4
+        result[idx] = int(max(0, min(255, r * 255)))
+        result[idx + 1] = int(max(0, min(255, g * 255)))
+        result[idx + 2] = int(max(0, min(255, b * 255)))
+        result[idx + 3] = 255
+    
+    return bytes(result)
+
+
+@register_decoder('RGBA32F')
+def decode_rgba32f(data: bytes, width: int, height: int) -> bytes:
+    """解码 RGBA32F (four 32-bit floats) 为 RGBA"""
+    expected = width * height * 16
+    result = bytearray(width * height * 4)
+    
+    for i in range(min(len(data) // 16, width * height)):
+        offset = i * 16
+        r = struct.unpack('<f', data[offset:offset+4])[0]
+        g = struct.unpack('<f', data[offset+4:offset+8])[0]
+        b = struct.unpack('<f', data[offset+8:offset+12])[0]
+        a = struct.unpack('<f', data[offset+12:offset+16])[0]
+        
+        idx = i * 4
+        result[idx] = int(max(0, min(255, r * 255)))
+        result[idx + 1] = int(max(0, min(255, g * 255)))
+        result[idx + 2] = int(max(0, min(255, b * 255)))
+        result[idx + 3] = int(max(0, min(255, a * 255)))
+    
+    return bytes(result)
+
+
+@register_decoder('RG32F')
+def decode_rg32f(data: bytes, width: int, height: int) -> bytes:
+    """解码 RG32F (two 32-bit floats) 为 RGBA"""
+    expected = width * height * 8
+    result = bytearray(width * height * 4)
+    
+    for i in range(min(len(data) // 8, width * height)):
+        offset = i * 8
+        r = struct.unpack('<f', data[offset:offset+4])[0]
+        g = struct.unpack('<f', data[offset+4:offset+8])[0]
+        
+        idx = i * 4
+        result[idx] = int(max(0, min(255, r * 255)))
+        result[idx + 1] = int(max(0, min(255, g * 255)))
+        result[idx + 2] = 0
+        result[idx + 3] = 255
+    
+    return bytes(result)
+
+
+# ============================================================================
+# 浮点数转换辅助函数
+# ============================================================================
+
+def _half_to_float(h: int) -> float:
+    """IEEE 754 half precision (16-bit) 转 float"""
+    sign = (h >> 15) & 1
+    exp = (h >> 10) & 0x1F
+    mantissa = h & 0x3FF
+    
+    if exp == 0:
+        # 非规格化数或零
+        if mantissa == 0:
+            return -0.0 if sign else 0.0
+        # 非规格化数
+        return ((-1) ** sign) * (mantissa / 1024.0) * (2 ** -14)
+    elif exp == 31:
+        # Inf 或 NaN
+        if mantissa == 0:
+            return float('-inf') if sign else float('inf')
+        return float('nan')
+    else:
+        # 规格化数
+        return ((-1) ** sign) * (1 + mantissa / 1024.0) * (2 ** (exp - 15))
+
+
+def _decode_float11(val: int) -> float:
+    """解码 11-bit 无符号浮点 (6-bit mantissa, 5-bit exponent)"""
+    exp = (val >> 6) & 0x1F
+    mantissa = val & 0x3F
+    
+    if exp == 0:
+        return (mantissa / 64.0) * (2 ** -14)
+    elif exp == 31:
+        return float('inf') if mantissa == 0 else float('nan')
+    else:
+        return (1 + mantissa / 64.0) * (2 ** (exp - 15))
+
+
+def _decode_float10(val: int) -> float:
+    """解码 10-bit 无符号浮点 (5-bit mantissa, 5-bit exponent)"""
+    exp = (val >> 5) & 0x1F
+    mantissa = val & 0x1F
+    
+    if exp == 0:
+        return (mantissa / 32.0) * (2 ** -14)
+    elif exp == 31:
+        return float('inf') if mantissa == 0 else float('nan')
+    else:
+        return (1 + mantissa / 32.0) * (2 ** (exp - 15))
 
 
 # BC1/BC3/BC7 解码器将在单独的模块中实现，并在此导入注册
