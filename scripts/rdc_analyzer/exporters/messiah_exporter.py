@@ -16,7 +16,10 @@ def write_repo_skeleton(out_dir, event_id):
 
 
 def build_material_xml(shader_kind, fallback, base_texture_guid=None):
-    template_name = "Unlit" if fallback == "unlit" else fallback
+    if isinstance(shader_kind, str) and shader_kind.lower() == "pbr":
+        template_name = "PBR"
+    else:
+        template_name = "Unlit" if fallback == "unlit" else fallback
     texture_guid = base_texture_guid or "00000000-0000-0000-0000-000000000000"
     return (
         "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n"

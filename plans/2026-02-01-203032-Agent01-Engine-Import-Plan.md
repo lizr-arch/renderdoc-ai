@@ -2,7 +2,7 @@
 
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
-**Version:** 1.1.0  
+**Version:** 1.2.0  
 **Owner:** Agent01 (Codex)  
 **Last Updated:** 2026-02-01  
 **Plan File:** plans/2026-02-01-203032-Agent01-Engine-Import-Plan.md  
@@ -23,6 +23,7 @@
 - For one eventId, Messiah exporter writes a valid repository under:
   `.../messiah/Package/Repository/rdc_event_<eventId>.local/`
 - GUID generation is deterministic for identical inputs.
+- Mesh/Texture/Material XML include required fields per Messiah spec (VertexFormat/Streams/BoundingBox, Texture2DInfo/RsTextureInfo, Material Parameters).
 - Unity/Unreal exporters generate importable asset stubs (OBJ/ShaderLab and FBX/Interchange inputs respectively).
 
 ## Acceptance Criteria
@@ -34,6 +35,8 @@
 - `py -3 -m pytest scripts/rdc_analyzer/tests/test_messiah_guid_determinism.py` (Expected: PASS)
 - `py -3 -m pytest scripts/rdc_analyzer/tests/test_messiah_repository_layout.py` (Expected: PASS)
 - `py -3 -m pytest scripts/rdc_analyzer/tests/test_messiah_material_mapping.py` (Expected: PASS)
+- `py -3 -m pytest scripts/rdc_analyzer/tests/test_messiah_mesh_xml_detail.py` (Expected: PASS)
+- `py -3 -m pytest scripts/rdc_analyzer/tests/test_messiah_texture_xml_detail.py` (Expected: PASS)
 
 ## Evidence
 - `<out>/capture_<name>/event_<id>/messiah/Package/Repository/rdc_event_<eventId>.local/resource.repository`
@@ -296,6 +299,110 @@ git commit -m "docs(rdc-analyzer): add unity/unreal import stubs"
 
 ---
 
+### Task 6 — Mesh XML/Stream 细化（基于 intermediate vertex_layout）
+**Files:**
+- Modify: `scripts/rdc_analyzer/exporters/messiah_exporter.py`
+- Create: `scripts/rdc_analyzer/tests/test_messiah_mesh_xml_detail.py`
+
+**Step 1: Write failing test**
+```python
+def test_mesh_xml_has_vertex_format_and_streams():
+    from exporters.messiah_exporter import _build_mesh_xml
+    xml = _build_mesh_xml(vertex_count=3, index_count=3, stream0_size=72, index_size=6)
+    assert "<VertexFormat" in xml
+    assert "<Streams" in xml
+    assert "<BoundingBox>" in xml
+```
+**Step 2: Run test to verify it fails**  
+Run: `py -3 -m pytest scripts/rdc_analyzer/tests/test_messiah_mesh_xml_detail.py -k mesh_xml -v`  
+Expected: FAIL
+
+**Step 3: Write minimal implementation**
+```python
+def _build_mesh_xml(...):
+    # include VertexFormat, Streams, Indices, BoundingBox per spec
+```
+**Step 4: Run test to verify it passes**  
+Run: `py -3 -m pytest scripts/rdc_analyzer/tests/test_messiah_mesh_xml_detail.py -k mesh_xml -v`  
+Expected: PASS
+
+**Step 5: Commit**
+```bash
+git add scripts/rdc_analyzer/exporters/messiah_exporter.py scripts/rdc_analyzer/tests/test_messiah_mesh_xml_detail.py
+git commit -m "feat(rdc-analyzer): refine messiah mesh xml"
+```
+
+---
+
+### Task 7 — Texture XML 细化（Texture2DInfo/RsTextureInfo/Slice）
+**Files:**
+- Modify: `scripts/rdc_analyzer/exporters/messiah_exporter.py`
+- Create: `scripts/rdc_analyzer/tests/test_messiah_texture_xml_detail.py`
+
+**Step 1: Write failing test**
+```python
+def test_texture_xml_has_required_sections():
+    from exporters.messiah_exporter import _build_texture_xml
+    xml = _build_texture_xml(1, 1, "R8G8B8A8", 4)
+    assert "<Texture2DInfo>" in xml
+    assert "<RsTextureInfo>" in xml
+    assert "<RsTextureSliceData>" in xml
+```
+**Step 2: Run test to verify it fails**  
+Run: `py -3 -m pytest scripts/rdc_analyzer/tests/test_messiah_texture_xml_detail.py -k texture_xml -v`  
+Expected: FAIL
+
+**Step 3: Write minimal implementation**
+```python
+def _build_texture_xml(...):
+    # include Texture2DInfo, RsTextureInfo, SliceInfo, SliceData
+```
+**Step 4: Run test to verify it passes**  
+Run: `py -3 -m pytest scripts/rdc_analyzer/tests/test_messiah_texture_xml_detail.py -k texture_xml -v`  
+Expected: PASS
+
+**Step 5: Commit**
+```bash
+git add scripts/rdc_analyzer/exporters/messiah_exporter.py scripts/rdc_analyzer/tests/test_messiah_texture_xml_detail.py
+git commit -m "feat(rdc-analyzer): refine messiah texture xml"
+```
+
+---
+
+### Task 8 — Material 参数细化（PBR/Unlit）
+**Files:**
+- Modify: `scripts/rdc_analyzer/exporters/messiah_exporter.py`
+- Modify: `scripts/rdc_analyzer/tests/test_messiah_material_mapping.py`
+
+**Step 1: Write failing test**
+```python
+def test_material_has_pbr_params_when_shader_pbr():
+    from exporters.messiah_exporter import build_material_xml
+    xml = build_material_xml(shader_kind="pbr", fallback="unlit")
+    assert "<ShaderName>PBR</ShaderName>" in xml
+    assert "tBaseMap" in xml
+```
+**Step 2: Run test to verify it fails**  
+Run: `py -3 -m pytest scripts/rdc_analyzer/tests/test_messiah_material_mapping.py -k pbr -v`  
+Expected: FAIL
+
+**Step 3: Write minimal implementation**
+```python
+def build_material_xml(shader_kind, fallback, base_texture_guid=None):
+    # map shader_kind to ShaderName PBR/Unlit, add minimal params
+```
+**Step 4: Run test to verify it passes**  
+Run: `py -3 -m pytest scripts/rdc_analyzer/tests/test_messiah_material_mapping.py -k pbr -v`  
+Expected: PASS
+
+**Step 5: Commit**
+```bash
+git add scripts/rdc_analyzer/exporters/messiah_exporter.py scripts/rdc_analyzer/tests/test_messiah_material_mapping.py
+git commit -m "feat(rdc-analyzer): refine messiah material params"
+```
+
+---
+
 ## Notes for Unity/Unreal (post‑Messiah)
 - Unity: prefer OBJ/MTL + ShaderLab stub; map textures via material properties.
 - Unreal: prefer FBX/Interchange inputs; avoid `.uasset` writes.
@@ -306,3 +413,6 @@ git commit -m "docs(rdc-analyzer): add unity/unreal import stubs"
 - [x] Task 3 — Material mapping (shader‑driven, Unlit fallback)
 - [x] Task 4 — Messiah CLI entry (consume intermediate)
 - [ ] Task 5 — Unity / Unreal import stubs (docs + scaffolding)
+- [x] Task 6 — Mesh XML/stream细化（VertexFormat/Streams/BBox）
+- [x] Task 7 — Texture XML 细化（Texture2DInfo/RsTextureInfo/Slice）
+- [x] Task 8 — Material 参数细化（PBR/Unlit 参数最小集）
