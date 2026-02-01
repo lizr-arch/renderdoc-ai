@@ -1,12 +1,43 @@
 # UI 重构升级总结（2026-02-01）
 
-> 目的：总结 v2 UI 重构的框架、流程、设计理念与调用关系，保证后续维护可追溯。
+> 目标读者：新成员教学 + 项目汇报  
+> 文档来源：严格对照计划 `plans/2026-02-01-155453-Codex01-UI-Refactor-Summary-Doc.md`
+
+---
+
+## 计划对照表（Plan → Summary）
+| 计划条目 | 文档位置 | 说明 |
+|---|---|---|
+| Goal | 设计理念 / 目标与范围 | 对应“重构升级总结”目标 |
+| Architecture | 框架图 / 代码调用图 | UI 四视图 + 数据契约链路 |
+| Success Criteria | 验收要点 | 目标可检查点 |
+| Evidence | 代码引用 | 文件/关键入口 |
+| Risks | 风险与缺口 | 当前风险点 |
+| Game Dev Addendum | 游戏开发注意点 | 资源、管线、崩溃记录 |
+
+---
 
 ## 设计理念（WHY）
-- **统一数据口径**：用 `ReportDataContract` 作为唯一数据契约，避免三套报告口径分裂。  
-- **问题驱动**：Issues 视图优先呈现可执行建议，事件/资源用于溯源。  
-- **渐进迁移**：通过 `--ui-version=v2` 保持旧版可用，降低迁移风险。  
-- **可追溯链路**：每条问题都能追溯到资源或 EID。  
+**教学视角**：  
+- 以前三套报告各自解析数据、渲染页面，容易出现“同一捕获在不同报告中数据不一致”的问题。  
+- 现在用 `ReportDataContract` 统一数据入口，UI 只负责展示。  
+
+**汇报视角**：  
+- 统一口径后，所有报告可用一套视图验证（Issues/Events/Resources/Performance），减少维护成本与验收成本。  
+
+---
+
+## 目标与范围（WHAT）
+**目标**  
+1. 单文件总结报告，解释 v2 UI 架构。  
+2. 框架图/流程图/调用图完整且可追溯。  
+3. 体现“问题驱动 + 渐进迁移 + 可追溯”。  
+
+**范围**  
+- In Scope：v2 UI 重构、Report Contract、Issue Detector、四视图壳层  
+- Out of Scope：UI 细节实现、compare mode、replay 路线  
+
+---
 
 ## 框架图（WHAT / Architecture）
 ```mermaid
@@ -21,6 +52,8 @@ graph TD
   D --> I[issue_detector.detect_all_issues]
 ```
 
+---
+
 ## 流程图（HOW / Data Flow）
 ```mermaid
 sequenceDiagram
@@ -34,6 +67,8 @@ sequenceDiagram
   UI->>UI: render_issues/events/resources/performance
 ```
 
+---
+
 ## 代码调用图（Call Graph）
 ```mermaid
 graph LR
@@ -46,6 +81,8 @@ graph LR
   report_ui --> render_performance_view
 ```
 
+---
+
 ## 模块职责（WHAT / WHY / HOW）
 | 模块 | WHAT | WHY | HOW |
 |---|---|---|---|
@@ -54,12 +91,36 @@ graph LR
 | report_ui.py | 四视图壳层 | 降低维护成本 | render_report_shell |
 | issue_detector.py | 问题聚合 | 快速定位瓶颈 | detect_all_issues |
 
-## 关键调用链（带代码引用）
-- `analyze_xml_report.py` → `ReportDataContract`（v2 分支入口）  
-- `ReportDataContract` → `build_manifest`（覆盖率统计）  
-- `render_report_shell` → `render_*_view`（四视图渲染）  
+---
 
-## 当前缺口 / 风险点
+## 验收要点（Success Criteria）
+- 文档包含“设计理念 / 框架图 / 流程图 / 调用图”。  
+- 每张图至少覆盖 `analyze_xml_report.py`、`report_contract.py`、`report_ui.py`。  
+- 文档 ≤ 800 行。  
+
+---
+
+## 代码引用（Evidence）
+- v2 入口：`scripts/rdc_analyzer/analyze_xml_report.py:1717-1737`  
+- 数据契约：`scripts/rdc_analyzer/report_contract.py:24-132`  
+- UI 壳层：`scripts/rdc_analyzer/report_ui.py:747-820`  
+- Issue Detector：`scripts/rdc_analyzer/core/issue_detector.py:160-210`  
+
+---
+
+## 风险与缺口（Risks）
 - **IssueDetector 口径**：当前为新规则集，需明确与 `rules/*` 的映射关系。  
 - **Manifest 输出**：建议明确是否落盘 `report_manifest.json` 用于验收。  
+
+---
+
+## 游戏开发注意点（Game Dev Addendum）
+**Memory & Resource Budget**  
+- 大纹理列表需分页/懒加载，避免一次性渲染超长 DOM。  
+
+**Asset Pipeline**  
+- 纹理导出目录与 Manifest 必须保持一致，避免资源错配。  
+
+**Crash Repro + Dumps/Symbols**  
+- 若 UI 生成失败，记录 traceback + commit hash，方便回放定位。  
 

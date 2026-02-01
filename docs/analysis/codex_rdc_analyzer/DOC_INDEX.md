@@ -60,6 +60,12 @@
 - 适用链路：B/C
 - 路径：`docs/analysis/codex_rdc_analyzer/WORK_SUMMARY_BUILD.md`
 
+### 2026-02-01-ui-refactor-summary（UI 重构升级总结）
+- 简介：按计划逐条对照，解释 v2 UI 架构、流程与调用链。
+- 关键词：ui refactor, contract, manifest, shell
+- 适用链路：A/C
+- 路径：`docs/analysis/codex_rdc_analyzer/2026-02-01-ui-refactor-summary.md`
+
 ### TASK_TRACKER（任务追踪）
 - 简介：A-first/B-mode 任务状态、DoD 完成度、P0 列表。
 - 关键词：task tracker, DoD, status
