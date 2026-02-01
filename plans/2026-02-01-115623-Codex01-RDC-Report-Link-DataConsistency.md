@@ -274,6 +274,7 @@ git commit -m "feat(rdc-analyzer): add consistency panel + jump"
 
 ## Execution Log
 - 2026-02-01：完成 Task 1（新增 manifest schema + 测试），`test_manifest_schema.py` 通过。
+- 2026-02-01：完成 Task 2（V3 报告写入 manifest/link），`test_v3_manifest.py` 通过。
 
 ## Verification / DoD
 - 同一 capture 生成两份报告 → `rdc_manifest.json` / `report_links.json` 存在且字段完整。

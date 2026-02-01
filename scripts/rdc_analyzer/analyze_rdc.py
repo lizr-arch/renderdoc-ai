@@ -25,6 +25,8 @@ sys.path.insert(0, str(Path(__file__).parent))
 
 from rdc_parser import RDCParser, ShaderInfo, extract_shaders, extract_textures, extract_resource_renames, TextureInfo, VK_FORMAT_NAMES, DrawEventContext, PipelineInfo
 from mali_analyzer import MaliOfflineCompiler, ShaderAnalysisResult, MaliPerformanceMetrics
+from schema import rdc_manifest
+from tools import report_linking
 
 RECONCILE_RATIO_THRESHOLD = 0.9
 
@@ -685,6 +687,91 @@ import hashlib
 def compute_shader_hash(spirv_data: bytes) -> str:
     """计算 SPIR-V 数据的 SHA256 哈希（用于跨文件匹配）"""
     return hashlib.sha256(spirv_data).hexdigest()[:16]
+
+
+def write_v3_manifest(
+    output_path: Path | str,
+    analysis_results: List[Dict],
+    capture_id: str | None = None,
+) -> Dict[str, Any]:
+    output_path = Path(output_path)
+
+    if not capture_id:
+        source_paths = []
+        for result in analysis_results:
+            summary = result.get("summary", {})
+            source_path = summary.get("file")
+            if source_path:
+                source_paths.append(source_path)
+        if not source_paths:
+            source_paths = [str(output_path)]
+        capture_id = report_linking.compute_capture_id(source_paths)
+
+    total_events = 0
+    total_textures = 0
+    total_shaders = 0
+    texture_source = "unknown"
+
+    missing_reason = []
+    missing_seen = set()
+
+    for result in analysis_results:
+        summary = result.get("summary", {})
+        total_events += summary.get("total_draw_events", 0)
+
+        textures = result.get("textures", [])
+        texture_count = len(textures) if isinstance(textures, list) else 0
+        if texture_count == 0:
+            texture_count = summary.get("total_textures", 0)
+        total_textures += texture_count
+
+        shaders = result.get("shaders", [])
+        shader_count = len(shaders) if isinstance(shaders, list) else 0
+        if shader_count == 0:
+            shader_count = summary.get("total_shaders", summary.get("analyzed_shaders", 0))
+        total_shaders += shader_count
+
+        candidate_texture_source = summary.get("texture_source")
+        if candidate_texture_source:
+            texture_source = candidate_texture_source
+
+        texture_reason = summary.get("texture_data_reason")
+        if texture_reason:
+            key = ("textures", texture_reason)
+            if key not in missing_seen:
+                missing_seen.add(key)
+                missing_reason.append({"field": "textures", "reason": texture_reason})
+
+        shader_reason = summary.get("shader_data_reason")
+        if shader_reason:
+            key = ("shaders", shader_reason)
+            if key not in missing_seen:
+                missing_seen.add(key)
+                missing_reason.append({"field": "shaders", "reason": shader_reason})
+
+    counts = {
+        "events": total_events,
+        "textures": total_textures,
+        "shaders": total_shaders,
+    }
+
+    count_reason = {
+        "events": "rdc_log",
+        "textures": texture_source,
+        "shaders": "chunk_parse",
+    }
+
+    report_links = report_linking.default_report_links(output_path, "v3")
+    manifest = rdc_manifest.build_manifest(
+        capture_id=capture_id,
+        source="A",
+        counts=counts,
+        count_reason=count_reason,
+        missing=missing_reason,
+        report_links=report_links,
+    )
+    report_linking.write_manifest_bundle(output_path, manifest, report_links)
+    return manifest
 
 
 def generate_html_report(analysis_results: List[Dict], output_path: str):
@@ -2829,6 +2916,7 @@ def generate_html_report(analysis_results: List[Dict], output_path: str):
     
     with open(output_path, 'w', encoding='utf-8') as f:
         f.write(html)
+    write_v3_manifest(output_path, analysis_results)
     
     print(f"\n[OK] Report saved to: {output_path}")
 
