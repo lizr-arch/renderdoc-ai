@@ -32,7 +32,8 @@ except ImportError:
     except ImportError:
         DECODER_AVAILABLE = False
 
-# 尝试导入 D3D11 解析器
+# 尝试导入 D3D11 解析器（使用直接文件导入避免包冲突）
+D3D11_PARSER_AVAILABLE = False
 try:
     from parsers.d3d11_texture_parser import (
         parse_d3d11_xml,
@@ -41,7 +42,20 @@ try:
     )
     D3D11_PARSER_AVAILABLE = True
 except ImportError:
-    D3D11_PARSER_AVAILABLE = False
+    # 尝试直接文件导入
+    try:
+        import importlib.util
+        _d3d11_parser_path = Path(__file__).parent.parent / "parsers" / "d3d11_texture_parser.py"
+        if _d3d11_parser_path.exists():
+            _spec = importlib.util.spec_from_file_location("d3d11_texture_parser", _d3d11_parser_path)
+            _d3d11_module = importlib.util.module_from_spec(_spec)
+            _spec.loader.exec_module(_d3d11_module)
+            parse_d3d11_xml = _d3d11_module.parse_d3d11_xml
+            detect_api_type = _d3d11_module.detect_api_type
+            D3D11TextureInfo = _d3d11_module.D3D11TextureInfo
+            D3D11_PARSER_AVAILABLE = True
+    except Exception:
+        pass
 
 # 尝试导入 renderdoc
 try:
