@@ -134,3 +134,29 @@
 - 已知字段：`firstDescriptorOffset, descriptorCount`  
 - 待补充：`Descriptor, SamplerDescriptor, DescriptorLogicalLocation` 等细节字段  
 - 覆盖现状：A/C 缺失；B 可通过 Replay 获取  
+
+### 5.7 字段级清单（Shader / Bindings）
+
+**SigParameter（输入/输出签名）**  
+- 字段：`varName, semanticName, semanticIdxName, semanticIndex, perPrimitiveRate, regIndex, systemValue, varType, regChannelMask, channelUsedMask, needSemanticIndex, compCount, stream`  
+- 覆盖现状：A/C 缺失；B 可通过 Replay 获取  
+
+**ShaderResource（资源绑定）**  
+- 字段：`textureType, descriptorType, name, variableType, fixedBindNumber, fixedBindSetOrSpace, bindArraySize, isTexture, hasSampler, isInputAttachment, isReadOnly`  
+- 覆盖现状：A/C 缺失；B 可通过 Replay 获取  
+
+**ShaderEntryPoint（入口）**  
+- 字段：`name, stage`  
+- 覆盖现状：A/C 缺失；B 可通过 Replay 获取  
+
+**ShaderReflection（反射全集）**  
+- 字段：`resourceId, entryPoint, stage, debugInfo, encoding, rawBytes, dispatchThreadsDimension, outputTopology, inputSignature, outputSignature, constantBlocks, samplers, readOnlyResources, readWriteResources, interfaces, pointerTypes, taskPayload, rayPayload, rayAttributes`  
+- 覆盖现状：A/C 缺失；B 可通过 Replay 获取  
+
+**DescriptorAccess（绑定访问）**  
+- 字段：`stage, type, index, arrayElement, descriptorStore, byteOffset, byteSize, staticallyUnused`  
+- 覆盖现状：A/C 缺失；B 可通过 Replay 获取  
+
+**DescriptorStoreDescription（补充字段）**  
+- 字段：`resourceId, descriptorByteSize, firstDescriptorOffset, descriptorCount`  
+- 覆盖现状：A/C 缺失；B 可通过 Replay 获取  
