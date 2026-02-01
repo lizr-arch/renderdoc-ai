@@ -490,11 +490,103 @@ def render_resources_view(contract: ReportDataContract) -> str:
 
 
 def render_performance_view(performance: Dict[str, Any]) -> str:
-    """渲染 Performance 视图（Phase 1 占位）"""
-    return '''<div class="placeholder-view">
-    <h2>📊 Performance Dashboard</h2>
-    <p>Performance graphs and metrics will be implemented in Phase 3</p>
+    """
+    渲染 Performance 视图 - 性能仪表盘
+    
+    Args:
+        performance: 性能数据字典，包含帧时间、DrawCall数量等
+    
+    Returns:
+        HTML 字符串
+    """
+    if not performance:
+        return '''<div class="performance-view">
+    <div class="placeholder-view">
+        <h2>📊 Performance Dashboard</h2>
+        <p>No performance data available</p>
+    </div>
 </div>'''
+    
+    html_parts = ['<div class="performance-view">']
+    
+    # === 指标卡片区 ===
+    html_parts.append('  <div class="metrics-section">')
+    html_parts.append('    <h3 class="section-heading">📈 Key Metrics</h3>')
+    html_parts.append('    <div class="metric-cards">')
+    
+    # 定义指标配置
+    metrics = [
+        ('frame_time_ms', '⏱️ Frame Time', 'ms', '{:.1f}'),
+        ('draw_call_count', '🎨 Draw Calls', '', '{:,}'),
+        ('triangle_count', '🔺 Triangles', '', '{:,}'),
+        ('texture_memory_mb', '🖼️ Texture Memory', 'MB', '{:.1f}'),
+        ('buffer_memory_mb', '📦 Buffer Memory', 'MB', '{:.1f}'),
+        ('render_target_count', '🎯 Render Targets', '', '{}'),
+    ]
+    
+    for key, label, unit, fmt in metrics:
+        if key in performance:
+            value = performance[key]
+            try:
+                formatted_value = fmt.format(value)
+            except (ValueError, TypeError):
+                formatted_value = str(value)
+            
+            unit_html = f' <span class="metric-unit">{unit}</span>' if unit else ''
+            
+            html_parts.append(f'''      <div class="metric-card">
+        <div class="metric-label">{label}</div>
+        <div class="metric-value">{formatted_value}{unit_html}</div>
+      </div>''')
+    
+    html_parts.append('    </div>')
+    html_parts.append('  </div>')
+    
+    # === Pass 耗时分解 ===
+    passes = performance.get('passes', [])
+    if passes:
+        html_parts.append('  <div class="passes-section">')
+        html_parts.append('    <h3 class="section-heading">📊 Pass Breakdown</h3>')
+        html_parts.append('    <div class="pass-list">')
+        
+        # 计算总时间用于百分比
+        total_time = sum(p.get('duration_ms', 0) for p in passes)
+        
+        for p in passes:
+            name = html_module.escape(str(p.get('name', 'Unknown')))
+            duration = p.get('duration_ms', 0)
+            pct = (duration / total_time * 100) if total_time > 0 else 0
+            
+            html_parts.append(f'''      <div class="pass-row">
+        <span class="pass-name">{name}</span>
+        <div class="pass-bar-container">
+          <div class="pass-bar" style="width: {pct:.1f}%"></div>
+        </div>
+        <span class="pass-time">{duration:.2f} ms ({pct:.1f}%)</span>
+      </div>''')
+        
+        html_parts.append('    </div>')
+        html_parts.append('  </div>')
+    
+    # === 时序图占位 ===
+    html_parts.append('  <div class="timeline-section">')
+    html_parts.append('    <h3 class="section-heading">📈 Timeline Chart</h3>')
+    
+    timeline = performance.get('timeline', [])
+    if timeline:
+        html_parts.append('    <div class="timeline-placeholder">')
+        html_parts.append(f'      <p>Timeline data available ({len(timeline)} events)</p>')
+        html_parts.append('      <p class="coming-soon">Interactive chart coming soon</p>')
+        html_parts.append('    </div>')
+    else:
+        html_parts.append('    <div class="timeline-placeholder">')
+        html_parts.append('      <p class="coming-soon">Timeline chart coming soon</p>')
+        html_parts.append('    </div>')
+    
+    html_parts.append('  </div>')
+    html_parts.append('</div>')
+    
+    return '\n'.join(html_parts)
 
 
 def render_report_shell(
