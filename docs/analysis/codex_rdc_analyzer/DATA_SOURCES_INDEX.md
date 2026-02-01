@@ -10,6 +10,7 @@
 - `scripts/rdc_analyzer/docs/REPORT_ARCHITECTURE.md`  
 - `docs/analysis/codex_rdc_analyzer/WORK_SUMMARY_ROUTES.md`  
 - `docs/analysis/codex_rdc_analyzer/WORK_SUMMARY_SCHEMA.md`  
+- `docs/analysis/codex_rdc_analyzer/README.md`  
 
 ---
 
@@ -21,13 +22,19 @@
 | 分类 | 来源 | WHAT | WHY | HOW（入口/工具/文件） | 可用性/限制 | 关联入口 |
 |---|---|---|---|---|---|---|
 | 原始捕获 | `.rdc` | GPU 捕获原始二进制 | 一切分析的唯一源头 | RenderDoc 捕获生成 | A/B/C 基础输入 | `WORK_SUMMARY_ROUTES.md` |
+| UI 导出 | XML | 手工导出的结构化事件/资源 | A/C 离线分析主干数据 | RenderDoc UI 导出 XML | ✅A/C；人工步骤 | `README.md` |
 | CLI 导出 | XML | 结构化事件/资源/统计 | A/C 离线分析主干数据 | `renderdoccmd convert -c xml` + `analyze_xml_report.py` | ✅A/C；字段不全 | `analyze_xml_report.py` |
-| CLI 导出 | 纹理/metadata/bindings | 资源与绑定补充数据 | 缓解 XML 字段缺口 | `renderdoccmd`（纹理/metadata/bindings 子命令） | ⚠️命令边界待确认 | `README.md`(export 说明) |
+| CLI 导出 | `--export-xml`（历史线索） | 可能的 XML 导出入口 | 解释“XML 来源” | `renderdoccmd --export-xml`（文档线索） | ⚠️当前源码未发现实现 | `README.md` |
+| CLI 导出 | 纹理/metadata/bindings | 资源与绑定补充数据 | 缓解 XML 字段缺口 | `renderdoccmd`（纹理/metadata/bindings 子命令） | ⚠️命令边界待确认 | `README.md` |
 | Replay API | RenderDoc Python | Pipeline/Bindings/Shader 反编译等高保真数据 | 补全 XML 缺失字段 | `renderdoc.OpenCaptureFile()` + `ReplayController` | 需 GPU/驱动/设备 | `WORK_SUMMARY_ROUTES.md` |
+| Replay 脚本 | `rdc_to_html.py` | 直接从 `.rdc` 生成 HTML | B 路线主通道 | 依赖 `renderdoc.pyd`/DLL | ⚠️当前环境易缺依赖 | `README.md` |
+| Replay 脚本 | `analyze_rdc.py` | `.rdc`→JSON/HTML（Mali） | Shader 深度分析 | 依赖 `renderdoc` + Mali | ⚠️工具链依赖 | `README.md` |
+| 离线链路 | `export_textures.py` → `generate_offline_report.py` | 纹理离线导出 + 报告 | 离线兜底 | 先导出纹理，再生成 HTML | ⚠️导出前置依赖 | `README.md` |
 | 外部工具 | Mali 报告 | Shader 性能细项 | Shader 深度分析 | `renderdoc_mali_shell.py` → `mali_analysis.json` | 依赖 Mali 工具链 | `REPORT_ARCHITECTURE.md` |
 | 结构化契约 | manifest.json | 页面链接 + counts + data_sources | 统一入口与可追溯 | 生成器输出 | ✅A/C | `REPORT_ARCHITECTURE.md` |
 | 输出结构 | Analyzer JSON | 单帧分析输出（供对比/验收） | compare 的输入基础 | `export_json_*` | ✅A/C | `WORK_SUMMARY_SCHEMA.md` |
-| 输出结构 | Diff JSON | 双帧对比输出 | 形成结论与差异 | `export_json_diff` | ✅A/B | `WORK_SUMMARY_SCHEMA.md` |
+| Compare 输入 | `load_json_data` | 统一输入结构 | 保障 diff 可信度 | `compare_rdc.py` | ✅A/B | `WORK_SUMMARY_SCHEMA.md` |
+| Compare 输出 | Diff JSON / HTML | 双帧对比结论 | 形成差异与建议 | `export_json_diff` | ✅A/B | `WORK_SUMMARY_SCHEMA.md` |
 | 规则库 | RULES.md | 阈值与问题规则 | 解释“为什么提示” | `scripts/rdc_analyzer/RULES.md` | ✅A/B | `RULES.md` |
 | 衍生分析 | Issues/Recommendations | 性能问题与建议 | 建议闭环 | `issue_detector` / analyzer | ✅A/C | `WORK_SUMMARY_VERIFICATION.md` |
 
@@ -61,4 +68,3 @@
 - 本表为**长期维护表**，后续补充时**只增不删**，避免丢失历史来源。  
 - 任何链路变更（A/B/C）都必须同步更新本表。  
 - 若来源不可用，必须写明“不可用原因 + 替代路线”。  
-
