@@ -140,6 +140,34 @@ def normalize_format_name(format_name: str) -> str:
             return 'ATC_RGBA'
         return 'ATC_RGB'
     
+    # ========== Vulkan 特有格式 ==========
+    
+    # B10G11R11_UFLOAT_PACK32 (与 R11G11B10F 通道顺序相反)
+    if 'B10G11R11' in fmt:
+        return 'B10G11R11F'
+    
+    # A2R10G10B10 / A2B10G10R10 格式
+    if 'A2R10G10B10' in fmt:
+        return 'A2R10G10B10'
+    if 'A2B10G10R10' in fmt:
+        return 'A2B10G10R10'
+    
+    # A8B8G8R8 格式 (Vulkan 专用)
+    if 'A8B8G8R8' in fmt:
+        return 'A8B8G8R8'
+    
+    # R16_UNORM / D16_UNORM
+    if 'R16_UNORM' in fmt:
+        return 'R16_UNORM'
+    if 'R16G16_UNORM' in fmt:
+        return 'R16G16_UNORM'
+    if 'D16_UNORM' in fmt:
+        return 'D16_UNORM'
+    
+    # S8_UINT (纯模板)
+    if 'S8_UINT' in fmt:
+        return 'S8_UINT'
+    
     # 提取 BC 格式编号
     for bc in ['BC7', 'BC6H', 'BC5', 'BC4', 'BC3', 'BC2', 'BC1']:
         if bc in fmt:
@@ -676,6 +704,196 @@ def decode_rg32f(data: bytes, width: int, height: int) -> bytes:
         result[idx] = int(max(0, min(255, r * 255)))
         result[idx + 1] = int(max(0, min(255, g * 255)))
         result[idx + 2] = 0
+        result[idx + 3] = 255
+    
+    return bytes(result)
+
+
+# ============================================================================
+# Vulkan 特有格式解码器 (v1.5.0)
+# ============================================================================
+
+@register_decoder('B10G11R11F')
+def decode_b10g11r11f(data: bytes, width: int, height: int) -> bytes:
+    """
+    解码 VK_FORMAT_B10G11R11_UFLOAT_PACK32 为 RGBA
+    
+    布局 (32 bits): B (10 bits) | G (11 bits) | R (11 bits)
+    注意: 与 R11G11B10F 的通道顺序相反
+    """
+    result = bytearray(width * height * 4)
+    
+    for i in range(min(len(data) // 4, width * height)):
+        val = struct.unpack('<I', data[i*4:i*4+4])[0]
+        
+        # 解包各通道 (注意顺序: B-G-R)
+        b_raw = val & 0x3FF           # bits 0-9 (10 bits)
+        g_raw = (val >> 10) & 0x7FF   # bits 10-20 (11 bits)
+        r_raw = (val >> 21) & 0x7FF   # bits 21-31 (11 bits)
+        
+        # B10: 5-bit mantissa + 5-bit exponent
+        b = _decode_float10(b_raw)
+        # G11/R11: 6-bit mantissa + 5-bit exponent
+        g = _decode_float11(g_raw)
+        r = _decode_float11(r_raw)
+        
+        idx = i * 4
+        result[idx] = int(max(0, min(255, r * 255)))
+        result[idx + 1] = int(max(0, min(255, g * 255)))
+        result[idx + 2] = int(max(0, min(255, b * 255)))
+        result[idx + 3] = 255
+    
+    return bytes(result)
+
+
+@register_decoder('A2R10G10B10')
+def decode_a2r10g10b10(data: bytes, width: int, height: int) -> bytes:
+    """
+    解码 VK_FORMAT_A2R10G10B10_UNORM_PACK32 为 RGBA
+    
+    布局 (32 bits): A (2 bits) | R (10 bits) | G (10 bits) | B (10 bits)
+    """
+    result = bytearray(width * height * 4)
+    
+    for i in range(min(len(data) // 4, width * height)):
+        val = struct.unpack('<I', data[i*4:i*4+4])[0]
+        
+        # 解包各通道
+        b = val & 0x3FF               # bits 0-9
+        g = (val >> 10) & 0x3FF       # bits 10-19
+        r = (val >> 20) & 0x3FF       # bits 20-29
+        a = (val >> 30) & 0x3         # bits 30-31
+        
+        idx = i * 4
+        result[idx] = (r * 255) // 1023      # 10-bit -> 8-bit
+        result[idx + 1] = (g * 255) // 1023
+        result[idx + 2] = (b * 255) // 1023
+        result[idx + 3] = (a * 255) // 3     # 2-bit -> 8-bit
+    
+    return bytes(result)
+
+
+@register_decoder('A2B10G10R10')
+def decode_a2b10g10r10(data: bytes, width: int, height: int) -> bytes:
+    """
+    解码 VK_FORMAT_A2B10G10R10_UNORM_PACK32 为 RGBA
+    
+    布局 (32 bits): A (2 bits) | B (10 bits) | G (10 bits) | R (10 bits)
+    """
+    result = bytearray(width * height * 4)
+    
+    for i in range(min(len(data) // 4, width * height)):
+        val = struct.unpack('<I', data[i*4:i*4+4])[0]
+        
+        # 解包各通道 (注意顺序: R-G-B-A)
+        r = val & 0x3FF               # bits 0-9
+        g = (val >> 10) & 0x3FF       # bits 10-19
+        b = (val >> 20) & 0x3FF       # bits 20-29
+        a = (val >> 30) & 0x3         # bits 30-31
+        
+        idx = i * 4
+        result[idx] = (r * 255) // 1023
+        result[idx + 1] = (g * 255) // 1023
+        result[idx + 2] = (b * 255) // 1023
+        result[idx + 3] = (a * 255) // 3
+    
+    return bytes(result)
+
+
+@register_decoder('A8B8G8R8')
+def decode_a8b8g8r8(data: bytes, width: int, height: int) -> bytes:
+    """
+    解码 VK_FORMAT_A8B8G8R8_UNORM_PACK32 为 RGBA
+    
+    布局: A (8) | B (8) | G (8) | R (8) = 32 bits
+    注意: 内存中是 R-G-B-A 顺序 (little-endian)
+    """
+    expected = width * height * 4
+    result = bytearray(expected)
+    
+    for i in range(min(len(data) // 4, width * height)):
+        src = i * 4
+        dst = i * 4
+        if src + 3 < len(data):
+            # Little-endian: 内存顺序 R, G, B, A
+            result[dst] = data[src]        # R
+            result[dst + 1] = data[src + 1]  # G
+            result[dst + 2] = data[src + 2]  # B
+            result[dst + 3] = data[src + 3]  # A
+    
+    return bytes(result)
+
+
+@register_decoder('R16_UNORM')
+@register_decoder('R16U')
+def decode_r16_unorm(data: bytes, width: int, height: int) -> bytes:
+    """解码 R16_UNORM (16-bit UNORM) 为灰度 RGBA"""
+    result = bytearray(width * height * 4)
+    
+    for i in range(min(len(data) // 2, width * height)):
+        val = struct.unpack('<H', data[i*2:i*2+2])[0]
+        gray = (val * 255) // 65535  # 16-bit -> 8-bit
+        
+        idx = i * 4
+        result[idx] = gray
+        result[idx + 1] = gray
+        result[idx + 2] = gray
+        result[idx + 3] = 255
+    
+    return bytes(result)
+
+
+@register_decoder('R16G16_UNORM')
+@register_decoder('RG16U')
+def decode_rg16_unorm(data: bytes, width: int, height: int) -> bytes:
+    """解码 R16G16_UNORM (双通道 16-bit UNORM) 为 RGBA"""
+    result = bytearray(width * height * 4)
+    
+    for i in range(min(len(data) // 4, width * height)):
+        r = struct.unpack('<H', data[i*4:i*4+2])[0]
+        g = struct.unpack('<H', data[i*4+2:i*4+4])[0]
+        
+        idx = i * 4
+        result[idx] = (r * 255) // 65535
+        result[idx + 1] = (g * 255) // 65535
+        result[idx + 2] = 0
+        result[idx + 3] = 255
+    
+    return bytes(result)
+
+
+@register_decoder('D16_UNORM')
+@register_decoder('D16')
+def decode_d16_unorm(data: bytes, width: int, height: int) -> bytes:
+    """解码 D16_UNORM (16-bit 深度) 为灰度 RGBA"""
+    result = bytearray(width * height * 4)
+    
+    for i in range(min(len(data) // 2, width * height)):
+        val = struct.unpack('<H', data[i*2:i*2+2])[0]
+        gray = (val * 255) // 65535
+        
+        idx = i * 4
+        result[idx] = gray
+        result[idx + 1] = gray
+        result[idx + 2] = gray
+        result[idx + 3] = 255
+    
+    return bytes(result)
+
+
+@register_decoder('S8_UINT')
+@register_decoder('S8')
+def decode_s8_uint(data: bytes, width: int, height: int) -> bytes:
+    """解码 S8_UINT (8-bit 纯模板) 为灰度 RGBA"""
+    result = bytearray(width * height * 4)
+    
+    for i in range(min(len(data), width * height)):
+        stencil = data[i]
+        
+        idx = i * 4
+        result[idx] = stencil        # R = 模板值
+        result[idx + 1] = stencil    # G
+        result[idx + 2] = stencil    # B
         result[idx + 3] = 255
     
     return bytes(result)
