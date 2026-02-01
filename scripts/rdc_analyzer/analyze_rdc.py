@@ -2913,10 +2913,83 @@ def generate_html_report(analysis_results: List[Dict], output_path: str):
 </body>
 </html>
 """
-    
+
+    manifest = write_v3_manifest(output_path, analysis_results)
+    manifest_json = json.dumps(manifest, ensure_ascii=False)
+    report_links_json = json.dumps(manifest.get("report_links", {}), ensure_ascii=False)
+
+    html = html.replace(
+        "<script>",
+        "<script>\n"
+        f"        const manifestData = {manifest_json};\n"
+        f"        const reportLinks = {report_links_json};\n",
+        1,
+    )
+
+    panel_js = """
+        function renderConsistencyPanel() {
+            const panel = document.createElement('div');
+            panel.id = 'consistency-panel';
+            panel.style.position = 'fixed';
+            panel.style.right = '16px';
+            panel.style.bottom = '16px';
+            panel.style.zIndex = '9999';
+            panel.style.background = 'rgba(22, 27, 34, 0.95)';
+            panel.style.border = '1px solid #30363d';
+            panel.style.padding = '10px 12px';
+            panel.style.borderRadius = '8px';
+            panel.style.fontSize = '12px';
+            panel.style.maxWidth = '320px';
+            const counts = (manifestData && manifestData.counts) ? manifestData.counts : {};
+            const missing = (manifestData && manifestData.missing_reason) ? manifestData.missing_reason : [];
+            const missingHtml = missing.length
+                ? missing.map(item => `<li>${item.field}: ${item.reason}</li>`).join('')
+                : '<li>none</li>';
+            panel.innerHTML = `
+                <div style="font-weight:600;margin-bottom:6px;">Consistency</div>
+                <div>Events: ${counts.events ?? 0}</div>
+                <div>Textures: ${counts.textures ?? 0}</div>
+                <div>Shaders: ${counts.shaders ?? 0}</div>
+                <div style="margin-top:6px;">Missing:</div>
+                <ul style="margin:4px 0 0 16px;padding:0;">${missingHtml}</ul>
+            `;
+            document.body.appendChild(panel);
+        }
+
+        function applyHashJump() {
+            if (!location.hash) return;
+            const [key, value] = location.hash.slice(1).split('=');
+            if (!key || !value) return;
+            const selectors = [
+                `[data-${key}='${value}']`,
+                `#${key}-${value}`,
+                `#${value}`
+            ];
+            let target = null;
+            for (const sel of selectors) {
+                const node = document.querySelector(sel);
+                if (node) { target = node; break; }
+            }
+            if (target) {
+                target.scrollIntoView({behavior: 'smooth', block: 'center'});
+                target.classList.add('jump-highlight');
+            } else {
+                const panel = document.getElementById('consistency-panel');
+                if (panel) {
+                    panel.innerHTML += `<div style="margin-top:6px;color:#f85149;">Jump target not found: ${key}=${value}</div>`;
+                }
+            }
+        }
+
+        window.addEventListener('load', () => {
+            renderConsistencyPanel();
+            applyHashJump();
+        });
+"""
+    html = html.replace("</script>", panel_js + "\n    </script>", 1)
+
     with open(output_path, 'w', encoding='utf-8') as f:
         f.write(html)
-    write_v3_manifest(output_path, analysis_results)
     
     print(f"\n[OK] Report saved to: {output_path}")
 

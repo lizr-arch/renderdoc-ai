@@ -158,7 +158,7 @@ def generate_offline_html(textures: list, rdc_name: str, output_path: str,
                           optimization_data: dict = None, performance_data: dict = None,
                           rt_tracking_data: dict = None, hotspot_data: dict = None,
                           shader_data: list = None, texture_usage_map: dict = None,
-                          report_links: dict = None):
+                          report_links: dict = None, manifest_data: dict = None):
     """生成纯离线 HTML 报告
     
     Args:
@@ -187,6 +187,7 @@ def generate_offline_html(textures: list, rdc_name: str, output_path: str,
     shader_json = json.dumps(shader_data or [], ensure_ascii=False)
     texture_usage_map_json = json.dumps(texture_usage_map or {}, ensure_ascii=False)
     report_links_json = json.dumps(report_links or {}, ensure_ascii=False)
+    manifest_json = json.dumps(manifest_data or {}, ensure_ascii=False)
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     
     html = f'''<!DOCTYPE html>
@@ -6821,6 +6822,8 @@ def generate_offline_html(textures: list, rdc_name: str, output_path: str,
         const eventPassData = {event_pass_json};
         // 报告互链
         const reportLinks = {report_links_json};
+        // Manifest data (if provided)
+        const manifestData = {manifest_json};
         // 帧缩略图
         const frameThumbnail = {frame_thumbnail_json};
         // 优化建议数据 (TASK-009)
@@ -6835,6 +6838,60 @@ def generate_offline_html(textures: list, rdc_name: str, output_path: str,
         let currentLightboxIndex = 0;
         let currentSort = {{ key: 'id', asc: true }};
         let currentChannel = 'rgb';  // 当前显示的通道
+
+        function renderConsistencyPanel() {{
+            const panel = document.createElement('div');
+            panel.id = 'consistency-panel';
+            panel.style.position = 'fixed';
+            panel.style.right = '16px';
+            panel.style.bottom = '16px';
+            panel.style.zIndex = '9999';
+            panel.style.background = 'rgba(22, 27, 34, 0.95)';
+            panel.style.border = '1px solid #30363d';
+            panel.style.padding = '10px 12px';
+            panel.style.borderRadius = '8px';
+            panel.style.fontSize = '12px';
+            panel.style.maxWidth = '320px';
+            const counts = (manifestData && manifestData.counts) ? manifestData.counts : {{}};
+            const missing = (manifestData && manifestData.missing_reason) ? manifestData.missing_reason : [];
+            const missingHtml = missing.length
+                ? missing.map(item => `<li>${{item.field}}: ${{item.reason}}</li>`).join('')
+                : '<li>none</li>';
+            panel.innerHTML = `
+                <div style="font-weight:600;margin-bottom:6px;">Consistency</div>
+                <div>Events: ${{counts.events ?? 0}}</div>
+                <div>Textures: ${{counts.textures ?? 0}}</div>
+                <div>Shaders: ${{counts.shaders ?? 0}}</div>
+                <div style="margin-top:6px;">Missing:</div>
+                <ul style="margin:4px 0 0 16px;padding:0;">${{missingHtml}}</ul>
+            `;
+            document.body.appendChild(panel);
+        }}
+
+        function applyHashJump() {{
+            if (!location.hash) return;
+            const [key, value] = location.hash.slice(1).split('=');
+            if (!key || !value) return;
+            const selectors = [
+                `[data-${{key}}='${{value}}']`,
+                `#${{key}}-${{value}}`,
+                `#${{value}}`
+            ];
+            let target = null;
+            for (const sel of selectors) {{
+                const node = document.querySelector(sel);
+                if (node) {{ target = node; break; }}
+            }}
+            if (target) {{
+                target.scrollIntoView({{behavior: 'smooth', block: 'center'}});
+                target.classList.add('jump-highlight');
+            }} else {{
+                const panel = document.getElementById('consistency-panel');
+                if (panel) {{
+                    panel.innerHTML += `<div style="margin-top:6px;color:#f85149;">Jump target not found: ${{key}}=${{value}}</div>`;
+                }}
+            }}
+        }}
         
         // ========== Photoshop 风格界面状态 ==========
         let viewMode = 'app';  // 'app' 或 'grid'
@@ -13648,6 +13705,8 @@ Draw Info: ${{currentEIDInfo.drawInfo}}`;
         
         // 启动
         init();
+        renderConsistencyPanel();
+        applyHashJump();
         
         // Hotspot 初始化 (Direction F)
         {generate_hotspot_html(hotspot_data) if HAS_HOTSPOT and hotspot_data else ''}

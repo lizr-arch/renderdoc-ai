@@ -1716,27 +1716,22 @@ def run_analysis(xml_path: str, output_path: str, texture_dir: Optional[str] = N
         # 生成 HTML
 
         report_links = report_linking.default_report_links(Path(output_path), "texture")
-        generate_offline_html(
-
-            textures=textures,
-
-            rdc_name=xml_path.stem,
-
-            output_path=output_path,
-
-
-            shader_data=shader_data,
-
-            report_links=report_links,
-        )
-
-        write_offline_manifest(
+        manifest = write_offline_manifest(
             output_path=output_path,
             performance_data=performance_data,
             textures=textures,
             shader_data=shader_data,
             capture_id=report_linking.compute_capture_id([str(xml_path)]),
             report_links=report_links,
+        )
+        generate_offline_html(
+            textures=textures,
+            rdc_name=xml_path.stem,
+            output_path=output_path,
+            event_pass_data=performance_data,
+            shader_data=shader_data,
+            report_links=report_links,
+            manifest_data=manifest,
         )
 
         log(f"  Report generated: {output_path}")
