@@ -353,10 +353,11 @@ git commit -m "docs(rdc-analyzer): add intermediate format spec"
 - [x] Task 1: Define intermediate schema module (with axis/unit + binding metadata)
 - [x] Task 2: XML event-state extractor (Vulkan + D3D11 bindings)
 - [x] Task 3: ZIP reader + intermediate writer
-- [ ] Task 4: Intermediate format doc + index update (Unity/UE/Messiah mapping)
+- [x] Task 4: Intermediate format doc + index update (Unity/UE/Messiah mapping)
 
 ## Execution Notes (/do)
 - Task 0 combined test creation + schema implementation before running pytest (no functional change, tests passed).
 - Task 1 followed TDD (module missing -> test fail -> schema builders -> pass).
 - Task 2 files were already present in branch history; verified tests and kept existing structure.
 - Task 3 followed TDD (missing write_intermediate -> test fail -> minimal writer -> pass).
+- Task 4 added INTERMEDIATE_FORMAT.md and indexed it in docs.
