@@ -112,6 +112,8 @@ def write_intermediate(out_dir, state, buffers, shaders, textures):
     shader_dir.mkdir(parents=True, exist_ok=True)
     texture_dir.mkdir(parents=True, exist_ok=True)
 
+    texture_decode = []
+
     try:
         from intermediate_schema import (
             build_mesh_schema,
@@ -164,6 +166,31 @@ def write_intermediate(out_dir, state, buffers, shaders, textures):
         data = textures.get(texture_path)
         if data is None:
             data = textures.get(texture.get("texture_id"))
-        (texture_dir / texture_path).write_bytes(data or b"")
+
+        zip_entry = texture.get("zip_entry")
+        decode_status = "raw"
+        output_data = data or b""
+        if data is None:
+            decode_status = "missing"
+            output_data = b""
+        else:
+            format_name = texture.get("format") or texture.get("format_name")
+            width = _to_int(texture.get("width"), default=0)
+            height = _to_int(texture.get("height"), default=0)
+            if format_name and width and height:
+                try:
+                    output_data = decode_texture_rgba(data, width, height, format_name)
+                    decode_status = "ok"
+                except Exception:
+                    output_data = data
+                    decode_status = "decode_failed"
+
+        (texture_dir / texture_path).write_bytes(output_data)
+        texture_decode.append(build_decode_manifest(zip_entry, decode_status))
+
+    manifest_path = out_path / "manifest.json"
+    manifest_path.write_text(
+        json.dumps({"texture_decode": texture_decode}, indent=2), encoding="utf-8"
+    )
 
     return mesh_path

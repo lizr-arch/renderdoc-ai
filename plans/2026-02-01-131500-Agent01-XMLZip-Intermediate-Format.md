@@ -367,6 +367,7 @@ git commit -m "docs(rdc-analyzer): add intermediate format spec"
 - [x] Task 8: RGBA8 纹理解码 + Shader bytecode+disassembly 写出
 - [x] Task 9: zip.xml format_name 映射 + 纹理解码接入
 - [x] Task 10: 纹理解码状态与命中 ZIP entry 记录入 manifest
+- [x] Task 11: write_intermediate 生成 manifest.json（texture_decode）+ 集成测试
 
 ## Execution Notes (/do)
 - Task 0 combined test creation + schema implementation before running pytest (no functional change, tests passed).
@@ -380,6 +381,7 @@ git commit -m "docs(rdc-analyzer): add intermediate format spec"
 - Task 8 followed TDD (shader disassembly missing -> test fail -> write disassembly -> pass).
 - Task 9 followed TDD (decode wrapper missing -> test fail -> decode_texture_rgba -> pass).
 - Task 10 followed TDD (manifest helper missing -> test fail -> build_decode_manifest -> pass).
+- Task 11 followed TDD (integration test missing manifest -> fail -> write manifest.json -> pass).
 
 ---
 
