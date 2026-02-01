@@ -300,11 +300,93 @@ def render_issues_view(issues: List[Issue]) -> str:
 
 
 def render_events_view(events: List[Dict[str, Any]]) -> str:
-    """渲染 Events 视图（Phase 1 占位）"""
-    return '''<div class="placeholder-view">
-    <h2>📋 Events Browser</h2>
-    <p>Event hierarchy will be implemented in Phase 2</p>
+    """
+    渲染 Events 视图 - 层级化事件浏览器
+    
+    Args:
+        events: 事件列表，支持嵌套 children 结构
+                每个事件: {eid, name, type, children: [...]}
+    
+    Returns:
+        HTML 字符串
+    """
+    if not events:
+        return '''<div class="events-view">
+    <div class="placeholder-view">
+        <h2>📋 Events Browser</h2>
+        <p>No events found in this capture</p>
+    </div>
 </div>'''
+    
+    def render_event_node(event: Dict[str, Any], depth: int = 0) -> str:
+        """递归渲染单个事件节点"""
+        eid = event.get('eid', 0)
+        name = event.get('name', 'Unknown')
+        event_type = event.get('type', 'unknown')
+        children = event.get('children', [])
+        
+        has_children = len(children) > 0
+        expanded_class = 'expanded' if has_children else ''
+        node_class = f'event-node event-type-{event_type} {expanded_class}'.strip()
+        
+        # 缩进样式
+        indent_px = depth * 20
+        
+        # 展开/折叠图标
+        if has_children:
+            toggle_icon = '<span class="tree-toggle">▼</span>'
+        else:
+            toggle_icon = '<span class="tree-leaf">•</span>'
+        
+        # 类型图标
+        type_icons = {
+            'marker': '🏷️',
+            'pass': '📁',
+            'draw': '🎨',
+            'dispatch': '⚡',
+            'clear': '🧹',
+            'copy': '📋',
+            'resolve': '🔄',
+        }
+        type_icon = type_icons.get(event_type, '📌')
+        
+        # 构建节点 HTML
+        node_html = f'''<div class="{node_class}" data-eid="{eid}" data-type="{event_type}" style="padding-left: {indent_px}px;">
+    <div class="event-header">
+        {toggle_icon}
+        <span class="event-icon">{type_icon}</span>
+        <span class="event-eid">[{eid}]</span>
+        <span class="event-name">{name}</span>
+    </div>'''
+        
+        # 递归渲染子节点
+        if has_children:
+            node_html += '\n    <div class="event-children">'
+            for child in children:
+                node_html += '\n' + render_event_node(child, depth + 1)
+            node_html += '\n    </div>'
+        
+        node_html += '\n</div>'
+        return node_html
+    
+    # 构建完整视图
+    html_parts = [
+        '<div class="events-view">',
+        '  <div class="events-toolbar">',
+        '    <button class="btn-expand-all" title="Expand All">📂 Expand All</button>',
+        '    <button class="btn-collapse-all" title="Collapse All">📁 Collapse All</button>',
+        f'    <span class="events-count">{len(events)} root events</span>',
+        '  </div>',
+        '  <div class="events-tree">',
+    ]
+    
+    for event in events:
+        html_parts.append(render_event_node(event, 0))
+    
+    html_parts.append('  </div>')
+    html_parts.append('</div>')
+    
+    return '\n'.join(html_parts)
 
 
 def render_resources_view(contract: ReportDataContract) -> str:
