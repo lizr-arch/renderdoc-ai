@@ -108,6 +108,27 @@ graph LR
 
 ---
 
+## A/C 回归记录（2026-02-01）
+**样本：大远景（Vulkan）**  
+- XML：`D:\backup\rdc_reports\大远景\大远景.xml`  
+- HTML(v2)：`D:\backup\rdc_reports\大远景\大远景_report_v2.html`  
+- 解析统计：Events 1624 / DrawCalls 1568 / RenderPass 43  
+- 资源统计：Textures 1087 / Buffers 2779 / Shaders 339  
+- Issues：0 critical / 15 warning / 763 info（Score 0.0/100）  
+- UI 验证：四视图标签存在；Issues/Resources/Performance 均有内容  
+
+**样本：战斗特写1（Vulkan）**  
+- XML：`D:\backup\rdc_reports\战斗特写1\战斗特写1.xml`  
+- HTML(v2)：`D:\backup\rdc_reports\战斗特写1\战斗特写1_report_v2.html`  
+- 解析统计：Events 171 / DrawCalls 97 / RenderPass 31  
+- 资源统计：Textures 138 / Buffers 155 / Shaders 113  
+- Issues：0 critical / 5 warning / 97 info（Score 0.0/100）  
+- UI 验证：四视图标签存在；Issues/Resources/Performance 均有内容  
+
+> 注：Issues/资源卡数量从 HTML 内标记统计而来，仅用于验收可用性，不代表最终规则口径。
+
+---
+
 ## 风险与缺口（Risks）
 - **IssueDetector 口径**：当前为新规则集，需明确与 `rules/*` 的映射关系。  
 - **Manifest 输出**：建议明确是否落盘 `report_manifest.json` 用于验收。  
@@ -123,4 +144,3 @@ graph LR
 
 **Crash Repro + Dumps/Symbols**  
 - 若 UI 生成失败，记录 traceback + commit hash，方便回放定位。  
-
