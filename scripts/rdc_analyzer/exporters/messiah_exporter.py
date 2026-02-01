@@ -10,3 +10,8 @@ def write_repo_skeleton(out_dir, event_id):
     for folder_name in ("Mesh", "Texture", "Material", "Model"):
         (repo_root / folder_name).mkdir(exist_ok=True)
     return repo_root
+
+
+def build_material_xml(shader_kind, fallback):
+    template_name = "Unlit" if fallback == "unlit" else fallback
+    return f"<Material Template=\"{template_name}\" />"
