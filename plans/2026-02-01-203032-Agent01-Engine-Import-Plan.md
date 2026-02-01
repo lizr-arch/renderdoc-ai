@@ -2,7 +2,7 @@
 
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
-**Version:** 1.0.1  
+**Version:** 1.1.0  
 **Owner:** Agent01 (Codex)  
 **Last Updated:** 2026-02-01  
 **Plan File:** plans/2026-02-01-203032-Agent01-Engine-Import-Plan.md  
@@ -50,6 +50,7 @@
 |---|---|---|---|
 | Messiah XML schema mismatch | High | Medium | Follow official templates; add layout tests |
 | Shader→material mapping incomplete | Medium | Medium | Unlit fallback + explicit mapping table |
+| Intermediate lacks mesh metadata (layout/bbox) | Medium | Medium | Fallback bbox + strict warnings in CLI |
 | Intermediate lacks tangents/skin | Medium | Medium | Document unsupported semantics |
 
 ## Game Dev: Memory & Resource Budget (Leak Checks)
@@ -219,7 +220,7 @@ git commit -m "feat(rdc-analyzer): add messiah material mapping"
 
 ---
 
-### Task 4 — Messiah CLI entry (consume intermediate)
+### Task 4 — Messiah CLI + 最小可见导出（Mesh/Texture/Material/Model）
 **Files:**
 - Create: `scripts/rdc_analyzer/export_messiah_assets.py`
 - Modify: `scripts/rdc_analyzer/exporters/messiah_exporter.py`
@@ -236,15 +237,41 @@ Expected: FAIL
 **Step 3: Write minimal implementation**
 ```python
 def main():
-    # parse args, call export_messiah()
+    # parse args: --intermediate <dir> --out <dir> --event <id>
+    # call export_messiah(intermediate_dir, out_dir, event_id)
 ```
-**Step 4: Run test to verify it passes**  
-Run: `py -3 -m pytest scripts/rdc_analyzer/tests/test_messiah_repository_layout.py -k cli`  
+
+**Step 4: Extend test for minimal visible export**
+```python
+def test_cli_minimal_visible_export(tmp_path):
+    # prepare minimal intermediate tree:
+    # intermediate/mesh/mesh.json + vertex.bin/index.bin
+    # intermediate/materials/material.json
+    # intermediate/textures/tex_0.bin
+    # intermediate/shaders/ps.json
+    # run CLI and assert:
+    # - resource.repository exists
+    # - Model resource.xml contains Mesh/Material GUIDs
+```
+
+**Step 5: Implement minimal export in messiah_exporter**
+```python
+def export_messiah(intermediate_dir, out_dir, event_id):
+    # 1) build GUID map (hash)
+    # 2) write resource.repository with Mesh/Texture/Material/Model items
+    # 3) write Mesh resource.xml + resource.data (vertex/index)
+    # 4) write Texture texture.xml + resource.data (RGBA8)
+    # 5) write Material resource.xml (ShaderName + tBaseMap GUID)
+    # 6) write Model resource.xml with ModelElements Mesh/Material
+```
+
+**Step 6: Run test to verify it passes**  
+Run: `py -3 -m pytest scripts/rdc_analyzer/tests/test_messiah_repository_layout.py -k cli -v`  
 Expected: PASS
 
-**Step 5: Commit**
+**Step 7: Commit**
 ```bash
-git add scripts/rdc_analyzer/export_messiah_assets.py scripts/rdc_analyzer/exporters/messiah_exporter.py
+git add scripts/rdc_analyzer/export_messiah_assets.py scripts/rdc_analyzer/exporters/messiah_exporter.py scripts/rdc_analyzer/tests/test_messiah_repository_layout.py
 git commit -m "feat(rdc-analyzer): add messiah export cli"
 ```
 
@@ -277,5 +304,5 @@ git commit -m "docs(rdc-analyzer): add unity/unreal import stubs"
 - [x] Task 1 — Deterministic GUID helper
 - [x] Task 2 — Repository skeleton writer
 - [x] Task 3 — Material mapping (shader‑driven, Unlit fallback)
-- [ ] Task 4 — Messiah CLI entry (consume intermediate)
+- [x] Task 4 — Messiah CLI entry (consume intermediate)
 - [ ] Task 5 — Unity / Unreal import stubs (docs + scaffolding)
