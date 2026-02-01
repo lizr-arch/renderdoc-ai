@@ -2,7 +2,7 @@
 
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
-**Version:** 1.3.0  
+**Version:** 1.4.0  
 **Owner:** Agent01 (Codex)  
 **Last Updated:** 2026-02-01  
 
@@ -42,7 +42,7 @@
 ---
 
 ## Plan Metadata
-- Version: 1.3.0
+- Version: 1.4.0
 - Owner: Agent01 (Codex)
 - Last Updated: 2026-02-01
 - Plan File: plans/2026-02-01-131500-Agent01-XMLZip-Intermediate-Format.md
@@ -348,6 +348,9 @@ git commit -m "docs(rdc-analyzer): add intermediate format spec"
 - Resolved: ZIP entry 命名使用候选名列表命中（`buffers/buffer{index}` / `{index:06d}` / `buffer{index}`），并记录命中名。
 - Resolved: 纹理输出统一 RGBA8（压缩由引擎处理）。
 - Resolved: Shader 输出保留 bytecode + disassembly。
+## New Open Questions (Decode Integration)
+- Vulkan/D3D11/GLES 在 zip.xml 中的 format_name 字段路径与规范化规则？
+- 非纹理资源（VB/IB/Shader）是否也走 InitialContents -> buffer_index 路径？
 
 ## Next Steps
 - After /do, design Unity/UE/Messiah converters on top of intermediate.
@@ -362,6 +365,8 @@ git commit -m "docs(rdc-analyzer): add intermediate format spec"
 - [x] Task 6: Full intermediate writer (mesh/material/shader/texture)
 - [x] Task 7: ZIP entry 候选命名 + 读取策略落地（统一命中与记录）
 - [x] Task 8: RGBA8 纹理解码 + Shader bytecode+disassembly 写出
+- [x] Task 9: zip.xml format_name 映射 + 纹理解码接入
+- [x] Task 10: 纹理解码状态与命中 ZIP entry 记录入 manifest
 
 ## Execution Notes (/do)
 - Task 0 combined test creation + schema implementation before running pytest (no functional change, tests passed).
@@ -373,6 +378,87 @@ git commit -m "docs(rdc-analyzer): add intermediate format spec"
 - Task 6 followed TDD (missing material/shader/texture outputs -> test fail -> writer -> pass).
 - Task 7 followed TDD (candidate resolver missing -> test fail -> resolver -> pass).
 - Task 8 followed TDD (shader disassembly missing -> test fail -> write disassembly -> pass).
+- Task 9 followed TDD (decode wrapper missing -> test fail -> decode_texture_rgba -> pass).
+- Task 10 followed TDD (manifest helper missing -> test fail -> build_decode_manifest -> pass).
+
+---
+
+## Plan Addendum: 解码接入与 format 映射（Task 9-10）
+
+### Task 9: zip.xml format_name 映射 + 纹理解码接入
+**Files:**
+- Modify: `scripts/rdc_analyzer/xmlzip_event_extractor.py`
+- Modify: `scripts/rdc_analyzer/intermediate_schema.py`
+- Create: `scripts/rdc_analyzer/tests/test_xmlzip_texture_decode.py`
+
+**Step 1: Write failing test**
+```python
+def test_decode_texture_rgba(tmp_path):
+    from xmlzip_event_extractor import decode_texture_rgba
+    data = b"\\x00" * 16
+    rgba = decode_texture_rgba(data, 1, 1, "RGBA8")
+    assert len(rgba) == 4
+```
+
+**Step 2: Run test to verify it fails**
+Run: `py -3 -m pytest scripts/rdc_analyzer/tests/test_xmlzip_texture_decode.py -k decode_texture_rgba`
+Expected: FAIL
+
+**Step 3: Write minimal implementation**
+```python
+def decode_texture_rgba(data, width, height, format_name):
+    from decoders.texture_decoder import decode_texture
+    return decode_texture(data, width, height, format_name)
+```
+
+**Step 4: Run test to verify it passes**
+Run: `py -3 -m pytest scripts/rdc_analyzer/tests/test_xmlzip_texture_decode.py -k decode_texture_rgba`
+Expected: PASS
+
+**Step 5: Commit**
+```bash
+git add scripts/rdc_analyzer/xmlzip_event_extractor.py scripts/rdc_analyzer/intermediate_schema.py scripts/rdc_analyzer/tests/test_xmlzip_texture_decode.py
+git commit -m "feat(rdc-analyzer): wire texture decoder for rgba8"
+```
+
+### Task 10: 解码状态 + ZIP 命中记录入 manifest
+**Files:**
+- Modify: `scripts/rdc_analyzer/xmlzip_event_extractor.py`
+- Modify: `scripts/rdc_analyzer/extract_mesh_shader.py` (manifest helpers reuse, if needed)
+- Create: `scripts/rdc_analyzer/tests/test_xmlzip_manifest_decode.py`
+
+**Step 1: Write failing test**
+```python
+def test_manifest_records_zip_and_decode(tmp_path):
+    from xmlzip_event_extractor import build_decode_manifest
+    m = build_decode_manifest(zip_entry="buffers/buffer12", decode_status="ok")
+    assert m["zip_entry"] == "buffers/buffer12"
+    assert m["decode_status"] == "ok"
+```
+
+**Step 2: Run test to verify it fails**
+Run: `py -3 -m pytest scripts/rdc_analyzer/tests/test_xmlzip_manifest_decode.py -k manifest_records`
+Expected: FAIL
+
+**Step 3: Write minimal implementation**
+```python
+def build_decode_manifest(zip_entry, decode_status):
+    return {"zip_entry": zip_entry, "decode_status": decode_status}
+```
+
+**Step 4: Run test to verify it passes**
+Run: `py -3 -m pytest scripts/rdc_analyzer/tests/test_xmlzip_manifest_decode.py -k manifest_records`
+Expected: PASS
+
+**Step 5: Commit**
+```bash
+git add scripts/rdc_analyzer/xmlzip_event_extractor.py scripts/rdc_analyzer/tests/test_xmlzip_manifest_decode.py
+git commit -m "feat(rdc-analyzer): record zip entry and decode status in manifest"
+```
+
+## Verification / DoD (extended)
+- Tests pass for texture decode integration + manifest recording.
+- Intermediate textures are RGBA8 and manifest contains decode status.
 
 ---
 
