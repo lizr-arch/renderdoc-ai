@@ -21,3 +21,11 @@ def test_cli_help_outputs_usage():
     assert "extract_mesh_shader" in output
     assert "--rdc" in output
     assert "--event" in output
+
+
+def test_cli_writes_manifest(tmp_path):
+    _run_cli(
+        ["--rdc", "x.rdc", "--event", "100", "--out", str(tmp_path)],
+        expect_fail=True,
+    )
+    assert (tmp_path / "manifest.json").exists()

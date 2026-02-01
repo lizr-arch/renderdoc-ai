@@ -1,5 +1,7 @@
 import argparse
+import json
 import pathlib
+import sys
 
 try:
     import renderdoc as rd
@@ -109,6 +111,40 @@ def extract_mesh_shader(rdc_path, event_id, out_dir):
     raise NotImplementedError("mesh/shader extraction not implemented yet")
 
 
+def _api_name(pipeline_type):
+    if isinstance(pipeline_type, str):
+        return pipeline_type
+    name = getattr(pipeline_type, "name", None)
+    if name:
+        return str(name)
+    return str(pipeline_type)
+
+
+def _write_manifest(out_dir, manifest):
+    out_path = pathlib.Path(out_dir)
+    out_path.mkdir(parents=True, exist_ok=True)
+    manifest_path = out_path / "manifest.json"
+    manifest_path.write_text(json.dumps(manifest, indent=2), encoding="utf-8")
+    return manifest_path
+
+
+def _base_manifest(rdc_path, event_id, out_dir):
+    return {
+        "rdc_path": str(rdc_path),
+        "event_id": int(event_id),
+        "outputs": {
+            "vertex_buffers": "vertex_buffers/",
+            "index_buffers": "index_buffers/",
+            "shaders": "shaders/",
+        },
+        "data_provenance": {
+            "pipeline_state": "ReplayController.GetPipelineState()",
+            "buffers": "ReplayController.GetBufferData(resourceId, offset, len)",
+            "shader_disassembly": "ReplayController.DisassembleShader(...)",
+        },
+    }
+
+
 def _build_arg_parser():
     parser = argparse.ArgumentParser(
         description="Extract vertex/index buffers and shader disassembly for a draw event."
@@ -121,7 +157,35 @@ def _build_arg_parser():
 
 def main(argv=None):
     parser = _build_arg_parser()
-    parser.parse_args(argv)
+    args = parser.parse_args(argv)
+    manifest = _base_manifest(args.rdc, args.event, args.out)
+    status_code = 0
+
+    try:
+        if rd is None:
+            raise RuntimeError("renderdoc module not available")
+        cap = rd.OpenCaptureFile()
+        status = cap.OpenFile(args.rdc, "", None)
+        if hasattr(rd, "ResultCode") and status != rd.ResultCode.Succeeded:
+            raise RuntimeError(f"OpenFile failed: {status}")
+        controller = cap.OpenCapture(rd.ReplayOptions(), None)
+        if controller is None:
+            raise RuntimeError("OpenCapture returned None")
+
+        _extract_buffers(controller, args.event, args.out)
+        _extract_shaders(controller, args.out)
+
+        manifest["api"] = _api_name(controller.GetAPIProperties().pipelineType)
+        manifest["status"] = "ok"
+    except Exception as exc:
+        manifest["status"] = "error"
+        manifest["error"] = str(exc)
+        status_code = 2
+    finally:
+        _write_manifest(args.out, manifest)
+
+    if status_code != 0:
+        sys.exit(status_code)
 
 
 if __name__ == "__main__":
