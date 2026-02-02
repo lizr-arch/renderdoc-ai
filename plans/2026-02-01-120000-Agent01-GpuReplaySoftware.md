@@ -80,7 +80,7 @@ New:
 - Experiment matrix completed with status fields.
 
 ## Open Questions
-- Confirm exact renderdoccmd export syntax for PNG.
+- (Resolved) Confirmed export syntax in renderdoccmd/renderdoccmd.cpp.
 
 ## Next Steps
 - Await /do approval to implement documentation changes.

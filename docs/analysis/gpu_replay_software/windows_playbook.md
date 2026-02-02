@@ -1,13 +1,13 @@
 # Windows Playbook (WARP / SwiftShader / ANGLE)
 
 This playbook focuses on Windows-only steps to run RenderDoc replay with software backends and
-export color RTs as PNG. All commands are examples and should be verified with
-`renderdoccmd --help` in your environment.
+export color RTs as PNG. Commands below are aligned with the current `renderdoccmd export` options
+(see `renderdoccmd/renderdoccmd.cpp`).
 
 ## Common replay flow
 1) Ensure the capture opens and events are visible.
 2) Replay using a software backend.
-3) Export color RTs as PNG.
+3) Export textures as PNG, then filter for color RTs.
 
 ## D3D11: WARP
 Purpose: D3D11 software rasterizer on Windows.
@@ -15,9 +15,9 @@ Purpose: D3D11 software rasterizer on Windows.
 Steps:
 1) Replay with software rendering:
    - `renderdoccmd.exe replay --software-render <capture.rdc>`
-2) Export color RTs (verify exact flags):
-   - `renderdoccmd.exe export --help`
-   - `renderdoccmd.exe export --texture <id> --format png --out <dir>`  (ASSUMPTION)
+2) Export textures (PNG):
+   - `renderdoccmd.exe export --out <dir> --format png --max-size 0 --software-render <capture.rdc>`
+   - Optional: `--metadata`, `--bindings`, `--remote-host <host>`
 
 Expected:
 - Replay runs without a hardware GPU dependency.
@@ -34,9 +34,9 @@ Prereq:
 Steps:
 1) Replay with software rendering:
    - `renderdoccmd.exe replay --software-render <capture.rdc>`
-2) Export color RTs (verify exact flags):
-   - `renderdoccmd.exe export --help`
-   - `renderdoccmd.exe export --texture <id> --format png --out <dir>`  (ASSUMPTION)
+2) Export textures (PNG):
+   - `renderdoccmd.exe export --out <dir> --format png --max-size 0 --software-render <capture.rdc>`
+   - Optional: `--metadata`, `--bindings`, `--remote-host <host>`
 
 Expected:
 - Replay uses SwiftShader ICD.
@@ -54,9 +54,9 @@ Prereq:
 Steps:
 1) Replay with software rendering:
    - `renderdoccmd.exe replay --software-render <capture.rdc>`
-2) Export color RTs (verify exact flags):
-   - `renderdoccmd.exe export --help`
-   - `renderdoccmd.exe export --texture <id> --format png --out <dir>`  (ASSUMPTION)
+2) Export textures (PNG):
+   - `renderdoccmd.exe export --out <dir> --format png --max-size 0 --software-render <capture.rdc>`
+   - Optional: `--metadata`, `--bindings`, `--remote-host <host>`
 
 Expected:
 - Replay uses ANGLE (software backend if configured).
