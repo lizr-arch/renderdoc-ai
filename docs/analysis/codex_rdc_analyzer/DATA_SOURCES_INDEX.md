@@ -172,3 +172,17 @@
 - 字段：`eventId, actionId, customName, flags, markerColor, numIndices, numInstances, baseVertex, indexOffset, vertexOffset, instanceOffset, drawIndex, dispatchDimension, dispatchThreadsDimension, dispatchBase, copySource, copySourceSubresource, copyDestination, copyDestinationSubresource, parent, previous, next, outputs, depthOut, events, children`  
 - Python 入口：`ReplayController.GetRootActions()`  
 - 覆盖现状：A/C 部分（基础 draw + XML 合并字段）；B 可通过 Replay 获取  
+
+### 5.9 字段级清单（APIEvent / APIProperties）
+
+**APIEvent（API 调用事件）**  
+- 字段：`eventId, chunkIndex, fileOffset, annotations`  
+- Python 入口：`ReplayController.GetRootActions()` → `ActionDescription.events`  
+- 覆盖现状：A/C 缺失（无 replay）；B 可通过 Replay 获取  
+
+**APIProperties（驱动/回放能力）**  
+- 字段：`pipelineType, localRenderer, vendor, remoteReplay, degraded, shaderDebugging, pixelHistory, rgpCapture`  
+- Python 入口：`ReplayController.GetAPIProperties()`  
+- 覆盖现状：A/C 缺失（无 replay）；B 可通过 Replay 获取  
+- 仅 C++（SWIG 不导出）：`ShaderLinkage, YUVTextures, SparseResources, MultiGPU, D3D12Bundle, DXILShaders`  
+- Python 入口：无（需新增/扩展）  
