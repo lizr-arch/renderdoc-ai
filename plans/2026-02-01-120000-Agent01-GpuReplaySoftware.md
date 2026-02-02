@@ -48,7 +48,7 @@ New:
 ## Build/Test/Lint Quick Guide (commands only, not executed)
 - D3D11 WARP (expected: replay succeeds, color RT export works)
   - renderdoccmd.exe replay --software-render <capture.rdc>
-  - renderdoccmd.exe export --texture <id> --format png --out <dir>  (to confirm exact syntax)
+  - renderdoccmd.exe export --out <dir> --format png --max-size 0 --software-render <capture.rdc>
 - Vulkan SwiftShader (expected: replay uses SwiftShader ICD)
   - set VK_ICD_FILENAMES=C:\SwiftShader\vk_swiftshader_icd.json
   - renderdoccmd.exe replay --software-render <capture.rdc>
