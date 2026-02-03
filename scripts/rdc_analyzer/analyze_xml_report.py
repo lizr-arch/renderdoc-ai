@@ -62,10 +62,9 @@ Version: 1.0.0
 
 
 import sys
-
+import os
 
 import json
-
 
 import argparse
 
@@ -251,7 +250,7 @@ class SimplePerformanceReport:
     overall_score: float = 100.0
 
 
-    recommendations: List[str] = field(default_factory=list)
+    recommendations: List[Any] = field(default_factory=list)  # 支持字符串或字典格式
 
 
 
@@ -758,30 +757,63 @@ def _run_simplified_performance_analysis(context: 'AnalysisContext') -> SimplePe
     
 
 
-    # 生成建议
-
-
-    if large_texture_count > 0:
-
-
-        report.recommendations.append(f'Consider optimizing {large_texture_count} large textures')
-
-
-    if uncompressed_count > 5:
-
-
-        report.recommendations.append(f'Consider compressing {uncompressed_count} uncompressed textures')
-
-
-    if small_batch_count > 10:
-
-
-        report.recommendations.append('Consider batching small draw calls')
-
-
+    # 生成建议（结构化中文格式）
     
-
-
+    if large_texture_count > 0:
+        # 计算大纹理的内存占用（TextureInfo 是 dataclass，使用 getattr）
+        large_tex_memory_mb = sum(
+            (getattr(t, "width", 0) * getattr(t, "height", 0) * 4) / (1024 * 1024)
+            for t in context.textures
+            if getattr(t, "width", 0) >= 2048 or getattr(t, "height", 0) >= 2048
+        )
+        report.recommendations.append({
+            "priority": "high" if large_texture_count > 10 else "medium",
+            "rule": "PERF004",
+            "title": "大纹理优化",
+            "detail": f"检测到 {large_texture_count} 张大纹理（≥2048），占用约 {large_tex_memory_mb:.1f} MB",
+            "action": "降低分辨率或使用 Mipmap 链，仅在需要时加载高分辨率版本",
+            "impact": f"预计可节省 {large_tex_memory_mb * 0.5:.0f} MB 显存",
+        })
+    
+    if uncompressed_count > 5:
+        # 估算压缩后节省（TextureInfo 是 dataclass，使用 getattr）
+        uncompressed_memory_mb = sum(
+            (getattr(t, "width", 0) * getattr(t, "height", 0) * 4) / (1024 * 1024)
+            for t in context.textures
+            if getattr(t, "format", None) and not any(cf in str(getattr(t, "format", "")).upper() for cf in ["BC", "DXT", "ETC", "ASTC"])
+        )
+        report.recommendations.append({
+            "priority": "high" if uncompressed_count > 20 else "medium",
+            "rule": "PERF005",
+            "title": "未压缩纹理",
+            "detail": f"检测到 {uncompressed_count} 张未压缩纹理，占用约 {uncompressed_memory_mb:.1f} MB",
+            "action": "使用 BC7（质量优先）或 BC1/BC3（性能优先）格式压缩纹理",
+            "impact": f"BC7 压缩可减少约 75% 内存，预计节省 {uncompressed_memory_mb * 0.75:.0f} MB",
+        })
+    
+    if small_batch_count > 10:
+        small_batch_ratio = (small_batch_count / max(1, report.total_draw_calls)) * 100
+        report.recommendations.append({
+            "priority": "high" if small_batch_count > 50 else "medium",
+            "rule": "PERF003",
+            "title": "小批次绘制调用",
+            "detail": f"检测到 {small_batch_count} 次小批次绘制（<100 顶点），占比 {small_batch_ratio:.1f}%",
+            "action": "使用 GPU Instancing 或 Static/Dynamic Batching 合并小批次",
+            "impact": f"预计可减少 {int(small_batch_count * 0.7)} 次 Draw Call",
+        })
+    
+    # 添加内存总量建议
+    total_tex_memory_mb = report.total_texture_memory_mb
+    if total_tex_memory_mb > 512:
+        report.recommendations.append({
+            "priority": "high" if total_tex_memory_mb > 1024 else "medium",
+            "rule": "PERF_MEMORY",
+            "title": "纹理内存占用过高",
+            "detail": f"纹理总内存 {total_tex_memory_mb:.1f} MB，共 {report.unique_textures} 张纹理",
+            "action": "检查未使用纹理、重复加载、过大分辨率等问题",
+            "impact": f"优化后预计可节省 {total_tex_memory_mb * 0.3:.0f} MB 内存",
+        })
+    
     return report
 
 
@@ -1712,7 +1744,190 @@ def run_analysis(xml_path: str, output_path: str, texture_dir: Optional[str] = N
         
 
         # ===== UI 版本分支 =====
-        if ui_version == "v2":
+        if ui_version == "bundle":
+            # 4 页面互联报告包
+            from report_bundle_generator import generate_report_bundle
+            
+            # 输出目录为 output_path 去掉后缀的目录
+            output_dir = Path(output_path).with_suffix('')
+            output_dir.mkdir(parents=True, exist_ok=True)
+            
+            # ===== 纹理缩略图生成 =====
+            # 尝试生成缩略图（需要 ZIP 格式的 XML 资产文件）
+            try:
+                from thumbnail_generator import ThumbnailGenerator
+                
+                # 查找伴随的 ZIP 文件（renderdoccmd convert 输出格式）
+                # 命名模式：
+                #   - xxx.zip.xml -> xxx.zip (主要模式)
+                #   - xxx.xml -> xxx (无后缀ZIP)
+                #   - xxx.xml -> xxx_assets/ (资产目录)
+                if xml_path.name.endswith('.zip.xml'):
+                    # xxx.zip.xml -> xxx.zip
+                    zip_path = xml_path.parent / xml_path.name[:-4]  # 去掉 .xml
+                else:
+                    # xxx.xml -> xxx (无后缀)
+                    zip_path = xml_path.with_suffix('')
+                assets_dir = xml_path.parent / (xml_path.stem + "_assets")
+                
+                if zip_path.exists():
+                    log(f"  [Thumbnail] Found ZIP asset file: {zip_path.name}")
+                    thumb_gen = ThumbnailGenerator(str(xml_path), str(zip_path))
+                    results = thumb_gen.generate_thumbnails(max_count=30, max_size=96)
+                    
+                    # 转换为 ID -> Base64 映射
+                    thumbnails = {str(r.resource_id): r.base64_data for r in results if r.success}
+                    
+                    # 将缩略图添加到纹理数据
+                    thumb_count = 0
+                    for tex in textures:
+                        tex_id = str(tex.get("id") or tex.get("resource_id", ""))
+                        if tex_id in thumbnails:
+                            tex["thumbnail"] = thumbnails[tex_id]
+                            thumb_count += 1
+                    
+                    if thumb_count > 0:
+                        log(f"  [Thumbnail] Generated {thumb_count} thumbnails")
+                    else:
+                        log(f"  [Thumbnail] No thumbnails generated (textures may not match)")
+                        
+                elif assets_dir.exists():
+                    log(f"  [Thumbnail] Found assets directory: {assets_dir.name}")
+                    thumb_gen = ThumbnailGenerator(str(xml_path), str(assets_dir))
+                    results = thumb_gen.generate_thumbnails(max_count=30, max_size=96)
+                    
+                    # 转换为 ID -> Base64 映射
+                    thumbnails = {str(r.resource_id): r.base64_data for r in results if r.success}
+                    
+                    thumb_count = 0
+                    for tex in textures:
+                        tex_id = str(tex.get("id") or tex.get("resource_id", ""))
+                        if tex_id in thumbnails:
+                            tex["thumbnail"] = thumbnails[tex_id]
+                            thumb_count += 1
+                    
+                    if thumb_count > 0:
+                        log(f"  [Thumbnail] Generated {thumb_count} thumbnails")
+                else:
+                    log(f"  [Thumbnail] No ZIP/assets found, skipping thumbnails")
+                    
+            except ImportError as e:
+                log(f"  [Thumbnail] Skipped: ThumbnailGenerator not available ({e})")
+            except Exception as e:
+                log(f"  [Thumbnail] Warning: Failed to generate thumbnails: {e}")
+            
+            # ===== Shader 源码提取 =====
+            # 尝试从 ZIP 中提取 SPIR-V 并转换为 GLSL
+            try:
+                from shader_extractor import ShaderExtractor, extract_shaders_for_report
+                
+                # 查找伴随的 ZIP 文件（复用缩略图的检测逻辑）
+                if xml_path.name.endswith('.zip.xml'):
+                    shader_zip_path = xml_path.parent / xml_path.name[:-4]  # 去掉 .xml
+                else:
+                    shader_zip_path = xml_path.with_suffix('')
+                shader_assets_dir = xml_path.parent / (xml_path.stem + "_assets")
+                
+                actual_zip = shader_zip_path if shader_zip_path.exists() else (shader_assets_dir if shader_assets_dir.exists() else None)
+                
+                if actual_zip:
+                    log(f"  [Shader] Extracting shaders from: {actual_zip.name if hasattr(actual_zip, 'name') else actual_zip}")
+                    
+                    extractor = ShaderExtractor(xml_path, actual_zip)
+                    available, reason = extractor.is_available()
+                    
+                    if available:
+                        extracted = extractor.extract_shaders(max_count=30)
+                        
+                        # 更新 shader_data：为现有 shader 添加源码，或添加新的 shader
+                        existing_ids = {s.get('id') or s.get('resource_id') for s in shader_data if s}
+                        
+                        # 创建 ID -> 源码映射
+                        shader_source_map = {
+                            s.resource_id: {
+                                'source': s.display_source,
+                                'glsl': s.glsl_source,
+                                'has_glsl': s.has_glsl,
+                                'stage': s.stage,
+                            }
+                            for s in extracted
+                        }
+                        
+                        # 更新现有 shader 数据
+                        updated_count = 0
+                        for shader in shader_data:
+                            shader_id = shader.get('id') or shader.get('resource_id')
+                            if shader_id and shader_id in shader_source_map:
+                                source_info = shader_source_map[shader_id]
+                                shader['source'] = source_info['source']
+                                shader['glsl'] = source_info['glsl']
+                                shader['has_glsl'] = source_info['has_glsl']
+                                if not shader.get('stage'):
+                                    shader['stage'] = source_info['stage']
+                                updated_count += 1
+                        
+                        # 添加新发现的 shader（不在现有列表中）
+                        for shader in extracted:
+                            if shader.resource_id not in existing_ids:
+                                shader_data.append({
+                                    'id': shader.resource_id,
+                                    'resource_id': shader.resource_id,
+                                    'name': f"Shader_{shader.resource_id}",
+                                    'stage': shader.stage,
+                                    'source': shader.display_source,
+                                    'glsl': shader.glsl_source,
+                                    'has_glsl': shader.has_glsl,
+                                    'spirv_size': shader.code_size,
+                                })
+                        
+                        glsl_count = sum(1 for s in extracted if s.has_glsl)
+                        log(f"  [Shader] Extracted {len(extracted)} shaders ({glsl_count} with GLSL)")
+                        log(f"  [Shader] Updated {updated_count} existing, added {len(extracted) - updated_count} new")
+                    else:
+                        log(f"  [Shader] Not available: {reason}")
+                else:
+                    log(f"  [Shader] No ZIP/assets found, shader source extraction skipped")
+                    
+            except ImportError as e:
+                log(f"  [Shader] Skipped: ShaderExtractor not available ({e})")
+            except Exception as e:
+                log(f"  [Shader] Warning: Failed to extract shaders: {e}")
+            
+            # 构建性能数据（issues 列表）
+            issues_list = []
+            for issue in perf_report.issues:
+                issues_list.append({
+                    "severity": issue.severity.name.lower() if hasattr(issue.severity, 'name') else str(issue.severity),
+                    "title": issue.title,
+                    "description": issue.message[:100] if issue.message else "",
+                })
+            
+            perf_data_for_bundle = {
+                "api": xml_data.get("api", "Unknown"),
+                "gpu": xml_data.get("gpu", "Unknown"),
+                "resolution": f"{xml_data.get('width', 0)}x{xml_data.get('height', 0)}",
+                "issues": issues_list,
+                "recommendations": perf_report.recommendations,  # 结构化建议列表
+            }
+            
+            # 生成报告包
+            output_files = generate_report_bundle(
+                output_dir=output_dir,
+                capture_name=xml_path.stem,
+                textures=textures,
+                events=xml_data.get("events", []),
+                shaders=shader_data,
+                performance_data=perf_data_for_bundle,
+                mali_data={},  # TODO: 集成 Mali 数据
+                frame_thumbnail="",  # TODO: 提取帧缩略图
+                texture_usage_map={},  # TODO: 构建纹理使用映射
+            )
+            
+            log(f"  Report bundle generated: {output_dir}")
+            for name, path in output_files.items():
+                log(f"    - {name}: {Path(path).name}")
+        
+        elif ui_version == "v2":
             # 新四视图 UI
             from report_contract import ReportDataContract, build_manifest
             from report_ui import render_report_shell
@@ -1909,9 +2124,19 @@ def main():
     # UI 版本选择（新 UI 系统 Feature Flag）
     parser.add_argument(
         "--ui-version",
-        choices=["v1", "v2"],
+        choices=["v1", "v2", "bundle"],
         default="v1",
-        help="报告 UI 版本: v1=传统视图(默认), v2=新四视图架构"
+        help="报告 UI 版本: v1=传统视图(默认), v2=新四视图架构, bundle=4页面互联报告包"
+    )
+    parser.add_argument(
+        "--auto-start-rt-server",
+        action="store_true",
+        help="Bundle 生成后自动启动 RT 预览服务"
+    )
+    parser.add_argument(
+        "--auto-open-textures",
+        action="store_true",
+        help="Bundle 生成后自动打开 textures.html"
     )
 
 
@@ -1969,6 +2194,35 @@ def main():
 
     if success:
 
+        # 自动启动服务与打开页面（仅 bundle 有意义）
+        if getattr(args, "auto_start_rt_server", False) and args.ui_version == "bundle":
+            try:
+                import subprocess
+                rt_server = Path(__file__).parent / "rt_preview_server.py"
+                rdc_path = xml_path.with_suffix(".rdc")
+                if rdc_path.exists():
+                    subprocess.Popen([
+                        sys.executable,
+                        str(rt_server),
+                        "--rdc",
+                        str(rdc_path),
+                        "--port",
+                        "8765"
+                    ])
+                    log(f"[AUTO] RT server started: {rt_server}")
+                else:
+                    log(f"[AUTO] Skip RT server (rdc not found): {rdc_path}")
+            except Exception as e:
+                log(f"[AUTO] Failed to start RT server: {e}")
+
+        if getattr(args, "auto_open_textures", False) and args.ui_version == "bundle":
+            try:
+                textures_html = Path(output_path).with_suffix("") / "textures.html"
+                if textures_html.exists():
+                    os.startfile(str(textures_html))
+                    log(f"[AUTO] Opened textures.html: {textures_html}")
+            except Exception as e:
+                log(f"[AUTO] Failed to open textures.html: {e}")
 
         log("Done!")
 

@@ -546,7 +546,8 @@ class ReportBundleGenerator:
             "TEXTURE_COUNT": str(len(self.textures)),
             "TOTAL_VRAM": self._format_bytes(self.stats["vram_usage"]),
             "TEXTURE_LIST_HTML": texture_list_html,
-            "TEXTURE_DATA_JSON": json.dumps(textures_with_usage, ensure_ascii=False)
+            "TEXTURE_DATA_JSON": json.dumps(textures_with_usage, ensure_ascii=False),
+            "RT_PRELOAD_COUNT": str(getattr(self, "rt_preload_count", 12)),
         }
         
         return self._render_template(template, replacements)

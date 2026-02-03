@@ -599,6 +599,7 @@
             textureData.map(t => [String(t.id || t.resource_id || ""), t])
         );
         const RT_SERVER_BASE = "http://127.0.0.1:8765";
+        const RT_PRELOAD_COUNT = {{RT_PRELOAD_COUNT}};
         
         // ========== 面板折叠 ==========
         function togglePanel(panelId) {
@@ -622,6 +623,15 @@
             if (currentTexture) {
                 updateTexturePreview(currentTexture);
                 ensureTextureThumbnail(currentTexture);
+            }
+        }
+
+        function autoPreloadThumbnails() {
+            if (!textureData || !textureData.length) return;
+            enableThumbnails();
+            const count = Math.max(0, Math.min(RT_PRELOAD_COUNT, textureData.length));
+            for (let i = 0; i < count; i++) {
+                ensureTextureThumbnail(textureData[i]);
             }
         }
 
@@ -1008,6 +1018,9 @@
             
             // 初始化筛选器状态
             setFilter('all');
+
+            // 自动预载缩略图（无需手动点击）
+            autoPreloadThumbnails();
         });
     </script>
 </body>

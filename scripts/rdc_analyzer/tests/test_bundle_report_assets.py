@@ -112,3 +112,25 @@ def test_textures_has_rt_thumbnail_fetch(tmp_path):
     html = Path(outputs["textures"]).read_text(encoding="utf-8")
     assert "RT_SERVER_BASE" in html
     assert "fetchTextureThumbnail" in html
+
+
+def test_textures_auto_preload_config(tmp_path):
+    gen = ReportBundleGenerator(output_dir=tmp_path, capture_name="t.rdc")
+    gen.set_textures([
+        {
+            "id": "1",
+            "name": "Tex",
+            "width": 1,
+            "height": 1,
+        }
+    ])
+    outputs = gen.generate_all()
+    html = Path(outputs["textures"]).read_text(encoding="utf-8")
+    assert "RT_PRELOAD_COUNT" in html
+    assert "autoPreloadThumbnails" in html
+
+
+def test_analyze_xml_report_has_auto_rt_flag():
+    script_path = Path(__file__).resolve().parents[1] / "analyze_xml_report.py"
+    content = script_path.read_text(encoding="utf-8")
+    assert "--auto-start-rt-server" in content
