@@ -219,6 +219,9 @@
 
         .thumb-toggle-row {
             margin-top: 6px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
         }
 
         .thumb-toggle {
@@ -228,10 +231,23 @@
             font-family: inherit;
         }
 
+        .thumb-toggle.primary {
+            background: var(--accent-blue);
+            border-color: var(--accent-blue);
+            color: #fff;
+            font-weight: 600;
+        }
+
         .thumb-toggle.active {
             background: var(--accent-blue);
             border-color: var(--accent-blue);
             color: #fff;
+        }
+
+        .thumb-status {
+            font-size: 10px;
+            color: var(--text-muted);
+            white-space: nowrap;
         }
         
         /* 详情面板增强 */
@@ -396,7 +412,8 @@
                         <span class="stats-badge" id="textureStats">{{TEXTURE_COUNT}} 项</span>
                     </div>
                     <div class="thumb-toggle-row">
-                        <button class="filter-chip thumb-toggle" id="enableThumbsBtn" onclick="enableThumbnails()">显示缩略图</button>
+                        <button class="filter-chip thumb-toggle primary" id="enableThumbsBtn" onclick="enableThumbnails()">加载缩略图</button>
+                        <span class="thumb-status" id="thumbStatus">自动预载：待开始</span>
                     </div>
                     <div class="filter-chips">
                         <span class="filter-chip" data-filter="all" onclick="setFilter('all')">全部</span>
@@ -592,6 +609,9 @@
         let currentFilter = 'all';
         let compareSlots = [null, null];
         let thumbnailsEnabled = false;
+        let preloadTotal = 0;
+        let preloadDone = 0;
+        let preloadFailed = 0;
         
         // ========== 纹理数据 (由 Python 生成器填充) ==========
         const textureData = {{TEXTURE_DATA_JSON}};
@@ -611,13 +631,20 @@
             header.parentElement.classList.toggle('collapsed');
         }
 
+        function updateThumbStatus(text) {
+            const statusEl = document.getElementById('thumbStatus');
+            if (statusEl) {
+                statusEl.textContent = text;
+            }
+        }
+
         function enableThumbnails() {
             if (thumbnailsEnabled) return;
             thumbnailsEnabled = true;
             const btn = document.getElementById('enableThumbsBtn');
             if (btn) {
                 btn.classList.add('active');
-                btn.textContent = '缩略图已显示';
+                btn.textContent = '缩略图已开启';
             }
             renderListThumbnails();
             if (currentTexture) {
@@ -630,7 +657,12 @@
             if (!textureData || !textureData.length) return;
             enableThumbnails();
             const count = Math.max(0, Math.min(RT_PRELOAD_COUNT, textureData.length));
+            preloadTotal = count;
+            preloadDone = 0;
+            preloadFailed = 0;
+            updateThumbStatus(`自动预载：${preloadDone}/${preloadTotal}`);
             for (let i = 0; i < count; i++) {
+                textureData[i]._preloadTracked = true;
                 ensureTextureThumbnail(textureData[i]);
             }
         }
@@ -682,6 +714,16 @@
             updateTexturePreview(texture);
             fetchTextureThumbnail(texture).finally(() => {
                 texture._thumbLoading = false;
+                if (texture._preloadTracked) {
+                    preloadDone += 1;
+                    if (texture._thumbError) {
+                        preloadFailed += 1;
+                    }
+                    if (preloadTotal > 0) {
+                        const failText = preloadFailed > 0 ? ` (失败 ${preloadFailed})` : '';
+                        updateThumbStatus(`自动预载：${preloadDone}/${preloadTotal}${failText}`);
+                    }
+                }
                 renderListThumbnails();
                 if (currentTexture && (currentTexture.id === texture.id)) {
                     updateTexturePreview(currentTexture);

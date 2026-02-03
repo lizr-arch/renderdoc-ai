@@ -78,7 +78,7 @@ def test_textures_has_enable_thumbnail_button(tmp_path):
     ])
     outputs = gen.generate_all()
     html = Path(outputs["textures"]).read_text(encoding="utf-8")
-    assert "显示缩略图" in html
+    assert "加载缩略图" in html
     assert "enableThumbnails" in html
 
 
@@ -161,6 +161,21 @@ def test_textures_auto_preload_config(tmp_path):
     html = Path(outputs["textures"]).read_text(encoding="utf-8")
     assert "RT_PRELOAD_COUNT" in html
     assert "autoPreloadThumbnails" in html
+
+
+def test_textures_has_thumb_status(tmp_path):
+    gen = ReportBundleGenerator(output_dir=tmp_path, capture_name="t.rdc")
+    gen.set_textures([
+        {
+            "id": "1",
+            "name": "Tex",
+            "width": 1,
+            "height": 1,
+        }
+    ])
+    outputs = gen.generate_all()
+    html = Path(outputs["textures"]).read_text(encoding="utf-8")
+    assert "thumbStatus" in html
 
 
 def test_analyze_xml_report_has_auto_rt_flag():
