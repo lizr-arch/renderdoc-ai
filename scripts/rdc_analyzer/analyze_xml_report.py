@@ -2134,6 +2134,10 @@ def main():
         help="Bundle 生成后自动启动 RT 预览服务"
     )
     parser.add_argument(
+        "--rdc-path",
+        help="RT 预览服务使用的 RDC 路径（与 --auto-start-rt-server 搭配）"
+    )
+    parser.add_argument(
         "--auto-open-textures",
         action="store_true",
         help="Bundle 生成后自动打开 textures.html"
@@ -2199,7 +2203,12 @@ def main():
             try:
                 import subprocess
                 rt_server = Path(__file__).parent / "rt_preview_server.py"
-                rdc_path = xml_path.with_suffix(".rdc")
+                if getattr(args, "rdc_path", None):
+                    rdc_path = Path(args.rdc_path)
+                else:
+                    rdc_path = xml_path.with_suffix(".rdc")
+                    if not rdc_path.exists() and xml_path.name.endswith(".zip.xml"):
+                        rdc_path = xml_path.with_suffix("")
                 if rdc_path.exists():
                     subprocess.Popen([
                         sys.executable,

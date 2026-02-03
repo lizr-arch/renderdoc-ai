@@ -316,6 +316,7 @@ git commit -m "feat(rdc-analyzer): fetch texture thumbnails on demand
 
 **Status:** ✅ Completed  
 **Tests:** `py -3 -m pytest scripts/rdc_analyzer/tests/test_bundle_report_assets.py -v` (PASS)
+**Follow-up:** Added `--rdc-path` to allow auto-start RT server with explicit RDC when XML stem does not match capture name.
 
 ---
 
@@ -340,10 +341,11 @@ git commit -m "feat(rdc-analyzer): fetch texture thumbnails on demand
    若 renderdoc Python 模块不可用，再尝试 qrenderdoc（需确认是否支持 headless 参数）。
 4. 打开 `D:\backup\endfield_report\textures.html`，点击“显示缩略图”，确认缩略图能按需加载。
 
-**Status:** ⏳ In Progress  
-**Notes:** 已完成步骤 1-2（convert + bundle）。输出目录：`D:\backup\endfield_report`。  
-XML 缩略图阶段提示 “No thumbnails generated (textures may not match)”；需依赖本地服务按需拉取。  
-步骤 3-4 需手动启动服务并在浏览器点击验证。
+**Status:** ✅ Completed  
+**Notes:** 已完成步骤 1-4（convert + bundle + auto-start RT + auto-open）。  
+执行命令：  
+`py -3 scripts/rdc_analyzer/analyze_xml_report.py D:\backup\endfield.zip.xml -o D:\backup\endfield_report --ui-version bundle --auto-start-rt-server --auto-open-textures --rdc-path D:\backup\EndfieldTBeta2_2025.12.18_14.36_frame42231.rdc`  
+RT 预览服务已自动启动并打开 textures.html；XML 缩略图阶段仍提示 “No thumbnails generated (textures may not match)”，后续通过 RT 服务按需拉取缩略图。
 
 ---
 

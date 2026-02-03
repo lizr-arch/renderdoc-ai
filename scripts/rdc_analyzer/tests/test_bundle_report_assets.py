@@ -134,3 +134,9 @@ def test_analyze_xml_report_has_auto_rt_flag():
     script_path = Path(__file__).resolve().parents[1] / "analyze_xml_report.py"
     content = script_path.read_text(encoding="utf-8")
     assert "--auto-start-rt-server" in content
+
+
+def test_analyze_xml_report_has_rdc_path_flag():
+    script_path = Path(__file__).resolve().parents[1] / "analyze_xml_report.py"
+    content = script_path.read_text(encoding="utf-8")
+    assert "--rdc-path" in content
