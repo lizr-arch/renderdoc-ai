@@ -1,11 +1,24 @@
 """
-Renderers - HTML 渲染器模块
+Renderers - Report output renderers
 
-提供将 ReportDataContract 渲染为 HTML 的渲染器。
+提供将 ReportDataContract 渲染为各种输出格式的渲染器。
 
 Available Renderers:
-    - HtmlRenderer: 主渲染器，生成完整 HTML 报告
+    - HtmlRenderer: 生成完整 HTML 报告
+    - JsonRenderer: 生成 JSON 格式输出
 """
+from .html_renderer import HtmlRenderer
+from .json_renderer import (
+    JsonRenderer,
+    render_contract_to_json,
+    contract_to_dict,
+)
 
-# 渲染器将在 P5 阶段实现
-__all__ = []
+__all__ = [
+    # HTML
+    "HtmlRenderer",
+    # JSON
+    "JsonRenderer",
+    "render_contract_to_json",
+    "contract_to_dict",
+]
