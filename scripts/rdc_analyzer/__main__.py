@@ -410,6 +410,44 @@ def main():
         help="存在严重问题时返回非零退出码 (CI 模式)"
     )
     
+    # ========== report 子命令 (新引擎) ==========
+    report_parser = subparsers.add_parser(
+        'report',
+        help='使用新引擎生成 HTML 报告 (report_engine)',
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+示例:
+  %(prog)s capture.xml
+  %(prog)s capture.xml -o report.html
+  %(prog)s capture.xml --name "MyGame Frame 123"
+
+说明:
+  此命令使用新的 report_engine 模块生成 HTML 报告。
+  支持从 XML 文件（由 renderdoccmd convert 生成）创建报告。
+        """
+    )
+    
+    report_parser.add_argument(
+        "input_file",
+        help="输入文件 (XML 格式，由 renderdoccmd convert -c xml 生成)"
+    )
+    
+    report_parser.add_argument(
+        "-o", "--output",
+        help="输出 HTML 文件路径 (默认: <input>.html)"
+    )
+    
+    report_parser.add_argument(
+        "-n", "--name",
+        help="报告标题/捕获名称 (默认: 使用文件名)"
+    )
+    
+    report_parser.add_argument(
+        "-v", "--verbose",
+        action="store_true",
+        help="详细输出"
+    )
+    
     # ========== rules 子命令 ==========
     rules_parser = subparsers.add_parser(
         'rules',
@@ -442,6 +480,8 @@ def main():
         return cmd_compare(args)
     elif args.command == 'audit':
         return cmd_audit(args)
+    elif args.command == 'report':
+        return cmd_report(args)
     elif args.command == 'rules':
         if args.list:
             return cmd_list_rules()
@@ -1266,6 +1306,75 @@ def _analyze_rdc_to_json(rdc_path: str, verbose: bool = False) -> Path:
         raise FileNotFoundError(f"未能生成 JSON 输出: {rdc_path}")
     
     return json_files[0]
+
+
+def cmd_report(args):
+    """使用新引擎生成 HTML 报告 (report_engine)"""
+    # 检查文件存在
+    if not os.path.exists(args.input_file):
+        print(f"[!] 错误: 文件不存在: {args.input_file}")
+        return 1
+    
+    input_path = Path(args.input_file)
+    input_ext = input_path.suffix.lower()
+    
+    # 目前只支持 XML
+    if input_ext != '.xml':
+        print(f"[!] 错误: 目前 report 命令只支持 XML 文件")
+        print(f"    输入文件格式: {input_ext}")
+        print("    提示: 使用 renderdoccmd convert -c xml 生成 XML 文件")
+        return 1
+    
+    # 确定输出路径
+    if args.output:
+        output_path = Path(args.output)
+    else:
+        output_path = input_path.with_suffix('.html')
+    
+    # 确定报告名称
+    rdc_name = args.name or input_path.stem
+    
+    print(f"[*] 使用 report_engine 生成报告")
+    print(f"[*] 输入: {args.input_file}")
+    print(f"[*] 输出: {output_path}")
+    print(f"[*] 名称: {rdc_name}")
+    print()
+    
+    try:
+        # 导入新引擎
+        from .report_engine import XmlAdapter, HtmlRenderer
+        
+        # 加载 XML 并转换为数据契约
+        print("[*] 解析 XML 文件...")
+        adapter = XmlAdapter()
+        contract = adapter.from_xml_file(str(input_path), rdc_name)
+        
+        if args.verbose:
+            print(f"    纹理: {len(contract.textures)}")
+            print(f"    Buffer: {len(contract.buffers)}")
+            print(f"    Draw Calls: {len(contract.events)}")
+        
+        # 渲染 HTML
+        print("[*] 生成 HTML 报告...")
+        renderer = HtmlRenderer()
+        html_path = renderer.render_to_file(contract, str(output_path), rdc_name)
+        
+        print()
+        print("=" * 50)
+        print("报告生成完成")
+        print("=" * 50)
+        print(f"  输出文件: {html_path}")
+        print(f"  文件大小: {output_path.stat().st_size / 1024:.1f} KB")
+        print()
+        
+        return 0
+        
+    except Exception as e:
+        print(f"[!] 报告生成失败: {e}")
+        if args.verbose:
+            import traceback
+            traceback.print_exc()
+        return 1
 
 
 def cmd_list_rules():
