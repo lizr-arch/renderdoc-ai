@@ -555,29 +555,8 @@ class ReportBundleGenerator:
         # 构建事件树结构
         events_tree = self._build_events_tree()
         
-        # 生成时间线条形图 HTML
-        timeline_bars_html = ""
-        if self.events:
-            max_eid = max(e.get("eventId") or e.get("eid", 0) for e in self.events) or 1
-            for evt in self.events:
-                eid = evt.get("eventId") or evt.get("eid", 0)
-                evt_type = evt.get("type", "").lower()
-                name = evt.get("name", "")
-                
-                # 根据类型选择颜色
-                if "draw" in evt_type or "draw" in name.lower():
-                    color = "var(--accent-blue)"
-                elif "dispatch" in evt_type or "dispatch" in name.lower():
-                    color = "var(--accent-purple)"
-                elif "clear" in evt_type or "clear" in name.lower():
-                    color = "var(--accent-yellow)"
-                else:
-                    color = "var(--text-muted)"
-                
-                # 计算位置百分比
-                pos_pct = (eid / max_eid) * 100
-                
-                timeline_bars_html += f'<div class="timeline-bar" style="left:{pos_pct:.2f}%;background:{color}" data-eid="{eid}" title="EID {eid}: {name}"></div>'
+        # 生成聚合的时间线条形图 HTML（按 RenderPass/Marker 聚合）
+        timeline_bars_html = self._build_aggregated_timeline()
         
         # 生成事件列表 HTML（用于初始渲染）
         event_list_html = ""
@@ -977,6 +956,206 @@ class ReportBundleGenerator:
                 "vram_bytes": self.stats["vram_usage"],
                 "issues": self.stats["issues_count"]
             }
+        }
+    
+    def _build_aggregated_timeline(self) -> str:
+        """
+        构建聚合的时间线 HTML
+        
+        策略：
+        1. 按 marker_push/marker_pop 分组，每个 RenderPass 为一个色块
+        2. 没有 Marker 的事件按固定数量（每50个）聚合为一个块
+        3. 每个块显示：位置区间、颜色（按主要类型）、tooltip 显示事件数
+        """
+        if not self.events:
+            return ""
+        
+        # 获取 EID 范围
+        all_eids = [e.get("eventId") or e.get("eid", 0) for e in self.events]
+        if not all_eids:
+            return ""
+        min_eid = min(all_eids)
+        max_eid = max(all_eids) or 1
+        eid_range = max_eid - min_eid or 1
+        
+        # 聚合块列表 [{start_eid, end_eid, name, type, count, color}]
+        blocks = []
+        
+        # 方案1：按 depth=0 的 marker_push 分组
+        # 找出所有顶级 Marker（depth=0 或 1）
+        marker_stack = []
+        current_block = None
+        ungrouped_events = []
+        
+        for evt in self.events:
+            eid = evt.get("eventId") or evt.get("eid", 0)
+            evt_type = evt.get("type", "").lower()
+            depth = evt.get("depth", 0)
+            name = evt.get("name", "")
+            
+            if evt_type == "marker_push" and depth <= 1:
+                # 保存之前的未分组事件
+                if ungrouped_events and len(ungrouped_events) >= 5:
+                    blocks.append(self._create_block_from_events(ungrouped_events, "Events"))
+                    ungrouped_events = []
+                
+                # 开始新的 RenderPass 块
+                current_block = {
+                    "start_eid": eid,
+                    "name": name,
+                    "events": [evt],
+                    "draw_count": 0,
+                    "dispatch_count": 0,
+                    "clear_count": 0
+                }
+                marker_stack.append(current_block)
+                
+            elif evt_type == "marker_pop" and marker_stack:
+                # 结束当前块
+                block = marker_stack.pop()
+                block["end_eid"] = eid
+                block["events"].append(evt)
+                
+                # 计算主类型和颜色
+                total = len(block["events"])
+                draw_pct = block["draw_count"] / max(total, 1)
+                dispatch_pct = block["dispatch_count"] / max(total, 1)
+                
+                if dispatch_pct > 0.3:
+                    color = "var(--accent-purple)"  # Compute-heavy
+                    main_type = "dispatch"
+                elif draw_pct > 0.3:
+                    color = "var(--accent-green)"   # Draw-heavy
+                    main_type = "draw"
+                elif block["clear_count"] > 0:
+                    color = "var(--accent-yellow)"  # Clear
+                    main_type = "clear"
+                else:
+                    color = "var(--accent-blue)"    # Mixed
+                    main_type = "mixed"
+                
+                blocks.append({
+                    "start_eid": block["start_eid"],
+                    "end_eid": block["end_eid"],
+                    "name": block["name"],
+                    "count": len(block["events"]),
+                    "color": color,
+                    "main_type": main_type,
+                    "draw_count": block["draw_count"],
+                    "dispatch_count": block["dispatch_count"]
+                })
+                
+                # 如果还有父级块，继续累加
+                if marker_stack:
+                    current_block = marker_stack[-1]
+                else:
+                    current_block = None
+                    
+            else:
+                # 普通事件
+                if current_block:
+                    current_block["events"].append(evt)
+                    if "draw" in evt_type:
+                        current_block["draw_count"] += 1
+                    elif "dispatch" in evt_type:
+                        current_block["dispatch_count"] += 1
+                    elif "clear" in evt_type:
+                        current_block["clear_count"] += 1
+                else:
+                    ungrouped_events.append(evt)
+        
+        # 处理剩余的未分组事件
+        if ungrouped_events:
+            # 每 50 个事件一组
+            for i in range(0, len(ungrouped_events), 50):
+                chunk = ungrouped_events[i:i+50]
+                if chunk:
+                    blocks.append(self._create_block_from_events(chunk, f"Events {i+1}-{i+len(chunk)}"))
+        
+        # 如果没有聚合出块（可能没有 marker），按固定数量分块
+        if not blocks and self.events:
+            chunk_size = max(50, len(self.events) // 20)  # 最多 20 个块
+            for i in range(0, len(self.events), chunk_size):
+                chunk = self.events[i:i+chunk_size]
+                if chunk:
+                    blocks.append(self._create_block_from_events(chunk, f"Events {i+1}-{i+len(chunk)}"))
+        
+        # 生成 HTML
+        html_parts = []
+        for block in blocks:
+            start_eid = block["start_eid"]
+            end_eid = block.get("end_eid", start_eid)
+            
+            # 计算位置和宽度（百分比）
+            left_pct = ((start_eid - min_eid) / eid_range) * 100
+            width_pct = max(((end_eid - start_eid) / eid_range) * 100, 0.5)  # 最小 0.5%
+            
+            # Tooltip
+            name = block.get("name", "")
+            count = block.get("count", 0)
+            draw_count = block.get("draw_count", 0)
+            dispatch_count = block.get("dispatch_count", 0)
+            tooltip = f"{name} ({count} events"
+            if draw_count > 0:
+                tooltip += f", {draw_count} draws"
+            if dispatch_count > 0:
+                tooltip += f", {dispatch_count} dispatches"
+            tooltip += f") EID {start_eid}-{end_eid}"
+            
+            color = block.get("color", "var(--accent-blue)")
+            
+            html_parts.append(
+                f'<div class="timeline-bar" '
+                f'style="left:{left_pct:.2f}%;width:{width_pct:.2f}%;background:{color}" '
+                f'data-start-eid="{start_eid}" data-end-eid="{end_eid}" '
+                f'title="{tooltip}" onclick="scrollToEvent({start_eid})"></div>'
+            )
+        
+        # 添加 Marker 分隔线（仅顶级）
+        marker_lines = []
+        for evt in self.events:
+            evt_type = evt.get("type", "").lower()
+            depth = evt.get("depth", 0)
+            if evt_type == "marker_push" and depth == 0:
+                eid = evt.get("eventId") or evt.get("eid", 0)
+                pos_pct = ((eid - min_eid) / eid_range) * 100
+                name = evt.get("name", "")[:15]  # 截断名称
+                marker_lines.append(
+                    f'<div class="timeline-marker" style="left:{pos_pct:.2f}%" '
+                    f'data-label="{name}"></div>'
+                )
+        
+        return "\n".join(html_parts + marker_lines[:10])  # 限制 Marker 数量避免过密
+    
+    def _create_block_from_events(self, events: List[Dict], default_name: str) -> Dict:
+        """从事件列表创建聚合块"""
+        if not events:
+            return {}
+        
+        eids = [e.get("eventId") or e.get("eid", 0) for e in events]
+        draw_count = sum(1 for e in events if "draw" in e.get("type", "").lower())
+        dispatch_count = sum(1 for e in events if "dispatch" in e.get("type", "").lower())
+        clear_count = sum(1 for e in events if "clear" in e.get("type", "").lower())
+        
+        # 确定主类型和颜色
+        total = len(events)
+        if dispatch_count / max(total, 1) > 0.3:
+            color = "var(--accent-purple)"
+        elif draw_count / max(total, 1) > 0.3:
+            color = "var(--accent-green)"
+        elif clear_count > 0:
+            color = "var(--accent-yellow)"
+        else:
+            color = "var(--accent-blue)"
+        
+        return {
+            "start_eid": min(eids),
+            "end_eid": max(eids),
+            "name": default_name,
+            "count": len(events),
+            "color": color,
+            "draw_count": draw_count,
+            "dispatch_count": dispatch_count
         }
     
     def _build_events_tree(self) -> List[Dict]:

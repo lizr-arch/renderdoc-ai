@@ -191,25 +191,30 @@
             position: absolute;
             top: 10px;
             bottom: 10px;
+            min-width: 3px;  /* 最小可点击宽度 */
             background: var(--accent-blue);
-            opacity: 0.6;
+            opacity: 0.7;
             border-radius: 2px;
             cursor: pointer;
-            transition: opacity 0.15s;
+            transition: opacity 0.15s, transform 0.1s;
         }
         
         .timeline-bar:hover {
             opacity: 1;
+            transform: scaleY(1.1);
+            z-index: 5;
         }
         
         .timeline-bar.selected {
             opacity: 1;
-            box-shadow: 0 0 0 2px var(--accent-blue);
+            box-shadow: 0 0 0 2px var(--accent-cyan);
+            z-index: 10;
         }
         
         .timeline-bar.draw { background: var(--accent-green); }
         .timeline-bar.dispatch { background: var(--accent-purple); }
         .timeline-bar.clear { background: var(--accent-yellow); }
+        .timeline-bar.mixed { background: var(--accent-blue); }
         
         .timeline-marker {
             position: absolute;
