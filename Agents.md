@@ -24,6 +24,42 @@
 - **工具文档索引**：`scripts/rdc_analyzer/docs/INDEX.md`
   - 说明：包含纹理提取、Unity 导出、RDC 格式规范等实用指南。
 
+## Context MCP（开发辅助）
+
+> **用途**：帮助 AI 快速加载项目文档和官方 API 文档，防止会话遗忘关键上下文。
+> 
+> **位置**：`scripts/context_mcp/`
+
+### 可用工具
+
+| 工具 | 功能 | 推荐场景 |
+|------|------|----------|
+| `get_project_index` | 获取项目关键索引 | **会话开始时必调用** |
+| `search_docs` | 搜索文档内容 | 查找特定功能/类/概念 |
+| `read_doc` | 读取完整文档 | 详细了解某个文档 |
+| `list_doc_topics` | 列出所有文档主题 | 浏览可用文档 |
+
+### 数据源
+
+| 类别 | 路径 | 文档数 |
+|------|------|--------|
+| 项目文档 | `docs/analysis/`, `plans/`, `scripts/*/docs/` | ~170 |
+| 官方 Sphinx | `docs/*.rst`, `docs/python_api/` | ~100 |
+
+### 使用示例
+
+```
+# 会话开始 - 加载项目概览
+→ 调用 get_project_index
+
+# 需要了解 RDC 格式
+→ 调用 search_docs("RDC 文件格式")
+→ 调用 read_doc("docs/analysis/codex_rdc_analyzer/rdc_format/01_RDC_INTRO.md")
+
+# 需要 Python API 文档
+→ 调用 search_docs("ReplayController", category="sphinx")
+```
+
 ## 0. COMMANDS (Executable Quick List)
 > 以下命令仅记录，不自动执行；执行前需确认权限与路径。构建类命令需用户授权。更多约束见下方 "Shell Protocol / 命令执行权限"。
 
@@ -387,41 +423,16 @@ void MyFunction()
 | `SectionType` | `renderdoc/api/replay/replay_enums.h` | 定义 RDC 文件的 Section 类型枚举 |
 | `StreamReader/Writer` | `renderdoc/serialise/streamio.h` | 二进制流读写 |
 
-### 7.2 RDC 文件结构
+### 7.2 关键入口点
 
-```
-┌─────────────────────────────────────┐
-│ File Header (magic, version)        │
-├─────────────────────────────────────┤
-│ Section 0: FrameCapture (主数据)     │
-│   - Chunks (序列化的 API 调用)       │
-│   - 资源数据 (纹理、缓冲区)          │
-├─────────────────────────────────────┤
-│ Section 1: ResolveDatabase          │
-├─────────────────────────────────────┤
-│ Section N: ExtendedThumbnail / etc  │
-└─────────────────────────────────────┘
-```
-
-### 7.3 关键入口点
-
-**打开 RDC 文件**：
-```cpp
-// renderdoc/serialise/rdcfile.cpp:236
-void RDCFile::Open(const rdcstr &path)
-```
-
-**读取初始化数据**：
-```cpp
-// renderdoc/replay/replay_controller.cpp:2167
-RDResult ReplayController::CreateDevice(RDCFile *rdc, const ReplayOptions &opts)
-```
-
-**各驱动的读取入口**：
-- Vulkan: `renderdoc/driver/vulkan/vk_replay.cpp:199` → `VulkanReplay::ReadLogInitialisation`
-- D3D12: `renderdoc/driver/d3d12/d3d12_replay.cpp:275` → `D3D12Replay::ReadLogInitialisation`
-- D3D11: `renderdoc/driver/d3d11/d3d11_replay.cpp:1694` → `D3D11Replay::ReadLogInitialisation`
-- OpenGL: `renderdoc/driver/gl/gl_replay.cpp:114` → `GLReplay::ReadLogInitialisation`
+| 操作 | 文件 | 函数 |
+|------|------|------|
+| 打开 RDC | `renderdoc/serialise/rdcfile.cpp:236` | `RDCFile::Open` |
+| 创建设备 | `renderdoc/replay/replay_controller.cpp:2167` | `ReplayController::CreateDevice` |
+| Vulkan 回放 | `renderdoc/driver/vulkan/vk_replay.cpp:199` | `VulkanReplay::ReadLogInitialisation` |
+| D3D12 回放 | `renderdoc/driver/d3d12/d3d12_replay.cpp:275` | `D3D12Replay::ReadLogInitialisation` |
+| D3D11 回放 | `renderdoc/driver/d3d11/d3d11_replay.cpp:1694` | `D3D11Replay::ReadLogInitialisation` |
+| OpenGL 回放 | `renderdoc/driver/gl/gl_replay.cpp:114` | `GLReplay::ReadLogInitialisation` |
 
 ---
 
@@ -451,72 +462,108 @@ RDResult ReplayController::CreateDevice(RDCFile *rdc, const ReplayOptions &opts)
 | `renderdoc.TextureDescription` | 纹理元数据 |
 | `renderdoc.BufferDescription` | 缓冲区元数据 |
 
-### 8.3 常用操作示例
-
-```python
-import renderdoc as rd
-
-# 打开 RDC 文件
-cap = rd.OpenCaptureFile()
-result = cap.OpenFile("capture.rdc", "", None)
-
-# 获取回放控制器
-controller = cap.OpenCapture(rd.ReplayOptions(), None)
-
-# 遍历所有绘制调用
-actions = controller.GetRootActions()
-for action in actions:
-    print(f"EID {action.eventId}: {action.GetName(controller.GetStructuredFile())}")
-
-# 获取纹理列表
-textures = controller.GetTextures()
-for tex in textures:
-    print(f"Texture: {tex.name} ({tex.width}x{tex.height})")
-
-controller.Shutdown()
-cap.Shutdown()
-```
-
-### 8.4 文档与示例
+### 8.3 文档与示例
 
 - **官方 Python API 文档**: https://renderdoc.org/docs/python_api/index.html
 - **内置脚本示例**: `qrenderdoc/Windows/PythonShell.cpp` (嵌入式 Python Shell)
 
 ---
 
-## 9. 源码分析路线图
+## 9. RDC → HTML 报告导出（命令行，无需 GUI）
 
-> **目标**：按顺序阅读源码，快速理解 RDC 解析流程。
-
-### 9.1 推荐阅读顺序
-
-| 阶段 | 文件 | 重点 |
-|------|------|------|
-| **1. 入口** | `renderdoc/replay/capture_file.cpp` | `CaptureFile::OpenFile` 如何调用 `RDCFile` |
-| **2. 文件格式** | `renderdoc/serialise/rdcfile.h/.cpp` | `Open()`, `Init()`, `SectionIndex()` |
-| **3. Section 类型** | `renderdoc/api/replay/replay_enums.h` | 搜索 `SectionType` 枚举 |
-| **4. 序列化** | `renderdoc/serialise/serialiser.h` | `Serialiser` 模板类 |
-| **5. 回放控制** | `renderdoc/replay/replay_controller.cpp` | `CreateDevice`, `PostCreateInit` |
-| **6. 驱动适配** | `renderdoc/driver/{api}/{api}_replay.cpp` | `ReadLogInitialisation` |
-
-### 9.2 关键搜索模式
+> **源码分析路线图**：见 `docs/analysis/PROJECT_INDEX.md`
 
 ```bash
-# 查找 RDC 文件打开逻辑
-rg -n "RDCFile::Open" renderdoc/
+# 一步式（推荐）
+py -3 -m rdc_analyzer analyze capture.rdc -o output_dir/
 
-# 查找各驱动的 Replay 入口
-rg -n "ReadLogInitialisation" renderdoc/driver/
-
-# 查找 Section 类型定义
-rg -n "enum class SectionType" renderdoc/
-
-# 查找 Python 绑定
-rg -n "CaptureFile|ReplayController" qrenderdoc/Code/pyrenderdoc/
+# 两步式（手动控制）
+renderdoccmd.exe convert -c xml -o capture.xml capture.rdc
+py -3 analyze_xml_report.py capture.xml -o report.html --ui-version bundle
 ```
 
-### 9.3 调试技巧
+| UI 版本 | 说明 |
+|---------|------|
+| `v1` | 传统单页（默认） |
+| `v2` | 新四视图 |
+| `bundle` | 4页面互联报告包 |
 
-1. **断点位置**：`RDCFile::Init()` — 所有 RDC 解析从这里开始
-2. **日志开关**：设置环境变量 `RENDERDOC_DEBUG_LOG=1` 启用详细日志
-3. **Python 交互**：在 RenderDoc UI 中使用 Python Shell 实时探索 API
+> **注意**：XML 只含元数据，纹理缩略图/Shader源码需用 RenderDoc Python API 或 `renderdoccmd export`。
+
+---
+
+## 11. RDC Analyzer 功能地图（Project Memory）
+
+> **目标**：帮助 AI 会话快速恢复项目上下文，避免遗忘关键模块和开发节点。
+> 
+> **使用场景**：每次会话开始时，AI 应扫描本章节以建立"项目记忆"。
+
+### 11.1 关键入口脚本
+
+> **架构图**：见 `scripts/rdc_analyzer/docs/INDEX.md`（Parsers → Analyzers → Rules → Exporters 四层架构）
+
+> **详细模块清单**：见 `scripts/rdc_analyzer/docs/INDEX.md`
+
+| 脚本 | 用途 | 示例命令 |
+|------|------|----------|
+| `main.py` | CLI 主入口 | `py -3 -m rdc_analyzer analyze input.rdc` |
+| `analyze_xml_report.py` | XML → HTML 报告 | `py -3 analyze_xml_report.py input.xml -o report.html` |
+| `rdc_to_bundle_report.py` | RDC → 4页报告包 | `py -3 rdc_to_bundle_report.py input.rdc -o output/` |
+| `compare_rdc.py` | 双帧对比分析 | `py -3 compare_rdc.py base.rdc target.rdc` |
+| `export_textures.py` | 批量纹理导出 | `py -3 export_textures.py input.rdc -o textures/` |
+| `extract_shaders.py` | Shader 提取 | `py -3 extract_shaders.py input.rdc -o shaders/` |
+| `mali_analyzer.py` | Mali 离线分析 | `py -3 mali_analyzer.py input.rdc --malioc` |
+
+### 11.3 快速上下文恢复清单
+
+> **开发里程碑**：见 `docs/analysis/codex_rdc_analyzer/WORK_SUMMARY_2025-01-21.md`
+
+**每次会话开始时，AI 应检查以下内容以恢复上下文：**
+
+1. **最新进展**：`docs/analysis/codex_rdc_analyzer/WORK_SUMMARY_2025-01-21.md`
+2. **工具文档**：`scripts/rdc_analyzer/docs/INDEX.md`
+3. **活跃计划**：`scripts/rdc_analyzer/plans/` 目录下最新的 `.md` 文件
+4. **测试状态**：`py -3 -m pytest scripts/rdc_analyzer/tests/ -v --tb=short`
+
+---
+
+## 12. 文档资源索引
+
+> **目标**：统一管理项目文档入口，支持未来 MCP 工具集成。
+
+### 12.1 本地文档
+
+| 类别 | 路径 | 说明 |
+|------|------|------|
+| **RenderDoc 官方文档** | `docs/` | Sphinx RST 格式源码 |
+| **离线文档索引** | `docs/offline_reference/RENDERDOC_DOCS_INDEX.md` | 官方文档结构化索引 |
+| **分析器开发文档** | `docs/analysis/codex_rdc_analyzer/` | 架构设计/里程碑/Schema |
+| **工具使用指南** | `scripts/rdc_analyzer/docs/` | 脚本使用说明 |
+
+#### 12.1.1 关键技术文档（新人必读）
+
+| 文档 | 路径 | 核心内容 |
+|------|------|----------|
+| **RenderDoc 项目索引** | `docs/analysis/PROJECT_INDEX.md` | 源码目录结构、关键类/函数表、搜索命令速查 |
+| **GPU 回放架构** | `docs/analysis/gpu-replay-architecture.md` | 回放原理、驱动流程图、CLI 扩展方案 |
+| **Pipeline State 调研** | `docs/research/pipeline_state_research_report.md` | D3D11 Tab 页面、字段缺口分析、业界工具对比 |
+| **跨 GPU 回放指南** | `docs/analysis/CROSS_GPU_REPLAY_GUIDE.md` | 跨平台回放可行性与 API 限制 |
+| **GPU 软件回放方案** | `docs/analysis/gpu_replay_software/README.md` | 无硬件 GPU 回放调研 |
+| **RDC 解析索引** | `docs/analysis/RDC_PARSING_INDEX.md` | RDC 解析入口与数据提取 |
+| **开发计划汇总** | `plans/PROJECT_SUMMARY.md` | 历史开发计划索引（60+ 计划文件） |
+
+#### 12.1.2 RDC 格式入门系列（新人友好）
+
+| 文档 | 路径 | 说明 |
+|------|------|------|
+| **01_RDC_INTRO** | `docs/analysis/codex_rdc_analyzer/rdc_format/01_RDC_INTRO.md` | "游戏录像"类比，整体结构 |
+| **02_RDC_STRUCTURE** | `docs/analysis/codex_rdc_analyzer/rdc_format/02_RDC_STRUCTURE.md` | 逐字节解释 Header/Section/Chunk |
+| **03_RDC_EXAMPLE** | `docs/analysis/codex_rdc_analyzer/rdc_format/03_RDC_EXAMPLE.md` | 3D 场景数据示例 |
+
+### 12.2 在线资源
+
+| 资源 | URL | 用途 |
+|------|-----|------|
+| RenderDoc 官方文档 | https://renderdoc.org/docs/ | API 参考、使用指南 |
+| Python API 文档 | https://renderdoc.org/docs/python_api/ | Python 绑定参考 |
+| GitHub 仓库 | https://github.com/baldurk/renderdoc | 源码、Issue 追踪 |
