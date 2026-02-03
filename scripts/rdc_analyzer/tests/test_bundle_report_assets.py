@@ -63,3 +63,21 @@ def test_texture_preview_uses_thumbnail(tmp_path):
     html = Path(outputs["textures"]).read_text(encoding="utf-8")
     assert "previewImg" in html
     assert "texture.thumbnail" in html
+
+
+def test_textures_has_enable_thumbnail_button(tmp_path):
+    gen = ReportBundleGenerator(output_dir=tmp_path, capture_name="t.rdc")
+    gen.set_textures([
+        {
+            "id": "1",
+            "name": "Tex",
+            "width": 1,
+            "height": 1,
+            "thumbnail": "AAAA",
+        }
+    ])
+    outputs = gen.generate_all()
+    html = Path(outputs["textures"]).read_text(encoding="utf-8")
+    assert "显示缩略图" in html
+    assert "enableThumbnails" in html
+

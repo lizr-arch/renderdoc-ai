@@ -530,7 +530,7 @@ class ReportBundleGenerator:
             texture_list_html += f'''
                 <div class="texture-item" data-id="{tex_id}" onclick="selectTexture('{tex_id}')">
                     <div class="texture-thumb">
-                        {"<img src='" + thumb + "' alt=''>" if thumb else "<div class='thumb-placeholder'>?</div>"}
+                        <div class='thumb-placeholder'>?</div>
                     </div>
                     <div class="texture-info">
                         <div class="texture-name">{display_name}{size_tag}</div>
@@ -558,9 +558,12 @@ class ReportBundleGenerator:
         # 生成聚合的时间线条形图 HTML（按 RenderPass/Marker 聚合）
         timeline_bars_html = self._build_aggregated_timeline()
         
+        # 为前端准备完整的事件数据（包含 shaders, textures, renderTargets）
+        prepared_events = self._prepare_events_for_frontend()
+        
         # 生成事件列表 HTML（用于初始渲染）
         event_list_html = ""
-        for evt in self.events[:100]:  # 限制初始渲染
+        for evt in prepared_events[:100]:  # 限制初始渲染
             eid = evt.get("eventId") or evt.get("eid", 0)
             name = evt.get("name", "Unknown Event")
             evt_type = evt.get("type", "")
@@ -579,11 +582,19 @@ class ReportBundleGenerator:
                 icon = "📌"
                 type_class = "other"
             
+            # 添加绑定资源数量标签（如果有）
+            shader_count = len(evt.get("shaders", []))
+            texture_count = len(evt.get("textures", []))
+            binding_badge = ""
+            if shader_count > 0 or texture_count > 0:
+                binding_badge = f'<span class="binding-badge" title="{shader_count} shaders, {texture_count} textures">📎</span>'
+            
             event_list_html += f'''
                 <div class="event-item {type_class}" data-eid="{eid}" onclick="selectEvent({eid})">
                     <span class="event-icon">{icon}</span>
                     <span class="event-eid">#{eid}</span>
                     <span class="event-name">{name}</span>
+                    {binding_badge}
                 </div>'''
         
         replacements = {
@@ -592,7 +603,7 @@ class ReportBundleGenerator:
             "DRAW_CALL_COUNT": str(self.stats["draw_calls"]),
             "TIMELINE_BARS_HTML": timeline_bars_html,
             "EVENT_LIST_HTML": event_list_html,
-            "EVENT_DATA_JSON": json.dumps(self.events, ensure_ascii=False)
+            "EVENT_DATA_JSON": json.dumps(prepared_events, ensure_ascii=False)
         }
         
         return self._render_template(template, replacements)
@@ -1157,6 +1168,168 @@ class ReportBundleGenerator:
             "draw_count": draw_count,
             "dispatch_count": dispatch_count
         }
+    
+    def _prepare_events_for_frontend(self) -> List[Dict]:
+        """
+        为前端转换事件数据，将 pipelineState 和 resourceBindings 
+        转换为前端期望的 shaders, textures, renderTargets 格式
+        """
+        prepared_events = []
+        
+        # 创建纹理快速查找表 (resourceId -> texture info)
+        texture_lookup = {}
+        for tex in self.textures:
+            tex_id = str(tex.get("id") or tex.get("resourceId", ""))
+            if tex_id:
+                texture_lookup[tex_id] = tex
+        
+        # 创建 Shader 快速查找表 (resourceId -> shader info)
+        shader_lookup = {}
+        for shader in self.shaders:
+            shader_id = str(shader.get("id") or shader.get("resource_id", ""))
+            if shader_id:
+                shader_lookup[shader_id] = shader
+        
+        for evt in self.events:
+            # 复制基础事件数据
+            prepared = dict(evt)
+            
+            # 确保 eid 字段存在（前端期望使用 eid）
+            if "eid" not in prepared:
+                prepared["eid"] = evt.get("eventId") or evt.get("eid", 0)
+            
+            # 提取 Shader 信息
+            shaders_list = []
+            pipeline_state = evt.get("pipelineState", {})
+            shaders_data = pipeline_state.get("shaders", {})
+            
+            # 映射 Shader 类型
+            shader_type_map = {
+                "vs": "Vertex",
+                "ps": "Pixel", 
+                "gs": "Geometry",
+                "hs": "Hull",
+                "ds": "Domain",
+                "cs": "Compute"
+            }
+            
+            for shader_key, shader_type_name in shader_type_map.items():
+                shader_info = shaders_data.get(shader_key)
+                if shader_info and shader_info is not None:
+                    shader_id = str(shader_info.get("id", ""))
+                    shader_name = shader_info.get("name", f"{shader_type_name} Shader")
+                    
+                    # 尝试从 Shader 列表获取更多信息
+                    full_shader = shader_lookup.get(shader_id, {})
+                    if full_shader:
+                        shader_name = full_shader.get("name", shader_name)
+                    
+                    shaders_list.append({
+                        "type": shader_key.upper(),
+                        "name": shader_name,
+                        "id": shader_id
+                    })
+            
+            # 检查 pipeline 对象（Vulkan 常用）
+            pipeline_info = shaders_data.get("pipeline")
+            if pipeline_info and isinstance(pipeline_info, dict):
+                pipeline_id = pipeline_info.get("id", "")
+                if pipeline_id and not shaders_list:
+                    # 如果没有单独的 shader，使用 pipeline ID
+                    shaders_list.append({
+                        "type": "Pipeline",
+                        "name": f"Graphics Pipeline {pipeline_id}",
+                        "id": str(pipeline_id)
+                    })
+            
+            prepared["shaders"] = shaders_list
+            
+            # 提取纹理绑定信息
+            textures_list = []
+            render_targets_list = []
+            
+            resource_bindings = evt.get("resourceBindings", {})
+            
+            # 从 descriptorSets 提取绑定的纹理
+            descriptor_sets = resource_bindings.get("descriptorSets", [])
+            for ds in descriptor_sets:
+                bindings = ds.get("bindings", [])
+                for binding in bindings:
+                    desc_type = binding.get("descriptorType", "")
+                    resources = binding.get("resources", [])
+                    
+                    # 检查是否是图像/纹理类型
+                    is_texture_type = any(t in desc_type.upper() for t in [
+                        "SAMPLED_IMAGE", "COMBINED_IMAGE", "STORAGE_IMAGE",
+                        "TEXTURE", "SRV", "UAV"
+                    ])
+                    
+                    if is_texture_type:
+                        for res in resources:
+                            res_id = str(res.get("resourceId", ""))
+                            if res_id and res_id != "0":
+                                # 从纹理列表查找详细信息
+                                tex_info = texture_lookup.get(res_id, {})
+                                tex_name = tex_info.get("name", f"Texture {res_id}")
+                                thumbnail = tex_info.get("thumbnail", "")
+                                
+                                # 避免重复
+                                if not any(t["id"] == res_id for t in textures_list):
+                                    textures_list.append({
+                                        "id": res_id,
+                                        "name": tex_name,
+                                        "thumbnail": thumbnail,
+                                        "binding": binding.get("binding", 0),
+                                        "type": desc_type
+                                    })
+            
+            # 从 shaderResources 提取（D3D11/12 风格）
+            shader_resources = resource_bindings.get("shaderResources", [])
+            for sr in shader_resources:
+                res_id = str(sr.get("resourceId", sr.get("id", "")))
+                if res_id and res_id != "0":
+                    tex_info = texture_lookup.get(res_id, {})
+                    tex_name = tex_info.get("name", f"Texture {res_id}")
+                    thumbnail = tex_info.get("thumbnail", "")
+                    
+                    if not any(t["id"] == res_id for t in textures_list):
+                        textures_list.append({
+                            "id": res_id,
+                            "name": tex_name,
+                            "thumbnail": thumbnail,
+                            "slot": sr.get("slot", 0),
+                            "stage": sr.get("stage", "")
+                        })
+            
+            prepared["textures"] = textures_list
+            
+            # 提取 Render Target 信息（从 renderTargets 字段或推断）
+            rt_data = evt.get("renderTargets", [])
+            if isinstance(rt_data, list):
+                for rt in rt_data:
+                    rt_id = str(rt.get("id", rt.get("resourceId", "")))
+                    if rt_id:
+                        tex_info = texture_lookup.get(rt_id, {})
+                        rt_name = tex_info.get("name", f"RT {rt_id}")
+                        thumbnail = tex_info.get("thumbnail", "")
+                        
+                        render_targets_list.append({
+                            "id": rt_id,
+                            "name": rt_name,
+                            "thumbnail": thumbnail,
+                            "slot": rt.get("slot", len(render_targets_list))
+                        })
+            
+            prepared["renderTargets"] = render_targets_list
+            
+            # 添加 viewport 信息（如果存在）
+            viewport = pipeline_state.get("viewport")
+            if viewport:
+                prepared["viewport"] = viewport
+            
+            prepared_events.append(prepared)
+        
+        return prepared_events
     
     def _build_events_tree(self) -> List[Dict]:
         """将扁平事件列表转换为树结构（按 Pass 分组）"""

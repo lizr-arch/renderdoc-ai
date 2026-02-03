@@ -1,0 +1,961 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>纹理浏览器 - {{CAPTURE_NAME}}</title>
+    <link rel="stylesheet" href="common.css">
+    <style>
+        /* ========== Textures 页面专用样式 ========== */
+        
+        /* 确保 body 不滚动 */
+        body {
+            overflow: hidden;
+        }
+        
+        /* 纹理列表滚动区 */
+        .texture-list {
+            flex: 1;
+            overflow-y: auto;
+            overflow-x: hidden;
+            min-height: 200px;
+        }
+        
+        /* 网格视图切换 */
+        .view-mode-grid .texture-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+            gap: 8px;
+            padding: 8px;
+        }
+        
+        .view-mode-grid .texture-item {
+            flex-direction: column;
+            height: auto;
+            padding: 8px;
+            border-bottom: none;
+            background: var(--bg-dark);
+            border-radius: var(--radius-md);
+        }
+        
+        .view-mode-grid .texture-item-thumb {
+            width: 100%;
+            height: 60px;
+            margin-bottom: 6px;
+        }
+        
+        .view-mode-grid .texture-item-info {
+            text-align: center;
+        }
+        
+        .view-mode-grid .texture-item-meta {
+            display: none;
+        }
+        
+        /* Mip 状态指示器 */
+        .mip-status {
+            font-size: 10px;
+            margin-left: 4px;
+        }
+        
+        .mip-status.good { color: var(--accent-green); }
+        .mip-status.warn { color: var(--accent-yellow); }
+        .mip-status.partial { color: var(--accent-orange); }
+        
+        /* 纹理尺寸标签 */
+        .size-tag {
+            font-size: 9px;
+            padding: 1px 4px;
+            border-radius: 2px;
+            background: var(--bg-medium);
+            color: var(--text-muted);
+            margin-left: 4px;
+        }
+        
+        .size-tag.large {
+            background: rgba(249, 197, 19, 0.2);
+            color: var(--accent-yellow);
+        }
+        
+        .size-tag.huge {
+            background: rgba(233, 69, 96, 0.2);
+            color: var(--accent-red);
+        }
+        
+        /* 问题标记 */
+        .issue-indicator {
+            position: absolute;
+            top: 4px;
+            right: 4px;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--accent-yellow);
+        }
+        
+        .issue-indicator.critical {
+            background: var(--accent-red);
+        }
+        
+        /* 纹理对比面板 */
+        .compare-panel {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 200px;
+            background: var(--bg-darker);
+            border-top: 1px solid var(--border);
+            display: none;
+            z-index: 100;
+        }
+        
+        .compare-panel.active {
+            display: flex;
+        }
+        
+        .compare-slot {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            border-right: 1px solid var(--border);
+        }
+        
+        .compare-slot:last-child {
+            border-right: none;
+        }
+        
+        .compare-header {
+            padding: 8px 12px;
+            background: var(--bg-dark);
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        
+        .compare-title {
+            font-size: 11px;
+            font-weight: 500;
+            color: var(--text-primary);
+        }
+        
+        .compare-close {
+            width: 20px;
+            height: 20px;
+            border: none;
+            background: transparent;
+            color: var(--text-muted);
+            cursor: pointer;
+            border-radius: 3px;
+            font-size: 14px;
+        }
+        
+        .compare-close:hover {
+            background: var(--bg-medium);
+            color: var(--text-primary);
+        }
+        
+        .compare-body {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: repeating-conic-gradient(var(--bg-medium) 0% 25%, var(--bg-dark) 0% 50%) 50% / 16px 16px;
+        }
+        
+        .compare-body img {
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain;
+        }
+        
+        .compare-empty {
+            color: var(--text-muted);
+            font-size: 11px;
+        }
+        
+        /* 筛选工具栏增强 */
+        .filter-toolbar {
+            padding: 8px;
+            background: var(--bg-darker);
+            border-bottom: 1px solid var(--border);
+        }
+        
+        .filter-chips {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 4px;
+            margin-top: 8px;
+        }
+        
+        .filter-chip {
+            padding: 3px 8px;
+            font-size: 10px;
+            background: var(--bg-dark);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            color: var(--text-muted);
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+        
+        .filter-chip:hover {
+            border-color: var(--accent-blue);
+            color: var(--text-primary);
+        }
+        
+        .filter-chip.active {
+            background: var(--accent-blue);
+            border-color: var(--accent-blue);
+            color: white;
+        }
+        
+        .filter-chip.warn.active {
+            background: var(--accent-yellow);
+            border-color: var(--accent-yellow);
+            color: #000;
+        }
+
+        .thumb-toggle-row {
+            margin-top: 6px;
+        }
+
+        .thumb-toggle {
+            border: 1px solid var(--border);
+            background: var(--bg-dark);
+            color: var(--text-secondary);
+            font-family: inherit;
+        }
+
+        .thumb-toggle.active {
+            background: var(--accent-blue);
+            border-color: var(--accent-blue);
+            color: #fff;
+        }
+        
+        /* 详情面板增强 */
+        .detail-preview {
+            width: 100%;
+            aspect-ratio: 1;
+            background: repeating-conic-gradient(var(--bg-medium) 0% 25%, var(--bg-dark) 0% 50%) 50% / 16px 16px;
+            border-radius: var(--radius-md);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            cursor: pointer;
+            margin-bottom: 12px;
+        }
+        
+        .detail-preview img {
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain;
+        }
+        
+        .detail-actions {
+            display: flex;
+            gap: 8px;
+            margin-top: 12px;
+        }
+        
+        .detail-action-btn {
+            flex: 1;
+            padding: 8px 12px;
+            border: none;
+            border-radius: var(--radius-md);
+            font-size: 10px;
+            font-weight: 500;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            transition: all 0.2s;
+        }
+        
+        .detail-action-btn.primary {
+            background: var(--accent-blue);
+            color: white;
+        }
+        
+        .detail-action-btn.primary:hover {
+            filter: brightness(1.1);
+        }
+        
+        .detail-action-btn.secondary {
+            background: var(--bg-medium);
+            color: var(--text-primary);
+        }
+        
+        .detail-action-btn.secondary:hover {
+            background: var(--bg-light);
+        }
+        
+        /* 使用此纹理的事件链接 */
+        .usage-section {
+            margin-top: 12px;
+            padding-top: 12px;
+            border-top: 1px solid var(--border);
+        }
+        
+        .usage-title {
+            font-size: 10px;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            margin-bottom: 8px;
+        }
+        
+        .usage-list {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            max-height: 120px;
+            overflow-y: auto;
+        }
+        
+        .usage-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 8px;
+            background: var(--bg-darkest);
+            border-radius: var(--radius-sm);
+            font-size: 10px;
+            cursor: pointer;
+            transition: background 0.15s;
+        }
+        
+        .usage-item:hover {
+            background: var(--bg-dark);
+        }
+        
+        .usage-eid {
+            color: var(--accent-blue);
+            font-family: var(--font-mono);
+        }
+        
+        .usage-name {
+            flex: 1;
+            color: var(--text-secondary);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        
+        .usage-slot {
+            color: var(--text-muted);
+            font-size: 9px;
+        }
+    </style>
+</head>
+<body>
+    <div class="app-container">
+        <!-- 顶部菜单栏 -->
+        <header class="app-menubar">
+            <div class="app-title">
+                <div class="logo"></div>
+                <span>RDC Analyzer</span>
+            </div>
+            
+            <nav class="app-menu">
+                <a href="index.html" class="menu-item">📊 概览</a>
+                <a href="textures.html" class="menu-item active">🖼️ 纹理</a>
+                <a href="events.html" class="menu-item">📋 事件</a>
+                <a href="shaders.html" class="menu-item">🎨 Shaders</a>
+                <a href="recommendations.html" class="menu-item">💡 优化</a>
+            </nav>
+            
+            <div class="app-meta">
+                <span>{{TEXTURE_COUNT}} 纹理</span>
+                <span>|</span>
+                <span>{{TOTAL_VRAM}}</span>
+            </div>
+        </header>
+        
+        <!-- 主工作区 -->
+        <div class="app-workspace">
+            <!-- 左侧面板 - 纹理列表 -->
+            <aside class="panel-left" id="panelLeft">
+                <div class="panel-header" onclick="togglePanel('panelLeft')">
+                    <span class="panel-title">纹理列表</span>
+                    <span class="panel-toggle">▼</span>
+                </div>
+                
+                <!-- 筛选工具栏 -->
+                <div class="filter-toolbar">
+                    <input type="text" class="search-box" id="textureSearch" placeholder="搜索纹理..." oninput="filterTextures()">
+                    <div class="filter-row" style="margin-top: 6px;">
+                        <select class="sort-select" id="sortSelect" onchange="sortTextures()">
+                            <option value="name">名称</option>
+                            <option value="size">尺寸</option>
+                            <option value="vram">VRAM</option>
+                            <option value="format">格式</option>
+                        </select>
+                        <span class="stats-badge" id="textureStats">{{TEXTURE_COUNT}} 项</span>
+                    </div>
+                    <div class="thumb-toggle-row">
+                        <button class="filter-chip thumb-toggle" id="enableThumbsBtn" onclick="enableThumbnails()">显示缩略图</button>
+                    </div>
+                    <div class="filter-chips">
+                        <span class="filter-chip" data-filter="all" onclick="setFilter('all')">全部</span>
+                        <span class="filter-chip warn" data-filter="issues" onclick="setFilter('issues')">⚠️ 问题</span>
+                        <span class="filter-chip" data-filter="large" onclick="setFilter('large')">大尺寸</span>
+                        <span class="filter-chip" data-filter="nomip" onclick="setFilter('nomip')">无 Mip</span>
+                    </div>
+                </div>
+                
+                <!-- 纹理列表 -->
+                <div class="texture-list" id="textureList">
+                    {{TEXTURE_LIST_HTML}}
+                </div>
+            </aside>
+            
+            <!-- 中间主画布区域 -->
+            <main class="main-canvas-area">
+                <!-- 画布工具栏 -->
+                <div class="canvas-toolbar">
+                    <div class="toolbar-group">
+                        <button class="toolbar-btn" id="zoomOut" title="缩小">➖</button>
+                        <span class="zoom-display" id="zoomLevel">100%</span>
+                        <button class="toolbar-btn" id="zoomIn" title="放大">➕</button>
+                        <button class="toolbar-btn" id="zoomFit" title="适应">⬜</button>
+                    </div>
+                    
+                    <div class="toolbar-group">
+                        <button class="channel-btn" data-channel="r" onclick="toggleChannel('r')">R</button>
+                        <button class="channel-btn" data-channel="g" onclick="toggleChannel('g')">G</button>
+                        <button class="channel-btn" data-channel="b" onclick="toggleChannel('b')">B</button>
+                        <button class="channel-btn" data-channel="a" onclick="toggleChannel('a')">A</button>
+                    </div>
+                    
+                    <div class="toolbar-group">
+                        <button class="toolbar-btn" id="compareBtn" title="对比模式">🔀</button>
+                        <button class="toolbar-btn" id="gridViewBtn" title="网格视图">⊞</button>
+                    </div>
+                    
+                    <div style="flex: 1;"></div>
+                    
+                    <div class="toolbar-group" style="border-right: none;">
+                        <button class="toolbar-btn" id="exportBtn" title="导出">💾</button>
+                    </div>
+                </div>
+                
+                <!-- 主画布 -->
+                <div class="canvas-viewport" id="canvasViewport">
+                    <div class="canvas-empty" id="canvasEmpty">
+                        <div class="canvas-empty-icon">🖼️</div>
+                        <div class="canvas-empty-text">从左侧列表选择纹理</div>
+                    </div>
+                    <img class="preview-img hidden" id="previewImg" src="" alt="Texture Preview">
+                    
+                    <!-- 颜色拾取器 -->
+                    <div class="color-picker-float hidden" id="colorPicker">
+                        <div class="color-preview" id="colorPreview"></div>
+                        <span class="coord" id="coordDisplay">X: 0, Y: 0</span>
+                        <span class="hex" id="hexDisplay" onclick="copyHex()">#000000</span>
+                    </div>
+                </div>
+            </main>
+            
+            <!-- 右侧面板 - 属性 -->
+            <aside class="panel-right" id="panelRight">
+                <div class="panel-header" onclick="togglePanel('panelRight')">
+                    <span class="panel-title">属性</span>
+                    <span class="panel-toggle">▼</span>
+                </div>
+                
+                <div class="panel-content" id="propertiesPanel">
+                    <!-- 预览 -->
+                    <div class="prop-section">
+                        <div class="prop-section-header">
+                            <span class="prop-section-title">预览</span>
+                        </div>
+                        <div class="prop-section-content">
+                            <div class="detail-preview" id="detailPreview" onclick="openLightbox()">
+                                <span style="color: var(--text-muted); font-size: 11px;">选择纹理查看</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 基本信息 -->
+                    <div class="prop-section">
+                        <div class="prop-section-header" onclick="toggleSection(this)">
+                            <span class="prop-section-title">基本信息</span>
+                            <span class="prop-section-toggle">▼</span>
+                        </div>
+                        <div class="prop-section-content">
+                            <div class="prop-row">
+                                <span class="prop-label">名称</span>
+                                <span class="prop-value" id="propName">-</span>
+                            </div>
+                            <div class="prop-row">
+                                <span class="prop-label">资源 ID</span>
+                                <span class="prop-value highlight" id="propId">-</span>
+                            </div>
+                            <div class="prop-row">
+                                <span class="prop-label">尺寸</span>
+                                <span class="prop-value" id="propDimensions">-</span>
+                            </div>
+                            <div class="prop-row">
+                                <span class="prop-label">格式</span>
+                                <span class="prop-value" id="propFormat">-</span>
+                            </div>
+                            <div class="prop-row">
+                                <span class="prop-label">Mipmap</span>
+                                <span class="prop-value" id="propMipmap">-</span>
+                            </div>
+                            <div class="prop-row">
+                                <span class="prop-label">VRAM</span>
+                                <span class="prop-value highlight" id="propVram">-</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 分析建议 -->
+                    <div class="prop-section">
+                        <div class="prop-section-header" onclick="toggleSection(this)">
+                            <span class="prop-section-title">分析建议</span>
+                            <span class="prop-section-toggle">▼</span>
+                        </div>
+                        <div class="prop-section-content" id="analysisContent">
+                            <div class="analysis-tip info">选择纹理查看分析结果</div>
+                        </div>
+                    </div>
+                    
+                    <!-- 使用情况 -->
+                    <div class="prop-section">
+                        <div class="prop-section-header" onclick="toggleSection(this)">
+                            <span class="prop-section-title">使用情况</span>
+                            <span class="prop-section-toggle">▼</span>
+                        </div>
+                        <div class="prop-section-content">
+                            <div class="usage-list" id="usageList">
+                                <div class="usage-item" style="justify-content: center; color: var(--text-muted);">
+                                    选择纹理查看使用情况
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 操作按钮 -->
+                    <div style="padding: 12px;">
+                        <div class="detail-actions">
+                            <button class="detail-action-btn primary" onclick="jumpToEvent()">
+                                📋 查看事件
+                            </button>
+                            <button class="detail-action-btn secondary" onclick="addToCompare()">
+                                🔀 对比
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </aside>
+        </div>
+    </div>
+    
+    <!-- Lightbox 弹窗 -->
+    <div class="lightbox-overlay" id="lightbox" onclick="closeLightbox()">
+        <span class="lightbox-close" onclick="closeLightbox()">&times;</span>
+        <img class="lightbox-img" id="lightboxImg" src="" alt="Preview">
+        <div class="lightbox-caption" id="lightboxCaption"></div>
+    </div>
+    
+    <!-- 对比面板 -->
+    <div class="compare-panel" id="comparePanel">
+        <div class="compare-slot" id="compareSlot1">
+            <div class="compare-header">
+                <span class="compare-title" id="compareTitle1">对比 A</span>
+                <button class="compare-close" onclick="clearCompareSlot(1)">×</button>
+            </div>
+            <div class="compare-body">
+                <span class="compare-empty">拖拽纹理到此处</span>
+            </div>
+        </div>
+        <div class="compare-slot" id="compareSlot2">
+            <div class="compare-header">
+                <span class="compare-title" id="compareTitle2">对比 B</span>
+                <button class="compare-close" onclick="clearCompareSlot(2)">×</button>
+            </div>
+            <div class="compare-body">
+                <span class="compare-empty">拖拽纹理到此处</span>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        // ========== 状态管理 ==========
+        let currentTexture = null;
+        let currentZoom = 1;
+        let activeChannels = { r: true, g: true, b: true, a: true };
+        let currentFilter = 'all';
+        let compareSlots = [null, null];
+        let thumbnailsEnabled = false;
+        
+        // ========== 纹理数据 (由 Python 生成器填充) ==========
+        const textureData = {{TEXTURE_DATA_JSON}};
+        const textureMap = new Map(
+            textureData.map(t => [String(t.id || t.resource_id || ""), t])
+        );
+        
+        // ========== 面板折叠 ==========
+        function togglePanel(panelId) {
+            const panel = document.getElementById(panelId);
+            panel.classList.toggle('collapsed');
+        }
+        
+        function toggleSection(header) {
+            header.parentElement.classList.toggle('collapsed');
+        }
+
+        function enableThumbnails() {
+            if (thumbnailsEnabled) return;
+            thumbnailsEnabled = true;
+            const btn = document.getElementById('enableThumbsBtn');
+            if (btn) {
+                btn.classList.add('active');
+                btn.textContent = '缩略图已显示';
+            }
+            renderListThumbnails();
+            if (currentTexture) {
+                updateTexturePreview(currentTexture);
+            }
+        }
+
+        function renderListThumbnails() {
+            document.querySelectorAll('.texture-item').forEach(item => {
+                const texId = String(item.dataset.id || "");
+                const texture = textureMap.get(texId);
+                const thumbEl = item.querySelector('.texture-thumb');
+                if (!thumbEl) return;
+
+                if (texture && texture.thumbnail) {
+                    thumbEl.innerHTML = `<img src="${texture.thumbnail}" alt="">`;
+                } else {
+                    thumbEl.innerHTML = "<div class='thumb-placeholder'>?</div>";
+                }
+            });
+        }
+        
+        // ========== 纹理选择 ==========
+        function selectTexture(id) {
+            const texture = textureData.find(t => t.id === id);
+            if (!texture) return;
+            
+            currentTexture = texture;
+            
+            // 更新列表选中状态
+            document.querySelectorAll('.texture-item').forEach(el => {
+                el.classList.remove('selected');
+            });
+            const item = document.querySelector(`.texture-item[data-id="${id}"]`);
+            if (item) item.classList.add('selected');
+            
+            // 更新预览
+            const previewImg = document.getElementById('previewImg');
+            const canvasEmpty = document.getElementById('canvasEmpty');
+            const detailPreview = document.getElementById('detailPreview');
+            
+            updateTexturePreview(texture, previewImg, canvasEmpty, detailPreview);
+            
+            // 更新属性面板（优先使用 display_name）
+            document.getElementById('propName').textContent = texture.display_name || texture.name || '-';
+            document.getElementById('propId').textContent = texture.id || '-';
+            document.getElementById('propDimensions').textContent = `${texture.width}×${texture.height}`;
+            document.getElementById('propFormat').textContent = texture.format || '-';
+            document.getElementById('propMipmap').innerHTML = formatMipmap(texture);
+            document.getElementById('propVram').textContent = formatBytes(texture.vram || 0);
+            
+            // 更新分析建议
+            updateAnalysis(texture);
+            
+            // 更新使用情况
+            updateUsage(texture);
+            
+            // 显示颜色拾取器
+            document.getElementById('colorPicker').classList.remove('hidden');
+        }
+
+        function updateTexturePreview(texture, previewImg, canvasEmpty, detailPreview) {
+            const imgEl = previewImg || document.getElementById('previewImg');
+            const emptyEl = canvasEmpty || document.getElementById('canvasEmpty');
+            const previewEl = detailPreview || document.getElementById('detailPreview');
+
+            if (!thumbnailsEnabled) {
+                imgEl.classList.add('hidden');
+                emptyEl.classList.remove('hidden');
+                previewEl.innerHTML = '<span style="color: var(--text-muted); font-size: 11px;">点击“显示缩略图”查看预览</span>';
+                return;
+            }
+
+            if (texture.thumbnail) {
+                imgEl.src = texture.thumbnail;
+                imgEl.classList.remove('hidden');
+                emptyEl.classList.add('hidden');
+                previewEl.innerHTML = `<img src="${texture.thumbnail}" alt="${texture.display_name || texture.name}">`;
+            } else {
+                imgEl.classList.add('hidden');
+                emptyEl.classList.remove('hidden');
+                previewEl.innerHTML = '<span style="color: var(--text-muted); font-size: 11px;">无可用缩略图</span>';
+            }
+        }
+        
+        function formatMipmap(texture) {
+            const mipCount = texture.mipLevels || 1;
+            const expectedMips = Math.floor(Math.log2(Math.max(texture.width, texture.height))) + 1;
+            
+            if (mipCount >= expectedMips) {
+                return `${mipCount} 级 <span class="mip-status good">✓</span>`;
+            } else if (mipCount > 1) {
+                return `${mipCount}/${expectedMips} 级 <span class="mip-status partial">⚠</span>`;
+            } else {
+                return `无 <span class="mip-status warn">⚠</span>`;
+            }
+        }
+        
+        function updateAnalysis(texture) {
+            const content = document.getElementById('analysisContent');
+            let html = '';
+            
+            if (texture.issues && texture.issues.length > 0) {
+                texture.issues.forEach(issue => {
+                    const level = issue.level || 'warn';
+                    html += `<div class="analysis-tip ${level}">${issue.message}</div>`;
+                });
+            } else {
+                html = '<div class="analysis-tip success">✅ 未发现明显问题</div>';
+            }
+            
+            content.innerHTML = html;
+        }
+        
+        function updateUsage(texture) {
+            const list = document.getElementById('usageList');
+            
+            if (texture.usedBy && texture.usedBy.length > 0) {
+                list.innerHTML = texture.usedBy.slice(0, 10).map(usage => `
+                    <div class="usage-item" onclick="jumpToEvent(${usage.eid})">
+                        <span class="usage-eid">EID ${usage.eid}</span>
+                        <span class="usage-name">${usage.name || 'Draw Call'}</span>
+                        <span class="usage-slot">Slot ${usage.slot || 0}</span>
+                    </div>
+                `).join('');
+                
+                if (texture.usedBy.length > 10) {
+                    list.innerHTML += `
+                        <div class="usage-item" style="justify-content: center; color: var(--text-muted);">
+                            还有 ${texture.usedBy.length - 10} 个事件...
+                        </div>
+                    `;
+                }
+            } else {
+                list.innerHTML = `
+                    <div class="usage-item" style="justify-content: center; color: var(--text-muted);">
+                        未在事件中使用
+                    </div>
+                `;
+            }
+        }
+        
+        // ========== 筛选与排序 ==========
+        function filterTextures() {
+            const keyword = document.getElementById('textureSearch').value.toLowerCase();
+            let visible = 0;
+            
+            document.querySelectorAll('.texture-item').forEach(item => {
+                const name = item.dataset.name?.toLowerCase() || '';
+                const format = item.dataset.format?.toLowerCase() || '';
+                const matchKeyword = !keyword || name.includes(keyword) || format.includes(keyword);
+                const matchFilter = checkFilter(item);
+                
+                if (matchKeyword && matchFilter) {
+                    item.classList.remove('hidden');
+                    visible++;
+                } else {
+                    item.classList.add('hidden');
+                }
+            });
+            
+            document.getElementById('textureStats').textContent = `${visible} 项`;
+        }
+        
+        function checkFilter(item) {
+            if (currentFilter === 'all') return true;
+            if (currentFilter === 'issues') return item.dataset.hasIssue === 'true';
+            if (currentFilter === 'large') return parseInt(item.dataset.width) >= 2048;
+            if (currentFilter === 'nomip') return item.dataset.mipLevels === '1';
+            return true;
+        }
+        
+        function setFilter(filter) {
+            currentFilter = filter;
+            document.querySelectorAll('.filter-chip').forEach(chip => {
+                chip.classList.toggle('active', chip.dataset.filter === filter);
+            });
+            filterTextures();
+        }
+        
+        function sortTextures() {
+            const sortBy = document.getElementById('sortSelect').value;
+            const list = document.getElementById('textureList');
+            const items = Array.from(list.querySelectorAll('.texture-item'));
+            
+            items.sort((a, b) => {
+                switch (sortBy) {
+                    case 'name':
+                        return (a.dataset.name || '').localeCompare(b.dataset.name || '');
+                    case 'size':
+                        return (parseInt(b.dataset.width) * parseInt(b.dataset.height)) - 
+                               (parseInt(a.dataset.width) * parseInt(a.dataset.height));
+                    case 'vram':
+                        return parseInt(b.dataset.vram || 0) - parseInt(a.dataset.vram || 0);
+                    case 'format':
+                        return (a.dataset.format || '').localeCompare(b.dataset.format || '');
+                    default:
+                        return 0;
+                }
+            });
+            
+            items.forEach(item => list.appendChild(item));
+        }
+        
+        // ========== 通道切换 ==========
+        function toggleChannel(channel) {
+            activeChannels[channel] = !activeChannels[channel];
+            const btn = document.querySelector(`.channel-btn[data-channel="${channel}"]`);
+            btn.classList.toggle('active', activeChannels[channel]);
+            applyChannelFilter();
+        }
+        
+        function applyChannelFilter() {
+            const img = document.getElementById('previewImg');
+            // 实际实现需要 Canvas 处理，这里简化为 CSS filter
+            // 完整实现应使用 WebGL 或 Canvas 2D
+            console.log('Channel filter:', activeChannels);
+        }
+        
+        // ========== 缩放控制 ==========
+        document.getElementById('zoomIn').addEventListener('click', () => {
+            currentZoom = Math.min(currentZoom * 1.25, 8);
+            applyZoom();
+        });
+        
+        document.getElementById('zoomOut').addEventListener('click', () => {
+            currentZoom = Math.max(currentZoom / 1.25, 0.1);
+            applyZoom();
+        });
+        
+        document.getElementById('zoomFit').addEventListener('click', () => {
+            currentZoom = 1;
+            applyZoom();
+        });
+        
+        function applyZoom() {
+            const img = document.getElementById('previewImg');
+            img.style.transform = `scale(${currentZoom})`;
+            document.getElementById('zoomLevel').textContent = `${Math.round(currentZoom * 100)}%`;
+        }
+        
+        // ========== Lightbox ==========
+        function openLightbox() {
+            if (!thumbnailsEnabled || !currentTexture || !currentTexture.thumbnail) return;
+            
+            const lightbox = document.getElementById('lightbox');
+            const img = document.getElementById('lightboxImg');
+            const caption = document.getElementById('lightboxCaption');
+            
+            img.src = currentTexture.thumbnail;
+            caption.textContent = `${currentTexture.name} (${currentTexture.width}×${currentTexture.height})`;
+            lightbox.classList.add('active');
+        }
+        
+        function closeLightbox() {
+            document.getElementById('lightbox').classList.remove('active');
+        }
+        
+        // ========== 对比模式 ==========
+        document.getElementById('compareBtn').addEventListener('click', () => {
+            const panel = document.getElementById('comparePanel');
+            panel.classList.toggle('active');
+        });
+        
+        function addToCompare() {
+            if (!thumbnailsEnabled || !currentTexture) return;
+            
+            const slotIndex = compareSlots[0] === null ? 0 : (compareSlots[1] === null ? 1 : 0);
+            compareSlots[slotIndex] = currentTexture;
+            
+            const slot = document.getElementById(`compareSlot${slotIndex + 1}`);
+            const body = slot.querySelector('.compare-body');
+            const title = document.getElementById(`compareTitle${slotIndex + 1}`);
+            
+            body.innerHTML = `<img src="${currentTexture.thumbnail}" alt="${currentTexture.name}">`;
+            title.textContent = currentTexture.name;
+            
+            document.getElementById('comparePanel').classList.add('active');
+        }
+        
+        function clearCompareSlot(index) {
+            compareSlots[index - 1] = null;
+            const slot = document.getElementById(`compareSlot${index}`);
+            const body = slot.querySelector('.compare-body');
+            const title = document.getElementById(`compareTitle${index}`);
+            
+            body.innerHTML = '<span class="compare-empty">拖拽纹理到此处</span>';
+            title.textContent = `对比 ${index === 1 ? 'A' : 'B'}`;
+        }
+        
+        // ========== 跳转事件 ==========
+        function jumpToEvent(eid) {
+            if (eid) {
+                window.location.href = `events.html?eid=${eid}`;
+            } else if (currentTexture && currentTexture.usedBy && currentTexture.usedBy.length > 0) {
+                window.location.href = `events.html?eid=${currentTexture.usedBy[0].eid}`;
+            }
+        }
+        
+        // ========== 工具函数 ==========
+        function formatBytes(bytes) {
+            if (bytes === 0) return '0 B';
+            const k = 1024;
+            const sizes = ['B', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        }
+        
+        function copyHex() {
+            const hex = document.getElementById('hexDisplay').textContent;
+            navigator.clipboard.writeText(hex);
+        }
+        
+        // ========== 键盘快捷键 ==========
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                closeLightbox();
+            }
+        });
+        
+        // ========== 初始化 ==========
+        document.addEventListener('DOMContentLoaded', () => {
+            // 检查 URL 参数
+            const params = new URLSearchParams(window.location.search);
+            
+            // 如果有 id 参数，选中对应纹理
+            const id = params.get('id');
+            if (id) {
+                selectTexture(id);
+            }
+            
+            // 如果有 filter 参数，应用筛选
+            const filter = params.get('filter');
+            if (filter) {
+                setFilter(filter);
+            }
+            
+            // 初始化筛选器状态
+            setFilter('all');
+        });
+    </script>
+</body>
+</html>
