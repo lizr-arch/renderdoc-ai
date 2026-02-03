@@ -86,6 +86,9 @@
 - Intermediate output already exists per event under `<out>/.../intermediate/`
 - Textures are RGBA8 or already decoded
 - Shader disassembly is available for material mapping
+- FBX 输出统一使用 2020.2 版本（兼容 Unity/Unreal）
+- 中间态以 OBJ+MTL 为过渡，导出到各引擎时处理坐标系
+- 法线/切线：有数据则导出，无数据则交由引擎计算
 
 ---
 

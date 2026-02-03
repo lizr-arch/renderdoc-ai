@@ -4,6 +4,7 @@
 
 ## 1. 主要导入管线（FBX / Interchange）
 Unreal 的传统 FBX 管线支持导入 Static Mesh，并要求 FBX 2020.2。也可使用 Interchange 管线导入 FBX、glTF/GLB、MaterialX 等格式。  
+统一方案为：中间态先输出 **OBJ+MTL**，再生成 Unreal 专用 **FBX 2020.2**（坐标系在转换阶段处理）。  
 参考：https://dev.epicgames.com/documentation/en-us/unreal-engine/fbx-static-mesh-pipeline-in-unreal-engine
 参考：https://dev.epicgames.com/documentation/en-us/unreal-engine/interchange-import-reference-in-unreal-engine
 
@@ -17,7 +18,7 @@ FBX Static Mesh 管线支持：
 
 因此最小建议数据为：  
 - **Positions + Indices**（必需）  
-- **Normals + Tangents**（建议；否则将由导入器计算）  
+- **Normals + Tangents**（建议；若缺失则由导入器计算）  
 - **UV0**（必需；用于贴图采样）  
 - **SubMesh/Section → Material**（一段网格对应一个材质槽）  
 
@@ -48,7 +49,7 @@ Unreal 材质使用 PBR 输入（Base Color / Metallic / Roughness / Normal / Em
 | shader_disasm / shader_meta | Base Material / MI | 生成基础材质或材质实例 |
 
 ## 7. 导出建议（最小可用）
-1. Mesh：导出 FBX（Static Mesh），保持 Section/Material 分组。  
+1. Mesh：先导出 OBJ+MTL 作为中间态，再转换为 Unreal 专用 FBX（Static Mesh），保持 Section/Material 分组。  
 2. Texture：输出 PNG/TGA（RGBA8）。  
 3. Material：生成基础材质（PBR）或材质实例并绑定贴图。  
 

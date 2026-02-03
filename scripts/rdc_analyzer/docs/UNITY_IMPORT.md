@@ -3,7 +3,8 @@
 > 目标：明确 Unity（团结引擎 1.6.9）导入 Mesh/Material/Texture 所需的最小数据，用于从中间态生成可导入资源。
 
 ## 1. 支持的模型格式（推荐 FBX）
-Unity 的模型导入链路内部使用 FBX，并建议优先使用 FBX。Unity 也支持 OBJ/DAE/DXF 等标准格式。将中间态导出为 **FBX** 或 **OBJ+MTL**，均可被导入。  
+Unity 的模型导入链路内部使用 FBX，并建议优先使用 FBX。Unity 也支持 OBJ/DAE/DXF 等标准格式。统一方案为：中间态先输出 **OBJ+MTL**，再生成 Unity 专用 **FBX**（坐标系在转换阶段处理）。  
+FBX 版本统一使用 **2020.2**（与 Unreal 兼容）。  
 参考：https://docs.unity.cn/2020.3/Documentation/Manual/3D-formats.html
 
 ## 2. Mesh 最小数据要求（Static Mesh）
@@ -13,8 +14,8 @@ Unity 的 Mesh 需要：
 - **Indices**（必需）
 - **SubMesh 拆分**：一个 SubMesh 对应一个材质（Material）。
 - **UV0**（强烈建议，做纹理采样）
-- **Normals**（建议；用于光照）
-- **Tangents**（用于法线贴图；无切线则法线贴图无法工作）
+- **Normals**（建议；用于光照；若缺失可让引擎计算）
+- **Tangents**（用于法线贴图；无切线则法线贴图无法工作；可让引擎计算）
 - 可选：Vertex Color、UV1（光照贴图/二套 UV）
 
 官方要点：
@@ -49,7 +50,7 @@ Unity 使用 ShaderLab 定义材质属性与渲染 Pass：
 | shader_disasm / shader_meta | ShaderLab stub | 用最小 ShaderLab 组装 |
 
 ## 6. 导出建议（最小可用）
-1. Mesh：导出 FBX（首选）或 OBJ（次选），保持 SubMesh/材质分组。
+1. Mesh：先导出 OBJ+MTL 作为中间态，再转换为 Unity 专用 FBX；保持 SubMesh/材质分组。
 2. Texture：输出 PNG/TGA（RGBA8）。
 3. Material：生成 ShaderLab stub（Unlit/PBR）+ `.mat` 绑定贴图。
 
