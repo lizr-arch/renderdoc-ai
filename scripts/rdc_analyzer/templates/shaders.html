@@ -19,6 +19,29 @@
             flex: 1;
             overflow-y: auto;
             overflow-x: hidden;
+            min-height: 0;
+        }
+
+        .toolbar-btn.primary {
+            background: linear-gradient(180deg, #2f81f7 0%, #1f6feb 100%);
+            border: 1px solid #1f6feb;
+            color: #fff;
+            box-shadow: 0 2px 6px rgba(31, 111, 235, 0.35);
+        }
+
+        .toolbar-btn.primary:hover {
+            filter: brightness(1.08);
+        }
+
+        .toolbar-btn.secondary {
+            background: rgba(255, 255, 255, 0.06);
+            border: 1px solid var(--border);
+            color: var(--text-primary);
+        }
+
+        .toolbar-btn.secondary:hover {
+            border-color: var(--accent-blue);
+            color: var(--text-primary);
         }
         
         .shader-item {
@@ -456,7 +479,7 @@
     </style>
 </head>
 <body>
-    <div class="app-container">
+    <div class="app-container fixed">
         <!-- 顶部菜单栏 -->
         <header class="app-menubar">
             <div class="app-title">
@@ -524,8 +547,8 @@
                     <div style="flex: 1;"></div>
                     
                     <div class="toolbar-group">
-                        <button class="toolbar-btn" id="hlslBtn" title="查看 HLSL 代码">查看 HLSL 代码</button>
-                        <button class="toolbar-btn" id="aiOptimizeBtn" title="AI Shader 优化">AI Shader 优化</button>
+                        <button class="toolbar-btn primary" id="hlslBtn" title="查看 HLSL 代码">查看 HLSL 代码</button>
+                        <button class="toolbar-btn secondary" id="aiOptimizeBtn" title="AI Shader 优化">AI Shader 优化</button>
                     </div>
                     
                     <div class="toolbar-group">

@@ -115,6 +115,22 @@ def test_shader_list_has_search_attrs(tmp_path):
     assert "shader-item-name" in html
 
 
+def test_shader_toolbar_primary_secondary(tmp_path):
+    gen = ReportBundleGenerator(output_dir=tmp_path, capture_name="t.rdc")
+    gen.set_shaders([
+        {
+            "id": "1",
+            "name": "S",
+            "source_hlsl": "float4 main() : SV_Target { return 0; }",
+        }
+    ])
+    outputs = gen.generate_all()
+    html = Path(outputs["shaders"]).read_text(encoding="utf-8")
+    assert "toolbar-btn primary" in html
+    assert "toolbar-btn secondary" in html
+    assert "app-container fixed" in html
+
+
 def test_textures_has_rt_thumbnail_fetch(tmp_path):
     gen = ReportBundleGenerator(output_dir=tmp_path, capture_name="t.rdc")
     gen.set_textures([
