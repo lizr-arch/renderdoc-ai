@@ -189,6 +189,20 @@ class TestShaderExtractorBasicLogic(unittest.TestCase):
         targets = extractor.get_disassembly_targets()
         
         self.assertEqual(targets, [])
+    
+    def test_pick_hlsl_target(self):
+        """验证 HLSL 目标选择"""
+        from rdc_analyzer.extractors.shader_extractor import pick_hlsl_target
+        
+        targets = ["SPIR-V", "HLSL (SPIRV-Cross)", "DXBC"]
+        self.assertEqual(pick_hlsl_target(targets), "HLSL (SPIRV-Cross)")
+
+    def test_pick_hlsl_target_missing(self):
+        """验证缺少 HLSL 目标时返回空字符串"""
+        from rdc_analyzer.extractors.shader_extractor import pick_hlsl_target
+        
+        targets = ["SPIR-V", "DXIL", "DXBC"]
+        self.assertEqual(pick_hlsl_target(targets), "")
 
 
 class TestShaderInfoSerialization(unittest.TestCase):

@@ -60,6 +60,13 @@ SHADER_ENCODING_NAMES = {
     7: "OpenGLAsm",  # GL assembly (ARB_program)
 }
 
+def pick_hlsl_target(targets: List[str]) -> str:
+    """从反汇编目标中选择 HLSL 目标"""
+    for target in targets:
+        if "hlsl" in str(target).lower():
+            return target
+    return ""
+
 
 @dataclass
 class ShaderExtractorResult:
@@ -105,6 +112,17 @@ class ShaderExtractor:
         # 可用的反汇编目标
         self._disasm_targets: Optional[List[str]] = None
         
+    def _get_pipeline_id(self, pipe_state):
+        """获取 pipeline ResourceId（Graphics/Compute）"""
+        pipeline_id = None
+        if pipe_state is not None:
+            pipeline_id = pipe_state.GetGraphicsPipelineObject()
+            if pipeline_id is None or (hasattr(pipeline_id, 'id') and pipeline_id.id() == 0):
+                pipeline_id = pipe_state.GetComputePipelineObject()
+        if pipeline_id:
+            return pipeline_id
+        return self.rd.ResourceId() if self.rd else None
+
     def get_disassembly_targets(self, with_pipeline: bool = True) -> List[str]:
         """获取可用的反汇编目标列表"""
         if self._disasm_targets is None:
@@ -304,6 +322,9 @@ class ShaderExtractor:
         
         # 获取反汇编 (ASM)
         info.source_asm = self._get_disassembly(reflection, pipe_state)
+
+        # 获取 HLSL 源码（如果可用）
+        info.source_hlsl = self._get_hlsl_source(reflection, pipe_state)
         
         # 缓存结果
         self._shader_cache[resource_id] = info
@@ -379,13 +400,7 @@ class ShaderExtractor:
             return ""
             
         try:
-            # 获取 pipeline ResourceId
-            pipeline_id = None
-            if pipe_state is not None:
-                # 尝试获取 Graphics 或 Compute pipeline
-                pipeline_id = pipe_state.GetGraphicsPipelineObject()
-                if pipeline_id is None or (hasattr(pipeline_id, 'id') and pipeline_id.id() == 0):
-                    pipeline_id = pipe_state.GetComputePipelineObject()
+            pipeline_id = self._get_pipeline_id(pipe_state)
             
             # 使用默认反汇编目标 (第一个，通常是原生格式)
             target = ""
@@ -403,6 +418,26 @@ class ShaderExtractor:
             
         except Exception as e:
             return f"// Disassembly failed: {e}"
+
+    def _get_hlsl_source(self, reflection, pipe_state) -> str:
+        """获取 HLSL 源码（如果有 HLSL 反汇编目标）"""
+        if self.controller is None:
+            return ""
+
+        target = pick_hlsl_target(self.get_disassembly_targets())
+        if not target:
+            return ""
+
+        try:
+            pipeline_id = self._get_pipeline_id(pipe_state)
+            hlsl = self.controller.DisassembleShader(
+                pipeline_id,
+                reflection,
+                target
+            )
+            return str(hlsl) if hlsl else ""
+        except Exception:
+            return ""
     
     def clear_cache(self):
         """清除 Shader 缓存"""
