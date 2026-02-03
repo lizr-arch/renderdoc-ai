@@ -36,12 +36,20 @@ class RstParser:
         re.MULTILINE
     )
     
-    def __init__(self, file_path: Path):
+    def __init__(self, file_path: Path, use_docutils: bool = False):
+        """
+        初始化 RST 解析器
+        
+        Args:
+            file_path: RST 文件路径
+            use_docutils: 是否使用 docutils（默认 False，使用正则更快且无警告）
+        """
         self.file_path = Path(file_path)
         self._content: Optional[str] = None
         self._title: Optional[str] = None
         self._headings: Optional[List[Dict]] = None
-        self._use_docutils = HAS_DOCUTILS
+        # 默认使用正则解析，避免 Sphinx 特定指令/角色的警告
+        self._use_docutils = use_docutils and HAS_DOCUTILS
     
     @property
     def content(self) -> str:
@@ -80,11 +88,19 @@ class RstParser:
     
     def _extract_headings_docutils(self) -> None:
         """使用 docutils 提取标题"""
+        import warnings
         self._headings = []
         self._title = None
         
         try:
-            doctree = publish_doctree(self.content)
+            # 禁用 docutils 警告（Sphinx 特定角色会报错）
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")
+                from docutils.utils import Reporter
+                doctree = publish_doctree(
+                    self.content,
+                    settings_overrides={'report_level': Reporter.SEVERE_LEVEL + 1}
+                )
             
             for node in doctree.traverse(TitleNode):
                 text = node.astext()
