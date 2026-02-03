@@ -46,3 +46,20 @@ def test_shader_source_rendered(tmp_path):
     html = Path(outputs["shaders"]).read_text(encoding="utf-8")
     assert "float4 main()" in html
     assert "codeBlock" in html
+
+
+def test_texture_preview_uses_thumbnail(tmp_path):
+    gen = ReportBundleGenerator(output_dir=tmp_path, capture_name="t.rdc")
+    gen.set_textures([
+        {
+            "id": "1",
+            "name": "Tex",
+            "width": 1,
+            "height": 1,
+            "thumbnail": "data:image/png;base64,AAAA",
+        }
+    ])
+    outputs = gen.generate_all()
+    html = Path(outputs["textures"]).read_text(encoding="utf-8")
+    assert "previewImg" in html
+    assert "texture.thumbnail" in html
