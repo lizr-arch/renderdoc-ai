@@ -507,3 +507,215 @@ git commit -m "feat(rdc-analyzer): focus shader viewer on HLSL
 
 **Status:** ✅ Completed  
 **Tests:** `py -3 -m pytest scripts/rdc_analyzer/tests/test_bundle_report_assets.py -v` (PASS)  
+
+---
+
+## Change Request (2026-02-03, v2)
+
+**New Requirements:**
+1. Shader 页面搜索框无效：必须能按名称搜索（data-* 缺失导致）。
+2. Shader 左侧列表需要稳定滚动条（当前可视区不足无法滑动）。
+3. Shader 页面“查看 HLSL 代码 / AI Shader 优化”布局需要 **专业 + 仪表盘风格**。
+4. 纹理页面“显示缩略图”按钮需要更明显；自动预载需要**可见反馈**（进度/状态）。
+
+**Updated Success Criteria:**
+- Shader 搜索框输入名称时，列表可过滤出匹配项。
+- 左侧 Shader 列表在小窗口下出现滚动条并可滚动。
+- HLSL/AI 按钮有明确主次层级与更优视觉排布（专业 + 仪表盘风格）。
+- 纹理页面自动预载在 UI 上可见“预载中/完成/失败”状态。
+
+---
+
+## Task 8: 修复 Shader 搜索（data-* 与类名对齐）
+
+**Files:**
+- Modify `scripts/rdc_analyzer/report_bundle_generator.py:640-670`
+- Modify `scripts/rdc_analyzer/tests/test_bundle_report_assets.py:1-220`
+
+**Step 1: Write the failing test**
+```python
+def test_shader_list_has_search_attrs(tmp_path):
+    gen = ReportBundleGenerator(output_dir=tmp_path, capture_name="t.rdc")
+    gen.set_shaders([{"id": "1", "name": "MainVS", "type": "vertex", "usedBy": [{"eid": 1}]}])
+    html = Path(gen.generate_all()["shaders"]).read_text(encoding="utf-8")
+    assert 'data-name="MainVS"' in html
+    assert 'data-type="vertex"' in html
+    assert 'shader-item-name' in html
+```
+
+**Step 2: Run test to verify it fails**
+Run: `py -3 -m pytest scripts/rdc_analyzer/tests/test_bundle_report_assets.py -k shader_list_has_search_attrs -v`  
+Expected: FAIL (missing data-name/data-type/class)
+
+**Step 3: Write minimal implementation**
+```python
+# report_bundle_generator.py
+usage_count = len(shader.get("usedBy", []) or [])
+has_issue = bool(shader.get("issues") or shader.get("suggestions"))
+
+shader_list_html += f'''
+  <div class="shader-item"
+       data-id="{shader_id}"
+       data-name="{name}"
+       data-type="{shader_type.lower()}"
+       data-usage="{usage_count}"
+       data-has-issue="{str(has_issue).lower()}"
+       onclick="selectShader('{shader_id}')">
+    <span class="shader-item-type">{icon}</span>
+    <div class="shader-item-info">
+      <div class="shader-item-name">{name}</div>
+      <div class="shader-item-meta">
+        <span class="shader-meta-tag {shader_type.lower()}">{shader_type}</span>
+        {mali_badge}
+      </div>
+    </div>
+  </div>'''
+```
+
+**Step 4: Run tests to verify pass**
+Run: `py -3 -m pytest scripts/rdc_analyzer/tests/test_bundle_report_assets.py -k shader_list_has_search_attrs -v`  
+Expected: PASS
+
+**Step 5: Commit**
+```bash
+git add scripts/rdc_analyzer/report_bundle_generator.py scripts/rdc_analyzer/tests/test_bundle_report_assets.py
+git commit -m "fix(rdc-analyzer): make shader search data-driven"
+```
+
+**Status:** ✅ Completed  
+**Tests:** `py -3 -m pytest scripts/rdc_analyzer/tests/test_bundle_report_assets.py -k shader_list_has_search_attrs -v` (PASS)
+
+---
+
+## Task 9: Shader 左侧滚动与专业/仪表盘布局
+
+**Files:**
+- Modify `scripts/rdc_analyzer/templates/shaders.html:1-120, 518-540`
+- Modify `scripts/rdc_analyzer/templates/common.css:100-160`
+- Modify `scripts/rdc_analyzer/tests/test_bundle_report_assets.py:1-240`
+
+**Step 1: Write the failing test**
+```python
+def test_shader_toolbar_primary_secondary(tmp_path):
+    gen = ReportBundleGenerator(output_dir=tmp_path, capture_name="t.rdc")
+    gen.set_shaders([{"id": "1", "name": "S", "source_hlsl": "float4 main() : SV_Target { return 0; }"}])
+    html = Path(gen.generate_all()["shaders"]).read_text(encoding="utf-8")
+    assert "toolbar-btn primary" in html
+    assert "toolbar-btn secondary" in html
+```
+
+**Step 2: Run test to verify it fails**
+Run: `py -3 -m pytest scripts/rdc_analyzer/tests/test_bundle_report_assets.py -k shader_toolbar_primary_secondary -v`  
+Expected: FAIL (classes missing)
+
+**Step 3: Write minimal implementation**
+```html
+<!-- shaders.html toolbar -->
+<div class="toolbar-group">
+  <button class="toolbar-btn primary" id="hlslBtn" title="查看 HLSL 代码">查看 HLSL 代码</button>
+  <button class="toolbar-btn secondary" id="aiOptimizeBtn" title="AI Shader 优化">AI Shader 优化</button>
+</div>
+```
+```css
+/* shaders.html (or common.css) */
+.toolbar-btn.primary {
+  background: linear-gradient(180deg, #2f81f7, #1f6feb);
+  color: #fff;
+  border: 1px solid #1f6feb;
+}
+.toolbar-btn.secondary {
+  background: rgba(255,255,255,0.06);
+  color: var(--text-primary);
+  border: 1px solid var(--border);
+}
+.panel-left .shader-list { min-height: 0; }
+.app-container.fixed { height: 100vh; }
+```
+```html
+<!-- shaders.html root container -->
+<div class="app-container fixed">
+```
+
+**Step 4: Run tests to verify pass**
+Run: `py -3 -m pytest scripts/rdc_analyzer/tests/test_bundle_report_assets.py -k shader_toolbar_primary_secondary -v`  
+Expected: PASS
+
+**Step 5: Commit**
+```bash
+git add scripts/rdc_analyzer/templates/shaders.html scripts/rdc_analyzer/templates/common.css scripts/rdc_analyzer/tests/test_bundle_report_assets.py
+git commit -m "style(rdc-analyzer): polish shader toolbar and scrolling"
+```
+
+**Status:** ✅ Completed  
+**Tests:** `py -3 -m pytest scripts/rdc_analyzer/tests/test_bundle_report_assets.py -k shader_toolbar_primary_secondary -v` (PASS)
+
+---
+
+## Task 10: 纹理页按钮强化 + 自动预载可见反馈
+
+**Files:**
+- Modify `scripts/rdc_analyzer/templates/textures.html:180-260, 392-410, 600-690`
+- Modify `scripts/rdc_analyzer/tests/test_bundle_report_assets.py:1-260`
+
+**Step 1: Write the failing test**
+```python
+def test_textures_has_thumb_status(tmp_path):
+    gen = ReportBundleGenerator(output_dir=tmp_path, capture_name="t.rdc")
+    gen.set_textures([{"id": "1", "name": "Tex", "width": 1, "height": 1}])
+    html = Path(gen.generate_all()["textures"]).read_text(encoding="utf-8")
+    assert "thumbStatus" in html
+```
+
+**Step 2: Run test to verify it fails**
+Run: `py -3 -m pytest scripts/rdc_analyzer/tests/test_bundle_report_assets.py -k thumb_status -v`  
+Expected: FAIL
+
+**Step 3: Write minimal implementation**
+```html
+<div class="thumb-toggle-row">
+  <button class="filter-chip thumb-toggle primary" id="enableThumbsBtn" onclick="enableThumbnails()">加载缩略图</button>
+  <span class="thumb-status" id="thumbStatus">自动预载：待开始</span>
+</div>
+```
+```js
+let preloadTotal = 0;
+let preloadDone = 0;
+function updateThumbStatus(text) {
+  const el = document.getElementById('thumbStatus');
+  if (el) el.textContent = text;
+}
+function autoPreloadThumbnails() {
+  if (!textureData || !textureData.length) return;
+  enableThumbnails();
+  const count = Math.max(0, Math.min(RT_PRELOAD_COUNT, textureData.length));
+  preloadTotal = count;
+  preloadDone = 0;
+  updateThumbStatus(`自动预载：${preloadDone}/${preloadTotal}`);
+  for (let i = 0; i < count; i++) {
+    textureData[i]._preloadTracked = true;
+    ensureTextureThumbnail(textureData[i]);
+  }
+}
+// 在 ensureTextureThumbnail 的 finally 中：
+if (texture._preloadTracked) {
+  preloadDone += 1;
+  updateThumbStatus(`自动预载：${preloadDone}/${preloadTotal}`);
+}
+```
+```css
+.thumb-toggle.primary { background: var(--accent-blue); color: #fff; }
+.thumb-status { font-size: 10px; color: var(--text-muted); }
+```
+
+**Step 4: Run tests to verify pass**
+Run: `py -3 -m pytest scripts/rdc_analyzer/tests/test_bundle_report_assets.py -k thumb_status -v`  
+Expected: PASS
+
+**Step 5: Commit**
+```bash
+git add scripts/rdc_analyzer/templates/textures.html scripts/rdc_analyzer/tests/test_bundle_report_assets.py
+git commit -m "feat(rdc-analyzer): show thumbnail preload status"
+```
+
+**Status:** ✅ Completed  
+**Tests:** `py -3 -m pytest scripts/rdc_analyzer/tests/test_bundle_report_assets.py -k thumb_status -v` (PASS)
