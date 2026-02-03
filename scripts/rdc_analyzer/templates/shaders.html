@@ -435,6 +435,24 @@
         .empty-mali-text {
             font-size: 11px;
         }
+
+        /* AI Shader 优化模式 */
+        body.ai-optimize .panel-right {
+            width: 240px !important;
+        }
+
+        body.ai-optimize .panel-left {
+            width: 240px !important;
+        }
+
+        body.ai-optimize .mali-panel {
+            display: none;
+        }
+
+        body.ai-optimize .code-content {
+            font-size: 12px;
+            line-height: 1.7;
+        }
     </style>
 </head>
 <body>
@@ -506,6 +524,11 @@
                     <div style="flex: 1;"></div>
                     
                     <div class="toolbar-group">
+                        <button class="toolbar-btn" id="hlslBtn" title="查看 HLSL 代码">查看 HLSL 代码</button>
+                        <button class="toolbar-btn" id="aiOptimizeBtn" title="AI Shader 优化">AI Shader 优化</button>
+                    </div>
+                    
+                    <div class="toolbar-group">
                         <button class="toolbar-btn" id="wrapBtn" title="自动换行">↩️</button>
                         <button class="toolbar-btn" id="searchBtn" title="搜索">🔍</button>
                     </div>
@@ -514,13 +537,6 @@
                         <button class="toolbar-btn" id="copyBtn" title="复制代码">📋</button>
                         <button class="toolbar-btn" id="exportBtn" title="导出">💾</button>
                     </div>
-                </div>
-                
-                <!-- 代码标签页 -->
-                <div class="code-tabs">
-                    <div class="code-tab active" data-code="glsl" onclick="selectCodeTab('glsl')">GLSL</div>
-                    <div class="code-tab" data-code="spirv" onclick="selectCodeTab('spirv')">SPIR-V</div>
-                    <div class="code-tab" data-code="disasm" onclick="selectCodeTab('disasm')">Disassembly</div>
                 </div>
                 
                 <!-- 代码内容 -->
@@ -642,7 +658,7 @@
         // ========== 状态管理 ==========
         let currentShader = null;
         let currentFilter = 'all';
-        let currentCodeTab = 'glsl';
+        let hlslViewEnabled = false;
         
         // ========== Shader 数据 (由 Python 生成器填充) ==========
         const shaderData = {{SHADER_DATA_JSON}};
@@ -666,6 +682,7 @@
             if (!shader) return;
             
             currentShader = shader;
+            hlslViewEnabled = false;
             
             // 更新列表选中状态
             document.querySelectorAll('.shader-item').forEach(el => {
@@ -696,10 +713,39 @@
             updateSuggestions(shader);
         }
         
+        function getHlslSource(shader) {
+            if (!shader) return '';
+            if (shader.source_hlsl) {
+                return shader.source_hlsl;
+            }
+            const formatHint = String(shader.format || shader.encoding || '').toLowerCase();
+            if (formatHint.includes('hlsl')) {
+                return shader.source || '';
+            }
+            return '';
+        }
+
         function updateCodeViewer(shader) {
             const content = document.getElementById('codeContent');
-            const code = shader[currentCodeTab] || shader.glsl || shader.source || '';
-            
+            if (!shader) return;
+
+            if (!hlslViewEnabled) {
+                content.innerHTML = `
+                    <div class="canvas-empty" style="max-width: 420px;">
+                        <div class="canvas-empty-icon">🧾</div>
+                        <div class="canvas-empty-text" style="font-size: 14px; margin-bottom: 8px;">
+                            点击“查看 HLSL 代码”以加载源码
+                        </div>
+                        <div style="font-size: 10px; color: var(--text-muted); line-height: 1.6; text-align: left; padding: 0 20px;">
+                            <p style="margin-bottom: 6px;"><strong>Shader ID:</strong> ${shader.id || 'N/A'}</p>
+                            <p style="margin-bottom: 6px;"><strong>类型:</strong> ${shader.type || shader.stage || 'Unknown'}</p>
+                        </div>
+                    </div>
+                `;
+                return;
+            }
+
+            const code = getHlslSource(shader);
             if (code) {
                 content.innerHTML = '<pre><code id="codeBlock" class="language-hlsl"></code></pre>';
                 const codeEl = document.getElementById('codeBlock');
@@ -710,38 +756,28 @@
                     codeEl.innerHTML = highlightCode(code);
                 }
             } else {
-                // 检测是否为 D3D11/D3D12 shader（没有 SPIR-V）
-                const isD3D = shader.type && (shader.type.includes('VS') || shader.type.includes('PS') || shader.type.includes('CS') || shader.type.includes('GS') || shader.type.includes('HS') || shader.type.includes('DS'));
-                const apiHint = isD3D ? 'D3D11/D3D12' : 'Vulkan/OpenGL';
-                
                 content.innerHTML = `
-                    <div class="canvas-empty" style="max-width: 400px;">
-                        <div class="canvas-empty-icon">�</div>
-                        <div class="canvas-empty-text" style="font-size: 14px; margin-bottom: 12px;">
-                            ${currentCodeTab.toUpperCase()} 源码不可用
+                    <div class="canvas-empty" style="max-width: 420px;">
+                        <div class="canvas-empty-icon">⚠️</div>
+                        <div class="canvas-empty-text" style="font-size: 14px; margin-bottom: 8px;">
+                            未检测到 HLSL 源码
                         </div>
-                        <div style="font-size: 11px; color: var(--text-muted); line-height: 1.6; text-align: left; padding: 0 20px;">
-                            <p style="margin-bottom: 8px;"><strong>Shader ID:</strong> ${shader.id || 'N/A'}</p>
-                            <p style="margin-bottom: 8px;"><strong>类型:</strong> ${shader.type || shader.stage || 'Unknown'}</p>
-                            <p style="margin-bottom: 12px;"><strong>首次使用:</strong> EID ${shader.firstSeenEvent || 'N/A'}</p>
-                            
-                            <div style="background: var(--bg-dark); padding: 10px; border-radius: 6px; border-left: 3px solid var(--accent-blue);">
-                                <p style="margin: 0 0 6px 0;"><strong>💡 如何查看源码：</strong></p>
-                                <ol style="margin: 0; padding-left: 20px; font-size: 10px;">
-                                    <li>在 RenderDoc 中打开此 RDC 文件</li>
-                                    <li>导航到 EID ${shader.firstSeenEvent || 'N/A'}</li>
-                                    <li>在 Pipeline State 面板中查看 ${shader.type || 'Shader'}</li>
-                                    <li>点击 "View" 或 "Disassemble" 按钮</li>
-                                </ol>
-                            </div>
-                            
-                            <p style="margin-top: 12px; font-size: 10px; color: var(--text-muted);">
-                                <em>注: ${apiHint} 字节码需要在 RenderDoc GUI 中反编译查看。</em>
-                            </p>
+                        <div style="font-size: 10px; color: var(--text-muted); line-height: 1.6; text-align: left; padding: 0 20px;">
+                            <p style="margin-bottom: 8px;"><strong>建议：</strong>在 RenderDoc 设置中配置 Shader Processing Tools 以启用 HLSL 反编译。</p>
                         </div>
                     </div>
                 `;
             }
+        }
+
+        function showHlsl() {
+            if (!currentShader) return;
+            hlslViewEnabled = true;
+            updateCodeViewer(currentShader);
+        }
+
+        function toggleAiOptimize() {
+            document.body.classList.toggle('ai-optimize');
         }
         
         function highlightCode(code) {
@@ -858,7 +894,8 @@
             document.getElementById('propEntry').textContent = shader.entryPoint || 'main';
             document.getElementById('propLines').textContent = shader.lineCount || (shader.source?.split('\n').length || '-');
             document.getElementById('propUsage').textContent = shader.usedBy?.length || 0;
-            document.getElementById('shaderSource').textContent = shader.source || '';
+            const hlslSource = getHlslSource(shader);
+            document.getElementById('shaderSource').textContent = hlslSource || '未检测到 HLSL 源码';
         }
         
         function updateUsageList(shader) {
@@ -959,18 +996,6 @@
             items.forEach(item => list.appendChild(item));
         }
         
-        // ========== 代码标签页 ==========
-        function selectCodeTab(tab) {
-            currentCodeTab = tab;
-            document.querySelectorAll('.code-tab').forEach(t => {
-                t.classList.toggle('active', t.dataset.code === tab);
-            });
-            
-            if (currentShader) {
-                updateCodeViewer(currentShader);
-            }
-        }
-        
         // ========== 跳转 ==========
         function jumpToEvent(eid) {
             if (eid) {
@@ -982,22 +1007,24 @@
         
         // ========== 导出 ==========
         function exportShader() {
-            if (!currentShader || !currentShader.source) return;
+            if (!currentShader) return;
+            const code = getHlslSource(currentShader);
+            if (!code) return;
             
-            const blob = new Blob([currentShader.source], { type: 'text/plain' });
+            const blob = new Blob([code], { type: 'text/plain' });
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = `${currentShader.name || 'shader'}.glsl`;
+            a.download = `${currentShader.name || 'shader'}.hlsl`;
             a.click();
             URL.revokeObjectURL(url);
         }
         
         document.getElementById('copyBtn').addEventListener('click', () => {
-            if (currentShader) {
-                const code = currentShader[currentCodeTab] || currentShader.source || '';
-                navigator.clipboard.writeText(code);
-            }
+            if (!currentShader) return;
+            const code = getHlslSource(currentShader);
+            if (!code) return;
+            navigator.clipboard.writeText(code);
         });
         
         // ========== 初始化 ==========
@@ -1014,6 +1041,16 @@
             
             // 初始化筛选器
             setFilter('all');
+
+            const hlslBtn = document.getElementById('hlslBtn');
+            if (hlslBtn) {
+                hlslBtn.addEventListener('click', showHlsl);
+            }
+
+            const aiBtn = document.getElementById('aiOptimizeBtn');
+            if (aiBtn) {
+                aiBtn.addEventListener('click', toggleAiOptimize);
+            }
         });
     </script>
 </body>

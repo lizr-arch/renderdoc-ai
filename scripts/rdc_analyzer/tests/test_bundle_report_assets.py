@@ -81,3 +81,18 @@ def test_textures_has_enable_thumbnail_button(tmp_path):
     assert "显示缩略图" in html
     assert "enableThumbnails" in html
 
+
+def test_shader_ui_hlsl_only(tmp_path):
+    gen = ReportBundleGenerator(output_dir=tmp_path, capture_name="t.rdc")
+    gen.set_shaders([
+        {
+            "id": "1",
+            "name": "S",
+            "source_hlsl": "float4 main() : SV_Target { return 0; }",
+        }
+    ])
+    outputs = gen.generate_all()
+    html = Path(outputs["shaders"]).read_text(encoding="utf-8")
+    assert "查看 HLSL 代码" in html
+    assert "AI Shader 优化" in html
+    assert "GLSL" not in html and "SPIR-V" not in html and "Disassembly" not in html
