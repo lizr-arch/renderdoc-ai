@@ -31,3 +31,18 @@ def test_texture_thumbnail_data_url(tmp_path):
     outputs = gen.generate_all()
     html = Path(outputs["textures"]).read_text(encoding="utf-8")
     assert "data:image/png;base64,AAAA" in html
+
+
+def test_shader_source_rendered(tmp_path):
+    gen = ReportBundleGenerator(output_dir=tmp_path, capture_name="t.rdc")
+    gen.set_shaders([
+        {
+            "id": "1",
+            "name": "S",
+            "source": "float4 main() : SV_Target { return 0; }",
+        }
+    ])
+    outputs = gen.generate_all()
+    html = Path(outputs["shaders"]).read_text(encoding="utf-8")
+    assert "float4 main()" in html
+    assert "codeBlock" in html
