@@ -98,6 +98,23 @@ def test_shader_ui_hlsl_only(tmp_path):
     assert "GLSL" not in html and "SPIR-V" not in html and "Disassembly" not in html
 
 
+def test_shader_list_has_search_attrs(tmp_path):
+    gen = ReportBundleGenerator(output_dir=tmp_path, capture_name="t.rdc")
+    gen.set_shaders([
+        {
+            "id": "1",
+            "name": "MainVS",
+            "type": "vertex",
+            "usedBy": [{"eid": 1}],
+        }
+    ])
+    outputs = gen.generate_all()
+    html = Path(outputs["shaders"]).read_text(encoding="utf-8")
+    assert 'data-name="MainVS"' in html
+    assert 'data-type="vertex"' in html
+    assert "shader-item-name" in html
+
+
 def test_textures_has_rt_thumbnail_fetch(tmp_path):
     gen = ReportBundleGenerator(output_dir=tmp_path, capture_name="t.rdc")
     gen.set_textures([

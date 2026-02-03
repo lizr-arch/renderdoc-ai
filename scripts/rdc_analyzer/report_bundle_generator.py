@@ -640,6 +640,22 @@ class ReportBundleGenerator:
             shader_id = shader.get("id") or shader.get("resource_id", "")
             name = shader.get("name", f"Shader {shader_id}")
             shader_type = shader.get("type", "Unknown")
+            shader_type_lower = str(shader_type).lower()
+            usage_count = len(shader.get("usedBy", []) or [])
+            has_issue = bool(shader.get("issues") or shader.get("suggestions"))
+            mali_cycles = 0
+            if isinstance(shader.get("mali"), dict):
+                mali_cycles = shader.get("mali", {}).get("totalCycles", 0) or 0
+            type_tag_map = {
+                "vertex": "vs",
+                "vs": "vs",
+                "pixel": "fs",
+                "fragment": "fs",
+                "fs": "fs",
+                "compute": "cs",
+                "cs": "cs",
+            }
+            type_tag = type_tag_map.get(shader_type_lower, "")
             
             # Shader 类型图标
             type_icons = {
@@ -658,11 +674,16 @@ class ReportBundleGenerator:
             mali_badge = '<span class="mali-badge">Mali</span>' if has_mali else ''
             
             shader_list_html += f'''
-                <div class="shader-item" data-id="{shader_id}" onclick="selectShader('{shader_id}')">
-                    <span class="shader-icon">{icon}</span>
-                    <div class="shader-info">
-                        <div class="shader-name">{name}</div>
-                        <div class="shader-type">{shader_type} {mali_badge}</div>
+                <div class="shader-item" data-id="{shader_id}" data-name="{name}" data-type="{shader_type_lower}"
+                     data-usage="{usage_count}" data-cycles="{mali_cycles}"
+                     data-has-issue="{str(has_issue).lower()}" onclick="selectShader('{shader_id}')">
+                    <span class="shader-item-type">{icon}</span>
+                    <div class="shader-item-info">
+                        <div class="shader-item-name">{name}</div>
+                        <div class="shader-item-meta">
+                            <span class="shader-meta-tag {type_tag}">{shader_type}</span>
+                            {mali_badge}
+                        </div>
                     </div>
                 </div>'''
         
