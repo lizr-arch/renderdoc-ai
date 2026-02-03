@@ -96,3 +96,19 @@ def test_shader_ui_hlsl_only(tmp_path):
     assert "查看 HLSL 代码" in html
     assert "AI Shader 优化" in html
     assert "GLSL" not in html and "SPIR-V" not in html and "Disassembly" not in html
+
+
+def test_textures_has_rt_thumbnail_fetch(tmp_path):
+    gen = ReportBundleGenerator(output_dir=tmp_path, capture_name="t.rdc")
+    gen.set_textures([
+        {
+            "id": "1",
+            "name": "Tex",
+            "width": 1,
+            "height": 1,
+        }
+    ])
+    outputs = gen.generate_all()
+    html = Path(outputs["textures"]).read_text(encoding="utf-8")
+    assert "RT_SERVER_BASE" in html
+    assert "fetchTextureThumbnail" in html

@@ -598,6 +598,7 @@
         const textureMap = new Map(
             textureData.map(t => [String(t.id || t.resource_id || ""), t])
         );
+        const RT_SERVER_BASE = "http://127.0.0.1:8765";
         
         // ========== 面板折叠 ==========
         function togglePanel(panelId) {
@@ -620,10 +621,14 @@
             renderListThumbnails();
             if (currentTexture) {
                 updateTexturePreview(currentTexture);
+                ensureTextureThumbnail(currentTexture);
             }
         }
 
         function renderListThumbnails() {
+            if (!thumbnailsEnabled) {
+                return;
+            }
             document.querySelectorAll('.texture-item').forEach(item => {
                 const texId = String(item.dataset.id || "");
                 const texture = textureMap.get(texId);
@@ -632,8 +637,44 @@
 
                 if (texture && texture.thumbnail) {
                     thumbEl.innerHTML = `<img src="${texture.thumbnail}" alt="">`;
+                } else if (texture && texture._thumbLoading) {
+                    thumbEl.innerHTML = "<div class='thumb-placeholder'>...</div>";
                 } else {
                     thumbEl.innerHTML = "<div class='thumb-placeholder'>?</div>";
+                }
+            });
+        }
+
+        async function fetchTextureThumbnail(texture) {
+            const texId = texture.id || texture.resource_id;
+            if (!texId) {
+                texture._thumbError = '纹理 ID 不可用';
+                return;
+            }
+            try {
+                const resp = await fetch(`${RT_SERVER_BASE}/api/texture/${texId}`);
+                const data = await resp.json();
+                if (data && data.success && data.image) {
+                    texture.thumbnail = data.image;
+                    texture._thumbError = '';
+                } else {
+                    texture._thumbError = (data && data.error) ? data.error : 'RT 服务无响应';
+                }
+            } catch (e) {
+                texture._thumbError = '无法连接 RT 服务';
+            }
+        }
+
+        function ensureTextureThumbnail(texture) {
+            if (!texture || texture.thumbnail || texture._thumbLoading) return;
+            texture._thumbLoading = true;
+            texture._thumbError = '';
+            updateTexturePreview(texture);
+            fetchTextureThumbnail(texture).finally(() => {
+                texture._thumbLoading = false;
+                renderListThumbnails();
+                if (currentTexture && (currentTexture.id === texture.id)) {
+                    updateTexturePreview(currentTexture);
                 }
             });
         }
@@ -675,6 +716,10 @@
             
             // 显示颜色拾取器
             document.getElementById('colorPicker').classList.remove('hidden');
+
+            if (thumbnailsEnabled) {
+                ensureTextureThumbnail(texture);
+            }
         }
 
         function updateTexturePreview(texture, previewImg, canvasEmpty, detailPreview) {
@@ -694,10 +739,18 @@
                 imgEl.classList.remove('hidden');
                 emptyEl.classList.add('hidden');
                 previewEl.innerHTML = `<img src="${texture.thumbnail}" alt="${texture.display_name || texture.name}">`;
+            } else if (texture._thumbLoading) {
+                imgEl.classList.add('hidden');
+                emptyEl.classList.remove('hidden');
+                previewEl.innerHTML = '<span style="color: var(--text-muted); font-size: 11px;">正在从本地服务加载...</span>';
+            } else if (texture._thumbError) {
+                imgEl.classList.add('hidden');
+                emptyEl.classList.remove('hidden');
+                previewEl.innerHTML = `<span style="color: var(--text-muted); font-size: 11px;">${texture._thumbError}</span>`;
             } else {
                 imgEl.classList.add('hidden');
                 emptyEl.classList.remove('hidden');
-                previewEl.innerHTML = '<span style="color: var(--text-muted); font-size: 11px;">无可用缩略图</span>';
+                previewEl.innerHTML = '<span style="color: var(--text-muted); font-size: 11px;">点击纹理后将尝试从本地服务加载</span>';
             }
         }
         
