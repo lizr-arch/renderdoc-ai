@@ -412,7 +412,7 @@ git commit -m "feat(rdc-analyzer): refine messiah material params"
 - [x] Task 2 — Repository skeleton writer
 - [x] Task 3 — Material mapping (shader‑driven, Unlit fallback)
 - [x] Task 4 — Messiah CLI entry (consume intermediate)
-- [ ] Task 5 — Unity / Unreal import stubs (docs + scaffolding)
+- [x] Task 5 — Unity / Unreal import stubs (docs + scaffolding)
 - [x] Task 6 — Mesh XML/stream细化（VertexFormat/Streams/BBox）
 - [x] Task 7 — Texture XML 细化（Texture2DInfo/RsTextureInfo/Slice）
 - [x] Task 8 — Material 参数细化（PBR/Unlit 参数最小集）
