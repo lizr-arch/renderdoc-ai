@@ -537,21 +537,23 @@ def extract_event_api_call(controller, action, sd_file) -> Dict[str, Any]:
 
 
 def extract_all_events(controller) -> List[Dict[str, Any]]:
-    """提取所有事件的详细数据"""
+    """提取所有事件的详细数据，包含层级信息用于树形展示"""
     
     events = []
     sd_file = controller.GetStructuredFile()
     actions = controller.GetRootActions()
     
-    def process_action(action, depth=0):
-        """递归处理 Action"""
+    def process_action(action, depth=0, parent_eid=None):
+        """递归处理 Action，保留层级关系"""
         
         flags = action.flags
         is_draw = flags & rd.ActionFlags.Drawcall
         is_dispatch = flags & rd.ActionFlags.Dispatch
         is_copy = flags & rd.ActionFlags.Copy
         is_clear = flags & rd.ActionFlags.Clear
-        is_marker = (flags & rd.ActionFlags.PushMarker) or (flags & rd.ActionFlags.PopMarker)
+        is_push_marker = flags & rd.ActionFlags.PushMarker
+        is_pop_marker = flags & rd.ActionFlags.PopMarker
+        is_marker = is_push_marker or is_pop_marker
         
         # 确定事件类型
         if is_draw:
@@ -562,18 +564,32 @@ def extract_all_events(controller) -> List[Dict[str, Any]]:
             event_type = "copy"
         elif is_clear:
             event_type = "clear"
+        elif is_push_marker:
+            event_type = "marker_push"
+        elif is_pop_marker:
+            event_type = "marker_pop"
         elif is_marker:
             event_type = "marker"
         else:
             event_type = "other"
         
-        # 构建事件数据
+        # 检查是否有子事件
+        has_children = bool(action.children) and len(action.children) > 0
+        child_count = len(action.children) if action.children else 0
+        
+        # 构建事件数据（包含层级信息）
         event_data = {
             "eid": action.eventId,
             "name": action.GetName(sd_file) if sd_file else f"Event_{action.eventId}",
             "type": event_type,
             "flags": [],
             "duration": 0,  # TODO: 从 timing 获取
+            # 层级信息
+            "depth": depth,
+            "parentEid": parent_eid,
+            "hasChildren": has_children,
+            "childCount": child_count,
+            "expanded": True if depth < 2 else False,  # 默认展开前两层
         }
         
         # 添加标志
@@ -599,13 +615,13 @@ def extract_all_events(controller) -> List[Dict[str, Any]]:
         
         events.append(event_data)
         
-        # 递归处理子 Action
+        # 递归处理子 Action（传递当前事件的 eid 作为 parent_eid）
         if action.children:
             for child in action.children:
-                process_action(child, depth + 1)
+                process_action(child, depth + 1, action.eventId)
     
     for action in actions:
-        process_action(action)
+        process_action(action, depth=0, parent_eid=None)
     
     return events
 
