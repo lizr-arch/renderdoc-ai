@@ -36,6 +36,7 @@
 
 |------|------|--------|
 
+| [EXPORT_ROUTES.md](EXPORT_ROUTES.md) | **RDC 报告导出路线图** - 三条导出路线对比（v1.6.0）⭐ | 导出路线, Bundle, XML, 无GPU |
 | [BATCH_EXPORT.md](BATCH_EXPORT.md) | **纹理批量导出 CLI** - 一键导出所有纹理 (v1.4.0) | 批量导出, CLI, gallery, manifest |
 | [D3D11_SUPPORT.md](D3D11_SUPPORT.md) | **D3D11 纹理提取** - 支持 DirectX 11 离线提取 (v1.5.0) | D3D11, DirectX, DXGI, 离线提取 |
 
@@ -148,6 +149,7 @@
 | **如何解码压缩纹理？** | [TEXTURE_DECODERS.md](TEXTURE_DECODERS.md) |
 
 | **支持哪些纹理格式？** | [TEXTURE_DECODERS.md](TEXTURE_DECODERS.md) (48种: BC1-7, ASTC, ETC2等) |
+| **如何选择报告导出路线？** | [EXPORT_ROUTES.md](EXPORT_ROUTES.md) ⭐ |
 
 
 
