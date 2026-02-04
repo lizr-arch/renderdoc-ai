@@ -3,13 +3,21 @@ HTML 报告器
 ===========
 
 生成带可视化图表的 HTML 报告。
+
+重构说明：
+- CSS 已提取到 assets/styles/html_reporter.css
+- JS 已提取到 assets/scripts/html_reporter.js
 """
 
 from datetime import datetime
+from pathlib import Path
 from typing import Dict, List, Any
 import html
 
 from .base import BaseReporter, ReportData
+
+# 资源目录路径
+_ASSETS_DIR = Path(__file__).parent.parent / "assets"
 
 
 class HTMLReporter(BaseReporter):
@@ -47,299 +55,16 @@ class HTMLReporter(BaseReporter):
 </html>"""
 
     def _generate_styles(self) -> str:
-        """生成内嵌 CSS"""
-        return """<style>
-:root {
-    --color-error: #dc3545;
-    --color-warning: #ffc107;
-    --color-info: #17a2b8;
-    --color-success: #28a745;
-    --color-bg: #f8f9fa;
-    --color-card: #ffffff;
-    --color-text: #212529;
-    --color-muted: #6c757d;
-    --color-border: #dee2e6;
-}
-
-* {
-    margin: 0;
-    padding: 0;
-    box-sizing: border-box;
-}
-
-body {
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-    background-color: var(--color-bg);
-    color: var(--color-text);
-    line-height: 1.6;
-}
-
-.container {
-    max-width: 1200px;
-    margin: 0 auto;
-    padding: 20px;
-}
-
-/* Header */
-.header {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    color: white;
-    padding: 30px;
-    border-radius: 12px;
-    margin-bottom: 24px;
-    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-}
-
-.header h1 {
-    font-size: 28px;
-    margin-bottom: 8px;
-}
-
-.header .meta {
-    opacity: 0.9;
-    font-size: 14px;
-}
-
-.header .meta span {
-    margin-right: 20px;
-}
-
-/* Summary Cards */
-.summary-cards {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-    gap: 16px;
-    margin-bottom: 24px;
-}
-
-.card {
-    background: var(--color-card);
-    border-radius: 12px;
-    padding: 20px;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-    transition: transform 0.2s, box-shadow 0.2s;
-}
-
-.card:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-}
-
-.card-value {
-    font-size: 36px;
-    font-weight: 700;
-    margin-bottom: 4px;
-}
-
-.card-label {
-    color: var(--color-muted);
-    font-size: 14px;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-}
-
-.card.error .card-value { color: var(--color-error); }
-.card.warning .card-value { color: var(--color-warning); }
-.card.info .card-value { color: var(--color-info); }
-.card.success .card-value { color: var(--color-success); }
-
-/* Stats Section */
-.stats-section {
-    background: var(--color-card);
-    border-radius: 12px;
-    padding: 24px;
-    margin-bottom: 24px;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-}
-
-.stats-section h2 {
-    font-size: 18px;
-    margin-bottom: 16px;
-    color: var(--color-text);
-}
-
-.stats-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-    gap: 16px;
-}
-
-.stat-item {
-    text-align: center;
-    padding: 12px;
-    background: var(--color-bg);
-    border-radius: 8px;
-}
-
-.stat-value {
-    font-size: 24px;
-    font-weight: 600;
-    color: #667eea;
-}
-
-.stat-label {
-    font-size: 12px;
-    color: var(--color-muted);
-    margin-top: 4px;
-}
-
-/* Severity Chart */
-.severity-chart {
-    display: flex;
-    height: 24px;
-    border-radius: 12px;
-    overflow: hidden;
-    margin-top: 16px;
-}
-
-.severity-bar {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: white;
-    font-size: 12px;
-    font-weight: 600;
-    transition: flex 0.3s;
-}
-
-.severity-bar.error { background: var(--color-error); }
-.severity-bar.warning { background: var(--color-warning); color: #212529; }
-.severity-bar.info { background: var(--color-info); }
-
-/* Issues Table */
-.issues-section {
-    background: var(--color-card);
-    border-radius: 12px;
-    padding: 24px;
-    margin-bottom: 24px;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-}
-
-.issues-section h2 {
-    font-size: 18px;
-    margin-bottom: 16px;
-}
-
-.filter-bar {
-    display: flex;
-    gap: 8px;
-    margin-bottom: 16px;
-    flex-wrap: wrap;
-}
-
-.filter-btn {
-    padding: 6px 16px;
-    border: 1px solid var(--color-border);
-    border-radius: 20px;
-    background: white;
-    cursor: pointer;
-    font-size: 13px;
-    transition: all 0.2s;
-}
-
-.filter-btn:hover {
-    background: var(--color-bg);
-}
-
-.filter-btn.active {
-    background: #667eea;
-    color: white;
-    border-color: #667eea;
-}
-
-.issues-table {
-    width: 100%;
-    border-collapse: collapse;
-}
-
-.issues-table th,
-.issues-table td {
-    padding: 12px;
-    text-align: left;
-    border-bottom: 1px solid var(--color-border);
-}
-
-.issues-table th {
-    font-weight: 600;
-    color: var(--color-muted);
-    font-size: 12px;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-}
-
-.issues-table tr:hover {
-    background: var(--color-bg);
-}
-
-.severity-badge {
-    display: inline-block;
-    padding: 4px 10px;
-    border-radius: 12px;
-    font-size: 11px;
-    font-weight: 600;
-    text-transform: uppercase;
-}
-
-.severity-badge.error {
-    background: #ffeaec;
-    color: var(--color-error);
-}
-
-.severity-badge.warning {
-    background: #fff8e6;
-    color: #856404;
-}
-
-.severity-badge.info {
-    background: #e7f5f7;
-    color: #0c5460;
-}
-
-.code-badge {
-    font-family: 'Consolas', 'Monaco', monospace;
-    font-size: 12px;
-    background: var(--color-bg);
-    padding: 2px 8px;
-    border-radius: 4px;
-}
-
-.message-cell {
-    max-width: 400px;
-}
-
-.suggestion {
-    font-size: 12px;
-    color: var(--color-muted);
-    margin-top: 4px;
-}
-
-/* Footer */
-.footer {
-    text-align: center;
-    padding: 20px;
-    color: var(--color-muted);
-    font-size: 13px;
-}
-
-/* Responsive */
-@media (max-width: 768px) {
-    .container {
-        padding: 12px;
-    }
-    
-    .header {
-        padding: 20px;
-    }
-    
-    .header h1 {
-        font-size: 22px;
-    }
-    
-    .issues-table {
-        display: block;
-        overflow-x: auto;
-    }
-}
+        """从外部文件加载 CSS 样式"""
+        css_path = _ASSETS_DIR / "styles" / "html_reporter.css"
+        try:
+            css_content = css_path.read_text(encoding='utf-8')
+            return f"<style>\n{css_content}</style>"
+        except FileNotFoundError:
+            # 回退：返回最小样式
+            return """<style>
+body { font-family: sans-serif; margin: 20px; }
+.container { max-width: 1200px; margin: 0 auto; }
 </style>"""
 
     def _generate_header(self) -> str:
@@ -510,31 +235,15 @@ body {
 </footer>"""
 
     def _generate_scripts(self) -> str:
-        """生成交互脚本"""
-        return """<script>
+        """从外部文件加载 JavaScript"""
+        js_path = _ASSETS_DIR / "scripts" / "html_reporter.js"
+        try:
+            js_content = js_path.read_text(encoding='utf-8')
+            return f"<script>\n{js_content}</script>"
+        except FileNotFoundError:
+            # 回退：返回最小脚本
+            return """<script>
 document.addEventListener('DOMContentLoaded', function() {
-    const filterBtns = document.querySelectorAll('.filter-btn');
-    const rows = document.querySelectorAll('.issues-table tbody tr');
-    
-    filterBtns.forEach(btn => {
-        btn.addEventListener('click', function() {
-            // Update active state
-            filterBtns.forEach(b => b.classList.remove('active'));
-            this.classList.add('active');
-            
-            const filter = this.dataset.filter;
-            
-            rows.forEach(row => {
-                if (filter === 'all') {
-                    row.style.display = '';
-                } else if (filter.startsWith('category-')) {
-                    const category = filter.replace('category-', '');
-                    row.style.display = row.dataset.category === category ? '' : 'none';
-                } else {
-                    row.style.display = row.dataset.severity === filter ? '' : 'none';
-                }
-            });
-        });
-    });
+    console.log('HTML Reporter loaded (fallback mode)');
 });
 </script>"""
