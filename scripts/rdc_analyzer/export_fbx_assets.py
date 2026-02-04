@@ -11,6 +11,10 @@ def _parse_event_id_from_path(intermediate_path):
             suffix = parent.name.split("_", 1)[1]
             if suffix.isdigit():
                 return int(suffix)
+    if intermediate_path.name.startswith("event_"):
+        suffix = intermediate_path.name.split("_", 1)[1]
+        if suffix.isdigit():
+            return int(suffix)
     return None
 
 
@@ -31,6 +35,19 @@ def _pick_event_id(intermediate_path):
     if candidates:
         return min(candidates)
     raise ValueError("event_id not provided and no event_* folders found")
+
+
+def _resolve_intermediate_path(base_path, event_id):
+    if base_path.name == "intermediate":
+        return base_path
+    candidate = base_path / "intermediate"
+    if candidate.exists():
+        return candidate
+    if event_id is not None:
+        candidate = base_path / f"event_{event_id}" / "intermediate"
+        if candidate.exists():
+            return candidate
+    raise FileNotFoundError("intermediate directory not found")
 
 
 def _load_mesh(intermediate_path):
@@ -68,6 +85,7 @@ def export_fbx_assets(intermediate_dir, out_dir, event_id, allow_missing_backend
     intermediate_path = Path(intermediate_dir)
     if event_id is None:
         event_id = _pick_event_id(intermediate_path)
+    intermediate_path = _resolve_intermediate_path(intermediate_path, event_id)
 
     obj_root = write_obj(str(intermediate_path), str(out_dir), event_id)
     event_root = Path(out_dir) / f"event_{event_id}"

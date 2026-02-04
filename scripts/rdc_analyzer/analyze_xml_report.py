@@ -1465,6 +1465,45 @@ def load_textures_if_available(
     return _apply_texture_coverage(textures)
 
 
+def map_exported_textures(textures: List[Dict[str, Any]], export_dir: Path) -> int:
+    """
+    将已导出的 PNG 缩略图映射到纹理列表
+
+    Args:
+        textures: 纹理数据列表
+        export_dir: PNG 输出目录 (output_dir/textures)
+
+    Returns:
+        成功映射的数量
+    """
+    if not textures or not export_dir.exists():
+        return 0
+
+    updated = 0
+    for tex in textures:
+        if not isinstance(tex, dict):
+            continue
+        tex_id = tex.get("id") or tex.get("resource_id")
+        width = tex.get("width")
+        height = tex.get("height")
+        if not tex_id or not width or not height:
+            continue
+
+        filename = f"tex_{tex_id}_{width}x{height}.png"
+        file_path = export_dir / filename
+        if not file_path.exists():
+            matches = list(export_dir.glob(f"tex_{tex_id}_*x*.png"))
+            if len(matches) == 1:
+                file_path = matches[0]
+            else:
+                continue
+
+        tex["thumbnail"] = f"textures/{file_path.name}"
+        updated += 1
+
+    return updated
+
+
 
 
 
@@ -1815,6 +1854,35 @@ def run_analysis(xml_path: str, output_path: str, texture_dir: Optional[str] = N
                 log(f"  [Thumbnail] Skipped: ThumbnailGenerator not available ({e})")
             except Exception as e:
                 log(f"  [Thumbnail] Warning: Failed to generate thumbnails: {e}")
+
+            # ===== 全量 PNG 纹理导出 =====
+            if textures:
+                export_dir = output_dir / "textures"
+                engine = None
+                try:
+                    from exporters.texture_batch_exporter import create_export_engine
+
+                    log("  [Texture Export] Exporting textures to PNG...")
+                    engine = create_export_engine(xml_path)
+                    summary = engine.export_all(export_dir, save_png=True, save_bin=False)
+                    log(
+                        f"  [Texture Export] Done: {summary.success}/{summary.total} "
+                        f"(failed {summary.failed}, skipped {summary.skipped})"
+                    )
+
+                    mapped = map_exported_textures(textures, export_dir)
+                    if mapped > 0:
+                        log(f"  [Texture Export] Mapped {mapped} thumbnails")
+                    else:
+                        log("  [Texture Export] No thumbnails mapped")
+                except Exception as e:
+                    log(f"  [Texture Export] Warning: {e}")
+                finally:
+                    if engine:
+                        try:
+                            engine.close()
+                        except Exception:
+                            pass
             
             # ===== Shader 源码提取 =====
             # 尝试从 ZIP 中提取 SPIR-V 并转换为 GLSL
