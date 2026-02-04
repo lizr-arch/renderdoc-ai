@@ -201,5 +201,8 @@ git add scripts/rdc_analyzer/analyze_xml_report.py scripts/rdc_analyzer/tests/te
 git commit -m "fix(rdc-analyzer): map texture thumbnails by resource id"
 ```
 
+**Status:** ✅ Completed  
+**Notes:** commits: `a2ba856bb` (code/tests), `19fe140c5` (plan updates).  
+
 ## Next Steps
 - 等待 /do 执行
