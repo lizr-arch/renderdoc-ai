@@ -1877,7 +1877,7 @@ def run_analysis(xml_path: str, output_path: str, texture_dir: Optional[str] = N
                 export_dir = output_dir / "textures"
                 engine = None
                 try:
-                    from exporters.texture_batch_exporter import create_export_engine
+                    create_export_engine = load_texture_exporter()
 
                     log("  [Texture Export] Exporting textures to PNG...")
                     engine = create_export_engine(xml_path)

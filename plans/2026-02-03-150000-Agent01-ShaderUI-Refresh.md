@@ -902,3 +902,127 @@ git commit -m "style(rdc-analyzer): refine shader toolbar layout"
 **Status:** ✅ Completed  
 **Tests:** `py -3 -m pytest scripts/rdc_analyzer/tests/test_bundle_report_assets.py -v` (PASS)  
 **Notes:** 主次按钮放入 primary-actions 组并强化样式（CSS 在 shaders.html 内）。  
+
+---
+
+## Change Request (2026-02-04, v4)
+
+**New Requirements:**
+1. 修复 bundle 生成时的 `[Texture Export] Warning: attempted relative import beyond top-level package`，确保全量 PNG 导出可用。
+2. 继续保持无需 GUI / 手动步骤，生成时直接输出可用 PNG。
+
+**Updated Success Criteria:**
+- `analyze_xml_report.py --ui-version bundle` 执行时不再出现相对导入越级错误。
+- `output_dir/textures/` 生成 PNG，textures.html 可直接引用。
+
+---
+
+## Task 14: 修复 Texture Export 导入链（避免相对导入越级）
+
+**Files:**
+- Modify `scripts/rdc_analyzer/analyze_xml_report.py:1860-1895`
+- Modify `scripts/rdc_analyzer/tests/test_bundle_report_assets.py:1-220`
+- Reference `scripts/rdc_analyzer/batch_export_textures.py:41-70` (fallback import pattern)
+
+**Step 1: Write the failing test**
+```python
+def test_load_texture_exporter_fallback(tmp_path):
+    from analyze_xml_report import load_texture_exporter
+    create_export_engine = load_texture_exporter(force_fallback=True)
+    assert callable(create_export_engine)
+```
+
+**Step 2: Run test to verify it fails**
+Run: `py -3 -m pytest scripts/rdc_analyzer/tests/test_bundle_report_assets.py -k load_texture_exporter_fallback -v`  
+Expected: FAIL (helper missing)
+
+**Step 3: Write minimal implementation**
+```python
+# analyze_xml_report.py
+def load_texture_exporter(force_fallback: bool = False):
+    if not force_fallback:
+        try:
+            from exporters.texture_batch_exporter import create_export_engine
+            return create_export_engine
+        except Exception:
+            pass
+    export_path = Path(__file__).parent / "exporters" / "texture_batch_exporter.py"
+    spec = importlib.util.spec_from_file_location("rdc_texture_batch_exporter", export_path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module.create_export_engine
+```
+
+**Step 4: Run test to verify pass**
+Run: `py -3 -m pytest scripts/rdc_analyzer/tests/test_bundle_report_assets.py -k load_texture_exporter_fallback -v`  
+Expected: PASS
+
+**Step 5: Commit**
+```bash
+git add scripts/rdc_analyzer/analyze_xml_report.py scripts/rdc_analyzer/tests/test_bundle_report_assets.py
+git commit -m "fix(rdc-analyzer): robust texture exporter import"
+```
+
+**Status:** ✅ Completed  
+**Tests:** `py -3 -m pytest scripts/rdc_analyzer/tests/test_bundle_report_assets.py -k load_texture_exporter_fallback -v` (PASS)  
+**Notes:** 已补充 importlib 回退路径并提交（commit: a6b613331）。  
+
+---
+
+## Task 15: 使用新导入路径执行全量 PNG 导出
+
+**Files:**
+- Modify `scripts/rdc_analyzer/analyze_xml_report.py:1860-1895` (use helper)
+
+**Step 1: Write the failing test**
+```python
+def test_analyze_xml_report_uses_texture_export_helper():
+    from pathlib import Path
+    script_path = Path(__file__).resolve().parents[1] / "analyze_xml_report.py"
+    content = script_path.read_text(encoding="utf-8")
+    assert "load_texture_exporter" in content
+```
+
+**Step 2: Run test to verify it fails**
+Run: `py -3 -m pytest scripts/rdc_analyzer/tests/test_bundle_report_assets.py -k uses_texture_export_helper -v`  
+Expected: FAIL (not wired)
+
+**Step 3: Write minimal implementation**
+```python
+# analyze_xml_report.py (bundle branch)
+create_export_engine = load_texture_exporter()
+engine = create_export_engine(xml_path)
+```
+
+**Step 4: Run test to verify pass**
+Run: `py -3 -m pytest scripts/rdc_analyzer/tests/test_bundle_report_assets.py -k uses_texture_export_helper -v`  
+Expected: PASS
+
+**Step 5: Commit**
+```bash
+git add scripts/rdc_analyzer/analyze_xml_report.py scripts/rdc_analyzer/tests/test_bundle_report_assets.py
+git commit -m "fix(rdc-analyzer): wire texture exporter helper"
+```
+
+**Status:** ✅ Completed  
+**Tests:** `py -3 -m pytest scripts/rdc_analyzer/tests/test_bundle_report_assets.py -k uses_texture_export_helper -v` (PASS)  
+**Notes:** bundle 分支改为 `load_texture_exporter()`，避免直接相对导入。  
+
+---
+
+## Task 16: 生成 Endfield 报告并验证 PNG 产出
+
+**Files:**
+- None (run command only)
+
+**Step 1: Run bundle generation**
+Run: `py -3 scripts/rdc_analyzer/analyze_xml_report.py "D:\backup\endfield.zip.xml" -o "D:\backup\endfield_report" --ui-version bundle`  
+Expected: log includes `[Texture Export] Done:` and **no** relative import warning
+
+**Step 2: Verify output**
+Check: `D:\backup\endfield_report\textures\` contains PNGs  
+Expected: PNG count > 0
+
+**Status:** ⏳ Running  
+**Tests:** `py -3 scripts/rdc_analyzer/analyze_xml_report.py "D:\backup\endfield.zip.xml" -o "D:\backup\endfield_report" --ui-version bundle` (running)  
+**Notes:** 已观察到 `D:\backup\endfield_report\textures\` 产出 PNG，但生成进程仍在运行，等待最终日志与 HTML 更新时间。  

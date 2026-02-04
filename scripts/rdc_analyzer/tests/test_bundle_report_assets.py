@@ -172,3 +172,9 @@ def test_analyze_xml_report_has_rdc_path_flag():
     script_path = Path(__file__).resolve().parents[1] / "analyze_xml_report.py"
     content = script_path.read_text(encoding="utf-8")
     assert "--rdc-path" in content
+
+
+def test_analyze_xml_report_uses_texture_export_helper():
+    script_path = Path(__file__).resolve().parents[1] / "analyze_xml_report.py"
+    content = script_path.read_text(encoding="utf-8")
+    assert content.count("load_texture_exporter") >= 2
