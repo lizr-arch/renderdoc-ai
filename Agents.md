@@ -141,6 +141,7 @@ make -C build-android
   5. 自检：按 plan.md 的 Definition of Done 勾选，**自主运行验证命令确认结果**。
   6. 遇阻流程：同一问题尝试不超过 3 次；记录已尝试方法/错误/推测原因/备选方案到 plan.md 的 Risks/Blockers，再决定等待指示或调整方案。
   7. **Git 自动提交**：每完成一个独立功能/任务后立即提交到 Git。
+  8. 完成声明前必须执行 遗忘审计(0%遗漏)。
 
 - **[强制] Git 自动提交规则**:
   - **触发时机**：完成一个可验证的功能/修复/任务后
@@ -191,6 +192,13 @@ make -C build-android
     - 部署/发布：`npm publish`, `docker push`, `deploy` 等
     - 破坏性 git：`git push --force`, `git reset --hard`, `git clean -fd`
     - 依赖变更：`npm install`, `pip install`（除非用户显式授权）
+
+### 任务结束遗忘审计（强制，0%遗漏）
+- Key Functions Checklist:
+- Evidence Map: 必须引用文档/源码路径或 MCP 检索证据
+- Omission Rate: 0%
+- Verdict: PASS/FAIL
+- 若非 0%：禁止宣称完成，必须回到检索或补充
 
 ### $autonomous-skill 模式
 
