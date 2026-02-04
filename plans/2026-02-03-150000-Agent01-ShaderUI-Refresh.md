@@ -1023,6 +1023,6 @@ Expected: log includes `[Texture Export] Done:` and **no** relative import warni
 Check: `D:\backup\endfield_report\textures\` contains PNGs  
 Expected: PNG count > 0
 
-**Status:** ⏳ Running  
-**Tests:** `py -3 scripts/rdc_analyzer/analyze_xml_report.py "D:\backup\endfield.zip.xml" -o "D:\backup\endfield_report" --ui-version bundle` (running)  
-**Notes:** 已观察到 `D:\backup\endfield_report\textures\` 产出 PNG，但生成进程仍在运行，等待最终日志与 HTML 更新时间。  
+**Status:** ✅ Completed  
+**Tests:** `py -3 scripts/rdc_analyzer/analyze_xml_report.py "D:\backup\endfield.zip.xml" -o "D:\backup\endfield_report" --ui-version bundle` (ran)  
+**Notes:** `textures.html/shaders.html/manifest.json` 更新时间为 2026-02-04 15:35:25；`D:\backup\endfield_report\textures\` 下 PNG 数量为 109。运行日志未捕获，未能直接确认“无相对导入警告”。  
