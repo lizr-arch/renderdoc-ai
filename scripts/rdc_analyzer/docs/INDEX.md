@@ -47,6 +47,7 @@
 | [NO_GPU_TEXTURE_EXTRACTION.md](NO_GPU_TEXTURE_EXTRACTION.md) | **无 GPU 纹理提取技术分析** | 无GPU, GetStructuredData, SDFile, buffers |
 
 | [UNITY_EXPORT.md](UNITY_EXPORT.md) | Unity 资产导出指南 | Unity, 导出, mesh, shader |
+| [FBX_EXPORT.md](FBX_EXPORT.md) | **FBX 导出流水线**（OBJ 中间态 → Unity/Unreal） | FBX, OBJ, Unity, Unreal |
 | [UNITY_IMPORT.md](UNITY_IMPORT.md) | **Unity 导入需求**（官方文档要点） | Unity, 导入, FBX, ShaderLab |
 | [UNREAL_IMPORT.md](UNREAL_IMPORT.md) | **Unreal 导入需求**（官方文档要点） | Unreal, 导入, FBX, PBR |
 | [MESH_SHADER_EXTRACTION.md](MESH_SHADER_EXTRACTION.md) | Mesh/Shader 导出指南 | mesh, vb, ib, shader |
@@ -125,6 +126,7 @@
 | RDC 文件结构是什么？ | [rdc_format_spec.md](rdc_format_spec.md) |
 
 | 如何导出 Unity 资产？ | [UNITY_EXPORT.md](UNITY_EXPORT.md) |
+| 如何导出 FBX 资产？ | [FBX_EXPORT.md](FBX_EXPORT.md) |
 | 如何导入 Unity 资产？ | [UNITY_IMPORT.md](UNITY_IMPORT.md) |
 | 如何导入 Unreal 资产？ | [UNREAL_IMPORT.md](UNREAL_IMPORT.md) |
 | 如何导出 Mesh/Shader？ | [MESH_SHADER_EXTRACTION.md](MESH_SHADER_EXTRACTION.md) |

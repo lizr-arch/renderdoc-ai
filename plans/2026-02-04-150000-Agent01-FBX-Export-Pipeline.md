@@ -132,10 +132,10 @@ def export_fbx_assets(intermediate_dir, out_dir, event_id):
 
 ## Task Checklist
 - [x] Task 1 — FBX Profiles (Unity/Unreal)
-- [ ] Task 2 — OBJ+MTL Writer (from intermediate)
-- [ ] Task 3 — FBX SDK Bridge (Python binding + fallback)
-- [ ] Task 4 — FBX Export CLI (single event)
-- [ ] Task 5 — Docs update
+- [x] Task 2 — OBJ+MTL Writer (from intermediate)
+- [x] Task 3 — FBX SDK Bridge (Python binding + fallback)
+- [x] Task 4 — FBX Export CLI (single event)
+- [x] Task 5 — Docs update
 
 ## Action Items (TDD, 2–5 min steps)
 
