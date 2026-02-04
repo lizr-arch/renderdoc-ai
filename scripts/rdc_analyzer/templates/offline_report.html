@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RDC Texture Analysis - $RDC_NAME</title>
+    <style>
+$CSS_CONTENT
+$RT_TIMELINE_CSS
+$HOTSPOT_CSS
+    </style>
+</head>
+<body>
+    <!-- 页面主体结构 -->
+    $HTML_BODY
+    
+    <!-- 可选：热点分析组件 HTML -->
+    $HOTSPOT_INIT
+    
+    <!-- 数据注入 -->
+    <script>
+        // === 分析数据 ===
+        const TEXTURES = $TEXTURES_JSON;
+        const SHADERS = $SHADERS_JSON;
+        const DUPLICATES = $DUPLICATES_JSON;
+        const USAGE = $USAGE_JSON;
+        const EVENT_PASS = $EVENT_PASS_JSON;
+        const FRAME_THUMBNAIL = $FRAME_THUMBNAIL_JSON;
+        const OPTIMIZATION = $OPTIMIZATION_JSON;
+        const PERFORMANCE = $PERFORMANCE_JSON;
+        const RT_TRACKING = $RT_TRACKING_JSON;
+        const HOTSPOT = $HOTSPOT_JSON;
+        const TEXTURE_USAGE_MAP = $TEXTURE_USAGE_MAP_JSON;
+        const REPORT_LINKS = $REPORT_LINKS_JSON;
+        const MANIFEST = $MANIFEST_JSON;
+        
+        // === 元数据 ===
+        const RDC_NAME = "$RDC_NAME";
+        const TIMESTAMP = "$TIMESTAMP";
+    </script>
+    
+    <!-- 主逻辑脚本 -->
+    <script>
+$JS_CONTENT
+    </script>
+    
+    <!-- 可选：RT Timeline 组件 -->
+    <script>
+$RT_TIMELINE_JS
+    </script>
+    
+    <!-- 可选：热点分析组件 -->
+    <script>
+$HOTSPOT_JS
+    </script>
+</body>
+</html>
