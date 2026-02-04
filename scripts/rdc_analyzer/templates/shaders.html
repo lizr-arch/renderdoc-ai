@@ -43,6 +43,22 @@
             border-color: var(--accent-blue);
             color: var(--text-primary);
         }
+
+        .toolbar-group.primary-actions {
+            padding: 2px;
+            background: var(--bg-dark);
+            border: 1px solid var(--border);
+            border-radius: 999px;
+        }
+
+        .toolbar-group.primary-actions .toolbar-btn {
+            width: auto;
+            min-width: 96px;
+            height: 28px;
+            padding: 0 12px;
+            font-size: 11px;
+            letter-spacing: 0.2px;
+        }
         
         .shader-item {
             display: flex;
@@ -546,7 +562,7 @@
                     
                     <div style="flex: 1;"></div>
                     
-                    <div class="toolbar-group">
+                    <div class="toolbar-group primary-actions">
                         <button class="toolbar-btn primary" id="hlslBtn" title="查看 HLSL 代码">查看 HLSL 代码</button>
                         <button class="toolbar-btn secondary" id="aiOptimizeBtn" title="AI Shader 优化">AI Shader 优化</button>
                     </div>

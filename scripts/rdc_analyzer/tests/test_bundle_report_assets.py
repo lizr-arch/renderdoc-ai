@@ -17,7 +17,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from report_bundle_generator import ReportBundleGenerator  # noqa: E402
 
 
-def test_texture_thumbnail_data_url(tmp_path):
+def test_texture_thumbnail_path(tmp_path):
     gen = ReportBundleGenerator(output_dir=tmp_path, capture_name="t.rdc")
     gen.set_textures([
         {
@@ -25,12 +25,33 @@ def test_texture_thumbnail_data_url(tmp_path):
             "name": "Tex",
             "width": 1,
             "height": 1,
-            "thumbnail": "AAAA",
+            "thumbnail": "textures/tex_1_1x1.png",
         }
     ])
     outputs = gen.generate_all()
     html = Path(outputs["textures"]).read_text(encoding="utf-8")
-    assert "data:image/png;base64,AAAA" in html
+    assert "textures/tex_1_1x1.png" in html
+
+
+def test_map_exported_textures_sets_thumbnail(tmp_path):
+    from analyze_xml_report import map_exported_textures
+
+    textures = [
+        {
+            "id": "1",
+            "name": "Tex",
+            "width": 4,
+            "height": 8,
+            "thumbnail": "",
+        }
+    ]
+    export_dir = tmp_path / "textures"
+    export_dir.mkdir(parents=True, exist_ok=True)
+    (export_dir / "tex_1_4x8.png").write_bytes(b"fake")
+
+    updated = map_exported_textures(textures, export_dir)
+    assert updated == 1
+    assert textures[0]["thumbnail"] == "textures/tex_1_4x8.png"
 
 
 def test_shader_source_rendered(tmp_path):
@@ -65,7 +86,7 @@ def test_texture_preview_uses_thumbnail(tmp_path):
     assert "texture.thumbnail" in html
 
 
-def test_textures_has_enable_thumbnail_button(tmp_path):
+def test_textures_no_dynamic_buttons(tmp_path):
     gen = ReportBundleGenerator(output_dir=tmp_path, capture_name="t.rdc")
     gen.set_textures([
         {
@@ -73,13 +94,15 @@ def test_textures_has_enable_thumbnail_button(tmp_path):
             "name": "Tex",
             "width": 1,
             "height": 1,
-            "thumbnail": "AAAA",
         }
     ])
     outputs = gen.generate_all()
     html = Path(outputs["textures"]).read_text(encoding="utf-8")
-    assert "加载缩略图" in html
-    assert "enableThumbnails" in html
+    assert "加载缩略图" not in html
+    assert "enableThumbnails" not in html
+    assert "autoPreloadThumbnails" not in html
+    assert "RT_SERVER_BASE" not in html
+    assert "thumbStatus" not in html
 
 
 def test_shader_ui_hlsl_only(tmp_path):
@@ -128,54 +151,8 @@ def test_shader_toolbar_primary_secondary(tmp_path):
     html = Path(outputs["shaders"]).read_text(encoding="utf-8")
     assert "toolbar-btn primary" in html
     assert "toolbar-btn secondary" in html
+    assert "toolbar-group primary-actions" in html
     assert "app-container fixed" in html
-
-
-def test_textures_has_rt_thumbnail_fetch(tmp_path):
-    gen = ReportBundleGenerator(output_dir=tmp_path, capture_name="t.rdc")
-    gen.set_textures([
-        {
-            "id": "1",
-            "name": "Tex",
-            "width": 1,
-            "height": 1,
-        }
-    ])
-    outputs = gen.generate_all()
-    html = Path(outputs["textures"]).read_text(encoding="utf-8")
-    assert "RT_SERVER_BASE" in html
-    assert "fetchTextureThumbnail" in html
-
-
-def test_textures_auto_preload_config(tmp_path):
-    gen = ReportBundleGenerator(output_dir=tmp_path, capture_name="t.rdc")
-    gen.set_textures([
-        {
-            "id": "1",
-            "name": "Tex",
-            "width": 1,
-            "height": 1,
-        }
-    ])
-    outputs = gen.generate_all()
-    html = Path(outputs["textures"]).read_text(encoding="utf-8")
-    assert "RT_PRELOAD_COUNT" in html
-    assert "autoPreloadThumbnails" in html
-
-
-def test_textures_has_thumb_status(tmp_path):
-    gen = ReportBundleGenerator(output_dir=tmp_path, capture_name="t.rdc")
-    gen.set_textures([
-        {
-            "id": "1",
-            "name": "Tex",
-            "width": 1,
-            "height": 1,
-        }
-    ])
-    outputs = gen.generate_all()
-    html = Path(outputs["textures"]).read_text(encoding="utf-8")
-    assert "thumbStatus" in html
 
 
 def test_analyze_xml_report_has_auto_rt_flag():

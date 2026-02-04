@@ -116,10 +116,15 @@ class ReportBundleGenerator:
         return fmt
 
     def _normalize_thumbnail(self, thumbnail: str) -> str:
-        """确保缩略图是 data URL，便于 HTML 直接渲染"""
+        """标准化缩略图地址：支持 data URL 与文件路径"""
         if not thumbnail:
             return ""
         if thumbnail.startswith("data:"):
+            return thumbnail
+        lower = thumbnail.lower()
+        if lower.startswith("http://") or lower.startswith("https://"):
+            return thumbnail
+        if lower.endswith((".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp")):
             return thumbnail
         return f"data:image/png;base64,{thumbnail}"
     
@@ -530,10 +535,14 @@ class ReportBundleGenerator:
             elif max_dim >= 2048:
                 size_tag = '<span class="size-tag large">2K</span>'
             
+            thumb_html = "<div class='thumb-placeholder'>?</div>"
+            if thumb:
+                thumb_html = f'<img src="{thumb}" alt="">'
+
             texture_list_html += f'''
                 <div class="texture-item" data-id="{tex_id}" onclick="selectTexture('{tex_id}')">
                     <div class="texture-thumb">
-                        <div class='thumb-placeholder'>?</div>
+                        {thumb_html}
                     </div>
                     <div class="texture-info">
                         <div class="texture-name">{display_name}{size_tag}</div>
@@ -547,7 +556,6 @@ class ReportBundleGenerator:
             "TOTAL_VRAM": self._format_bytes(self.stats["vram_usage"]),
             "TEXTURE_LIST_HTML": texture_list_html,
             "TEXTURE_DATA_JSON": json.dumps(textures_with_usage, ensure_ascii=False),
-            "RT_PRELOAD_COUNT": str(getattr(self, "rt_preload_count", 12)),
         }
         
         return self._render_template(template, replacements)

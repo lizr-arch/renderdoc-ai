@@ -719,3 +719,186 @@ git commit -m "feat(rdc-analyzer): show thumbnail preload status"
 
 **Status:** ✅ Completed  
 **Tests:** `py -3 -m pytest scripts/rdc_analyzer/tests/test_bundle_report_assets.py -k thumb_status -v` (PASS)
+
+---
+
+## Change Request (2026-02-03, v3)
+
+**New Requirements:**
+1. **改为全量纹理加载（B 方案）**：生成报告时导出 PNG 并在页面直接引用，不再使用 RT 动态加载。
+2. **纹理页面移除“动态加载按钮”**，改为“已全部加载”提示（或加载中状态）。
+3. Shader 页 HLSL 按钮视觉错误/丑，需要**专业 + 仪表盘风格**重排。
+4. 仍需保持左侧列表可滚动，搜索可用。
+
+**Updated Success Criteria:**
+- textures.html 打开即可看到缩略图（不依赖 RT 服务）。
+- 页面中不再出现“加载缩略图/预载”按钮。
+- Shader 工具栏主次按钮视觉清晰，无遮挡/错位。
+- 左侧 Shader 列表可滚动、搜索可过滤。
+
+---
+
+## Task 11: 生成 bundle 时全量导出纹理 PNG（B 方案）
+
+**Files:**
+- Modify `scripts/rdc_analyzer/analyze_xml_report.py:1900-2200`
+- Add helper in `scripts/rdc_analyzer/analyze_xml_report.py`
+- Modify `scripts/rdc_analyzer/tests/test_bundle_report_assets.py:1-260`
+
+**Step 1: Write the failing test**
+```python
+def test_map_exported_textures_sets_thumbnail(tmp_path):
+    from analyze_xml_report import map_exported_textures
+
+    textures = [
+        {"resource_id": "123", "width": 4, "height": 4},
+        {"resource_id": "456", "width": 8, "height": 8},
+    ]
+    export_dir = tmp_path / "textures"
+    export_dir.mkdir(parents=True, exist_ok=True)
+    (export_dir / "tex_123_4x4.png").write_bytes(b"PNG")
+
+    map_exported_textures(textures, export_dir)
+    assert textures[0]["thumbnail"] == "textures/tex_123_4x4.png"
+    assert "thumbnail" not in textures[1]
+```
+
+**Step 2: Run test to verify it fails**
+Run: `py -3 -m pytest scripts/rdc_analyzer/tests/test_bundle_report_assets.py -k map_exported_textures -v`  
+Expected: FAIL (function missing)
+
+**Step 3: Write minimal implementation**
+```python
+# analyze_xml_report.py
+def map_exported_textures(textures, export_dir):
+    for tex in textures:
+        rid = tex.get("resource_id") or tex.get("id")
+        w = tex.get("width")
+        h = tex.get("height")
+        if not rid or not w or not h:
+            continue
+        filename = f"tex_{rid}_{w}x{h}.png"
+        if (export_dir / filename).exists():
+            tex["thumbnail"] = f"textures/{filename}"
+
+# in run_analysis (bundle branch)
+export_dir = Path(output_path).with_suffix("") / "textures"
+export_dir.mkdir(parents=True, exist_ok=True)
+from exporters.texture_batch_exporter import create_export_engine
+engine = create_export_engine(xml_path)
+summary = engine.export_all(output_dir=export_dir, save_png=True, save_bin=False)
+engine.close()
+map_exported_textures(textures, export_dir)
+```
+
+**Step 4: Run tests to verify pass**
+Run: `py -3 -m pytest scripts/rdc_analyzer/tests/test_bundle_report_assets.py -k map_exported_textures -v`  
+Expected: PASS
+
+**Step 5: Commit**
+```bash
+git add scripts/rdc_analyzer/analyze_xml_report.py scripts/rdc_analyzer/tests/test_bundle_report_assets.py
+git commit -m "feat(rdc-analyzer): export full textures for bundle"
+```
+
+**Status:** ✅ Completed  
+**Tests:** `py -3 -m pytest scripts/rdc_analyzer/tests/test_bundle_report_assets.py -v` (PASS)  
+**Notes:** 支持 id/resource_id 映射并回退匹配；bundle 生成时输出 textures/ PNG 并回写缩略图路径。  
+
+---
+
+## Task 12: 纹理页面改为“全量显示”（移除动态按钮）
+
+**Files:**
+- Modify `scripts/rdc_analyzer/templates/textures.html:380-740`
+- Modify `scripts/rdc_analyzer/tests/test_bundle_report_assets.py:1-280`
+
+**Step 1: Write the failing test**
+```python
+def test_textures_no_dynamic_buttons(tmp_path):
+    gen = ReportBundleGenerator(output_dir=tmp_path, capture_name="t.rdc")
+    gen.set_textures([{"id": "1", "name": "Tex", "width": 1, "height": 1, "thumbnail": "textures/tex_1_1x1.png"}])
+    html = Path(gen.generate_all()["textures"]).read_text(encoding="utf-8")
+    assert "加载缩略图" not in html
+    assert "autoPreloadThumbnails" not in html
+```
+
+**Step 2: Run test to verify it fails**
+Run: `py -3 -m pytest scripts/rdc_analyzer/tests/test_bundle_report_assets.py -k no_dynamic_buttons -v`  
+Expected: FAIL
+
+**Step 3: Write minimal implementation**
+```html
+<!-- textures.html: 移除按钮与预载状态 -->
+<!-- 删除 enableThumbsBtn / thumbStatus -->
+```
+```js
+// textures.html: 删除 enableThumbnails/autoPreloadThumbnails/RT fetch 逻辑
+// renderListThumbnails() 默认渲染图片（只要 texture.thumbnail 存在）
+```
+
+**Step 4: Run tests to verify pass**
+Run: `py -3 -m pytest scripts/rdc_analyzer/tests/test_bundle_report_assets.py -k no_dynamic_buttons -v`  
+Expected: PASS
+
+**Step 5: Commit**
+```bash
+git add scripts/rdc_analyzer/templates/textures.html scripts/rdc_analyzer/tests/test_bundle_report_assets.py
+git commit -m "refactor(rdc-analyzer): show all textures by default"
+```
+
+**Status:** ✅ Completed  
+**Tests:** `py -3 -m pytest scripts/rdc_analyzer/tests/test_bundle_report_assets.py -v` (PASS)  
+**Notes:** 移除动态加载/预载按钮与 RT fetch；列表与预览默认使用导出 PNG。  
+
+---
+
+## Task 13: Shader 工具栏重排（专业 + 仪表盘风格）
+
+**Files:**
+- Modify `scripts/rdc_analyzer/templates/shaders.html:520-560`
+- Modify `scripts/rdc_analyzer/templates/common.css:100-180`
+- Modify `scripts/rdc_analyzer/tests/test_bundle_report_assets.py:1-300`
+
+**Step 1: Write the failing test**
+```python
+def test_shader_toolbar_layout_tokens(tmp_path):
+    gen = ReportBundleGenerator(output_dir=tmp_path, capture_name="t.rdc")
+    gen.set_shaders([{"id": "1", "name": "S", "source_hlsl": "float4 main() : SV_Target { return 0; }"}])
+    html = Path(gen.generate_all()["shaders"]).read_text(encoding="utf-8")
+    assert "toolbar-btn primary" in html
+    assert "toolbar-btn ghost" in html
+```
+
+**Step 2: Run test to verify it fails**
+Run: `py -3 -m pytest scripts/rdc_analyzer/tests/test_bundle_report_assets.py -k shader_toolbar_layout_tokens -v`  
+Expected: FAIL
+
+**Step 3: Write minimal implementation**
+```html
+<div class="toolbar-group">
+  <button class="toolbar-btn primary" id="hlslBtn">HLSL 源码</button>
+  <button class="toolbar-btn ghost" id="aiOptimizeBtn">AI Shader 优化</button>
+</div>
+```
+```css
+.toolbar-btn.ghost {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+}
+```
+
+**Step 4: Run tests to verify pass**
+Run: `py -3 -m pytest scripts/rdc_analyzer/tests/test_bundle_report_assets.py -k shader_toolbar_layout_tokens -v`  
+Expected: PASS
+
+**Step 5: Commit**
+```bash
+git add scripts/rdc_analyzer/templates/shaders.html scripts/rdc_analyzer/templates/common.css scripts/rdc_analyzer/tests/test_bundle_report_assets.py
+git commit -m "style(rdc-analyzer): refine shader toolbar layout"
+```
+
+**Status:** ✅ Completed  
+**Tests:** `py -3 -m pytest scripts/rdc_analyzer/tests/test_bundle_report_assets.py -v` (PASS)  
+**Notes:** 主次按钮放入 primary-actions 组并强化样式（CSS 在 shaders.html 内）。  

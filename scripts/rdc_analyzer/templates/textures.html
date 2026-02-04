@@ -216,39 +216,6 @@
             border-color: var(--accent-yellow);
             color: #000;
         }
-
-        .thumb-toggle-row {
-            margin-top: 6px;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-
-        .thumb-toggle {
-            border: 1px solid var(--border);
-            background: var(--bg-dark);
-            color: var(--text-secondary);
-            font-family: inherit;
-        }
-
-        .thumb-toggle.primary {
-            background: var(--accent-blue);
-            border-color: var(--accent-blue);
-            color: #fff;
-            font-weight: 600;
-        }
-
-        .thumb-toggle.active {
-            background: var(--accent-blue);
-            border-color: var(--accent-blue);
-            color: #fff;
-        }
-
-        .thumb-status {
-            font-size: 10px;
-            color: var(--text-muted);
-            white-space: nowrap;
-        }
         
         /* 详情面板增强 */
         .detail-preview {
@@ -410,10 +377,6 @@
                             <option value="format">格式</option>
                         </select>
                         <span class="stats-badge" id="textureStats">{{TEXTURE_COUNT}} 项</span>
-                    </div>
-                    <div class="thumb-toggle-row">
-                        <button class="filter-chip thumb-toggle primary" id="enableThumbsBtn" onclick="enableThumbnails()">加载缩略图</button>
-                        <span class="thumb-status" id="thumbStatus">自动预载：待开始</span>
                     </div>
                     <div class="filter-chips">
                         <span class="filter-chip" data-filter="all" onclick="setFilter('all')">全部</span>
@@ -608,18 +571,12 @@
         let activeChannels = { r: true, g: true, b: true, a: true };
         let currentFilter = 'all';
         let compareSlots = [null, null];
-        let thumbnailsEnabled = false;
-        let preloadTotal = 0;
-        let preloadDone = 0;
-        let preloadFailed = 0;
         
         // ========== 纹理数据 (由 Python 生成器填充) ==========
         const textureData = {{TEXTURE_DATA_JSON}};
         const textureMap = new Map(
             textureData.map(t => [String(t.id || t.resource_id || ""), t])
         );
-        const RT_SERVER_BASE = "http://127.0.0.1:8765";
-        const RT_PRELOAD_COUNT = {{RT_PRELOAD_COUNT}};
         
         // ========== 面板折叠 ==========
         function togglePanel(panelId) {
@@ -631,46 +588,7 @@
             header.parentElement.classList.toggle('collapsed');
         }
 
-        function updateThumbStatus(text) {
-            const statusEl = document.getElementById('thumbStatus');
-            if (statusEl) {
-                statusEl.textContent = text;
-            }
-        }
-
-        function enableThumbnails() {
-            if (thumbnailsEnabled) return;
-            thumbnailsEnabled = true;
-            const btn = document.getElementById('enableThumbsBtn');
-            if (btn) {
-                btn.classList.add('active');
-                btn.textContent = '缩略图已开启';
-            }
-            renderListThumbnails();
-            if (currentTexture) {
-                updateTexturePreview(currentTexture);
-                ensureTextureThumbnail(currentTexture);
-            }
-        }
-
-        function autoPreloadThumbnails() {
-            if (!textureData || !textureData.length) return;
-            enableThumbnails();
-            const count = Math.max(0, Math.min(RT_PRELOAD_COUNT, textureData.length));
-            preloadTotal = count;
-            preloadDone = 0;
-            preloadFailed = 0;
-            updateThumbStatus(`自动预载：${preloadDone}/${preloadTotal}`);
-            for (let i = 0; i < count; i++) {
-                textureData[i]._preloadTracked = true;
-                ensureTextureThumbnail(textureData[i]);
-            }
-        }
-
         function renderListThumbnails() {
-            if (!thumbnailsEnabled) {
-                return;
-            }
             document.querySelectorAll('.texture-item').forEach(item => {
                 const texId = String(item.dataset.id || "");
                 const texture = textureMap.get(texId);
@@ -679,54 +597,8 @@
 
                 if (texture && texture.thumbnail) {
                     thumbEl.innerHTML = `<img src="${texture.thumbnail}" alt="">`;
-                } else if (texture && texture._thumbLoading) {
-                    thumbEl.innerHTML = "<div class='thumb-placeholder'>...</div>";
                 } else {
                     thumbEl.innerHTML = "<div class='thumb-placeholder'>?</div>";
-                }
-            });
-        }
-
-        async function fetchTextureThumbnail(texture) {
-            const texId = texture.id || texture.resource_id;
-            if (!texId) {
-                texture._thumbError = '纹理 ID 不可用';
-                return;
-            }
-            try {
-                const resp = await fetch(`${RT_SERVER_BASE}/api/texture/${texId}`);
-                const data = await resp.json();
-                if (data && data.success && data.image) {
-                    texture.thumbnail = data.image;
-                    texture._thumbError = '';
-                } else {
-                    texture._thumbError = (data && data.error) ? data.error : 'RT 服务无响应';
-                }
-            } catch (e) {
-                texture._thumbError = '无法连接 RT 服务';
-            }
-        }
-
-        function ensureTextureThumbnail(texture) {
-            if (!texture || texture.thumbnail || texture._thumbLoading) return;
-            texture._thumbLoading = true;
-            texture._thumbError = '';
-            updateTexturePreview(texture);
-            fetchTextureThumbnail(texture).finally(() => {
-                texture._thumbLoading = false;
-                if (texture._preloadTracked) {
-                    preloadDone += 1;
-                    if (texture._thumbError) {
-                        preloadFailed += 1;
-                    }
-                    if (preloadTotal > 0) {
-                        const failText = preloadFailed > 0 ? ` (失败 ${preloadFailed})` : '';
-                        updateThumbStatus(`自动预载：${preloadDone}/${preloadTotal}${failText}`);
-                    }
-                }
-                renderListThumbnails();
-                if (currentTexture && (currentTexture.id === texture.id)) {
-                    updateTexturePreview(currentTexture);
                 }
             });
         }
@@ -769,9 +641,6 @@
             // 显示颜色拾取器
             document.getElementById('colorPicker').classList.remove('hidden');
 
-            if (thumbnailsEnabled) {
-                ensureTextureThumbnail(texture);
-            }
         }
 
         function updateTexturePreview(texture, previewImg, canvasEmpty, detailPreview) {
@@ -779,30 +648,15 @@
             const emptyEl = canvasEmpty || document.getElementById('canvasEmpty');
             const previewEl = detailPreview || document.getElementById('detailPreview');
 
-            if (!thumbnailsEnabled) {
-                imgEl.classList.add('hidden');
-                emptyEl.classList.remove('hidden');
-                previewEl.innerHTML = '<span style="color: var(--text-muted); font-size: 11px;">点击“显示缩略图”查看预览</span>';
-                return;
-            }
-
             if (texture.thumbnail) {
                 imgEl.src = texture.thumbnail;
                 imgEl.classList.remove('hidden');
                 emptyEl.classList.add('hidden');
                 previewEl.innerHTML = `<img src="${texture.thumbnail}" alt="${texture.display_name || texture.name}">`;
-            } else if (texture._thumbLoading) {
-                imgEl.classList.add('hidden');
-                emptyEl.classList.remove('hidden');
-                previewEl.innerHTML = '<span style="color: var(--text-muted); font-size: 11px;">正在从本地服务加载...</span>';
-            } else if (texture._thumbError) {
-                imgEl.classList.add('hidden');
-                emptyEl.classList.remove('hidden');
-                previewEl.innerHTML = `<span style="color: var(--text-muted); font-size: 11px;">${texture._thumbError}</span>`;
             } else {
                 imgEl.classList.add('hidden');
                 emptyEl.classList.remove('hidden');
-                previewEl.innerHTML = '<span style="color: var(--text-muted); font-size: 11px;">点击纹理后将尝试从本地服务加载</span>';
+                previewEl.innerHTML = '<span style="color: var(--text-muted); font-size: 11px;">未导出缩略图</span>';
             }
         }
         
@@ -964,7 +818,7 @@
         
         // ========== Lightbox ==========
         function openLightbox() {
-            if (!thumbnailsEnabled || !currentTexture || !currentTexture.thumbnail) return;
+            if (!currentTexture || !currentTexture.thumbnail) return;
             
             const lightbox = document.getElementById('lightbox');
             const img = document.getElementById('lightboxImg');
@@ -986,7 +840,7 @@
         });
         
         function addToCompare() {
-            if (!thumbnailsEnabled || !currentTexture) return;
+            if (!currentTexture || !currentTexture.thumbnail) return;
             
             const slotIndex = compareSlots[0] === null ? 0 : (compareSlots[1] === null ? 1 : 0);
             compareSlots[slotIndex] = currentTexture;
@@ -1060,9 +914,7 @@
             
             // 初始化筛选器状态
             setFilter('all');
-
-            // 自动预载缩略图（无需手动点击）
-            autoPreloadThumbnails();
+            renderListThumbnails();
         });
     </script>
 </body>
