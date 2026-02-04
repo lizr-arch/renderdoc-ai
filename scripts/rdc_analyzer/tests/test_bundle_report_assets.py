@@ -54,6 +54,36 @@ def test_map_exported_textures_sets_thumbnail(tmp_path):
     assert textures[0]["thumbnail"] == "textures/tex_1_4x8.png"
 
 
+def test_map_exported_textures_prefers_resource_id(tmp_path):
+    from analyze_xml_report import map_exported_textures
+
+    textures = [
+        {
+            "id": "tex_0",
+            "resource_id": "123",
+            "name": "Tex",
+            "width": 4,
+            "height": 8,
+            "thumbnail": "",
+        }
+    ]
+    export_dir = tmp_path / "textures"
+    export_dir.mkdir(parents=True, exist_ok=True)
+    (export_dir / "tex_123_4x8.png").write_bytes(b"fake")
+
+    updated = map_exported_textures(textures, export_dir)
+    assert updated == 1
+    assert textures[0]["thumbnail"] == "textures/tex_123_4x8.png"
+
+
+def test_load_textures_resource_id():
+    from analyze_xml_report import load_textures_if_available
+
+    xml_data = {"textures": [{"resourceId": "321", "name": "T", "width": 1, "height": 1}]}
+    textures = load_textures_if_available(None, xml_data)
+    assert textures[0]["resource_id"] == "321"
+
+
 def test_load_texture_exporter_fallback(tmp_path):
     from analyze_xml_report import load_texture_exporter
 

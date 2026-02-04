@@ -1423,11 +1423,20 @@ def load_textures_if_available(
 
         for tex_id, tex_info in tex_items:
 
+            resource_id = tex_info.get("resourceId") or tex_info.get("resource_id")
+            if (
+                not resource_id
+                and isinstance(tex_id, str)
+                and tex_id.startswith("tex_")
+                and tex_id[4:].isdigit()
+            ):
+                resource_id = tex_id[4:]
 
             textures.append({
 
 
                 'id': tex_id,
+                'resource_id': resource_id,
 
 
                 'name': tex_info.get('name', ''),
@@ -1484,7 +1493,7 @@ def map_exported_textures(textures: List[Dict[str, Any]], export_dir: Path) -> i
     for tex in textures:
         if not isinstance(tex, dict):
             continue
-        tex_id = tex.get("id") or tex.get("resource_id")
+        tex_id = tex.get("resource_id") or tex.get("resourceId") or tex.get("id")
         width = tex.get("width")
         height = tex.get("height")
         if not tex_id or not width or not height:
