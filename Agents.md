@@ -39,6 +39,15 @@
 | `read_doc` | 读取完整文档 | 详细了解某个文档 |
 | `list_doc_topics` | 列出所有文档主题 | 浏览可用文档 |
 
+### MCP 触发规则（防遗忘强制）
+
+- 会话开始必须调用 `get_project_index`。
+- 进入 `/spec` 或 `/plan` 前，至少一次 `search_docs`（使用 1-3 个任务关键词）。
+- 涉及既有功能/脚本/规范/结论时，必须 `search_docs` 或 `read_doc` 并给出证据路径。
+- 连续 10+ 轮未调用 `mcp__renderdoc_context` 且仍在 RenderDoc 任务中，强制一次 `search_docs`。
+- 无检索结果时必须标注 **假设（待验证）**。
+- **频率底线**：每次会话至少 1 次 `get_project_index` + 1 次 `search_docs`。
+
 ### 数据源
 
 | 类别 | 路径 | 文档数 |
@@ -306,6 +315,33 @@ make -C build-android
 - ❌ 反例：原文件 4 空格缩进，生成代码变成 Tab 或 2 空格
 - ✅ 正例：读取后确认 `indent=4`，生成代码保持 4 空格
 
+#### Python 文件行数规范
+
+> **目的**：保持模块职责单一，便于 AI 辅助开发时的上下文管理
+
+| 阈值 | 说明 | 来源 |
+|------|------|------|
+| **≤500 行** | ✅ 理想目标 | Google Python Style Guide |
+| **500-800 行** | ⚠️ 需拆分计划 | 警告区间 |
+| **>800 行** | ❌ 必须拆分 | 禁止新建 |
+
+**规则**：
+- **新文件**：禁止创建超过 500 行的单个 `.py` 文件
+- **重构**：现有大文件（如 13,700 行的 `generate_offline_report.py`）应拆分为模块
+- **例外**：
+  - 自动生成的代码（如 SWIG 绑定）
+  - 纯数据定义文件（如 `constants.py`）
+  - 第三方代码迁移
+
+**拆分策略**：
+```
+大文件 (>800行)
+    ├── 提取 CSS/JS 为独立资源文件
+    ├── 提取 dataclass 为 models/ 或 types.py
+    ├── 提取核心逻辑为 core/ 模块
+    └── 保留入口函数作为兼容层
+```
+
 ---
 
 ## 3. ENCODING STRATEGY
@@ -506,13 +542,15 @@ py -3 analyze_xml_report.py capture.xml -o report.html --ui-version bundle
 
 | 脚本 | 用途 | 示例命令 |
 |------|------|----------|
-| `main.py` | CLI 主入口 | `py -3 -m rdc_analyzer analyze input.rdc` |
-| `analyze_xml_report.py` | XML → HTML 报告 | `py -3 analyze_xml_report.py input.xml -o report.html` |
-| `rdc_to_bundle_report.py` | RDC → 4页报告包 | `py -3 rdc_to_bundle_report.py input.rdc -o output/` |
+| `report_bundle_generator.py` | **推荐** JSON → 4页报告包 | `py -3 report_bundle_generator.py data.json -o output/` |
+| `rdc_to_bundle_report.py` | RDC → 4页报告包 (需 RenderDoc GUI) | 在 RenderDoc Python Shell 中运行 |
+| `analyze_rdc.py` | Mali Shader 分析报告 | `py -3 analyze_rdc.py input.rdc -o report.html` |
 | `compare_rdc.py` | 双帧对比分析 | `py -3 compare_rdc.py base.rdc target.rdc` |
 | `export_textures.py` | 批量纹理导出 | `py -3 export_textures.py input.rdc -o textures/` |
 | `extract_shaders.py` | Shader 提取 | `py -3 extract_shaders.py input.rdc -o shaders/` |
 | `mali_analyzer.py` | Mali 离线分析 | `py -3 mali_analyzer.py input.rdc --malioc` |
+
+> **注意**: `generate_offline_report.py` 已重构为模板分离版 (382 行)，用于单页纹理报告。
 
 ### 11.3 快速上下文恢复清单
 
