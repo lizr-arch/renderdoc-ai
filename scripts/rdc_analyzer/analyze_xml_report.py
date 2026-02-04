@@ -63,6 +63,7 @@ Version: 1.0.0
 
 import sys
 import os
+import importlib.util
 
 import json
 
@@ -1502,6 +1503,22 @@ def map_exported_textures(textures: List[Dict[str, Any]], export_dir: Path) -> i
         updated += 1
 
     return updated
+
+
+def load_texture_exporter(force_fallback: bool = False):
+    """加载纹理导出器（优先常规导入，失败则回退到直接加载文件）"""
+    if not force_fallback:
+        try:
+            from exporters.texture_batch_exporter import create_export_engine
+            return create_export_engine
+        except Exception:
+            pass
+
+    export_path = Path(__file__).parent / "exporters" / "texture_batch_exporter.py"
+    spec = importlib.util.spec_from_file_location("rdc_texture_batch_exporter", export_path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module.create_export_engine
 
 
 

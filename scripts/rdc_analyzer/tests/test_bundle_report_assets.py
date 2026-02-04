@@ -54,6 +54,13 @@ def test_map_exported_textures_sets_thumbnail(tmp_path):
     assert textures[0]["thumbnail"] == "textures/tex_1_4x8.png"
 
 
+def test_load_texture_exporter_fallback(tmp_path):
+    from analyze_xml_report import load_texture_exporter
+
+    create_export_engine = load_texture_exporter(force_fallback=True)
+    assert callable(create_export_engine)
+
+
 def test_shader_source_rendered(tmp_path):
     gen = ReportBundleGenerator(output_dir=tmp_path, capture_name="t.rdc")
     gen.set_shaders([
