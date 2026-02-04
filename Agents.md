@@ -191,11 +191,6 @@ make -C build-android
     - 破坏性 git：`git push --force`, `git reset --hard`, `git clean -fd`
     - 依赖变更：`npm install`, `pip install`（除非用户显式授权）
 
-### 任务后遗忘分析（非阻塞）
-- 任务完成后由助手基于聊天记录/证据回顾关键功能覆盖情况。
-- 仅用于总结与提示，不作为完成门槛。
-- 若发现遗漏，建议在后续轮次补充。
-
 ### $autonomous-skill 模式
 
 当 `$autonomous-skill` 技能激活时，`$spec-plan-do` 失效，**Stage-Gated**无需用户确认，AI 内部静默遵循 spec→plan→do 三阶段方法论。
