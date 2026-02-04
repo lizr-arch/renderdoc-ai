@@ -2,7 +2,7 @@
 
 
 
-> **更新日期**: 2025-01-31 | **版本**: 1.3.0 | **维护**: Codex Agent
+> **更新日期**: 2025-07-25 | **版本**: 2.2.0 | **维护**: Codex Agent
 
 
 
@@ -36,7 +36,7 @@
 
 |------|------|--------|
 
-| [EXPORT_ROUTES.md](EXPORT_ROUTES.md) | **RDC 报告导出路线图** - 三条导出路线对比（v1.6.0）⭐ | 导出路线, Bundle, XML, 无GPU |
+| [EXPORT_ROUTES.md](EXPORT_ROUTES.md) | **RDC 报告导出路线图** - 三条导出路线 + 新组件（v2.2.0）⭐ | 导出路线, Bundle, XML, 无GPU, RdcAdapter, JsonRenderer |
 | [BATCH_EXPORT.md](BATCH_EXPORT.md) | **纹理批量导出 CLI** - 一键导出所有纹理 (v1.4.0) | 批量导出, CLI, gallery, manifest |
 | [D3D11_SUPPORT.md](D3D11_SUPPORT.md) | **D3D11 纹理提取** - 支持 DirectX 11 离线提取 (v1.5.0) | D3D11, DirectX, DXGI, 离线提取 |
 

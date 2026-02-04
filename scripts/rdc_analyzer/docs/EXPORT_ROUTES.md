@@ -1,6 +1,6 @@
 # RDC 报告导出路线图
 
-> **更新日期**: 2025-01-31 | **版本**: 1.0.0
+> **更新日期**: 2025-07-25 | **版本**: 2.2.0
 
 ## 概述
 
@@ -156,6 +156,42 @@ py -3 -m rdc_analyzer report input.xml -o report.html
 | `rdc_analyzer` CLI | `scripts/rdc_analyzer/` | 主分析工具包 |
 | `report_bundle_generator.py` | `scripts/rdc_analyzer/report_bundle_generator.py` | Bundle 生成引擎 |
 
+### 新增组件 (v2.2)
+
+| 组件 | 路径 | 说明 |
+|------|------|------|
+| `RdcAdapter` | `report_engine/adapters/rdc_adapter.py` | 直接从 .rdc 加载（需 `renderdoc` 模块） |
+| `JsonRenderer` | `report_engine/renderers/json_renderer.py` | JSON 格式报告输出 |
+| `Schemas` | `report_engine/schemas.py` | 字段结构定义（Shader/Pipeline/Texture/Event） |
+
+#### RdcAdapter 说明
+
+`RdcAdapter` 需要 RenderDoc Python 模块才能工作：
+
+```python
+# 需要 renderdoc.pyd (Windows) 或 renderdoc.so (Linux) 在 Python 路径中
+import renderdoc  # 如果失败，RdcAdapter 会优雅降级
+```
+
+**获取方式**：
+1. 从源码编译 RenderDoc（启用 Python 绑定）
+2. 使用官方发布包中的 `pyrenderdoc` 目录
+
+**无模块时的行为**：返回空的 `ReportDataContract`，打印警告信息
+
+#### JsonRenderer 使用示例
+
+```python
+from report_engine import ReportDataContract, JsonRenderer
+
+contract = ReportDataContract(...)
+renderer = JsonRenderer(indent=2)
+json_str = renderer.render(contract)
+
+# 保存到文件
+renderer.render_to_file(contract, "report.json")
+```
+
 ---
 
 ## 故障排查
@@ -197,4 +233,5 @@ py -3 scripts/rdc_analyzer/xml_to_bundle.py ...
 
 | 版本 | 日期 | 变更 |
 |------|------|------|
+| 2.2.0 | 2025-07-25 | 新增 RdcAdapter、JsonRenderer、Schemas 组件说明 |
 | 1.0.0 | 2025-01-31 | 初始版本：三条导出路线 |
