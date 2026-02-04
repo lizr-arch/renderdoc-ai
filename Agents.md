@@ -315,33 +315,6 @@ make -C build-android
 - ❌ 反例：原文件 4 空格缩进，生成代码变成 Tab 或 2 空格
 - ✅ 正例：读取后确认 `indent=4`，生成代码保持 4 空格
 
-#### Python 文件行数规范
-
-> **目的**：保持模块职责单一，便于 AI 辅助开发时的上下文管理
-
-| 阈值 | 说明 | 来源 |
-|------|------|------|
-| **≤500 行** | ✅ 理想目标 | Google Python Style Guide |
-| **500-800 行** | ⚠️ 需拆分计划 | 警告区间 |
-| **>800 行** | ❌ 必须拆分 | 禁止新建 |
-
-**规则**：
-- **新文件**：禁止创建超过 500 行的单个 `.py` 文件
-- **重构**：现有大文件（如 13,700 行的 `generate_offline_report.py`）应拆分为模块
-- **例外**：
-  - 自动生成的代码（如 SWIG 绑定）
-  - 纯数据定义文件（如 `constants.py`）
-  - 第三方代码迁移
-
-**拆分策略**：
-```
-大文件 (>800行)
-    ├── 提取 CSS/JS 为独立资源文件
-    ├── 提取 dataclass 为 models/ 或 types.py
-    ├── 提取核心逻辑为 core/ 模块
-    └── 保留入口函数作为兼容层
-```
-
 ---
 
 ## 3. ENCODING STRATEGY
@@ -542,15 +515,13 @@ py -3 analyze_xml_report.py capture.xml -o report.html --ui-version bundle
 
 | 脚本 | 用途 | 示例命令 |
 |------|------|----------|
-| `report_bundle_generator.py` | **推荐** JSON → 4页报告包 | `py -3 report_bundle_generator.py data.json -o output/` |
-| `rdc_to_bundle_report.py` | RDC → 4页报告包 (需 RenderDoc GUI) | 在 RenderDoc Python Shell 中运行 |
-| `analyze_rdc.py` | Mali Shader 分析报告 | `py -3 analyze_rdc.py input.rdc -o report.html` |
+| `main.py` | CLI 主入口 | `py -3 -m rdc_analyzer analyze input.rdc` |
+| `analyze_xml_report.py` | XML → HTML 报告 | `py -3 analyze_xml_report.py input.xml -o report.html` |
+| `rdc_to_bundle_report.py` | RDC → 4页报告包 | `py -3 rdc_to_bundle_report.py input.rdc -o output/` |
 | `compare_rdc.py` | 双帧对比分析 | `py -3 compare_rdc.py base.rdc target.rdc` |
 | `export_textures.py` | 批量纹理导出 | `py -3 export_textures.py input.rdc -o textures/` |
 | `extract_shaders.py` | Shader 提取 | `py -3 extract_shaders.py input.rdc -o shaders/` |
 | `mali_analyzer.py` | Mali 离线分析 | `py -3 mali_analyzer.py input.rdc --malioc` |
-
-> **注意**: `generate_offline_report.py` 已重构为模板分离版 (382 行)，用于单页纹理报告。
 
 ### 11.3 快速上下文恢复清单
 
