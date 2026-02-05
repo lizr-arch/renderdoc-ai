@@ -133,6 +133,7 @@ body.fixed-viewport {
     flex-direction: column;
     flex-shrink: 0;
     overflow: hidden;
+    min-height: 0;
 }
 
 .panel-left.collapsed {

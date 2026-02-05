@@ -18,7 +18,7 @@
             flex: 1;
             overflow-y: auto;
             overflow-x: hidden;
-            min-height: 200px;
+            min-height: 0;
         }
         
         /* 网格视图切换 */
@@ -334,7 +334,7 @@
     </style>
 </head>
 <body>
-    <div class="app-container">
+    <div class="app-container fixed">
         <!-- 顶部菜单栏 -->
         <header class="app-menubar">
             <div class="app-title">
@@ -447,18 +447,6 @@
                 </div>
                 
                 <div class="panel-content" id="propertiesPanel">
-                    <!-- 预览 -->
-                    <div class="prop-section">
-                        <div class="prop-section-header">
-                            <span class="prop-section-title">预览</span>
-                        </div>
-                        <div class="prop-section-content">
-                            <div class="detail-preview" id="detailPreview" onclick="openLightbox()">
-                                <span style="color: var(--text-muted); font-size: 11px;">选择纹理查看</span>
-                            </div>
-                        </div>
-                    </div>
-                    
                     <!-- 基本信息 -->
                     <div class="prop-section">
                         <div class="prop-section-header" onclick="toggleSection(this)">
@@ -620,9 +608,7 @@
             // 更新预览
             const previewImg = document.getElementById('previewImg');
             const canvasEmpty = document.getElementById('canvasEmpty');
-            const detailPreview = document.getElementById('detailPreview');
-            
-            updateTexturePreview(texture, previewImg, canvasEmpty, detailPreview);
+            updateTexturePreview(texture, previewImg, canvasEmpty);
             
             // 更新属性面板（优先使用 display_name）
             document.getElementById('propName').textContent = texture.display_name || texture.name || '-';
@@ -643,20 +629,17 @@
 
         }
 
-        function updateTexturePreview(texture, previewImg, canvasEmpty, detailPreview) {
+        function updateTexturePreview(texture, previewImg, canvasEmpty) {
             const imgEl = previewImg || document.getElementById('previewImg');
             const emptyEl = canvasEmpty || document.getElementById('canvasEmpty');
-            const previewEl = detailPreview || document.getElementById('detailPreview');
 
             if (texture.thumbnail) {
                 imgEl.src = texture.thumbnail;
                 imgEl.classList.remove('hidden');
                 emptyEl.classList.add('hidden');
-                previewEl.innerHTML = `<img src="${texture.thumbnail}" alt="${texture.display_name || texture.name}">`;
             } else {
                 imgEl.classList.add('hidden');
                 emptyEl.classList.remove('hidden');
-                previewEl.innerHTML = '<span style="color: var(--text-muted); font-size: 11px;">未导出缩略图</span>';
             }
         }
         
@@ -917,5 +900,8 @@
             renderListThumbnails();
         });
     </script>
+    
+    <!-- 跨页面导航模块（证据链跳转） -->
+    <script src="navigation.js"></script>
 </body>
 </html>
