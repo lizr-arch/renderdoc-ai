@@ -714,3 +714,338 @@ PERFORMANCE_RULES: Dict[str, PerformanceRule] = {
         thresholds={"max_rebind_count": 10}  # 同一资源绑定超过 10 次
     ),
 }
+
+
+# ============================================================================
+# M1: 资源使用索引与证据链数据结构
+# ============================================================================
+
+@dataclass
+class UsageRecord:
+    """
+    资源使用记录 (M1.1.1)
+    
+    记录某个资源在某个事件中的使用情况。
+    用于构建资源 → 事件的反向索引。
+    
+    字段说明:
+        event_id: 使用该资源的事件 ID (EID)
+        binding_type: 绑定类型 (SRV | UAV | RTV | DSV | CBV | VB | IB)
+        slot: 绑定槽位 (如 t0, u1, b2 等)
+        purpose_hint: 用途推测 (Albedo | Normal | Shadow | Depth | etc.)
+        pass_name: 所属 Pass 名称 (如有)
+        draw_name: Draw Call 名称 (如 DrawIndexed)
+    """
+    event_id: int
+    binding_type: str = ""  # SRV | UAV | RTV | DSV | CBV | VB | IB
+    slot: int = -1  # 绑定槽位索引
+    purpose_hint: str = ""  # Albedo | Normal | Shadow | Depth | RT | DepthStencil
+    pass_name: str = ""  # Pass 名称
+    draw_name: str = ""  # Draw Call 名称
+    
+    def to_dict(self) -> Dict[str, Any]:
+        """转换为字典格式"""
+        result = {'event_id': self.event_id}
+        if self.binding_type:
+            result['binding_type'] = self.binding_type
+        if self.slot >= 0:
+            result['slot'] = self.slot
+        if self.purpose_hint:
+            result['purpose_hint'] = self.purpose_hint
+        if self.pass_name:
+            result['pass_name'] = self.pass_name
+        if self.draw_name:
+            result['draw_name'] = self.draw_name
+        return result
+
+
+@dataclass
+class ResourceUsageIndex:
+    """
+    资源使用索引 (M1.1.2)
+    
+    存储整帧的资源使用反向索引。
+    支持按资源 ID 快速查找其被哪些事件使用。
+    
+    使用示例:
+        index = ResourceUsageIndex()
+        index.add_usage("tex_0x1234", UsageRecord(event_id=100, binding_type="SRV", slot=0))
+        usages = index.get_usages("tex_0x1234")  # 返回 UsageRecord 列表
+    """
+    # 纹理使用索引: texture_id -> List[UsageRecord]
+    texture_usages: Dict[str, List[UsageRecord]] = field(default_factory=dict)
+    
+    # Shader 使用索引: shader_id -> List[UsageRecord]
+    shader_usages: Dict[str, List[UsageRecord]] = field(default_factory=dict)
+    
+    # Buffer 使用索引: buffer_id -> List[UsageRecord]
+    buffer_usages: Dict[str, List[UsageRecord]] = field(default_factory=dict)
+    
+    # RT 使用索引: rt_id -> List[UsageRecord] (作为输出目标)
+    render_target_usages: Dict[str, List[UsageRecord]] = field(default_factory=dict)
+    
+    def add_texture_usage(self, resource_id: str, record: UsageRecord) -> None:
+        """添加纹理使用记录"""
+        if resource_id not in self.texture_usages:
+            self.texture_usages[resource_id] = []
+        self.texture_usages[resource_id].append(record)
+    
+    def add_shader_usage(self, resource_id: str, record: UsageRecord) -> None:
+        """添加 Shader 使用记录"""
+        if resource_id not in self.shader_usages:
+            self.shader_usages[resource_id] = []
+        self.shader_usages[resource_id].append(record)
+    
+    def add_buffer_usage(self, resource_id: str, record: UsageRecord) -> None:
+        """添加 Buffer 使用记录"""
+        if resource_id not in self.buffer_usages:
+            self.buffer_usages[resource_id] = []
+        self.buffer_usages[resource_id].append(record)
+    
+    def add_rt_usage(self, resource_id: str, record: UsageRecord) -> None:
+        """添加 RenderTarget 使用记录 (作为输出)"""
+        if resource_id not in self.render_target_usages:
+            self.render_target_usages[resource_id] = []
+        self.render_target_usages[resource_id].append(record)
+    
+    def get_texture_usages(self, resource_id: str) -> List[UsageRecord]:
+        """获取纹理的所有使用记录"""
+        return self.texture_usages.get(resource_id, [])
+    
+    def get_shader_usages(self, resource_id: str) -> List[UsageRecord]:
+        """获取 Shader 的所有使用记录"""
+        return self.shader_usages.get(resource_id, [])
+    
+    def get_buffer_usages(self, resource_id: str) -> List[UsageRecord]:
+        """获取 Buffer 的所有使用记录"""
+        return self.buffer_usages.get(resource_id, [])
+    
+    def get_rt_usages(self, resource_id: str) -> List[UsageRecord]:
+        """获取 RenderTarget 的所有使用记录"""
+        return self.render_target_usages.get(resource_id, [])
+    
+    def get_all_usages(self, resource_id: str) -> List[UsageRecord]:
+        """获取任意资源的所有使用记录 (搜索所有索引)"""
+        usages = []
+        usages.extend(self.get_texture_usages(resource_id))
+        usages.extend(self.get_shader_usages(resource_id))
+        usages.extend(self.get_buffer_usages(resource_id))
+        usages.extend(self.get_rt_usages(resource_id))
+        return usages
+    
+    def to_dict(self) -> Dict[str, Any]:
+        """转换为字典格式 (用于 JSON 输出)"""
+        return {
+            'texture_usages': {
+                k: [r.to_dict() for r in v] 
+                for k, v in self.texture_usages.items()
+            },
+            'shader_usages': {
+                k: [r.to_dict() for r in v] 
+                for k, v in self.shader_usages.items()
+            },
+            'buffer_usages': {
+                k: [r.to_dict() for r in v] 
+                for k, v in self.buffer_usages.items()
+            },
+            'render_target_usages': {
+                k: [r.to_dict() for r in v] 
+                for k, v in self.render_target_usages.items()
+            },
+        }
+    
+    def get_statistics(self) -> Dict[str, int]:
+        """获取统计信息"""
+        return {
+            'indexed_textures': len(self.texture_usages),
+            'indexed_shaders': len(self.shader_usages),
+            'indexed_buffers': len(self.buffer_usages),
+            'indexed_render_targets': len(self.render_target_usages),
+            'total_texture_usages': sum(len(v) for v in self.texture_usages.values()),
+            'total_shader_usages': sum(len(v) for v in self.shader_usages.values()),
+            'total_buffer_usages': sum(len(v) for v in self.buffer_usages.values()),
+            'total_rt_usages': sum(len(v) for v in self.render_target_usages.values()),
+        }
+
+
+# ============================================================================
+# M2: 证据链数据结构
+# ============================================================================
+
+@dataclass
+class Action:
+    """
+    跳转操作 (M2 配套)
+    
+    定义 Issue 卡片上的可执行操作（如跳转到事件、查看纹理详情等）。
+    
+    字段说明:
+        type: 操作类型 (jump_to_event | jump_to_texture | jump_to_shader | open_panel)
+        label: 按钮显示文本
+        target_page: 目标页面 (events.html | textures.html | shaders.html | index.html)
+        target_id: 目标元素 ID (如 event_id、texture_id)
+        params: 附加参数 (如 highlight=true)
+    """
+    type: str  # jump_to_event | jump_to_texture | jump_to_shader | open_panel
+    label: str = ""
+    target_page: str = ""  # events.html | textures.html | shaders.html
+    target_id: str = ""  # 目标 ID
+    params: Dict[str, Any] = field(default_factory=dict)  # 附加 URL 参数
+    
+    def to_dict(self) -> Dict[str, Any]:
+        """转换为字典格式"""
+        result = {'type': self.type}
+        if self.label:
+            result['label'] = self.label
+        if self.target_page:
+            result['target_page'] = self.target_page
+        if self.target_id:
+            result['target_id'] = self.target_id
+        if self.params:
+            result['params'] = self.params
+        return result
+    
+    def to_url(self, base_path: str = "") -> str:
+        """生成跳转 URL"""
+        url = f"{base_path}{self.target_page}" if self.target_page else ""
+        params = dict(self.params)
+        if self.target_id:
+            params['id'] = self.target_id
+        if params:
+            param_str = "&".join(f"{k}={v}" for k, v in params.items())
+            url = f"{url}?{param_str}" if url else f"?{param_str}"
+        return url
+
+
+@dataclass
+class ContextEvidence:
+    """
+    上下文证据项 (M2 配套)
+    
+    存储单条证据信息，支持类型化的证据展示。
+    
+    字段说明:
+        type: 证据类型 (metric | resource | state | comparison)
+        label: 证据标签 (如 "纹理尺寸")
+        value: 实际值
+        threshold: 阈值 (可选)
+        unit: 单位 (如 "KB", "px", "%")
+        severity: 证据严重程度 (normal | warning | critical)
+        resource_id: 关联资源 ID (可选)
+    """
+    type: str  # metric | resource | state | comparison
+    label: str
+    value: Any
+    threshold: Optional[Any] = None
+    unit: str = ""
+    severity: str = "normal"  # normal | warning | critical
+    resource_id: Optional[str] = None
+    
+    def to_dict(self) -> Dict[str, Any]:
+        """转换为字典格式"""
+        result = {
+            'type': self.type,
+            'label': self.label,
+            'value': self.value,
+        }
+        if self.threshold is not None:
+            result['threshold'] = self.threshold
+        if self.unit:
+            result['unit'] = self.unit
+        if self.severity != "normal":
+            result['severity'] = self.severity
+        if self.resource_id:
+            result['resource_id'] = self.resource_id
+        return result
+
+
+@dataclass
+class EvidenceChain:
+    """
+    证据链 (M2.1)
+    
+    为每个 Issue 提供完整的证据支持和可执行操作。
+    证据链回答三个核心问题：
+    1. 为什么这是问题？(evidences)
+    2. 影响有多大？(impact_score, affected_resources)
+    3. 如何定位和修复？(actions, verification_plan)
+    
+    字段说明:
+        issue_code: 关联的 Issue 规则 ID
+        summary: 一句话总结
+        evidences: 证据列表
+        actions: 可执行操作列表
+        affected_resources: 受影响的资源 ID 列表
+        affected_events: 受影响的事件 ID 列表
+        impact_score: 影响评分 (0-100)
+        verification_plan: 验证方案描述
+    """
+    issue_code: str
+    summary: str = ""
+    evidences: List[ContextEvidence] = field(default_factory=list)
+    actions: List[Action] = field(default_factory=list)
+    affected_resources: List[str] = field(default_factory=list)
+    affected_events: List[int] = field(default_factory=list)
+    impact_score: float = 0.0  # 0-100
+    verification_plan: str = ""
+    
+    def add_evidence(
+        self,
+        label: str,
+        value: Any,
+        threshold: Optional[Any] = None,
+        unit: str = "",
+        evidence_type: str = "metric",
+        severity: str = "normal",
+        resource_id: Optional[str] = None
+    ) -> 'EvidenceChain':
+        """添加证据项 (链式调用)"""
+        self.evidences.append(ContextEvidence(
+            type=evidence_type,
+            label=label,
+            value=value,
+            threshold=threshold,
+            unit=unit,
+            severity=severity,
+            resource_id=resource_id
+        ))
+        return self
+    
+    def add_action(
+        self,
+        action_type: str,
+        label: str,
+        target_page: str = "",
+        target_id: str = "",
+        **params
+    ) -> 'EvidenceChain':
+        """添加操作 (链式调用)"""
+        self.actions.append(Action(
+            type=action_type,
+            label=label,
+            target_page=target_page,
+            target_id=target_id,
+            params=params
+        ))
+        return self
+    
+    def to_dict(self) -> Dict[str, Any]:
+        """转换为字典格式"""
+        result = {
+            'issue_code': self.issue_code,
+        }
+        if self.summary:
+            result['summary'] = self.summary
+        if self.evidences:
+            result['evidences'] = [e.to_dict() for e in self.evidences]
+        if self.actions:
+            result['actions'] = [a.to_dict() for a in self.actions]
+        if self.affected_resources:
+            result['affected_resources'] = self.affected_resources
+        if self.affected_events:
+            result['affected_events'] = self.affected_events
+        if self.impact_score > 0:
+            result['impact_score'] = self.impact_score
+        if self.verification_plan:
+            result['verification_plan'] = self.verification_plan
+        return result
