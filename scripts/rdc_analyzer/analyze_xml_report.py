@@ -64,6 +64,8 @@ Version: 1.0.0
 import sys
 import os
 import importlib.util
+import shutil
+import subprocess
 
 import json
 
@@ -120,6 +122,125 @@ def log(msg: str):
 
 
     print(f"[analyze_xml_report] {msg}")
+
+
+def _resolve_renderdoccmd(explicit_path: Optional[str] = None) -> Optional[Path]:
+    """尝试解析 renderdoccmd.exe 的绝对路径"""
+    if explicit_path:
+        candidate = Path(explicit_path)
+        if candidate.exists():
+            return candidate
+
+    env_path = os.environ.get("RENDERDOCCMD")
+    if env_path:
+        candidate = Path(env_path)
+        if candidate.exists():
+            return candidate
+
+    resolved = shutil.which("renderdoccmd")
+    if not resolved:
+        resolved = shutil.which("renderdoccmd.exe")
+    if resolved:
+        return Path(resolved)
+
+    repo_root = SCRIPT_DIR.parent.parent
+    candidates = [
+        Path(r"C:\Program Files\RenderDoc\renderdoccmd.exe"),
+        Path(r"C:\Program Files\RenderDoc\x86\renderdoccmd.exe"),
+        repo_root / "x64" / "Development" / "renderdoccmd.exe",
+        repo_root / "dist" / "RenderDoc-CrossGPU-Patch" / "renderdoccmd.exe",
+    ]
+    for candidate in candidates:
+        if candidate.exists():
+            return candidate
+
+    return None
+
+
+def _resolve_zip_path(xml_path: Path) -> Optional[Path]:
+    """根据 XML 路径推断 ZIP 资产文件路径"""
+    if xml_path.name.endswith(".zip.xml"):
+        return xml_path.parent / xml_path.name[:-4]
+    if xml_path.suffix.lower() == ".xml":
+        return xml_path.with_suffix("")
+    return None
+
+
+def _derive_report_stem(input_path: Path) -> str:
+    """生成输出报告的基础名字"""
+    if input_path.name.endswith(".zip.xml"):
+        return input_path.name[:-len(".zip.xml")]
+    return input_path.stem
+
+
+def _convert_rdc_to_zipxml(rdc_path: Path, xml_path: Path, renderdoccmd: Path) -> bool:
+    """使用 renderdoccmd 生成 zip.xml + zip 资产"""
+    log(f"[AUTO] Converting RDC -> ZIP+XML: {rdc_path.name}")
+    cmd = [
+        str(renderdoccmd),
+        "convert",
+        "-f",
+        str(rdc_path),
+        "-o",
+        str(xml_path),
+        "-c",
+        "zip.xml",
+    ]
+    log(f"[AUTO] CMD: {' '.join(cmd)}")
+    result = subprocess.run(
+        cmd,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+    )
+    if result.returncode != 0:
+        log("[AUTO] renderdoccmd failed:")
+        log(result.stdout.strip() if result.stdout else "(no output)")
+        return False
+    return True
+
+
+def _ensure_zipxml_assets(input_path: Path, rdc_hint: Optional[Path]) -> Path:
+    """确保 zip.xml + zip 资产存在，必要时自动调用 renderdoccmd"""
+    xml_path = input_path
+    rdc_path: Optional[Path] = None
+
+    if input_path.suffix.lower() == ".rdc":
+        rdc_path = input_path
+        xml_path = input_path.with_suffix(".zip.xml")
+    elif rdc_hint and rdc_hint.exists():
+        rdc_path = rdc_hint
+    else:
+        if input_path.name.endswith(".zip.xml"):
+            base = input_path.name[:-len(".zip.xml")]
+            candidate = input_path.with_name(base + ".rdc")
+        elif input_path.suffix.lower() == ".xml":
+            candidate = input_path.with_suffix(".rdc")
+        else:
+            candidate = None
+        if candidate and candidate.exists():
+            rdc_path = candidate
+
+    zip_path = _resolve_zip_path(xml_path)
+    if xml_path.exists() and zip_path and zip_path.exists():
+        return xml_path
+
+    if rdc_path and rdc_path.exists():
+        renderdoccmd = _resolve_renderdoccmd()
+        if not renderdoccmd:
+            log("[AUTO] renderdoccmd.exe not found (set RENDERDOCCMD or add to PATH).")
+            return xml_path
+
+        if _convert_rdc_to_zipxml(rdc_path, xml_path, renderdoccmd):
+            zip_path = _resolve_zip_path(xml_path)
+            if xml_path.exists() and zip_path and zip_path.exists():
+                log(f"[AUTO] ZIP+XML ready: {xml_path.name}")
+            else:
+                log("[AUTO] ZIP+XML conversion finished but assets missing.")
+    else:
+        log("[AUTO] Skip ZIP+XML conversion (RDC not found).")
+
+    return xml_path
 
 
 
@@ -1888,12 +2009,23 @@ def run_analysis(xml_path: str, output_path: str, texture_dir: Optional[str] = N
                 try:
                     create_export_engine = load_texture_exporter()
 
+                    limit_env = os.getenv("RDC_TEX_EXPORT_LIMIT", "").strip()
+                    texture_export_limit = None
+                    if limit_env.isdigit():
+                        texture_export_limit = int(limit_env)
+
                     log("  [Texture Export] Exporting textures to PNG...")
                     engine = create_export_engine(xml_path)
-                    summary = engine.export_all(export_dir, save_png=True, save_bin=False)
+                    summary = engine.export_all(
+                        export_dir,
+                        save_png=True,
+                        save_bin=False,
+                        limit=texture_export_limit,
+                    )
                     log(
                         f"  [Texture Export] Done: {summary.success}/{summary.total} "
-                        f"(failed {summary.failed}, skipped {summary.skipped})"
+                        f"(failed {summary.failed}, skipped {summary.skipped}, "
+                        f"limit={texture_export_limit})"
                     )
 
                     mapped = map_exported_textures(textures, export_dir)
@@ -2250,19 +2382,15 @@ def main():
     # 确定输出路径
 
 
-    xml_path = Path(args.xml_path)
-
+    input_path = Path(args.xml_path)
 
     if args.output:
-
-
         output_path = args.output
-
-
     else:
+        output_path = str(input_path.parent / f"{_derive_report_stem(input_path)}_report.html")
 
-
-        output_path = str(xml_path.parent / f"{xml_path.stem}_report.html")
+    rdc_hint = Path(args.rdc_path) if getattr(args, "rdc_path", None) else None
+    xml_path = _ensure_zipxml_assets(input_path, rdc_hint)
 
 
     

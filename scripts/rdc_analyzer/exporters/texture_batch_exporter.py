@@ -123,6 +123,21 @@ class BatchExportSummary:
         }
 
 
+def select_textures_for_export(
+    textures: List[TextureInfo],
+    limit: Optional[int]
+) -> List[TextureInfo]:
+    """按尺寸优先选择纹理（面积大优先，resource_id 小优先）"""
+    if limit is None or limit <= 0:
+        return list(textures)
+
+    ordered = sorted(
+        textures,
+        key=lambda t: (-(t.width * t.height), t.resource_id),
+    )
+    return ordered[:limit]
+
+
 class BaseExportEngine(ABC):
     """导出引擎基类"""
     
@@ -152,7 +167,8 @@ class BaseExportEngine(ABC):
         save_bin: bool = False,
         filter_pattern: Optional[str] = None,
         max_count: int = -1,
-        progress_callback: Optional[Callable[[int, int, TextureInfo], None]] = None
+        progress_callback: Optional[Callable[[int, int, TextureInfo], None]] = None,
+        limit: Optional[int] = None
     ) -> BatchExportSummary:
         """
         批量导出所有纹理
@@ -164,6 +180,7 @@ class BaseExportEngine(ABC):
             filter_pattern: 正则过滤模式 (匹配格式名或尺寸)
             max_count: 最大导出数量
             progress_callback: 进度回调 (current, total, texture)
+            limit: 优先导出数量上限（按面积降序、resource_id 升序）
         
         Returns:
             导出汇总
@@ -180,6 +197,9 @@ class BaseExportEngine(ABC):
                 t for t in textures
                 if pattern.search(t.format) or pattern.search(f"{t.width}x{t.height}")
             ]
+
+        # 限制数量（按面积排序优先）
+        textures = select_textures_for_export(textures, limit)
         
         # 限制数量
         if max_count > 0:
