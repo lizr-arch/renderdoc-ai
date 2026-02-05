@@ -1,9 +1,23 @@
 #!/usr/bin/env python3
 """
-生成 100% 离线 HTML 报告 - 无任何外部依赖 (V2 - 模板分离版)
+生成 100% 离线 HTML 报告 - 单页简化版
 
-专门用于 D3D11/D3D12/Vulkan 纹理分析，不依赖 CDN 或网络资源。
-CSS/JS/HTML 模板存放在 assets/ 和 templates/ 目录。
+⚠️ 重要提示:
+- 这是 **单页简化版**，输出单个 HTML 文件
+- 如需 **完整 4 页面 Bundle 报告**（index/events/textures/shaders），
+  请使用 `xml_to_bundle.py`：
+  
+  py -3 scripts/rdc_analyzer/xml_to_bundle.py input.xml -o output_dir/
+
+适用场景:
+- 快速预览
+- 离线单文件分享
+- 无网络环境查看
+
+技术说明:
+- CSS/JS/HTML 模板存放在 assets/ 和 templates/ 目录
+- 无任何 CDN 或网络依赖
+- 支持 D3D11/D3D12/Vulkan 纹理分析
 """
 
 import json
