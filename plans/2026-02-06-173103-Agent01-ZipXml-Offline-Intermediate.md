@@ -3,7 +3,7 @@
 Version: 1.0.0
 Owner: Agent01 (Codex)
 Created: 2026-02-06 17:31:03
-Status: Draft for approval
+Status: /do completed (Task 1-6 done)
 
 ## Scope
 
@@ -169,12 +169,12 @@ D. CLI 单事件导出入口
 
 ## Task Checklist
 
-- [ ] Task 1: zip.xml 事件索引解析器
-- [ ] Task 2: 单事件资源绑定解析（VB/IB/Texture/Shader）
-- [ ] Task 3: 中间态写入与 schema 对齐
-- [ ] Task 4: CLI 导出入口（zip.xml + zip -> intermediate）
-- [ ] Task 5: 测试覆盖与失败路径断言
-- [ ] Task 6: 文档与计划同步
+- [x] Task 1: zip.xml 事件索引解析器
+- [x] Task 2: 单事件资源绑定解析（VB/IB/Texture/Shader）
+- [x] Task 3: 中间态写入与 schema 对齐
+- [x] Task 4: CLI 导出入口（zip.xml + zip -> intermediate）
+- [x] Task 5: 测试覆盖与失败路径断言
+- [x] Task 6: 文档与计划同步
 
 ## Action Items (TDD, 2–5 minute granularity)
 
@@ -239,3 +239,31 @@ Task 6 — 文档与计划同步
 
 - 你确认后进入 /do，按 Task 1→6 严格 TDD 执行。
 - 每完成 3 个任务回报一次进度与验证结果（Ready for feedback）。
+
+
+## /do Progress Log (2026-02-06)
+
+- Implemented parsers/zipxml_event_parser.py with streaming parse for:
+  - draw/dispatch event index
+  - Vulkan bind extraction for target event
+  - Vulkan kBindBufferMemory and Internal::Initial Contents(eResDeviceMemory) mapping
+- Implemented xtract_event_intermediate.py CLI:
+  - --xml --zip --event --out [--vertex-stride]
+  - offline VB/IB bytes extraction from memory blobs in ZIP
+  - writes vent_<id>/intermediate + manifest.json
+  - runtime JSON schema validation for mesh/material/shader/manifest
+- Added schemas:
+  - schema/intermediate_mesh.schema.json
+  - schema/intermediate_material.schema.json
+  - schema/intermediate_shader.schema.json
+  - schema/intermediate_manifest.schema.json
+- Added/updated tests:
+  - 	est_zipxml_event_resources.py
+  - 	est_extract_event_intermediate.py
+  - 	est_intermediate_schemas.py
+- Real sample validation:
+  - command: py -3 scripts/rdc_analyzer/extract_event_intermediate.py --xml D:\backup\大远景_export.zip.xml --zip D:\backup\大远景_export.zip --event 23300 --out D:\backup\event_extract_test
+  - output: D:\backup\event_extract_test\event_23300\intermediate
+- Test evidence:
+  - py -3 -m pytest scripts/rdc_analyzer/tests/test_zipxml_event_parser.py scripts/rdc_analyzer/tests/test_zipxml_event_resources.py scripts/rdc_analyzer/tests/test_extract_event_intermediate.py scripts/rdc_analyzer/tests/test_intermediate_schemas.py scripts/rdc_analyzer/tests/test_xmlzip_event_extractor.py scripts/rdc_analyzer/tests/test_xmlzip_intermediate_writer.py scripts/rdc_analyzer/tests/test_xmlzip_texture_decode_integration.py -v --tb=short
+  - Result: 19 passed

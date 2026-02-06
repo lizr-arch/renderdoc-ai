@@ -52,6 +52,7 @@
 | [UNREAL_IMPORT.md](UNREAL_IMPORT.md) | **Unreal 导入需求**（官方文档要点） | Unreal, 导入, FBX, PBR |
 | [MESH_SHADER_EXTRACTION.md](MESH_SHADER_EXTRACTION.md) | Mesh/Shader 导出指南 | mesh, vb, ib, shader |
 | [INTERMEDIATE_FORMAT.md](INTERMEDIATE_FORMAT.md) | **XML/ZIP 中间态格式** - 单 Event 输出 | intermediate, schema, zip.xml |
+| [ZIPXML_EVENT_EXTRACTION.md](ZIPXML_EVENT_EXTRACTION.md) | **ZIPXML 单事件离线导出指南**（Vulkan）- 数据来源/CLI/schema/限制 | zip.xml, event, vb, ib, offline |
 
 | [MALI_INTEGRATION_SUMMARY.md](MALI_INTEGRATION_SUMMARY.md) | Mali GPU 分析集成 | Mali, GPU, 性能分析 |
 
