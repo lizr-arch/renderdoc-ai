@@ -124,34 +124,61 @@ def log(msg: str):
     print(f"[analyze_xml_report] {msg}")
 
 
-def _resolve_renderdoccmd(explicit_path: Optional[str] = None) -> Optional[Path]:
-    """尝试解析 renderdoccmd.exe 的绝对路径"""
+def _supports_renderdoccmd_export(binary: Path) -> bool:
+    """检测 renderdoccmd 是否支持 export 子命令"""
+    try:
+        result = subprocess.run(
+            [str(binary), "--help"],
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+    except Exception:
+        return False
+
+    output = "\n".join([result.stdout or "", result.stderr or ""]).lower()
+    return "\n  export" in output or " export " in output
+
+
+def _resolve_renderdoccmd(
+    explicit_path: Optional[str] = None,
+    require_export: bool = False,
+) -> Optional[Path]:
+    """尝试解析 renderdoccmd.exe 的绝对路径（可要求支持 export）"""
+    def _is_usable(path: Path) -> bool:
+        if not path.exists():
+            return False
+        return (not require_export) or _supports_renderdoccmd_export(path)
+
     if explicit_path:
         candidate = Path(explicit_path)
-        if candidate.exists():
+        if _is_usable(candidate):
             return candidate
 
     env_path = os.environ.get("RENDERDOCCMD")
     if env_path:
         candidate = Path(env_path)
-        if candidate.exists():
+        if _is_usable(candidate):
             return candidate
+
+    repo_root = SCRIPT_DIR.parent.parent
+    preferred = [
+        repo_root / "x64" / "Development" / "renderdoccmd.exe",
+        repo_root / "dist" / "RenderDoc-CrossGPU-Patch" / "renderdoccmd.exe",
+    ]
+    fallback = [
+        Path(r"C:\Program Files\RenderDoc\renderdoccmd.exe"),
+        Path(r"C:\Program Files\RenderDoc\x86\renderdoccmd.exe"),
+    ]
 
     resolved = shutil.which("renderdoccmd")
     if not resolved:
         resolved = shutil.which("renderdoccmd.exe")
     if resolved:
-        return Path(resolved)
+        fallback.append(Path(resolved))
 
-    repo_root = SCRIPT_DIR.parent.parent
-    candidates = [
-        Path(r"C:\Program Files\RenderDoc\renderdoccmd.exe"),
-        Path(r"C:\Program Files\RenderDoc\x86\renderdoccmd.exe"),
-        repo_root / "x64" / "Development" / "renderdoccmd.exe",
-        repo_root / "dist" / "RenderDoc-CrossGPU-Patch" / "renderdoccmd.exe",
-    ]
-    for candidate in candidates:
-        if candidate.exists():
+    for candidate in preferred + fallback:
+        if _is_usable(candidate):
             return candidate
 
     return None
@@ -163,6 +190,28 @@ def _resolve_zip_path(xml_path: Path) -> Optional[Path]:
         return xml_path.parent / xml_path.name[:-4]
     if xml_path.suffix.lower() == ".xml":
         return xml_path.with_suffix("")
+    return None
+
+
+def _resolve_rdc_from_xml(xml_path: Path, rdc_hint: Optional[Path] = None) -> Optional[Path]:
+    """根据 XML/ZIP.XML 输入推断对应的 RDC 路径"""
+    if rdc_hint and rdc_hint.exists():
+        return rdc_hint
+
+    if xml_path.suffix.lower() == ".rdc" and xml_path.exists():
+        return xml_path
+
+    candidates: List[Path] = []
+    if xml_path.name.endswith(".zip.xml"):
+        base = xml_path.name[:-len(".zip.xml")]
+        candidates.append(xml_path.with_name(base + ".rdc"))
+    elif xml_path.suffix.lower() == ".xml":
+        candidates.append(xml_path.with_suffix(".rdc"))
+
+    for candidate in candidates:
+        if candidate.exists():
+            return candidate
+
     return None
 
 
@@ -1635,6 +1684,40 @@ def map_exported_textures(textures: List[Dict[str, Any]], export_dir: Path) -> i
     return updated
 
 
+def _run_renderdoccmd_export(rdc_path: Path, export_dir: Path) -> Optional[Path]:
+    """Run renderdoccmd export and return textures.json path if available."""
+    renderdoccmd = _resolve_renderdoccmd(require_export=True)
+    if not renderdoccmd:
+        log("  [Texture Export] renderdoccmd.exe not found or missing export support.")
+        return None
+
+    export_dir.mkdir(parents=True, exist_ok=True)
+    cmd = [
+        str(renderdoccmd),
+        "export",
+        str(rdc_path),
+        "--out",
+        str(export_dir),
+        "--format",
+        "png",
+        "--metadata",
+    ]
+    log(f"  [Texture Export] Running: {' '.join(cmd)}")
+    try:
+        result = subprocess.run(cmd, check=False, capture_output=True, text=True)
+    except Exception as e:
+        log(f"  [Texture Export] renderdoccmd failed: {e}")
+        return None
+
+    if result.stdout:
+        log(result.stdout.strip())
+    if result.stderr:
+        log(result.stderr.strip())
+
+    textures_json = export_dir / "textures.json"
+    return textures_json if textures_json.exists() else None
+
+
 def load_texture_exporter(force_fallback: bool = False):
     """加载纹理导出器（优先常规导入，失败则回退到直接加载文件）"""
     if not force_fallback:
@@ -1651,11 +1734,33 @@ def load_texture_exporter(force_fallback: bool = False):
     return module.create_export_engine
 
 
+def load_renderdoccmd_exporter(force_fallback: bool = False):
+    """加载 renderdoccmd 导出选择器（优先常规导入，失败则回退到直接加载文件）"""
+    if not force_fallback:
+        try:
+            from exporters.renderdoccmd_exporter import load_textures_json, select_textures
+            return load_textures_json, select_textures
+        except Exception:
+            pass
+
+    export_path = Path(__file__).parent / "exporters" / "renderdoccmd_exporter.py"
+    spec = importlib.util.spec_from_file_location("rdc_renderdoccmd_exporter", export_path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module.load_textures_json, module.select_textures
 
 
 
 
-def run_analysis(xml_path: str, output_path: str, texture_dir: Optional[str] = None, ui_version: str = "v1") -> bool:
+
+
+def run_analysis(
+    xml_path: str,
+    output_path: str,
+    texture_dir: Optional[str] = None,
+    ui_version: str = "v1",
+    rdc_path: Optional[Path] = None,
+) -> bool:
 
 
     """
@@ -1714,6 +1819,8 @@ def run_analysis(xml_path: str, output_path: str, texture_dir: Optional[str] = N
 
 
     log(f"Output: {output_path}")
+
+    rdc_source_path = _resolve_rdc_from_xml(xml_path, rdc_path)
 
 
     
@@ -1937,102 +2044,155 @@ def run_analysis(xml_path: str, output_path: str, texture_dir: Optional[str] = N
             # 输出目录为 output_path 去掉后缀的目录
             output_dir = Path(output_path).with_suffix('')
             output_dir.mkdir(parents=True, exist_ok=True)
+            export_source = os.getenv("RDC_TEX_EXPORT_SOURCE", "xmlzip").strip().lower()
             
             # ===== 纹理缩略图生成 =====
             # 尝试生成缩略图（需要 ZIP 格式的 XML 资产文件）
-            try:
-                from thumbnail_generator import ThumbnailGenerator
-                
-                # 查找伴随的 ZIP 文件（renderdoccmd convert 输出格式）
-                # 命名模式：
-                #   - xxx.zip.xml -> xxx.zip (主要模式)
-                #   - xxx.xml -> xxx (无后缀ZIP)
-                #   - xxx.xml -> xxx_assets/ (资产目录)
-                if xml_path.name.endswith('.zip.xml'):
-                    # xxx.zip.xml -> xxx.zip
-                    zip_path = xml_path.parent / xml_path.name[:-4]  # 去掉 .xml
-                else:
-                    # xxx.xml -> xxx (无后缀)
-                    zip_path = xml_path.with_suffix('')
-                assets_dir = xml_path.parent / (xml_path.stem + "_assets")
-                
-                if zip_path.exists():
-                    log(f"  [Thumbnail] Found ZIP asset file: {zip_path.name}")
-                    thumb_gen = ThumbnailGenerator(str(xml_path), str(zip_path))
-                    results = thumb_gen.generate_thumbnails(max_count=30, max_size=96)
-                    
-                    # 转换为 ID -> Base64 映射
-                    thumbnails = {str(r.resource_id): r.base64_data for r in results if r.success}
-                    
-                    # 将缩略图添加到纹理数据
-                    thumb_count = 0
-                    for tex in textures:
-                        tex_id = str(tex.get("id") or tex.get("resource_id", ""))
-                        if tex_id in thumbnails:
-                            tex["thumbnail"] = thumbnails[tex_id]
-                            thumb_count += 1
-                    
-                    if thumb_count > 0:
-                        log(f"  [Thumbnail] Generated {thumb_count} thumbnails")
+            if export_source == "renderdoccmd":
+                log("  [Thumbnail] Skip XML/ZIP thumbnail generation (use renderdoccmd export)")
+            else:
+                try:
+                    from thumbnail_generator import ThumbnailGenerator
+
+                    # 查找伴随的 ZIP 文件（renderdoccmd convert 输出格式）
+                    # 命名模式：
+                    #   - xxx.zip.xml -> xxx.zip (主要模式)
+                    #   - xxx.xml -> xxx (无后缀ZIP)
+                    #   - xxx.xml -> xxx_assets/ (资产目录)
+                    if xml_path.name.endswith('.zip.xml'):
+                        # xxx.zip.xml -> xxx.zip
+                        zip_path = xml_path.parent / xml_path.name[:-4]  # 去掉 .xml
                     else:
-                        log(f"  [Thumbnail] No thumbnails generated (textures may not match)")
-                        
-                elif assets_dir.exists():
-                    log(f"  [Thumbnail] Found assets directory: {assets_dir.name}")
-                    thumb_gen = ThumbnailGenerator(str(xml_path), str(assets_dir))
-                    results = thumb_gen.generate_thumbnails(max_count=30, max_size=96)
-                    
-                    # 转换为 ID -> Base64 映射
-                    thumbnails = {str(r.resource_id): r.base64_data for r in results if r.success}
-                    
-                    thumb_count = 0
-                    for tex in textures:
-                        tex_id = str(tex.get("id") or tex.get("resource_id", ""))
-                        if tex_id in thumbnails:
-                            tex["thumbnail"] = thumbnails[tex_id]
-                            thumb_count += 1
-                    
-                    if thumb_count > 0:
-                        log(f"  [Thumbnail] Generated {thumb_count} thumbnails")
-                else:
-                    log(f"  [Thumbnail] No ZIP/assets found, skipping thumbnails")
-                    
-            except ImportError as e:
-                log(f"  [Thumbnail] Skipped: ThumbnailGenerator not available ({e})")
-            except Exception as e:
-                log(f"  [Thumbnail] Warning: Failed to generate thumbnails: {e}")
+                        # xxx.xml -> xxx (无后缀)
+                        zip_path = xml_path.with_suffix('')
+                    assets_dir = xml_path.parent / (xml_path.stem + "_assets")
+
+                    if zip_path.exists():
+                        log(f"  [Thumbnail] Found ZIP asset file: {zip_path.name}")
+                        thumb_gen = ThumbnailGenerator(str(xml_path), str(zip_path))
+                        results = thumb_gen.generate_thumbnails(max_count=30, max_size=96)
+
+                        # 转换为 ID -> Base64 映射
+                        thumbnails = {str(r.resource_id): r.base64_data for r in results if r.success}
+
+                        # 将缩略图添加到纹理数据
+                        thumb_count = 0
+                        for tex in textures:
+                            tex_id = str(tex.get("id") or tex.get("resource_id", ""))
+                            if tex_id in thumbnails:
+                                tex["thumbnail"] = thumbnails[tex_id]
+                                thumb_count += 1
+
+                        if thumb_count > 0:
+                            log(f"  [Thumbnail] Generated {thumb_count} thumbnails")
+                        else:
+                            log(f"  [Thumbnail] No thumbnails generated (textures may not match)")
+
+                    elif assets_dir.exists():
+                        log(f"  [Thumbnail] Found assets directory: {assets_dir.name}")
+                        thumb_gen = ThumbnailGenerator(str(xml_path), str(assets_dir))
+                        results = thumb_gen.generate_thumbnails(max_count=30, max_size=96)
+
+                        # 转换为 ID -> Base64 映射
+                        thumbnails = {str(r.resource_id): r.base64_data for r in results if r.success}
+
+                        thumb_count = 0
+                        for tex in textures:
+                            tex_id = str(tex.get("id") or tex.get("resource_id", ""))
+                            if tex_id in thumbnails:
+                                tex["thumbnail"] = thumbnails[tex_id]
+                                thumb_count += 1
+
+                        if thumb_count > 0:
+                            log(f"  [Thumbnail] Generated {thumb_count} thumbnails")
+                    else:
+                        log(f"  [Thumbnail] No ZIP/assets found, skipping thumbnails")
+
+                except ImportError as e:
+                    log(f"  [Thumbnail] Skipped: ThumbnailGenerator not available ({e})")
+                except Exception as e:
+                    log(f"  [Thumbnail] Warning: Failed to generate thumbnails: {e}")
 
             # ===== 全量 PNG 纹理导出 =====
             if textures:
                 export_dir = output_dir / "textures"
                 engine = None
                 try:
-                    create_export_engine = load_texture_exporter()
-
                     limit_env = os.getenv("RDC_TEX_EXPORT_LIMIT", "").strip()
-                    texture_export_limit = None
-                    if limit_env.isdigit():
-                        texture_export_limit = int(limit_env)
+                    texture_export_limit = int(limit_env) if limit_env.isdigit() else 3
 
-                    log("  [Texture Export] Exporting textures to PNG...")
-                    engine = create_export_engine(xml_path)
-                    summary = engine.export_all(
-                        export_dir,
-                        save_png=True,
-                        save_bin=False,
-                        limit=texture_export_limit,
-                    )
-                    log(
-                        f"  [Texture Export] Done: {summary.success}/{summary.total} "
-                        f"(failed {summary.failed}, skipped {summary.skipped}, "
-                        f"limit={texture_export_limit})"
-                    )
+                    if export_source == "renderdoccmd":
+                        load_textures_json, select_textures = load_renderdoccmd_exporter()
 
-                    mapped = map_exported_textures(textures, export_dir)
-                    if mapped > 0:
-                        log(f"  [Texture Export] Mapped {mapped} thumbnails")
+                        log("  [Texture Export] Using renderdoccmd export...")
+                        if not rdc_source_path:
+                            log("  [Texture Export] Skip: failed to resolve RDC path for renderdoccmd export")
+                        else:
+                            textures_json = _run_renderdoccmd_export(rdc_source_path, export_dir)
+                            if textures_json:
+                                entries = load_textures_json(textures_json)
+                                selected = select_textures(entries, texture_export_limit)
+                                selected_map: Dict[str, Dict[str, Any]] = {}
+                                selected_files: set[str] = set()
+                                for entry in selected:
+                                    entry_id = entry.get("id")
+                                    if entry_id is None:
+                                        continue
+                                    selected_map[str(entry_id)] = entry
+                                    file_name = entry.get("file")
+                                    if file_name:
+                                        selected_files.add(str(file_name))
+
+                                removed = 0
+                                for png_path in export_dir.glob("*.png"):
+                                    if png_path.name not in selected_files:
+                                        try:
+                                            png_path.unlink()
+                                            removed += 1
+                                        except Exception:
+                                            pass
+
+                                mapped = 0
+                                for tex in textures:
+                                    tex_id = tex.get("resource_id") or tex.get("resourceId") or tex.get("id")
+                                    if tex_id is None:
+                                        continue
+                                    entry = selected_map.get(str(tex_id))
+                                    if entry and entry.get("file"):
+                                        tex["thumbnail"] = f"textures/{entry['file']}"
+                                        mapped += 1
+
+                                log(
+                                    f"  [Texture Export] Done: {mapped}/{len(selected)} "
+                                    f"(limit={texture_export_limit})"
+                                )
+                                log(
+                                    f"  [Texture Export] Pruned {removed} PNG files, kept {len(selected_files)}"
+                                )
+                            else:
+                                log("  [Texture Export] renderdoccmd export failed or no textures.json")
                     else:
-                        log("  [Texture Export] No thumbnails mapped")
+                        create_export_engine = load_texture_exporter()
+
+                        log("  [Texture Export] Exporting textures to PNG...")
+                        engine = create_export_engine(xml_path)
+                        summary = engine.export_all(
+                            export_dir,
+                            save_png=True,
+                            save_bin=False,
+                            limit=texture_export_limit,
+                        )
+                        log(
+                            f"  [Texture Export] Done: {summary.success}/{summary.total} "
+                            f"(failed {summary.failed}, skipped {summary.skipped}, "
+                            f"limit={texture_export_limit})"
+                        )
+
+                        mapped = map_exported_textures(textures, export_dir)
+                        if mapped > 0:
+                            log(f"  [Texture Export] Mapped {mapped} thumbnails")
+                        else:
+                            log("  [Texture Export] No thumbnails mapped")
                 except Exception as e:
                     log(f"  [Texture Export] Warning: {e}")
                 finally:
@@ -2409,7 +2569,8 @@ def main():
 
 
         texture_dir=args.texture_dir,
-        ui_version=getattr(args, 'ui_version', 'v1')
+        ui_version=getattr(args, 'ui_version', 'v1'),
+        rdc_path=rdc_hint,
 
 
     )
