@@ -138,6 +138,24 @@ def select_textures_for_export(
     return ordered[:limit]
 
 
+def tighten_rows_by_pitch(
+    raw: bytes,
+    width: int,
+    height: int,
+    row_pitch: int,
+    fmt: str
+) -> bytes:
+    """去除行 padding（最小实现：RGBA8 行宽 = width * 4）"""
+    if row_pitch <= 0:
+        return raw
+
+    row_bytes = int(width * 4)
+    return b"".join(
+        raw[i * row_pitch : i * row_pitch + row_bytes]
+        for i in range(height)
+    )
+
+
 class BaseExportEngine(ABC):
     """导出引擎基类"""
     
