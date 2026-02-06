@@ -17,11 +17,20 @@ RenderDoc Context MCP Server
     }
 """
 import json
+import os
+import sys
 from typing import Optional
 
 from mcp.server.fastmcp import FastMCP
 
-from .indexer import get_index
+try:
+    from .indexer import get_index
+except ImportError:
+    # Allow running via "mcp run <file>" where no package context exists.
+    repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+    if repo_root not in sys.path:
+        sys.path.insert(0, repo_root)
+    from scripts.context_mcp.indexer import get_index
 
 # 创建 MCP 服务器
 mcp = FastMCP(

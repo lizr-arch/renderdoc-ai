@@ -1,0 +1,1080 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Shader 分析 - G145_Test</title>
+    <link rel="stylesheet" href="common.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
+    <script defer src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+    <style>
+        /* ========== Shaders 页面专用样式 ========== */
+        
+        body {
+            overflow: hidden;
+        }
+        
+        /* Shader 列表项 */
+        .shader-list {
+            flex: 1;
+            overflow-y: auto;
+            overflow-x: hidden;
+            min-height: 0;
+        }
+
+        .toolbar-btn.primary {
+            background: linear-gradient(180deg, #2f81f7 0%, #1f6feb 100%);
+            border: 1px solid #1f6feb;
+            color: #fff;
+            box-shadow: 0 2px 6px rgba(31, 111, 235, 0.35);
+        }
+
+        .toolbar-btn.primary:hover {
+            filter: brightness(1.08);
+        }
+
+        .toolbar-btn.secondary {
+            background: rgba(255, 255, 255, 0.06);
+            border: 1px solid var(--border);
+            color: var(--text-primary);
+        }
+
+        .toolbar-btn.secondary:hover {
+            border-color: var(--accent-blue);
+            color: var(--text-primary);
+        }
+        
+        .shader-item {
+            display: flex;
+            align-items: flex-start;
+            padding: 10px 12px;
+            border-bottom: 1px solid var(--border);
+            cursor: pointer;
+            transition: background 0.15s;
+            gap: 10px;
+        }
+        
+        .shader-item:hover {
+            background: var(--bg-dark);
+        }
+        
+        .shader-item.selected {
+            background: var(--bg-medium);
+            border-left: 2px solid var(--accent-blue);
+        }
+        
+        .shader-item-type {
+            font-size: 18px;
+            min-width: 24px;
+        }
+        
+        .shader-item-info {
+            flex: 1;
+            min-width: 0;
+        }
+        
+        .shader-item-name {
+            font-size: 11px;
+            color: var(--text-primary);
+            font-family: var(--font-mono);
+            word-break: break-all;
+            margin-bottom: 4px;
+        }
+        
+        .shader-item-meta {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+        
+        .shader-meta-tag {
+            font-size: 9px;
+            padding: 2px 6px;
+            border-radius: 8px;
+            background: var(--bg-medium);
+            color: var(--text-muted);
+        }
+        
+        .shader-meta-tag.vs { background: rgba(88, 166, 255, 0.2); color: var(--accent-blue); }
+        .shader-meta-tag.fs { background: rgba(62, 175, 124, 0.2); color: var(--accent-green); }
+        .shader-meta-tag.cs { background: rgba(165, 120, 255, 0.2); color: var(--accent-purple); }
+        
+        /* 性能指示器 */
+        .perf-indicator {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            gap: 2px;
+        }
+        
+        .perf-score {
+            font-size: 12px;
+            font-weight: 600;
+            font-family: var(--font-mono);
+        }
+        
+        .perf-score.good { color: var(--accent-green); }
+        .perf-score.moderate { color: var(--accent-yellow); }
+        .perf-score.poor { color: var(--accent-red); }
+        
+        .perf-label {
+            font-size: 9px;
+            color: var(--text-muted);
+        }
+        
+        /* 代码查看器 */
+        .code-viewer {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        
+        .code-tabs {
+            display: flex;
+            background: var(--bg-darker);
+            border-bottom: 1px solid var(--border);
+        }
+        
+        .code-tab {
+            padding: 8px 16px;
+            font-size: 11px;
+            color: var(--text-muted);
+            cursor: pointer;
+            border-bottom: 2px solid transparent;
+            transition: all 0.15s;
+        }
+        
+        .code-tab:hover {
+            color: var(--text-primary);
+            background: var(--bg-dark);
+        }
+        
+        .code-tab.active {
+            color: var(--accent-blue);
+            border-bottom-color: var(--accent-blue);
+        }
+        
+        .code-content {
+            flex: 1;
+            overflow: auto;
+            background: var(--bg-darkest);
+            padding: 12px;
+            font-family: var(--font-mono);
+            font-size: 11px;
+            line-height: 1.6;
+            white-space: pre-wrap;
+            color: var(--text-secondary);
+        }
+        
+        .code-content .keyword { color: var(--accent-purple); }
+        .code-content .type { color: var(--accent-blue); }
+        .code-content .function { color: var(--accent-green); }
+        .code-content .string { color: var(--accent-orange); }
+        .code-content .number { color: var(--accent-cyan); }
+        .code-content .comment { color: var(--text-muted); font-style: italic; }
+
+        .shader-source {
+            max-height: 220px;
+            overflow: auto;
+            background: var(--bg-darkest);
+            padding: 8px;
+            font-family: var(--font-mono);
+            font-size: 10px;
+            line-height: 1.5;
+            white-space: pre-wrap;
+            color: var(--text-secondary);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+        }
+        
+        /* Mali 分析面板 */
+        .mali-panel {
+            background: var(--bg-darker);
+            border-radius: var(--radius-md);
+            margin-bottom: 12px;
+            overflow: hidden;
+        }
+        
+        .mali-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 10px 12px;
+            background: var(--bg-dark);
+            cursor: pointer;
+        }
+        
+        .mali-header:hover {
+            background: var(--bg-medium);
+        }
+        
+        .mali-title {
+            font-size: 11px;
+            font-weight: 500;
+            color: var(--text-primary);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        
+        .mali-logo {
+            width: 16px;
+            height: 16px;
+            background: linear-gradient(135deg, #00c853, #00b0ff);
+            border-radius: 3px;
+        }
+        
+        .mali-toggle {
+            color: var(--text-muted);
+            font-size: 10px;
+        }
+        
+        .mali-content {
+            padding: 12px;
+        }
+        
+        .mali-panel.collapsed .mali-content {
+            display: none;
+        }
+        
+        /* 性能指标网格 */
+        .perf-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 8px;
+            margin-bottom: 12px;
+        }
+        
+        .perf-card {
+            background: var(--bg-darkest);
+            border-radius: var(--radius-sm);
+            padding: 10px;
+            text-align: center;
+        }
+        
+        .perf-card-value {
+            font-size: 18px;
+            font-weight: 600;
+            font-family: var(--font-mono);
+            color: var(--text-primary);
+            margin-bottom: 4px;
+        }
+        
+        .perf-card-value.good { color: var(--accent-green); }
+        .perf-card-value.moderate { color: var(--accent-yellow); }
+        .perf-card-value.poor { color: var(--accent-red); }
+        
+        .perf-card-label {
+            font-size: 9px;
+            color: var(--text-muted);
+            text-transform: uppercase;
+        }
+        
+        /* 管线阶段统计 */
+        .pipeline-stats {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        
+        .pipeline-stat-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .pipeline-stat-label {
+            font-size: 10px;
+            color: var(--text-muted);
+            min-width: 80px;
+        }
+        
+        .pipeline-stat-bar {
+            flex: 1;
+            height: 16px;
+            background: var(--bg-darkest);
+            border-radius: 8px;
+            overflow: hidden;
+            position: relative;
+        }
+        
+        .pipeline-stat-fill {
+            height: 100%;
+            border-radius: 8px;
+            transition: width 0.3s ease;
+        }
+        
+        .pipeline-stat-fill.arith { background: linear-gradient(90deg, var(--accent-blue), var(--accent-cyan)); }
+        .pipeline-stat-fill.ls { background: linear-gradient(90deg, var(--accent-green), var(--accent-yellow)); }
+        .pipeline-stat-fill.tex { background: linear-gradient(90deg, var(--accent-purple), var(--accent-pink)); }
+        .pipeline-stat-fill.vary { background: linear-gradient(90deg, var(--accent-orange), var(--accent-red)); }
+        
+        .pipeline-stat-value {
+            font-size: 10px;
+            font-family: var(--font-mono);
+            color: var(--text-primary);
+            min-width: 50px;
+            text-align: right;
+        }
+        
+        /* 寄存器使用 */
+        .register-usage {
+            display: flex;
+            gap: 12px;
+            padding: 10px;
+            background: var(--bg-darkest);
+            border-radius: var(--radius-sm);
+            margin-top: 12px;
+        }
+        
+        .register-item {
+            flex: 1;
+            text-align: center;
+        }
+        
+        .register-value {
+            font-size: 14px;
+            font-weight: 500;
+            color: var(--text-primary);
+            font-family: var(--font-mono);
+        }
+        
+        .register-label {
+            font-size: 9px;
+            color: var(--text-muted);
+        }
+        
+        /* 建议面板 */
+        .suggestion-section {
+            margin-top: 12px;
+            padding-top: 12px;
+            border-top: 1px solid var(--border);
+        }
+        
+        .suggestion-title {
+            font-size: 10px;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            margin-bottom: 8px;
+        }
+        
+        .suggestion-item {
+            display: flex;
+            gap: 8px;
+            padding: 8px;
+            background: var(--bg-darkest);
+            border-radius: var(--radius-sm);
+            margin-bottom: 6px;
+            font-size: 10px;
+        }
+        
+        .suggestion-icon {
+            flex-shrink: 0;
+        }
+        
+        .suggestion-text {
+            color: var(--text-secondary);
+            line-height: 1.4;
+        }
+        
+        .suggestion-item.warn {
+            border-left: 2px solid var(--accent-yellow);
+        }
+        
+        .suggestion-item.error {
+            border-left: 2px solid var(--accent-red);
+        }
+        
+        .suggestion-item.info {
+            border-left: 2px solid var(--accent-blue);
+        }
+        
+        /* 使用情况列表 */
+        .usage-list {
+            max-height: 150px;
+            overflow-y: auto;
+        }
+        
+        .usage-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 8px;
+            border-radius: var(--radius-sm);
+            cursor: pointer;
+            transition: background 0.15s;
+            font-size: 10px;
+        }
+        
+        .usage-item:hover {
+            background: var(--bg-medium);
+        }
+        
+        .usage-eid {
+            color: var(--accent-blue);
+            font-family: var(--font-mono);
+            min-width: 50px;
+        }
+        
+        .usage-name {
+            flex: 1;
+            color: var(--text-secondary);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        
+        /* 对比视图 */
+        .compare-mode .code-viewer {
+            width: 50%;
+        }
+        
+        .compare-divider {
+            width: 4px;
+            background: var(--border);
+            cursor: col-resize;
+        }
+        
+        /* 搜索高亮 */
+        .highlight {
+            background: rgba(249, 197, 19, 0.3);
+            padding: 0 2px;
+            border-radius: 2px;
+        }
+        
+        /* 空状态 */
+        .empty-mali {
+            text-align: center;
+            padding: 24px;
+            color: var(--text-muted);
+        }
+        
+        .empty-mali-icon {
+            font-size: 32px;
+            margin-bottom: 8px;
+        }
+        
+        .empty-mali-text {
+            font-size: 11px;
+        }
+
+        /* AI Shader 优化模式 */
+        body.ai-optimize .panel-right {
+            width: 240px !important;
+        }
+
+        body.ai-optimize .panel-left {
+            width: 240px !important;
+        }
+
+        body.ai-optimize .mali-panel {
+            display: none;
+        }
+
+        body.ai-optimize .code-content {
+            font-size: 12px;
+            line-height: 1.7;
+        }
+    </style>
+</head>
+<body>
+    <div class="app-container fixed">
+        <!-- 顶部菜单栏 -->
+        <header class="app-menubar">
+            <div class="app-title">
+                <div class="logo"></div>
+                <span>RDC Analyzer</span>
+            </div>
+            
+            <nav class="app-menu">
+                <a href="index.html" class="menu-item">📊 概览</a>
+                <a href="textures.html" class="menu-item">🖼️ 纹理</a>
+                <a href="events.html" class="menu-item">📋 事件</a>
+                <a href="shaders.html" class="menu-item active">🎨 Shaders</a>
+                <a href="recommendations.html" class="menu-item">💡 优化</a>
+            </nav>
+            
+            <div class="app-meta">
+                <span>0 Shaders</span>
+                <span>|</span>
+                <span>0 已分析</span>
+            </div>
+        </header>
+        
+        <!-- 主工作区 -->
+        <div class="app-workspace">
+            <!-- 左侧面板 - Shader 列表 -->
+            <aside class="panel-left" style="width: 280px;" id="panelLeft">
+                <div class="panel-header" onclick="togglePanel('panelLeft')">
+                    <span class="panel-title">Shader 列表</span>
+                    <span class="panel-toggle">▼</span>
+                </div>
+                
+                <!-- 筛选工具栏 -->
+                <div class="filter-toolbar">
+                    <input type="text" class="search-box" id="shaderSearch" placeholder="搜索 Shader..." oninput="filterShaders()">
+                    <div class="filter-row" style="margin-top: 6px;">
+                        <select class="sort-select" id="sortSelect" onchange="sortShaders()">
+                            <option value="name">名称</option>
+                            <option value="cycles">周期数</option>
+                            <option value="usage">使用次数</option>
+                        </select>
+                        <span class="stats-badge" id="shaderStats">0 项</span>
+                    </div>
+                    <div class="filter-chips" style="margin-top: 6px;">
+                        <span class="filter-chip" data-filter="all" onclick="setFilter('all')">全部</span>
+                        <span class="filter-chip" data-filter="vs" onclick="setFilter('vs')">VS</span>
+                        <span class="filter-chip" data-filter="fs" onclick="setFilter('fs')">FS</span>
+                        <span class="filter-chip" data-filter="cs" onclick="setFilter('cs')">CS</span>
+                        <span class="filter-chip warn" data-filter="issues" onclick="setFilter('issues')">⚠️ 问题</span>
+                    </div>
+                </div>
+                
+                <!-- Shader 列表 -->
+                <div class="shader-list" id="shaderList">
+                    
+                </div>
+            </aside>
+            
+            <!-- 中间主区域 - 代码查看器 -->
+            <main class="main-canvas-area">
+                <div class="canvas-toolbar">
+                    <div class="toolbar-group">
+                        <span class="zoom-display" id="currentShader">选择 Shader</span>
+                    </div>
+                    
+                    <div style="flex: 1;"></div>
+                    
+                    <div class="toolbar-group">
+                        <button class="toolbar-btn primary" id="hlslBtn" title="查看 HLSL 代码">查看 HLSL 代码</button>
+                        <button class="toolbar-btn secondary" id="aiOptimizeBtn" title="AI Shader 优化">AI Shader 优化</button>
+                    </div>
+                    
+                    <div class="toolbar-group">
+                        <button class="toolbar-btn" id="wrapBtn" title="自动换行">↩️</button>
+                        <button class="toolbar-btn" id="searchBtn" title="搜索">🔍</button>
+                    </div>
+                    
+                    <div class="toolbar-group" style="border-right: none;">
+                        <button class="toolbar-btn" id="copyBtn" title="复制代码">📋</button>
+                        <button class="toolbar-btn" id="exportBtn" title="导出">💾</button>
+                    </div>
+                </div>
+                
+                <!-- 代码内容 -->
+                <div class="code-viewer">
+                    <div class="code-content" id="codeContent">
+                        <div class="canvas-empty">
+                            <div class="canvas-empty-icon">🎨</div>
+                            <div class="canvas-empty-text">从左侧列表选择 Shader</div>
+                        </div>
+                    </div>
+                </div>
+            </main>
+            
+            <!-- 右侧面板 - Mali 分析结果 -->
+            <aside class="panel-right" style="width: 320px;" id="panelRight">
+                <div class="panel-header" onclick="togglePanel('panelRight')">
+                    <span class="panel-title">性能分析</span>
+                    <span class="panel-toggle">▼</span>
+                </div>
+                
+                <div class="panel-content" id="analysisPanel">
+                    <!-- Mali 分析面板 -->
+                    <div class="mali-panel" id="maliPanel">
+                        <div class="mali-header" onclick="toggleMaliPanel()">
+                            <span class="mali-title">
+                                <span class="mali-logo"></span>
+                                Mali Offline Compiler
+                            </span>
+                            <span class="mali-toggle">▼</span>
+                        </div>
+                        <div class="mali-content" id="maliContent">
+                            <div class="empty-mali">
+                                <div class="empty-mali-icon">📊</div>
+                                <div class="empty-mali-text">选择 Shader 查看 Mali 分析结果</div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 基本信息 -->
+                    <div class="prop-section">
+                        <div class="prop-section-header" onclick="toggleSection(this)">
+                            <span class="prop-section-title">Shader 信息</span>
+                            <span class="prop-section-toggle">▼</span>
+                        </div>
+                        <div class="prop-section-content">
+                            <div class="prop-row">
+                                <span class="prop-label">类型</span>
+                                <span class="prop-value" id="propType">-</span>
+                            </div>
+                            <div class="prop-row">
+                                <span class="prop-label">入口点</span>
+                                <span class="prop-value" id="propEntry">-</span>
+                            </div>
+                            <div class="prop-row">
+                                <span class="prop-label">代码行数</span>
+                                <span class="prop-value" id="propLines">-</span>
+                            </div>
+                            <div class="prop-row">
+                                <span class="prop-label">使用次数</span>
+                                <span class="prop-value highlight" id="propUsage">-</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- HLSL 源码 -->
+                    <div class="prop-section">
+                        <div class="prop-section-header" onclick="toggleSection(this)">
+                            <span class="prop-section-title">HLSL 源码</span>
+                            <span class="prop-section-toggle">▼</span>
+                        </div>
+                        <div class="prop-section-content">
+                            <pre class="shader-source" id="shaderSource">选择 Shader 查看源码</pre>
+                        </div>
+                    </div>
+                    
+                    <!-- 性能建议 -->
+                    <div class="prop-section">
+                        <div class="prop-section-header" onclick="toggleSection(this)">
+                            <span class="prop-section-title">优化建议</span>
+                            <span class="prop-section-toggle">▼</span>
+                        </div>
+                        <div class="prop-section-content" id="suggestionsContent">
+                            <div class="analysis-tip info">选择 Shader 查看建议</div>
+                        </div>
+                    </div>
+                    
+                    <!-- 使用情况 -->
+                    <div class="prop-section">
+                        <div class="prop-section-header" onclick="toggleSection(this)">
+                            <span class="prop-section-title">使用情况</span>
+                            <span class="prop-section-toggle">▼</span>
+                        </div>
+                        <div class="prop-section-content">
+                            <div class="usage-list" id="usageList">
+                                <div style="color: var(--text-muted); font-size: 10px; text-align: center; padding: 12px;">
+                                    选择 Shader 查看使用情况
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 快捷操作 -->
+                    <div style="padding: 12px;">
+                        <div class="detail-actions">
+                            <button class="detail-action-btn primary" onclick="jumpToEvent()">
+                                📋 查看事件
+                            </button>
+                            <button class="detail-action-btn secondary" onclick="exportShader()">
+                                💾 导出
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </aside>
+        </div>
+    </div>
+    
+    <script>
+        // ========== 状态管理 ==========
+        let currentShader = null;
+        let currentFilter = 'all';
+        let hlslViewEnabled = false;
+        
+        // ========== Shader 数据 (由 Python 生成器填充) ==========
+        const shaderData = [];
+        
+        // ========== 面板控制 ==========
+        function togglePanel(panelId) {
+            document.getElementById(panelId).classList.toggle('collapsed');
+        }
+        
+        function toggleSection(header) {
+            header.parentElement.classList.toggle('collapsed');
+        }
+        
+        function toggleMaliPanel() {
+            document.getElementById('maliPanel').classList.toggle('collapsed');
+        }
+        
+        // ========== Shader 选择 ==========
+        function selectShader(id) {
+            const shader = shaderData.find(s => s.id === id);
+            if (!shader) return;
+            
+            currentShader = shader;
+            hlslViewEnabled = false;
+            
+            // 更新列表选中状态
+            document.querySelectorAll('.shader-item').forEach(el => {
+                el.classList.remove('selected');
+            });
+            const item = document.querySelector(`.shader-item[data-id="${id}"]`);
+            if (item) {
+                item.classList.add('selected');
+                item.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+            }
+            
+            // 更新工具栏
+            document.getElementById('currentShader').textContent = shader.name || `Shader ${id}`;
+            
+            // 更新代码查看器
+            updateCodeViewer(shader);
+            
+            // 更新 Mali 分析
+            updateMaliAnalysis(shader);
+            
+            // 更新基本信息
+            updateShaderInfo(shader);
+            
+            // 更新使用情况
+            updateUsageList(shader);
+            
+            // 更新建议
+            updateSuggestions(shader);
+        }
+        
+        function getHlslSource(shader) {
+            if (!shader) return '';
+            if (shader.source_hlsl) {
+                return shader.source_hlsl;
+            }
+            const formatHint = String(shader.format || shader.encoding || '').toLowerCase();
+            if (formatHint.includes('hlsl')) {
+                return shader.source || '';
+            }
+            return '';
+        }
+
+        function updateCodeViewer(shader) {
+            const content = document.getElementById('codeContent');
+            if (!shader) return;
+
+            if (!hlslViewEnabled) {
+                content.innerHTML = `
+                    <div class="canvas-empty" style="max-width: 420px;">
+                        <div class="canvas-empty-icon">🧾</div>
+                        <div class="canvas-empty-text" style="font-size: 14px; margin-bottom: 8px;">
+                            点击“查看 HLSL 代码”以加载源码
+                        </div>
+                        <div style="font-size: 10px; color: var(--text-muted); line-height: 1.6; text-align: left; padding: 0 20px;">
+                            <p style="margin-bottom: 6px;"><strong>Shader ID:</strong> ${shader.id || 'N/A'}</p>
+                            <p style="margin-bottom: 6px;"><strong>类型:</strong> ${shader.type || shader.stage || 'Unknown'}</p>
+                        </div>
+                    </div>
+                `;
+                return;
+            }
+
+            const code = getHlslSource(shader);
+            if (code) {
+                content.innerHTML = '<pre><code id="codeBlock" class="language-hlsl"></code></pre>';
+                const codeEl = document.getElementById('codeBlock');
+                if (window.hljs) {
+                    codeEl.textContent = code;
+                    hljs.highlightElement(codeEl);
+                } else {
+                    codeEl.innerHTML = highlightCode(code);
+                }
+            } else {
+                content.innerHTML = `
+                    <div class="canvas-empty" style="max-width: 420px;">
+                        <div class="canvas-empty-icon">⚠️</div>
+                        <div class="canvas-empty-text" style="font-size: 14px; margin-bottom: 8px;">
+                            未检测到 HLSL 源码
+                        </div>
+                        <div style="font-size: 10px; color: var(--text-muted); line-height: 1.6; text-align: left; padding: 0 20px;">
+                            <p style="margin-bottom: 8px;"><strong>建议：</strong>在 RenderDoc 设置中配置 Shader Processing Tools 以启用 HLSL 反编译。</p>
+                        </div>
+                    </div>
+                `;
+            }
+        }
+
+        function showHlsl() {
+            if (!currentShader) return;
+            hlslViewEnabled = true;
+            updateCodeViewer(currentShader);
+        }
+
+        function toggleAiOptimize() {
+            document.body.classList.toggle('ai-optimize');
+        }
+        
+        function highlightCode(code) {
+            // 简单的语法高亮
+            return code
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/\b(void|float|vec[234]|mat[234]|int|uint|bool|sampler2D|samplerCube|uniform|varying|attribute|in|out|inout|layout|location|binding|precision|highp|mediump|lowp|const|struct|if|else|for|while|return|discard|break|continue)\b/g, '<span class="keyword">$1</span>')
+                .replace(/\b(gl_Position|gl_FragColor|gl_FragCoord|gl_VertexID|gl_InstanceID)\b/g, '<span class="type">$1</span>')
+                .replace(/\b(\d+\.?\d*[fF]?)\b/g, '<span class="number">$1</span>')
+                .replace(/(\/\/.*$)/gm, '<span class="comment">$1</span>')
+                .replace(/(\/\*[\s\S]*?\*\/)/g, '<span class="comment">$1</span>');
+        }
+        
+        function updateMaliAnalysis(shader) {
+            const content = document.getElementById('maliContent');
+            
+            if (!shader.mali) {
+                content.innerHTML = `
+                    <div class="empty-mali">
+                        <div class="empty-mali-icon">📊</div>
+                        <div class="empty-mali-text">无 Mali 分析数据</div>
+                    </div>
+                `;
+                return;
+            }
+            
+            const mali = shader.mali;
+            const cycleClass = mali.totalCycles > 100 ? 'poor' : (mali.totalCycles > 50 ? 'moderate' : 'good');
+            
+            content.innerHTML = `
+                <!-- 性能指标网格 -->
+                <div class="perf-grid">
+                    <div class="perf-card">
+                        <div class="perf-card-value ${cycleClass}">${mali.totalCycles || '-'}</div>
+                        <div class="perf-card-label">总周期</div>
+                    </div>
+                    <div class="perf-card">
+                        <div class="perf-card-value">${mali.shortestPath || '-'}</div>
+                        <div class="perf-card-label">最短路径</div>
+                    </div>
+                    <div class="perf-card">
+                        <div class="perf-card-value">${mali.longestPath || '-'}</div>
+                        <div class="perf-card-label">最长路径</div>
+                    </div>
+                    <div class="perf-card">
+                        <div class="perf-card-value">${mali.boundUnit || '-'}</div>
+                        <div class="perf-card-label">瓶颈单元</div>
+                    </div>
+                </div>
+                
+                <!-- 管线阶段统计 -->
+                <div class="pipeline-stats">
+                    <div class="pipeline-stat-row">
+                        <span class="pipeline-stat-label">算术</span>
+                        <div class="pipeline-stat-bar">
+                            <div class="pipeline-stat-fill arith" style="width: ${(mali.arith / mali.totalCycles * 100) || 0}%"></div>
+                        </div>
+                        <span class="pipeline-stat-value">${mali.arith || 0}</span>
+                    </div>
+                    <div class="pipeline-stat-row">
+                        <span class="pipeline-stat-label">加载/存储</span>
+                        <div class="pipeline-stat-bar">
+                            <div class="pipeline-stat-fill ls" style="width: ${(mali.ls / mali.totalCycles * 100) || 0}%"></div>
+                        </div>
+                        <span class="pipeline-stat-value">${mali.ls || 0}</span>
+                    </div>
+                    <div class="pipeline-stat-row">
+                        <span class="pipeline-stat-label">纹理采样</span>
+                        <div class="pipeline-stat-bar">
+                            <div class="pipeline-stat-fill tex" style="width: ${(mali.tex / mali.totalCycles * 100) || 0}%"></div>
+                        </div>
+                        <span class="pipeline-stat-value">${mali.tex || 0}</span>
+                    </div>
+                    <div class="pipeline-stat-row">
+                        <span class="pipeline-stat-label">变量</span>
+                        <div class="pipeline-stat-bar">
+                            <div class="pipeline-stat-fill vary" style="width: ${(mali.vary / mali.totalCycles * 100) || 0}%"></div>
+                        </div>
+                        <span class="pipeline-stat-value">${mali.vary || 0}</span>
+                    </div>
+                </div>
+                
+                <!-- 寄存器使用 -->
+                <div class="register-usage">
+                    <div class="register-item">
+                        <div class="register-value">${mali.workRegisters || '-'}</div>
+                        <div class="register-label">工作寄存器</div>
+                    </div>
+                    <div class="register-item">
+                        <div class="register-value">${mali.uniformRegisters || '-'}</div>
+                        <div class="register-label">Uniform 寄存器</div>
+                    </div>
+                    <div class="register-item">
+                        <div class="register-value">${mali.stackSpilling ? '是' : '否'}</div>
+                        <div class="register-label">栈溢出</div>
+                    </div>
+                </div>
+            `;
+        }
+        
+        function updateShaderInfo(shader) {
+            const typeMap = {
+                'vertex': '🔵 顶点着色器',
+                'fragment': '🟢 片段着色器',
+                'compute': '🟣 计算着色器',
+                'vs': '🔵 顶点着色器',
+                'fs': '🟢 片段着色器',
+                'cs': '🟣 计算着色器'
+            };
+            
+            document.getElementById('propType').textContent = typeMap[shader.type] || shader.type || '-';
+            document.getElementById('propEntry').textContent = shader.entryPoint || 'main';
+            document.getElementById('propLines').textContent = shader.lineCount || (shader.source?.split('\n').length || '-');
+            document.getElementById('propUsage').textContent = shader.usedBy?.length || 0;
+            const hlslSource = getHlslSource(shader);
+            document.getElementById('shaderSource').textContent = hlslSource || '未检测到 HLSL 源码';
+        }
+        
+        function updateUsageList(shader) {
+            const list = document.getElementById('usageList');
+            
+            if (shader.usedBy && shader.usedBy.length > 0) {
+                list.innerHTML = shader.usedBy.slice(0, 20).map(usage => `
+                    <div class="usage-item" onclick="jumpToEvent(${usage.eid})">
+                        <span class="usage-eid">EID ${usage.eid}</span>
+                        <span class="usage-name">${usage.name || 'Draw Call'}</span>
+                    </div>
+                `).join('');
+            } else {
+                list.innerHTML = `
+                    <div style="color: var(--text-muted); font-size: 10px; text-align: center; padding: 12px;">
+                        未被任何事件使用
+                    </div>
+                `;
+            }
+        }
+        
+        function updateSuggestions(shader) {
+            const content = document.getElementById('suggestionsContent');
+            
+            if (shader.suggestions && shader.suggestions.length > 0) {
+                content.innerHTML = shader.suggestions.map(s => `
+                    <div class="suggestion-item ${s.level || 'info'}">
+                        <span class="suggestion-icon">${s.level === 'error' ? '🔴' : (s.level === 'warn' ? '🟡' : '🔵')}</span>
+                        <span class="suggestion-text">${s.message}</span>
+                    </div>
+                `).join('');
+            } else if (shader.mali && shader.mali.totalCycles > 100) {
+                content.innerHTML = `
+                    <div class="suggestion-item warn">
+                        <span class="suggestion-icon">🟡</span>
+                        <span class="suggestion-text">Shader 周期数较高 (${shader.mali.totalCycles})，考虑优化算法或减少纹理采样</span>
+                    </div>
+                `;
+            } else {
+                content.innerHTML = '<div class="analysis-tip success">✅ 未发现明显问题</div>';
+            }
+        }
+        
+        // ========== 筛选与排序 ==========
+        function filterShaders() {
+            const keyword = document.getElementById('shaderSearch').value.toLowerCase();
+            let visible = 0;
+            
+            document.querySelectorAll('.shader-item').forEach(item => {
+                const name = item.dataset.name?.toLowerCase() || '';
+                const type = item.dataset.type?.toLowerCase() || '';
+                const matchKeyword = !keyword || name.includes(keyword);
+                const matchFilter = checkFilter(item);
+                
+                if (matchKeyword && matchFilter) {
+                    item.classList.remove('hidden');
+                    visible++;
+                } else {
+                    item.classList.add('hidden');
+                }
+            });
+            
+            document.getElementById('shaderStats').textContent = `${visible} 项`;
+        }
+        
+        function checkFilter(item) {
+            if (currentFilter === 'all') return true;
+            if (currentFilter === 'issues') return item.dataset.hasIssue === 'true';
+            return item.dataset.type === currentFilter;
+        }
+        
+        function setFilter(filter) {
+            currentFilter = filter;
+            document.querySelectorAll('.filter-chip').forEach(chip => {
+                chip.classList.toggle('active', chip.dataset.filter === filter);
+            });
+            filterShaders();
+        }
+        
+        function sortShaders() {
+            const sortBy = document.getElementById('sortSelect').value;
+            const list = document.getElementById('shaderList');
+            const items = Array.from(list.querySelectorAll('.shader-item'));
+            
+            items.sort((a, b) => {
+                switch (sortBy) {
+                    case 'name':
+                        return (a.dataset.name || '').localeCompare(b.dataset.name || '');
+                    case 'cycles':
+                        return parseInt(b.dataset.cycles || 0) - parseInt(a.dataset.cycles || 0);
+                    case 'usage':
+                        return parseInt(b.dataset.usage || 0) - parseInt(a.dataset.usage || 0);
+                    default:
+                        return 0;
+                }
+            });
+            
+            items.forEach(item => list.appendChild(item));
+        }
+        
+        // ========== 跳转 ==========
+        function jumpToEvent(eid) {
+            if (eid) {
+                window.location.href = `events.html?eid=${eid}`;
+            } else if (currentShader && currentShader.usedBy && currentShader.usedBy.length > 0) {
+                window.location.href = `events.html?eid=${currentShader.usedBy[0].eid}`;
+            }
+        }
+        
+        // ========== 导出 ==========
+        function exportShader() {
+            if (!currentShader) return;
+            const code = getHlslSource(currentShader);
+            if (!code) return;
+            
+            const blob = new Blob([code], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `${currentShader.name || 'shader'}.hlsl`;
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+        
+        document.getElementById('copyBtn').addEventListener('click', () => {
+            if (!currentShader) return;
+            const code = getHlslSource(currentShader);
+            if (!code) return;
+            navigator.clipboard.writeText(code);
+        });
+        
+        // ========== 初始化 ==========
+        document.addEventListener('DOMContentLoaded', () => {
+            const params = new URLSearchParams(window.location.search);
+            
+            // 如果有 id 参数，选中对应 Shader
+            const id = params.get('id');
+            if (id) {
+                selectShader(id);
+            } else if (shaderData.length > 0) {
+                selectShader(shaderData[0].id);
+            }
+            
+            // 初始化筛选器
+            setFilter('all');
+
+            const hlslBtn = document.getElementById('hlslBtn');
+            if (hlslBtn) {
+                hlslBtn.addEventListener('click', showHlsl);
+            }
+
+            const aiBtn = document.getElementById('aiOptimizeBtn');
+            if (aiBtn) {
+                aiBtn.addEventListener('click', toggleAiOptimize);
+            }
+        });
+    </script>
+</body>
+</html>

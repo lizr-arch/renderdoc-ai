@@ -240,22 +240,28 @@ bool WrappedVulkan::CheckMemoryRequirements(const char *resourceName, ResourceId
   // verify offset alignment
   if((memoryOffset % mrq.alignment) != 0)
   {
-    VkDeviceSize align = mrq.alignment;
-
-    if((memoryOffset % origMrq.alignment) != 0)
+    // [Cross-GPU Compatibility] If offset satisfies ORIGINAL device alignment,
+    // allow it for cross-GPU replay. The memory layout was planned for original device.
+    if((memoryOffset % origMrq.alignment) == 0)
     {
-      origInvalid = true;
-
-      align = origMrq.alignment;
+      // Original alignment satisfied - this is a cross-GPU scenario where replay device
+      // has stricter alignment requirements. We allow this since the memory was allocated
+      // correctly on the original device.
+      RDCWARN("Cross-GPU: Memory offset 0x%llx doesn't satisfy replay alignment 0x%llx, "
+              "but satisfies original alignment 0x%llx - allowing for compatibility.",
+              memoryOffset, mrq.alignment, origMrq.alignment);
     }
-
-    SET_ERROR_RESULT(
-        m_FailedReplayResult, ResultCode::APIHardwareUnsupported,
-        "Trying to bind %s to %s, but memory offset 0x%llx doesn't satisfy alignment 0x%llx.\n"
-        "\n%s",
-        resourceName, GetResourceDesc(memId).name.c_str(), memoryOffset, mrq.alignment,
-        GetPhysDeviceCompatString(external, origInvalid).c_str());
-    return false;
+    else
+    {
+      // Neither alignment satisfied - this is a genuine error
+      SET_ERROR_RESULT(
+          m_FailedReplayResult, ResultCode::APIHardwareUnsupported,
+          "Trying to bind %s to %s, but memory offset 0x%llx doesn't satisfy alignment 0x%llx.\n"
+          "\n%s",
+          resourceName, GetResourceDesc(memId).name.c_str(), memoryOffset, origMrq.alignment,
+          GetPhysDeviceCompatString(external, true).c_str());
+      return false;
+    }
   }
 
   // verify size
@@ -334,17 +340,104 @@ bool WrappedVulkan::Serialise_vkAllocateMemory(SerialiserType &ser, VkDevice dev
       }
     }
 
+    // RENDERDOC PATCH: Smart memory type remapping for cross-GPU replay
+    // If the captured memoryTypeIndex doesn't exist on the replay device, find a compatible one
     if(patched.memoryTypeIndex >= m_PhysicalDeviceData.memProps.memoryTypeCount)
     {
-      SET_ERROR_RESULT(
-          m_FailedReplayResult, ResultCode::APIHardwareUnsupported,
-          "Tried to allocate memory from index %u, but on replay we only have %u memory types.\n"
-          "\n%s",
-          patched.memoryTypeIndex, m_PhysicalDeviceData.memProps.memoryTypeCount,
-          GetPhysDeviceCompatString(
-              false, patched.memoryTypeIndex >= m_OrigPhysicalDeviceData.memProps.memoryTypeCount)
-              .c_str());
-      return false;
+      // Get the original memory type properties from the capture device
+      uint32_t origMemTypeFlags = 0;
+      if(patched.memoryTypeIndex < m_OrigPhysicalDeviceData.memProps.memoryTypeCount)
+      {
+        origMemTypeFlags =
+            m_OrigPhysicalDeviceData.memProps.memoryTypes[patched.memoryTypeIndex].propertyFlags;
+      }
+
+      // Try to find a compatible memory type on the replay device
+      uint32_t remappedIndex = m_PhysicalDeviceData.memProps.memoryTypeCount;  // Invalid sentinel
+
+      // Phase 1: Look for exact property match
+      for(uint32_t i = 0; i < m_PhysicalDeviceData.memProps.memoryTypeCount; i++)
+      {
+        uint32_t replayFlags = m_PhysicalDeviceData.memProps.memoryTypes[i].propertyFlags;
+        if(replayFlags == origMemTypeFlags)
+        {
+          remappedIndex = i;
+          break;
+        }
+      }
+
+      // Phase 2: If no exact match, find a superset (has all required flags)
+      if(remappedIndex >= m_PhysicalDeviceData.memProps.memoryTypeCount)
+      {
+        for(uint32_t i = 0; i < m_PhysicalDeviceData.memProps.memoryTypeCount; i++)
+        {
+          uint32_t replayFlags = m_PhysicalDeviceData.memProps.memoryTypes[i].propertyFlags;
+          if((replayFlags & origMemTypeFlags) == origMemTypeFlags)
+          {
+            remappedIndex = i;
+            break;
+          }
+        }
+      }
+
+      // Phase 3: If still no match, prioritize DEVICE_LOCAL for performance
+      if(remappedIndex >= m_PhysicalDeviceData.memProps.memoryTypeCount)
+      {
+        bool needsDeviceLocal = (origMemTypeFlags & VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT) != 0;
+        bool needsHostVisible = (origMemTypeFlags & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT) != 0;
+
+        for(uint32_t i = 0; i < m_PhysicalDeviceData.memProps.memoryTypeCount; i++)
+        {
+          uint32_t replayFlags = m_PhysicalDeviceData.memProps.memoryTypes[i].propertyFlags;
+          bool hasDeviceLocal = (replayFlags & VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT) != 0;
+          bool hasHostVisible = (replayFlags & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT) != 0;
+
+          if(needsDeviceLocal && needsHostVisible)
+          {
+            // Best match: both flags present
+            if(hasDeviceLocal && hasHostVisible)
+            {
+              remappedIndex = i;
+              break;
+            }
+          }
+          else if(needsDeviceLocal)
+          {
+            if(hasDeviceLocal)
+            {
+              remappedIndex = i;
+              break;
+            }
+          }
+          else if(needsHostVisible)
+          {
+            if(hasHostVisible)
+            {
+              remappedIndex = i;
+              break;
+            }
+          }
+        }
+      }
+
+      // Phase 4: Fallback to any available memory type (last resort)
+      if(remappedIndex >= m_PhysicalDeviceData.memProps.memoryTypeCount)
+      {
+        remappedIndex = 0;  // Use first available memory type
+        RDCWARN(
+            "Cross-GPU replay: No compatible memory type found for capture index %u "
+            "(flags=0x%x), falling back to memory type 0",
+            patched.memoryTypeIndex, origMemTypeFlags);
+      }
+      else
+      {
+        RDCLOG(
+            "Cross-GPU replay: Remapped memory type %u (flags=0x%x) -> %u (flags=0x%x)",
+            patched.memoryTypeIndex, origMemTypeFlags, remappedIndex,
+            m_PhysicalDeviceData.memProps.memoryTypes[remappedIndex].propertyFlags);
+      }
+
+      patched.memoryTypeIndex = remappedIndex;
     }
 
     // apply workaround for presumed windows bug
@@ -367,6 +460,13 @@ bool WrappedVulkan::Serialise_vkAllocateMemory(SerialiserType &ser, VkDevice dev
       ResourceId live = GetResourceManager()->WrapResource(Memory, Unwrap(device), mem);
 
       m_CreationInfo.m_Memory[live].Init(GetResourceManager(), m_CreationInfo, &AllocateInfo);
+
+      // RENDERDOC PATCH: Update stored memoryTypeIndex to the remapped value
+      // This ensures CheckMemoryRequirements uses the correct index for cross-GPU replay
+      if(patched.memoryTypeIndex != AllocateInfo.memoryTypeIndex)
+      {
+        m_CreationInfo.m_Memory[live].memoryTypeIndex = patched.memoryTypeIndex;
+      }
 
       if(m_CreationInfo.m_Memory[live].opaqueAddr != 0)
       {

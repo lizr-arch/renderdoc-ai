@@ -1,0 +1,143 @@
+{
+    "capture_info": {
+        "name": "TestCapture_2025-01-21",
+        "api": "Vulkan",
+        "device": "NVIDIA RTX 4090",
+        "driver_version": "545.29.06",
+        "frame_number": 1234
+    },
+    "textures": [
+        {
+            "id": 1,
+            "name": "Albedo_MainCharacter",
+            "width": 2048,
+            "height": 2048,
+            "format": "BC7_SRGB",
+            "mips": 11,
+            "size_bytes": 5592405,
+            "usage": "ShaderResource"
+        },
+        {
+            "id": 2,
+            "name": "Normal_MainCharacter",
+            "width": 2048,
+            "height": 2048,
+            "format": "BC5_UNORM",
+            "mips": 11,
+            "size_bytes": 2796202,
+            "usage": "ShaderResource"
+        },
+        {
+            "id": 3,
+            "name": "ShadowMap_Sun",
+            "width": 4096,
+            "height": 4096,
+            "format": "D32_FLOAT",
+            "mips": 1,
+            "size_bytes": 67108864,
+            "usage": "DepthStencil"
+        },
+        {
+            "id": 4,
+            "name": "RT_GBuffer0",
+            "width": 1920,
+            "height": 1080,
+            "format": "R8G8B8A8_UNORM",
+            "mips": 1,
+            "size_bytes": 8294400,
+            "usage": "RenderTarget"
+        }
+    ],
+    "events": [
+        {"eid": 1, "name": "BeginFrame", "type": "marker_push"},
+        {"eid": 2, "name": "Clear RenderTarget", "type": "clear"},
+        {"eid": 3, "name": "ShadowPass", "type": "marker_push"},
+        {"eid": 4, "name": "DrawCall", "type": "draw", "indices": 36000, "instances": 1},
+        {"eid": 5, "name": "DrawCall", "type": "draw", "indices": 24000, "instances": 1},
+        {"eid": 6, "name": "ShadowPass", "type": "marker_pop"},
+        {"eid": 7, "name": "GBufferPass", "type": "marker_push"},
+        {"eid": 8, "name": "DrawCall", "type": "draw", "indices": 48000, "instances": 1},
+        {"eid": 9, "name": "DrawCall", "type": "draw", "indices": 12000, "instances": 50},
+        {"eid": 10, "name": "GBufferPass", "type": "marker_pop"},
+        {"eid": 11, "name": "DeferredLighting", "type": "marker_push"},
+        {"eid": 12, "name": "Dispatch", "type": "dispatch", "groups": [120, 68, 1]},
+        {"eid": 13, "name": "DeferredLighting", "type": "marker_pop"},
+        {"eid": 14, "name": "PostProcess", "type": "marker_push"},
+        {"eid": 15, "name": "BloomDownsample", "type": "dispatch", "groups": [60, 34, 1]},
+        {"eid": 16, "name": "BloomUpsample", "type": "dispatch", "groups": [60, 34, 1]},
+        {"eid": 17, "name": "ToneMapping", "type": "draw", "indices": 6, "instances": 1},
+        {"eid": 18, "name": "PostProcess", "type": "marker_pop"},
+        {"eid": 19, "name": "UI", "type": "marker_push"},
+        {"eid": 20, "name": "DrawUI", "type": "draw", "indices": 1200, "instances": 1},
+        {"eid": 21, "name": "UI", "type": "marker_pop"},
+        {"eid": 22, "name": "EndFrame", "type": "marker_pop"}
+    ],
+    "shaders": [
+        {
+            "id": 1,
+            "name": "ShadowCaster_VS",
+            "stage": "Vertex",
+            "entry_point": "main",
+            "instruction_count": 45
+        },
+        {
+            "id": 2,
+            "name": "GBuffer_VS",
+            "stage": "Vertex",
+            "entry_point": "main",
+            "instruction_count": 120
+        },
+        {
+            "id": 3,
+            "name": "GBuffer_PS",
+            "stage": "Pixel",
+            "entry_point": "main",
+            "instruction_count": 280
+        },
+        {
+            "id": 4,
+            "name": "DeferredLighting_CS",
+            "stage": "Compute",
+            "entry_point": "main",
+            "instruction_count": 520
+        }
+    ],
+    "recommendations": [
+        {
+            "id": "TEX-001",
+            "severity": "warning",
+            "category": "texture",
+            "title": "大型 Shadow Map 纹理",
+            "description": "ShadowMap_Sun (4096x4096) 占用 64MB 显存，考虑使用级联阴影贴图或降低分辨率",
+            "suggestion": "使用 2048x2048 级联阴影贴图 (CSM) 替代单一高分辨率阴影图；或使用 VSM/ESM 等软阴影技术",
+            "impact": "可减少约 48MB 显存占用"
+        },
+        {
+            "id": "DC-001",
+            "severity": "info",
+            "category": "drawcall",
+            "title": "使用了 GPU Instancing",
+            "description": "检测到 DrawCall #9 使用了 50 个实例，这是良好的批处理实践",
+            "suggestion": "继续保持，考虑将更多相似物体合并为实例化绘制",
+            "impact": "已优化"
+        },
+        {
+            "id": "SHD-001",
+            "severity": "critical",
+            "category": "shader",
+            "title": "Compute Shader 指令数较高",
+            "description": "DeferredLighting_CS 有 520 条指令，可能导致 GPU 占用率下降",
+            "suggestion": "考虑拆分为多个 Pass；使用 LUT 替代复杂计算；检查是否有冗余采样",
+            "impact": "可能提升 10-20% 光照 Pass 性能"
+        },
+        {
+            "id": "MEM-001",
+            "severity": "warning",
+            "category": "memory",
+            "title": "总显存占用较高",
+            "description": "纹理总占用约 83MB，其中阴影贴图占 77%",
+            "suggestion": "优化阴影贴图分辨率；使用纹理流送；考虑动态分辨率",
+            "impact": "可减少 40-50MB 显存"
+        }
+    ]
+}

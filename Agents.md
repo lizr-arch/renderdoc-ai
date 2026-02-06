@@ -1,6 +1,6 @@
 # Codex Project Configuration: RenderDoc (Graphics Debugger / C++)
 
-> **Version**: 1.0.0 | **Updated**: 2025-01-16 | **For**: Codex Executor
+> **Version**: 1.1.0 | **Updated**: 2025-02-05 | **For**: Codex Executor
 > 
 > **项目简介**: RenderDoc 是一个开源的帧捕获图形调试器，支持 Vulkan、D3D11、D3D12、OpenGL 和 OpenGL ES。
 >
@@ -485,21 +485,55 @@ void MyFunction()
 ## 9. RDC → HTML 报告导出（命令行，无需 GUI）
 
 > **源码分析路线图**：见 `docs/analysis/PROJECT_INDEX.md`
+> 
+> **⚠️ 重要**：详细导出路线请参阅 `scripts/rdc_analyzer/docs/EXPORT_ROUTES.md`
+
+### 9.1 报告类型对照表（必读）
+
+| 报告类型 | 脚本 | 输出 | 适用场景 |
+|----------|------|------|----------|
+| **Bundle 报告** ⭐ | `xml_to_bundle.py` | 4 页面（index/events/textures/shaders） | **生产环境推荐**，完整分析界面 |
+| 单页离线报告 | `generate_offline_report.py` | 单个 HTML 文件 | 快速预览，离线查看 |
+| 简化报告 | `rdc_analyzer report` | 单页 HTML | 最小依赖，快速统计 |
+
+### 9.2 推荐工作流（Bundle 报告）
 
 ```bash
-# 一步式（推荐）
-py -3 -m rdc_analyzer analyze capture.rdc -o output_dir/
-
-# 两步式（手动控制）
+# 步骤 1: RDC → XML（使用 renderdoccmd）
 renderdoccmd.exe convert -c xml -o capture.xml capture.rdc
-py -3 analyze_xml_report.py capture.xml -o report.html --ui-version bundle
+
+# 步骤 2: XML → Bundle 报告
+py -3 scripts/rdc_analyzer/xml_to_bundle.py capture.xml -o output_dir/
 ```
 
-| UI 版本 | 说明 |
-|---------|------|
-| `v1` | 传统单页（默认） |
-| `v2` | 新四视图 |
-| `bundle` | 4页面互联报告包 |
+**输出文件**：
+- `index.html` - 仪表盘概览
+- `events.html` - 事件时间线（支持跨页跳转）
+- `textures.html` - 纹理浏览器（支持跨页跳转）
+- `shaders.html` - Shader 分析（支持跨页跳转）
+- `manifest.json` - 元数据
+
+### 9.2.1 跨页面证据链 (v2.4.0)
+
+> 详细文档：`scripts/rdc_analyzer/docs/EVIDENCE_CHAIN.md`
+
+| 里程碑 | 方向 | 说明 |
+|--------|------|------|
+| **M1** | Texture → Event | 纹理卡片点击跳转到使用该纹理的 Draw Call |
+| **M2** | Event → Shader | Draw Call 点击跳转到绑定的 Shader |
+| **M3** | Shader → Event/Texture | Shader 页面显示反向引用链接 |
+
+**技术实现**：URL 参数传递 + 自动滚动定位 + CSS 脉冲高亮动画
+
+### 9.3 其他导出方式
+
+```bash
+# 一步式（需 GPU + renderdoc 模块）
+py -3 -m rdc_analyzer analyze capture.rdc -o output_dir/
+
+# 单页离线报告（轻量级）
+py -3 scripts/rdc_analyzer/generate_offline_report.py capture.xml -o report.html
+```
 
 > **注意**：XML 只含元数据，纹理缩略图/Shader源码需用 RenderDoc Python API 或 `renderdoccmd export`。
 

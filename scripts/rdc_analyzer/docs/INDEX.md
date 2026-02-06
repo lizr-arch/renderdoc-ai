@@ -2,7 +2,7 @@
 
 
 
-> **更新日期**: 2025-07-25 | **版本**: 2.2.0 | **维护**: Codex Agent
+> **更新日期**: 2025-02-05 | **版本**: 2.4.0 | **维护**: Codex Agent
 
 
 
@@ -73,7 +73,23 @@
 
 
 
-### 📝 格式与规范
+### � 证据链与交互 (v2.4.0 新增)
+
+| 文档 | 说明 | 关键词 |
+|------|------|--------|
+| [EVIDENCE_CHAIN.md](EVIDENCE_CHAIN.md) | **跨页面证据链** - M1/M2/M3 里程碑实现 | 证据链, 跨页跳转, URL参数, 高亮 |
+
+**功能摘要**：
+- **M1** (Texture → Event)：纹理卡片点击跳转到 Events 页面对应 Draw Call
+- **M2** (Event → Shader)：Events 页面跳转到 Shaders 页面对应 Shader
+- **M3** (Shader → Event/Texture)：Shader 详情跳转回关联的 Event 或 Texture
+
+**技术实现**：
+- URL 参数传递：`?id=468&highlight=true`
+- 自动滚动定位 + CSS 脉冲高亮动画
+- 支持离线 HTML 报告
+
+### �📝 格式与规范
 
 | 文档 | 说明 | 关键词 |
 
@@ -176,6 +192,52 @@
 | [docs/analysis/gpu-dependency-solutions.md](../../../docs/analysis/gpu-dependency-solutions.md) | GPU 依赖解决方案 |
 
 
+
+---
+
+
+
+## 📁 Assets 资源目录结构
+
+> **v2.3.0 新增**：CSS/JS 从 Python 中分离，实现关注点分离
+
+```
+scripts/rdc_analyzer/assets/
+├── styles/                          # CSS 样式文件
+│   ├── html_reporter.css            # html_reporter.py 使用
+│   ├── simple_report.css            # generate_simple_report.py 使用
+│   ├── sample_report.css            # generate_sample_report.py 使用（Mali Shader）
+│   └── texture_gallery.css          # export_textures.py 使用
+│
+├── scripts/                         # JavaScript 文件
+│   ├── simple_report.js             # generate_simple_report.py 使用
+│   └── sample_report.js             # generate_sample_report.py 使用（Mali Shader）
+│
+└── fonts/                           # 字体文件（预留）
+```
+
+### 资源加载模式
+
+所有独立脚本使用统一的 `_load_asset()` 辅助函数：
+
+```python
+from pathlib import Path
+
+_ASSETS_DIR = Path(__file__).parent / "assets"
+
+def _load_asset(relative_path: str, fallback: str = "") -> str:
+    """加载 assets 目录下的资源文件"""
+    try:
+        return (_ASSETS_DIR / relative_path).read_text(encoding='utf-8')
+    except FileNotFoundError:
+        return fallback
+```
+
+**使用示例**：
+```python
+css = _load_asset("styles/simple_report.css", "/* CSS not found */")
+js = _load_asset("scripts/simple_report.js", "// JS not found")
+```
 
 ---
 

@@ -22,7 +22,76 @@ from typing import List, Optional, Dict, Any
 # 从 parsers 包导入所有必需类型（向后兼容）
 # ============================================================================
 
-from parsers import (
+try:
+    # 作为包导入时（如 from rdc_analyzer.rdc_parser import ...）
+    from .parsers import (
+        # 常量
+        RDC_MAGIC_BYTES,
+        RDC_VERSION_1_0,
+        RDC_VERSION_1_1,
+        RDC_VERSION_1_2,
+        FIRST_DRIVER_CHUNK,
+        CHUNK_ALIGNMENT,
+        CHUNK_64BIT_SIZE,
+        CHUNK_INDEX_MASK,
+        CHUNK_CALLSTACK,
+        CHUNK_THREAD_ID,
+        CHUNK_DURATION,
+        CHUNK_TIMESTAMP,
+        SPIRV_MAGIC,
+        SPIRV_OP_NAME,
+        SPIRV_OP_ENTRY_POINT,
+        SPIRV_EXEC_MODEL_NAMES,
+        # 枚举
+        RDCDriver,
+        SectionType,
+        SectionFlags,
+        VulkanChunk,
+        VK_FORMAT_NAMES,
+        # 数据模型
+        FileHeader,
+        Thumbnail,
+        CaptureMetaData,
+        TimeBase,
+        SectionInfo,
+        ChunkInfo,
+        DrawEventContext,
+        PipelineInfo,
+        ShaderResource,
+        SPIRVEntryPoint,
+        ShaderInfo,
+        TextureInfo,
+        RDCFileInfo,
+        # IO 工具
+        BinaryReader,
+        read_u8_from_bytes,
+        read_u16_from_bytes,
+        read_u32_from_bytes,
+        read_u64_from_bytes,
+        read_i32_from_bytes,
+        read_f32_from_bytes,
+        read_f64_from_bytes,
+        read_string_from_bytes,
+        align_offset,
+        # 解析器
+        SectionParser,
+        parse_rdc_file,
+        ChunkParser,
+        parse_frame_chunks,
+        ShaderExtractor,
+        extract_vulkan_shaders,
+        TextureExtractor,
+        extract_vulkan_textures,
+        DrawEventParser,
+        extract_draw_events,
+        MARKER_BEGIN_CHUNK_IDS,
+        MARKER_END_CHUNK_IDS,
+        DRAW_CHUNK_IDS,
+        DISPATCH_CHUNK_IDS,
+    )
+except ImportError:
+    # 直接运行时（如 python rdc_parser.py）
+    from parsers import (
     # 常量
     RDC_MAGIC_BYTES,
     RDC_VERSION_1_0,
@@ -342,6 +411,23 @@ def extract_textures(filepath: str) -> List[TextureInfo]:
     return extract_vulkan_textures(filepath)
 
 
+def extract_resource_renames(filepath: str) -> Dict[int, str]:
+    """
+    提取 RDC 文件中的用户自定义资源名称（便捷函数）
+    
+    RenderDoc UI 允许用户为资源设置自定义名称（右键 -> Set Custom Name）。
+    这些名称存储在 RDC 文件的 ResourceRenames section 中。
+    
+    Args:
+        filepath: RDC 文件路径
+        
+    Returns:
+        Dict[int, str]: ResourceID 到自定义名称的映射
+    """
+    parser = SectionParser(filepath)
+    return parser.parse_resource_renames()
+
+
 # ============================================================================
 # __all__ 导出（保持 API 兼容）
 # ============================================================================
@@ -383,6 +469,7 @@ __all__ = [
     'parse_rdc',
     'extract_shaders',
     'extract_textures',
+    'extract_resource_renames',
     # 新 API（推荐）
     'parse_rdc_file',
     'parse_frame_chunks',

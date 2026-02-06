@@ -11,7 +11,7 @@
 1. `docs/analysis/codex_rdc_analyzer/WORK_SUMMARY_2025-01-21.md`（阅读总览）
 2. `docs/analysis/codex_rdc_analyzer/WORK_SUMMARY_ROUTES.md`（A/B/C 路线）
 3. `docs/analysis/codex_rdc_analyzer/WORK_SUMMARY_SCHEMA.md`（Schema/Bridge）
-4. `docs/analysis/codex_rdc_analyzer/2026-01-31-rdc-analyzer-data-richness-baseline.md`（数据丰富度基线）
+4. `docs/analysis/codex_rdc_analyzer/2025-01-31-rdc-analyzer-data-richness-baseline.md`（数据丰富度基线）
 5. `docs/analysis/codex_rdc_analyzer/WORK_SUMMARY_VERIFICATION.md`（验证流程）
 6. `docs/analysis/codex_rdc_analyzer/WORK_SUMMARY_ROADMAP.md`（优先级/计划）
 7. `docs/analysis/codex_rdc_analyzer/WORK_SUMMARY_BUILD.md`（环境/编译）
@@ -36,11 +36,11 @@
 - 适用链路：A/B
 - 路径：`docs/analysis/codex_rdc_analyzer/WORK_SUMMARY_SCHEMA.md`
 
-### 2026-01-31-rdc-analyzer-data-richness-baseline（数据丰富度基线）
+### 2025-01-31-rdc-analyzer-data-richness-baseline（数据丰富度基线）
 - 简介：对标 RenderDoc 源码字段，给出 A+C 覆盖/缺口与是否需 replay 的边界。
 - 关键词：data richness, coverage, RenderDoc baseline, replay
 - 适用路线：A/B/C
-- 路径：`docs/analysis/codex_rdc_analyzer/2026-01-31-rdc-analyzer-data-richness-baseline.md`
+- 路径：`docs/analysis/codex_rdc_analyzer/2025-01-31-rdc-analyzer-data-richness-baseline.md`
 
 ### WORK_SUMMARY_VERIFICATION（验证流程）
 - 简介：CLI 验证命令、通过记录、证据链要求。
@@ -60,11 +60,11 @@
 - 适用链路：B/C
 - 路径：`docs/analysis/codex_rdc_analyzer/WORK_SUMMARY_BUILD.md`
 
-### 2026-02-01-ui-refactor-summary（UI 重构升级总结）
+### 2025-02-01-ui-refactor-summary（UI 重构升级总结）
 - 简介：按计划逐条对照，解释 v2 UI 架构、流程与调用链。
 - 关键词：ui refactor, contract, manifest, shell
 - 适用链路：A/C
-- 路径：`docs/analysis/codex_rdc_analyzer/2026-02-01-ui-refactor-summary.md`
+- 路径：`docs/analysis/codex_rdc_analyzer/2025-02-01-ui-refactor-summary.md`
 
 ### DATA_SOURCES_INDEX（数据来源方式总表）
 - 简介：统一记录数据来源分类、可用性与限制（可持续补充）。
@@ -114,6 +114,12 @@
 - 适用链路：C
 - 路径：`scripts/rdc_analyzer/docs/TEXTURE_EXTRACTION.md`
 
+### WHY_XML_ZIP_VK_UNREADABLE（Vulkan XML+ZIP 缩略图不可读原因）
+- 简介：解释 Vulkan XML+ZIP 缩略图不可读的根因与为何必须走 GPU replay/export。
+- 关键词：vulkan, xml+zip, tiling, rowPitch, replay
+- 适用链路：B/C
+- 路径：`docs/analysis/codex_rdc_analyzer/WHY_XML_ZIP_VK_UNREADABLE.md`
+
 ### rdc_format_spec（RDC 格式规范）
 - 简介：RDC 文件二进制结构、Section 布局、Chunk 格式。
 - 关键词：rdc, binary, section, chunk
@@ -149,101 +155,101 @@
 ## 维护约定
 - 新文档必须补充到本索引（简介 + 关键词 + 适用链路）。
 - 索引条目保持简短，单条不超过 4 行。
-### 2026-01-19-rdc-analyzer-capability-scorecard（RDC Analyzer 能力盘点 / 冲突点 / 路线图（Codex 专属笔记））
+### 2025-01-19-rdc-analyzer-capability-scorecard（RDC Analyzer 能力盘点 / 冲突点 / 路线图（Codex 专属笔记））
 - 简介：未标注（原因：源文档无 WHAT 段）
 - 关键词：未标注（原因：源文档无关键词段）
 - 适用路线：未标注（原因：源文档无适用路线段）
-- 路径：`docs/analysis/codex_rdc_analyzer/2026-01-19-rdc-analyzer-capability-scorecard.md`
+- 路径：`docs/analysis/codex_rdc_analyzer/2025-01-19-rdc-analyzer-capability-scorecard.md`
 
-### 2026-01-19-rdc-analyzer-feature-details（RDC Analyzer 功能明细（WHAT / WHY / HOW））
+### 2025-01-19-rdc-analyzer-feature-details（RDC Analyzer 功能明细（WHAT / WHY / HOW））
 - 简介：未标注（原因：源文档无 WHAT 段）
 - 关键词：未标注（原因：源文档无关键词段）
 - 适用路线：未标注（原因：源文档无适用路线段）
-- 路径：`docs/analysis/codex_rdc_analyzer/2026-01-19-rdc-analyzer-feature-details.md`
+- 路径：`docs/analysis/codex_rdc_analyzer/2025-01-19-rdc-analyzer-feature-details.md`
 
-### 2026-01-19-rdc-analyzer-key-deep-dive（RDC Analyzer 深度下钻（WHAT / WHY / HOW））
+### 2025-01-19-rdc-analyzer-key-deep-dive（RDC Analyzer 深度下钻（WHAT / WHY / HOW））
 - 简介：未标注（原因：源文档无 WHAT 段）
 - 关键词：未标注（原因：源文档无关键词段）
 - 适用路线：未标注（原因：源文档无适用路线段）
-- 路径：`docs/analysis/codex_rdc_analyzer/2026-01-19-rdc-analyzer-key-deep-dive.md`
+- 路径：`docs/analysis/codex_rdc_analyzer/2025-01-19-rdc-analyzer-key-deep-dive.md`
 
-### 2026-01-20-a-first-dod-repo-checklist（A-first DoD → Repo 执行清单（逐项勾选版））
+### 2025-01-20-a-first-dod-repo-checklist（A-first DoD → Repo 执行清单（逐项勾选版））
 - 简介：`py -3 -m rdc_analyzer analyze <capture.rdc> -o <out_dir> --format html,json` 能跑通
 - 关键词：未标注（原因：源文档无关键词段）
 - 适用路线：未标注（原因：源文档无适用路线段）
-- 路径：`docs/analysis/codex_rdc_analyzer/2026-01-20-a-first-dod-repo-checklist.md`
+- 路径：`docs/analysis/codex_rdc_analyzer/2025-01-20-a-first-dod-repo-checklist.md`
 
-### 2026-01-20-abc-modes-market-and-a-first-loop（RDC Analyzer：A/B/C 产品形态、使用场景与成熟方案调研（A 为第一闭环））
+### 2025-01-20-abc-modes-market-and-a-first-loop（RDC Analyzer：A/B/C 产品形态、使用场景与成熟方案调研（A 为第一闭环））
 - 简介：同一份 capture，所有输出都围绕一套统一 schema（事件/资源/draw/pass/state/统计/issues/suggestions）。
 - 关键词：未标注（原因：源文档无关键词段）
 - 适用路线：未标注（原因：源文档无适用路线段）
-- 路径：`docs/analysis/codex_rdc_analyzer/2026-01-20-abc-modes-market-and-a-first-loop.md`
+- 路径：`docs/analysis/codex_rdc_analyzer/2025-01-20-abc-modes-market-and-a-first-loop.md`
 
-### 2026-01-20-rdc-analyzer-rules-buffer（RDC Analyzer 规则详解：Buffer（6 条））
+### 2025-01-20-rdc-analyzer-rules-buffer（RDC Analyzer 规则详解：Buffer（6 条））
 - 简介：未标注（原因：源文档无 WHAT 段）
 - 关键词：未标注（原因：源文档无关键词段）
 - 适用路线：未标注（原因：源文档无适用路线段）
-- 路径：`docs/analysis/codex_rdc_analyzer/2026-01-20-rdc-analyzer-rules-buffer.md`
+- 路径：`docs/analysis/codex_rdc_analyzer/2025-01-20-rdc-analyzer-rules-buffer.md`
 
-### 2026-01-20-rdc-analyzer-rules-draw-call（RDC Analyzer 规则详解：Draw Call（5 条））
+### 2025-01-20-rdc-analyzer-rules-draw-call（RDC Analyzer 规则详解：Draw Call（5 条））
 - 简介：你现在“规则文档（RULES.md）里写的 36 条规则”，在 CLI 的 `rules --list` 里能看到，但在 `analyze` 的输出里不一定会出现。
 - 关键词：未标注（原因：源文档无关键词段）
 - 适用路线：未标注（原因：源文档无适用路线段）
-- 路径：`docs/analysis/codex_rdc_analyzer/2026-01-20-rdc-analyzer-rules-draw-call.md`
+- 路径：`docs/analysis/codex_rdc_analyzer/2025-01-20-rdc-analyzer-rules-draw-call.md`
 
-### 2026-01-20-rdc-analyzer-rules-mobile（RDC Analyzer 规则详解：Mobile（6 条））
+### 2025-01-20-rdc-analyzer-rules-mobile（RDC Analyzer 规则详解：Mobile（6 条））
 - 简介：移动端的关键不是“draw call 多一点”，而是**tile flush / 带宽 / overdraw / load-store 行为**。
 - 关键词：未标注（原因：源文档无关键词段）
 - 适用路线：未标注（原因：源文档无适用路线段）
-- 路径：`docs/analysis/codex_rdc_analyzer/2026-01-20-rdc-analyzer-rules-mobile.md`
+- 路径：`docs/analysis/codex_rdc_analyzer/2025-01-20-rdc-analyzer-rules-mobile.md`
 
-### 2026-01-20-rdc-analyzer-rules-pass（RDC Analyzer 规则详解：Pass（7 条））
+### 2025-01-20-rdc-analyzer-rules-pass（RDC Analyzer 规则详解：Pass（7 条））
 - 简介：未标注（原因：源文档无 WHAT 段）
 - 关键词：未标注（原因：源文档无关键词段）
 - 适用路线：未标注（原因：源文档无适用路线段）
-- 路径：`docs/analysis/codex_rdc_analyzer/2026-01-20-rdc-analyzer-rules-pass.md`
+- 路径：`docs/analysis/codex_rdc_analyzer/2025-01-20-rdc-analyzer-rules-pass.md`
 
-### 2026-01-20-rdc-analyzer-rules-state（RDC Analyzer 规则详解：State（6 条））
+### 2025-01-20-rdc-analyzer-rules-state（RDC Analyzer 规则详解：State（6 条））
 - 简介：未标注（原因：源文档无 WHAT 段）
 - 关键词：未标注（原因：源文档无关键词段）
 - 适用路线：未标注（原因：源文档无适用路线段）
-- 路径：`docs/analysis/codex_rdc_analyzer/2026-01-20-rdc-analyzer-rules-state.md`
+- 路径：`docs/analysis/codex_rdc_analyzer/2025-01-20-rdc-analyzer-rules-state.md`
 
-### 2026-01-20-rdc-analyzer-rules-texture（RDC Analyzer 规则详解：Texture（6 条））
+### 2025-01-20-rdc-analyzer-rules-texture（RDC Analyzer 规则详解：Texture（6 条））
 - 简介：规则并不是直接扫 `main.py` 的 `resources['textures']` 字典，而是扫 `context.textures` 这种“结构化对象”。
 - 关键词：未标注（原因：源文档无关键词段）
 - 适用路线：未标注（原因：源文档无适用路线段）
-- 路径：`docs/analysis/codex_rdc_analyzer/2026-01-20-rdc-analyzer-rules-texture.md`
+- 路径：`docs/analysis/codex_rdc_analyzer/2025-01-20-rdc-analyzer-rules-texture.md`
 
-### 2026-01-20-rdc-analyzer-schema-compare（RDC Analyzer 输出口径：对比两个 RDC（输入/输出 Schema 说明））
+### 2025-01-20-rdc-analyzer-schema-compare（RDC Analyzer 输出口径：对比两个 RDC（输入/输出 Schema 说明））
 - 简介：输出顶层结构是什么？
 - 关键词：未标注（原因：源文档无关键词段）
 - 适用路线：未标注（原因：源文档无适用路线段）
-- 路径：`docs/analysis/codex_rdc_analyzer/2026-01-20-rdc-analyzer-schema-compare.md`
+- 路径：`docs/analysis/codex_rdc_analyzer/2025-01-20-rdc-analyzer-schema-compare.md`
 
-### 2026-01-20-rdc-analyzer-schema-single-analysis（RDC Analyzer 输出口径：单个 RDC（JSON/HTML）Schema 说明）
+### 2025-01-20-rdc-analyzer-schema-single-analysis（RDC Analyzer 输出口径：单个 RDC（JSON/HTML）Schema 说明）
 - 简介：Schema 不是“导出 JSON 的字段列表”，而是“工具对外契约”。
 - 关键词：未标注（原因：源文档无关键词段）
 - 适用路线：未标注（原因：源文档无适用路线段）
-- 路径：`docs/analysis/codex_rdc_analyzer/2026-01-20-rdc-analyzer-schema-single-analysis.md`
+- 路径：`docs/analysis/codex_rdc_analyzer/2025-01-20-rdc-analyzer-schema-single-analysis.md`
 
-### 2026-01-21-a-first-plan-audit（A-first Execution Plan Audit (Reviewer Report)）
+### 2025-01-21-a-first-plan-audit（A-first Execution Plan Audit (Reviewer Report)）
 - 简介：** 顶层块必须稳定 + 文档/输出一致。
 - 关键词：未标注（原因：源文档无关键词段）
 - 适用路线：未标注（原因：源文档无适用路线段）
-- 路径：`docs/analysis/codex_rdc_analyzer/2026-01-21-a-first-plan-audit.md`
+- 路径：`docs/analysis/codex_rdc_analyzer/2025-01-21-a-first-plan-audit.md`
 
-### 2026-01-23-rdc-analyzer-architecture-review（RDC Analyzer 架构复审 & A-first 缺口清单（2026-01-23））
+### 2025-01-23-rdc-analyzer-architecture-review（RDC Analyzer 架构复审 & A-first 缺口清单（2025-01-23））
 - 简介：CLI 入口在 `scripts/rdc_analyzer/__main__.py:23`，`analyze` **默认已走** `main.py` 的 AnalysisPipeline（仅在 ImportError 时回退旧管线）。
 - 关键词：未标注（原因：源文档无关键词段）
 - 适用路线：未标注（原因：源文档无适用路线段）
-- 路径：`docs/analysis/codex_rdc_analyzer/2026-01-23-rdc-analyzer-architecture-review.md`
+- 路径：`docs/analysis/codex_rdc_analyzer/2025-01-23-rdc-analyzer-architecture-review.md`
 
-### 2026-01-23-rdc-analyzer-continue2-report（2026-01-23 Continue2 综合报告（A/B/C 全覆盖））
+### 2025-01-23-rdc-analyzer-continue2-report（2025-01-23 Continue2 综合报告（A/B/C 全覆盖））
 - 简介：定义唯一 `analysis.json` / `diff.json` 结构，作为所有入口输出。
 - 关键词：未标注（原因：源文档无关键词段）
 - 适用路线：未标注（原因：源文档无适用路线段）
-- 路径：`docs/analysis/codex_rdc_analyzer/2026-01-23-rdc-analyzer-continue2-report.md`
+- 路径：`docs/analysis/codex_rdc_analyzer/2025-01-23-rdc-analyzer-continue2-report.md`
 
 ### P2_MOBILE_GPU_ANALYSIS_DESIGN（P2 设计文档：移动 GPU 专项分析扩展）
 - 简介：未标注（原因：源文档无 WHAT 段）

@@ -1,3 +1,16 @@
+// === 从模板注入的全局变量初始化 ===
+// 注意: TEXTURES, SHADERS, DUPLICATES 等在 HTML 中通过 <script> 标签注入
+const textures = (typeof TEXTURES !== 'undefined') ? TEXTURES : [];
+const shaders = (typeof SHADERS !== 'undefined') ? SHADERS : [];
+const duplicates = (typeof DUPLICATES !== 'undefined') ? DUPLICATES : {};
+const usageAnalysis = (typeof USAGE !== 'undefined') ? USAGE : {};
+const eventPassData = (typeof EVENT_PASS !== 'undefined') ? EVENT_PASS : {};
+const optimizationData = (typeof OPTIMIZATION !== 'undefined') ? OPTIMIZATION : {};
+const performanceData = (typeof PERFORMANCE !== 'undefined') ? PERFORMANCE : {};
+const rtTrackingData = (typeof RT_TRACKING !== 'undefined') ? RT_TRACKING : {};
+const hotspotData = (typeof HOTSPOT !== 'undefined') ? HOTSPOT : {};
+const textureUsageMap = (typeof TEXTURE_USAGE_MAP !== 'undefined') ? TEXTURE_USAGE_MAP : {};
+
 let currentSort = { key: 'id', asc: true };
 let currentChannel = 'rgb';  // 当前显示的通道
 
@@ -3208,7 +3221,7 @@ function renderEventSummary(event) {
                                     : `<div class="io-thumb-placeholder">📦</div>`;
 
                                 return `<div class="io-resource-card output-card" title="${rt.name || 'RenderTarget ' + idx}"
-                                             onclick="${rt.id ? 'jumpToTexture(\\'' + rt.id + '\\')' : ''}">
+                                             onclick="${rt.id ? 'jumpToTexture(\'' + rt.id + '\')' : ''}">
                                     <div class="io-thumb">${thumbImg}</div>
                                     <div class="io-info">
                                         <div class="io-name">${rt.name || 'RT' + idx}</div>
@@ -6818,6 +6831,9 @@ document.addEventListener('keydown', function(e) {
 loadBookmarksAndNotes();
 
 // ========== 帧缩略图功能 ==========
+// 兼容性别名：模板注入的是 FRAME_THUMBNAIL（大写）
+const frameThumbnail = (typeof FRAME_THUMBNAIL !== 'undefined') ? FRAME_THUMBNAIL : '';
+
 function initFrameThumbnail() {
     if (frameThumbnail && frameThumbnail.length > 0) {
         const preview = document.getElementById('frameThumbnailPreview');

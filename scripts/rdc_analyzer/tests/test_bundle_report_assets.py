@@ -142,6 +142,35 @@ def test_textures_no_dynamic_buttons(tmp_path):
     assert "thumbStatus" not in html
 
 
+def test_textures_list_item_has_dataset_and_thumb_class(tmp_path):
+    gen = ReportBundleGenerator(output_dir=tmp_path, capture_name="t.rdc")
+    gen.set_textures([
+        {
+            "id": "tex_0",
+            "resource_id": "133",
+            "name": "Image_133",
+            "width": 4,
+            "height": 4,
+            "mips": 1,
+            "vram": 16,
+            "format": "VK_FORMAT_R8G8B8A8_UNORM",
+            "thumbnail": "textures/tex_133_4x4.png",
+            "issues": [{"level": "warn", "message": "x"}],
+        }
+    ])
+    outputs = gen.generate_all()
+    html = Path(outputs["textures"]).read_text(encoding="utf-8")
+    assert 'data-name="Image_133"' in html
+    assert 'data-format="VK_FORMAT_R8G8B8A8_UNORM"' in html
+    assert 'data-width="4"' in html
+    assert 'data-height="4"' in html
+    assert 'data-mip-levels="1"' in html
+    assert 'data-vram="16"' in html
+    assert 'data-has-issue="true"' in html
+    assert "texture-item-thumb" in html
+    assert "app-container fixed" in html
+
+
 def test_shader_ui_hlsl_only(tmp_path):
     gen = ReportBundleGenerator(output_dir=tmp_path, capture_name="t.rdc")
     gen.set_shaders([

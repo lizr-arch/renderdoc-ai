@@ -1,0 +1,1736 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>事件时间线 - Demo_Performance_Capture</title>
+    <link rel="stylesheet" href="common.css">
+    <style>
+        /* ========== Events 页面专用样式 ========== */
+        
+        body {
+            overflow: hidden;
+        }
+        
+        /* 事件列表 */
+        .event-list {
+            flex: 1;
+            overflow-y: auto;
+            overflow-x: hidden;
+            position: relative;
+        }
+        
+        /* 自定义滚动条样式 - 使拖动块清晰可见 */
+        .event-list::-webkit-scrollbar {
+            width: 12px;
+        }
+        
+        .event-list::-webkit-scrollbar-track {
+            background: var(--bg-darker);
+            border-left: 1px solid var(--border);
+        }
+        
+        .event-list::-webkit-scrollbar-thumb {
+            background: var(--bg-medium);
+            border-radius: 6px;
+            border: 2px solid var(--bg-darker);
+            min-height: 40px;
+        }
+        
+        .event-list::-webkit-scrollbar-thumb:hover {
+            background: var(--accent-blue);
+        }
+        
+        .event-list::-webkit-scrollbar-thumb:active {
+            background: var(--accent-cyan);
+        }
+        
+        /* 虚拟滚动容器 */
+        .event-list-viewport {
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .event-list-spacer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            pointer-events: none;
+        }
+        
+        .event-list-content {
+            position: relative;
+        }
+        
+        .event-item {
+            display: flex;
+            align-items: center;
+            padding: 6px 12px;
+            border-bottom: 1px solid var(--border);
+            cursor: pointer;
+            transition: background 0.15s;
+            font-size: 11px;
+            gap: 8px;
+        }
+        
+        .event-item:hover {
+            background: var(--bg-dark);
+        }
+        
+        .event-item.selected {
+            background: var(--bg-medium);
+            border-left: 2px solid var(--accent-blue);
+        }
+        
+        .event-item.marker {
+            background: var(--bg-darker);
+            color: var(--accent-cyan);
+            font-weight: 500;
+            padding-left: 8px;
+        }
+        
+        .event-item.marker:hover {
+            background: var(--bg-dark);
+        }
+        
+        .event-eid {
+            min-width: 50px;
+            color: var(--accent-blue);
+            font-family: var(--font-mono);
+            font-size: 10px;
+        }
+        
+        .event-type {
+            min-width: 20px;
+            text-align: center;
+        }
+        
+        .event-type-draw { color: var(--accent-green); }
+        .event-type-dispatch { color: var(--accent-purple); }
+        .event-type-clear { color: var(--accent-yellow); }
+        .event-type-copy { color: var(--accent-cyan); }
+        .event-type-marker { color: var(--accent-orange); }
+        
+        .event-name {
+            flex: 1;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            color: var(--text-secondary);
+        }
+        
+        .event-duration {
+            min-width: 60px;
+            text-align: right;
+            color: var(--text-muted);
+            font-size: 10px;
+            font-family: var(--font-mono);
+        }
+        
+        .event-duration.slow {
+            color: var(--accent-yellow);
+        }
+        
+        .event-duration.very-slow {
+            color: var(--accent-red);
+        }
+        
+        /* 事件类型图标 */
+        .event-icon {
+            width: 16px;
+            height: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 10px;
+        }
+        
+        /* 树形缩进 (根据 depth 动态计算 padding) */
+        .event-item[data-depth="1"] { padding-left: 28px; }
+        .event-item[data-depth="2"] { padding-left: 44px; }
+        .event-item[data-depth="3"] { padding-left: 60px; }
+        .event-item[data-depth="4"] { padding-left: 76px; }
+        .event-item[data-depth="5"] { padding-left: 92px; }
+        .event-item[data-depth="6"] { padding-left: 108px; }
+        
+        /* 折叠/展开按钮 */
+        .event-toggle {
+            width: 16px;
+            height: 16px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            color: var(--text-muted);
+            font-size: 10px;
+            margin-right: 4px;
+            transition: transform 0.15s, color 0.15s;
+            user-select: none;
+        }
+        
+        .event-toggle:hover {
+            color: var(--accent-blue);
+        }
+        
+        .event-toggle.expanded {
+            transform: rotate(90deg);
+        }
+        
+        .event-toggle.no-children {
+            visibility: hidden;
+        }
+        
+        /* 子事件数量 Badge */
+        .event-child-count {
+            font-size: 9px;
+            color: var(--text-muted);
+            background: var(--bg-darker);
+            padding: 1px 4px;
+            border-radius: 3px;
+            margin-left: 6px;
+        }
+        
+        /* Marker Push 样式 */
+        .event-item.marker-push {
+            background: var(--bg-darker);
+            color: var(--accent-cyan);
+            font-weight: 500;
+        }
+        
+        /* 隐藏的子事件（父级被折叠） */
+        .event-item.collapsed-child {
+            display: none !important;
+        }
+        
+        /* 时间线视图 */
+        .timeline-container {
+            height: 60px;
+            background: var(--bg-darkest);
+            border-bottom: 1px solid var(--border);
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .timeline-bar {
+            position: absolute;
+            top: 10px;
+            bottom: 10px;
+            min-width: 3px;  /* 最小可点击宽度 */
+            background: var(--accent-blue);
+            opacity: 0.7;
+            border-radius: 2px;
+            cursor: pointer;
+            transition: opacity 0.15s, transform 0.1s;
+        }
+        
+        .timeline-bar:hover {
+            opacity: 1;
+            transform: scaleY(1.1);
+            z-index: 5;
+        }
+        
+        .timeline-bar.selected {
+            opacity: 1;
+            box-shadow: 0 0 0 2px var(--accent-cyan);
+            z-index: 10;
+        }
+        
+        .timeline-bar.draw { background: var(--accent-green); }
+        .timeline-bar.dispatch { background: var(--accent-purple); }
+        .timeline-bar.clear { background: var(--accent-yellow); }
+        .timeline-bar.mixed { background: var(--accent-blue); }
+        
+        .timeline-marker {
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            width: 1px;
+            background: var(--accent-orange);
+            pointer-events: none;
+        }
+        
+        .timeline-marker::after {
+            content: attr(data-label);
+            position: absolute;
+            top: 2px;
+            left: 4px;
+            font-size: 9px;
+            color: var(--accent-orange);
+            white-space: nowrap;
+        }
+        
+        .timeline-cursor {
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            width: 2px;
+            background: var(--accent-red);
+            pointer-events: none;
+            z-index: 10;
+        }
+        
+        /* Pipeline State 详情面板 */
+        .pipeline-section {
+            margin-bottom: 12px;
+        }
+        
+        .pipeline-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 8px;
+            background: var(--bg-dark);
+            border-radius: var(--radius-sm);
+            cursor: pointer;
+            margin-bottom: 4px;
+        }
+        
+        .pipeline-header:hover {
+            background: var(--bg-medium);
+        }
+        
+        .pipeline-title {
+            font-size: 11px;
+            font-weight: 500;
+            color: var(--text-primary);
+        }
+        
+        .pipeline-badge {
+            font-size: 9px;
+            padding: 2px 6px;
+            border-radius: 8px;
+            background: var(--bg-medium);
+            color: var(--text-muted);
+        }
+        
+        .pipeline-content {
+            padding: 8px;
+            background: var(--bg-darkest);
+            border-radius: var(--radius-sm);
+        }
+        
+        .pipeline-section.collapsed .pipeline-content {
+            display: none;
+        }
+        
+        /* Shader 信息 */
+        .shader-card {
+            background: var(--bg-dark);
+            border-radius: var(--radius-sm);
+            padding: 8px;
+            margin-bottom: 6px;
+        }
+        
+        .shader-type {
+            font-size: 9px;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            margin-bottom: 4px;
+        }
+        
+        .shader-name {
+            font-size: 10px;
+            color: var(--accent-cyan);
+            font-family: var(--font-mono);
+            word-break: break-all;
+        }
+        
+        .shader-link {
+            font-size: 9px;
+            color: var(--accent-blue);
+            cursor: pointer;
+            margin-top: 4px;
+        }
+        
+        .shader-link:hover {
+            text-decoration: underline;
+        }
+        
+        /* 纹理绑定 */
+        .binding-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 4px;
+        }
+        
+        .binding-slot {
+            background: var(--bg-dark);
+            border-radius: var(--radius-sm);
+            padding: 4px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+        
+        .binding-slot:hover {
+            background: var(--bg-medium);
+        }
+        
+        .binding-slot.empty {
+            opacity: 0.4;
+        }
+        
+        .binding-thumb {
+            width: 100%;
+            aspect-ratio: 1;
+            background: repeating-conic-gradient(var(--bg-medium) 0% 25%, var(--bg-dark) 0% 50%) 50% / 8px 8px;
+            border-radius: 2px;
+            margin-bottom: 2px;
+            overflow: hidden;
+        }
+        
+        .binding-thumb img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        
+        .binding-label {
+            font-size: 8px;
+            color: var(--text-muted);
+        }
+        
+        /* Render Target 预览 */
+        .rt-preview {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+        
+        .rt-slot {
+            flex: 1;
+            min-width: 80px;
+            max-width: 120px;
+        }
+        
+        .rt-thumb {
+            width: 100%;
+            aspect-ratio: 16/9;
+            background: repeating-conic-gradient(var(--bg-medium) 0% 25%, var(--bg-dark) 0% 50%) 50% / 8px 8px;
+            border-radius: var(--radius-sm);
+            overflow: hidden;
+            cursor: pointer;
+        }
+        
+        .rt-thumb img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+        }
+        
+        .rt-label {
+            font-size: 9px;
+            color: var(--text-muted);
+            text-align: center;
+            margin-top: 4px;
+        }
+        
+        /* 问题指示器 */
+        .issue-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 2px 6px;
+            border-radius: 8px;
+            font-size: 9px;
+            background: rgba(249, 197, 19, 0.2);
+            color: var(--accent-yellow);
+        }
+        
+        .issue-badge.critical {
+            background: rgba(233, 69, 96, 0.2);
+            color: var(--accent-red);
+        }
+        
+        /* 统计数据 */
+        .stat-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 4px 0;
+            font-size: 10px;
+            border-bottom: 1px solid var(--border);
+        }
+        
+        .stat-row:last-child {
+            border-bottom: none;
+        }
+        
+        .stat-label {
+            color: var(--text-muted);
+        }
+        
+        .stat-value {
+            color: var(--text-primary);
+            font-family: var(--font-mono);
+        }
+        
+        .stat-value.highlight {
+            color: var(--accent-blue);
+        }
+        
+        /* 筛选增强 */
+        .filter-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-top: 6px;
+        }
+        
+        .filter-checkbox {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            font-size: 10px;
+            color: var(--text-muted);
+            cursor: pointer;
+        }
+        
+        .filter-checkbox input {
+            accent-color: var(--accent-blue);
+        }
+        
+        .filter-checkbox:hover {
+            color: var(--text-primary);
+        }
+        
+        /* 主画布区域用于显示 RT 输出 */
+        .output-preview-container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        
+        .output-tabs {
+            display: flex;
+            background: var(--bg-darker);
+            border-bottom: 1px solid var(--border);
+        }
+        
+        .output-tab {
+            padding: 8px 16px;
+            font-size: 11px;
+            color: var(--text-muted);
+            cursor: pointer;
+            border-bottom: 2px solid transparent;
+            transition: all 0.15s;
+        }
+        
+        .output-tab:hover {
+            color: var(--text-primary);
+            background: var(--bg-dark);
+        }
+        
+        .output-tab.active {
+            color: var(--accent-blue);
+            border-bottom-color: var(--accent-blue);
+        }
+        
+        .output-content {
+            flex: 1;
+            display: none;
+            overflow: auto;
+        }
+        
+        .output-content.active {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .output-content img {
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain;
+        }
+        
+        /* ========== RT 懒加载面板样式 ========== */
+        .rt-lazy-load-panel {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 8px;
+            z-index: 10;
+        }
+        
+        .rt-load-btn {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 12px 24px;
+            background: linear-gradient(135deg, var(--accent-blue), var(--accent-cyan));
+            border: none;
+            border-radius: var(--radius-md);
+            color: white;
+            font-size: 13px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+            box-shadow: 0 4px 12px rgba(0, 122, 204, 0.3);
+        }
+        
+        .rt-load-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 16px rgba(0, 122, 204, 0.4);
+        }
+        
+        .rt-load-btn:active {
+            transform: translateY(0);
+        }
+        
+        .rt-load-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .rt-load-btn.loading {
+            background: var(--bg-medium);
+        }
+        
+        .rt-load-btn.loading .rt-load-icon {
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+        
+        .rt-load-status {
+            font-size: 11px;
+            color: var(--text-muted);
+            text-align: center;
+            min-height: 16px;
+        }
+        
+        .rt-load-status.error {
+            color: var(--accent-red);
+        }
+        
+        .rt-load-status.success {
+            color: var(--accent-green);
+        }
+        
+        /* 当已有预览图时隐藏懒加载面板 */
+        .canvas-viewport.has-preview .rt-lazy-load-panel {
+            display: none;
+        }
+        
+        /* 服务状态指示器 */
+        .server-status {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 8px 12px;
+            background: var(--bg-dark);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            font-size: 10px;
+            color: var(--text-muted);
+            z-index: 100;
+        }
+        
+        .server-status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--text-muted);
+        }
+        
+        .server-status-dot.online {
+            background: var(--accent-green);
+            box-shadow: 0 0 6px var(--accent-green);
+        }
+        
+        .server-status-dot.offline {
+            background: var(--accent-red);
+        }
+    </style>
+</head>
+<body>
+    <div class="app-container fixed">
+        <!-- 顶部菜单栏 -->
+        <header class="app-menubar">
+            <div class="app-title">
+                <div class="logo"></div>
+                <span>RDC Analyzer</span>
+            </div>
+            
+            <nav class="app-menu">
+                <a href="index.html" class="menu-item">📊 概览</a>
+                <a href="textures.html" class="menu-item">🖼️ 纹理</a>
+                <a href="events.html" class="menu-item active">📋 事件</a>
+                <a href="shaders.html" class="menu-item">🎨 Shaders</a>
+                <a href="recommendations.html" class="menu-item">💡 优化</a>
+            </nav>
+            
+            <div class="app-meta">
+                <span>202 事件</span>
+                <span>|</span>
+                <span>200 Draw Calls</span>
+            </div>
+        </header>
+        
+        <!-- 主工作区 -->
+        <div class="app-workspace">
+            <!-- 左侧面板 - 事件列表 -->
+            <aside class="panel-left" style="width: 320px;" id="panelLeft">
+                <div class="panel-header" onclick="togglePanel('panelLeft')">
+                    <span class="panel-title">事件列表</span>
+                    <span class="panel-toggle">▼</span>
+                </div>
+                
+                <!-- 时间线可视化 -->
+                <div class="timeline-container" id="timeline">
+                    <div class="timeline-bar" style="left:0.00%;width:24.38%;background:var(--accent-green)" data-start-eid="1" data-end-eid="50" title="Events 1-50 (50 events, 50 draws) EID 1-50" onclick="scrollToEvent(1)"></div>
+<div class="timeline-bar" style="left:24.88%;width:24.38%;background:var(--accent-green)" data-start-eid="51" data-end-eid="100" title="Events 51-100 (50 events, 50 draws) EID 51-100" onclick="scrollToEvent(51)"></div>
+<div class="timeline-bar" style="left:49.75%;width:24.38%;background:var(--accent-green)" data-start-eid="101" data-end-eid="150" title="Events 101-150 (50 events, 50 draws) EID 101-150" onclick="scrollToEvent(101)"></div>
+<div class="timeline-bar" style="left:74.63%;width:24.38%;background:var(--accent-green)" data-start-eid="151" data-end-eid="200" title="Events 151-200 (50 events, 50 draws) EID 151-200" onclick="scrollToEvent(151)"></div>
+<div class="timeline-bar" style="left:99.50%;width:0.50%;background:var(--accent-purple)" data-start-eid="201" data-end-eid="202" title="Events 201-202 (2 events, 1 dispatches) EID 201-202" onclick="scrollToEvent(201)"></div>
+                    <div class="timeline-cursor" id="timelineCursor" style="display: none;"></div>
+                </div>
+                
+                <!-- 筛选工具栏 -->
+                <div class="filter-toolbar">
+                    <input type="text" class="search-box" id="eventSearch" placeholder="搜索事件..." oninput="filterEvents()">
+                    <div class="filter-row">
+                        <label class="filter-checkbox">
+                            <input type="checkbox" id="filterDraws" checked onchange="filterEvents()">
+                            <span class="event-type-draw">●</span> Draw
+                        </label>
+                        <label class="filter-checkbox">
+                            <input type="checkbox" id="filterDispatch" checked onchange="filterEvents()">
+                            <span class="event-type-dispatch">●</span> Dispatch
+                        </label>
+                        <label class="filter-checkbox">
+                            <input type="checkbox" id="filterClear" checked onchange="filterEvents()">
+                            <span class="event-type-clear">●</span> Clear
+                        </label>
+                    </div>
+                    <div class="filter-row">
+                        <label class="filter-checkbox">
+                            <input type="checkbox" id="filterIssues" onchange="filterEvents()">
+                            <span>⚠️ 仅问题</span>
+                        </label>
+                        <span class="stats-badge" id="eventStats">202 项</span>
+                    </div>
+                </div>
+                
+                <!-- 事件列表 - 虚拟滚动 -->
+                <div class="event-list" id="eventList" onscroll="onEventListScroll()">
+                    <div class="event-list-spacer" id="eventListSpacer"></div>
+                    <div class="event-list-content" id="eventListContent">
+                        <!-- 虚拟滚动动态填充 -->
+                    </div>
+                </div>
+            </aside>
+            
+            <!-- 中间主区域 - 输出预览 -->
+            <main class="main-canvas-area">
+                <div class="canvas-toolbar">
+                    <div class="toolbar-group">
+                        <button class="toolbar-btn" id="prevEvent" title="上一个事件">◀</button>
+                        <span class="zoom-display" id="currentEid">EID -</span>
+                        <button class="toolbar-btn" id="nextEvent" title="下一个事件">▶</button>
+                    </div>
+                    
+                    <div class="toolbar-group">
+                        <button class="toolbar-btn" id="zoomOut" title="缩小">➖</button>
+                        <span class="zoom-display" id="zoomLevel">100%</span>
+                        <button class="toolbar-btn" id="zoomIn" title="放大">➕</button>
+                    </div>
+                    
+                    <div style="flex: 1;"></div>
+                    
+                    <div class="toolbar-group" style="border-right: none;">
+                        <button class="toolbar-btn" id="compareBtn" title="前后对比">🔀</button>
+                    </div>
+                </div>
+                
+                <!-- 输出标签页 -->
+                <div class="output-tabs">
+                    <div class="output-tab active" data-output="color0" onclick="selectOutput('color0')">Color 0</div>
+                    <div class="output-tab" data-output="color1" onclick="selectOutput('color1')">Color 1</div>
+                    <div class="output-tab" data-output="depth" onclick="selectOutput('depth')">Depth</div>
+                    <div class="output-tab" data-output="stencil" onclick="selectOutput('stencil')">Stencil</div>
+                </div>
+                
+                <!-- 输出内容 -->
+                <div class="output-preview-container">
+                    <div class="canvas-viewport" id="outputViewport">
+                        <div class="canvas-empty" id="outputEmpty">
+                            <div class="canvas-empty-icon">📋</div>
+                            <div class="canvas-empty-text">从左侧列表选择事件</div>
+                        </div>
+                        <img class="preview-img hidden" id="outputImg" src="" alt="Output Preview">
+                        <!-- 懒加载按钮区域 -->
+                        <div class="rt-lazy-load-panel" id="rtLazyLoadPanel">
+                            <button class="rt-load-btn" id="rtLoadBtn" onclick="loadRTFromServer()">
+                                <span class="rt-load-icon">📷</span>
+                                <span class="rt-load-text">从 RDC 加载快照</span>
+                            </button>
+                            <div class="rt-load-status" id="rtLoadStatus"></div>
+                        </div>
+                    </div>
+                </div>
+            </main>
+            
+            <!-- 右侧面板 - Pipeline State -->
+            <aside class="panel-right" style="width: 300px;" id="panelRight">
+                <div class="panel-header" onclick="togglePanel('panelRight')">
+                    <span class="panel-title">Pipeline State</span>
+                    <span class="panel-toggle">▼</span>
+                </div>
+                
+                <div class="panel-content" id="pipelinePanel">
+                    <!-- 事件概要 -->
+                    <div class="prop-section">
+                        <div class="prop-section-header">
+                            <span class="prop-section-title">事件信息</span>
+                        </div>
+                        <div class="prop-section-content">
+                            <div class="stat-row">
+                                <span class="stat-label">EID</span>
+                                <span class="stat-value highlight" id="statEid">-</span>
+                            </div>
+                            <div class="stat-row">
+                                <span class="stat-label">类型</span>
+                                <span class="stat-value" id="statType">-</span>
+                            </div>
+                            <div class="stat-row">
+                                <span class="stat-label">名称</span>
+                                <span class="stat-value" id="statName">-</span>
+                            </div>
+                            <div class="stat-row">
+                                <span class="stat-label">耗时</span>
+                                <span class="stat-value" id="statDuration">-</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Draw Call 统计 -->
+                    <div class="prop-section" id="drawStatsSection">
+                        <div class="prop-section-header" onclick="toggleSection(this)">
+                            <span class="prop-section-title">Draw Call 统计</span>
+                            <span class="prop-section-toggle">▼</span>
+                        </div>
+                        <div class="prop-section-content">
+                            <div class="stat-row">
+                                <span class="stat-label">顶点数</span>
+                                <span class="stat-value" id="statVertices">-</span>
+                            </div>
+                            <div class="stat-row">
+                                <span class="stat-label">三角形</span>
+                                <span class="stat-value" id="statTriangles">-</span>
+                            </div>
+                            <div class="stat-row">
+                                <span class="stat-label">实例数</span>
+                                <span class="stat-value" id="statInstances">-</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Shader 绑定 -->
+                    <div class="pipeline-section" id="shaderSection">
+                        <div class="pipeline-header" onclick="togglePipelineSection('shaderSection')">
+                            <span class="pipeline-title">Shaders</span>
+                            <span class="pipeline-badge" id="shaderCount">0</span>
+                        </div>
+                        <div class="pipeline-content" id="shaderContent">
+                            <!-- 动态填充 -->
+                        </div>
+                    </div>
+                    
+                    <!-- 纹理绑定 -->
+                    <div class="pipeline-section" id="textureSection">
+                        <div class="pipeline-header" onclick="togglePipelineSection('textureSection')">
+                            <span class="pipeline-title">纹理绑定</span>
+                            <span class="pipeline-badge" id="textureCount">0</span>
+                        </div>
+                        <div class="pipeline-content">
+                            <div class="binding-grid" id="textureBindings">
+                                <!-- 动态填充 -->
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Render Targets -->
+                    <div class="pipeline-section" id="rtSection">
+                        <div class="pipeline-header" onclick="togglePipelineSection('rtSection')">
+                            <span class="pipeline-title">Render Targets</span>
+                            <span class="pipeline-badge" id="rtCount">0</span>
+                        </div>
+                        <div class="pipeline-content">
+                            <div class="rt-preview" id="rtPreview">
+                                <!-- 动态填充 -->
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 分析建议 -->
+                    <div class="prop-section" id="analysisSection">
+                        <div class="prop-section-header" onclick="toggleSection(this)">
+                            <span class="prop-section-title">分析建议</span>
+                            <span class="prop-section-toggle">▼</span>
+                        </div>
+                        <div class="prop-section-content" id="eventAnalysis">
+                            <div class="analysis-tip info">选择事件查看分析</div>
+                        </div>
+                    </div>
+                    
+                    <!-- 快捷操作 -->
+                    <div style="padding: 12px;">
+                        <div class="detail-actions">
+                            <button class="detail-action-btn primary" onclick="viewShaderDetail()">
+                                🎨 查看 Shader
+                            </button>
+                            <button class="detail-action-btn secondary" onclick="viewTextureDetail()">
+                                🖼️ 查看纹理
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </aside>
+        </div>
+    </div>
+    
+    <!-- Lightbox -->
+    <div class="lightbox-overlay" id="lightbox" onclick="closeLightbox()">
+        <span class="lightbox-close" onclick="closeLightbox()">&times;</span>
+        <img class="lightbox-img" id="lightboxImg" src="" alt="Preview">
+        <div class="lightbox-caption" id="lightboxCaption"></div>
+    </div>
+    
+    <!-- RT 服务状态指示器 -->
+    <div class="server-status" id="serverStatus">
+        <span class="server-status-dot offline"></span>
+        <span class="server-status-text">RT 服务离线</span>
+    </div>
+    
+    <script>
+        // ========== 状态管理 ==========
+        let currentEvent = null;
+        let currentZoom = 1;
+        let eventIndex = 0;
+        
+        // ========== 事件数据 (由 Python 生成器填充) ==========
+        const eventData = [{"eventId": 1, "name": "DrawIndexed", "type": "draw", "drawcallInfo": {"numIndices": 3100}, "eid": 1, "shaders": [], "textures": [], "renderTargets": []}, {"eventId": 2, "name": "DrawIndexed", "type": "draw", "drawcallInfo": {"numIndices": 3200}, "eid": 2, "shaders": [], "textures": [], "renderTargets": []}, {"eventId": 3, "name": "DrawIndexed", "type": "draw", "drawcallInfo": {"numIndices": 3300}, "eid": 3, "shaders": [], "textures": [], "renderTargets": []}, {"eventId": 4, "name": "DrawIndexed", "type": "draw", "drawcallInfo": {"numIndices": 3400}, "eid": 4, "shaders": [], "textures": [], "renderTargets": []}, {"eventId": 5, "name": "DrawIndexed", "type": "draw", "drawcallInfo": {"numIndices": 3500}, "eid": 5, "shaders": [], "textures": [], "renderTargets": []}, {"eventId": 6, "name": "DrawIndexed", "type": "draw", "drawcallInfo": {"numIndices": 3600}, "eid": 6, "shaders": [], "textures": [], "renderTargets": []}, {"eventId": 7, "name": "DrawIndexed", "type": "draw", "drawcallInfo": {"numIndices": 3700}, "eid": 7, "shaders": [], "textures": [], "renderTargets": []}, {"eventId": 8, "name": "DrawIndexed", "type": "draw", "drawcallInfo": {"numIndices": 3800}, "eid": 8, "shaders": [], "textures": [], "renderTargets": []}, {"eventId": 9, "name": "DrawIndexed", "type": "draw", "drawcallInfo": {"numIndices": 3900}, "eid": 9, "shaders": [], "textures": [], "renderTargets": []}, {"eventId": 10, "name": "DrawIndexed", "type": "draw", "drawcallInfo": {"numIndices": 4000}, "eid": 10, "shaders": [], "textures": [], "renderTargets": []}, {"eventId": 11, "name": "DrawIndexed", "type": "draw", "drawcallInfo": {"numIndices": 4100}, "eid": 11, "shaders": [], "textures": [], "renderTargets": []}, {"eventId": 12, "name": "DrawIndexed", "type": "draw", "drawcallInfo": {"numIndices": 4200}, "eid": 12, "shaders": [], "textures": [], "renderTargets": []}, {"eventId": 13, "name": "DrawIndexed", "type": "draw", "drawcallInfo": {"numIndices": 4300}, "eid": 13, "shaders": [], "textures": [], "renderTargets": []}, {"eventId": 14, "name": "DrawIndexed", "type": "draw", "drawcallInfo": {"numIndices": 4400}, "eid": 14, "shaders": [], "textures": [], "renderTargets": []}, {"eventId": 15, "name": "DrawIndexed", "type": "draw", "drawcallInfo": {"numIndices": 4500}, "eid": 15, "shaders": [], "textures": [], "renderTargets": []}, {"eventId": 16, "name": "DrawIndexed", "type": "draw", "drawcallInfo": {"numIndices": 4600}, "eid": 16, "shaders": [], "textures": [], "renderTargets": []}, {"eventId": 17, "name": "DrawIndexed", "type": "draw", "drawcallInfo": {"numIndices": 4700}, "eid": 17, "shaders": [], "textures": [], "renderTargets": []}, {"eventId": 18, "name": "DrawIndexed", "type": "draw", "drawcallInfo": {"numIndices": 4800}, "eid": 18, "shaders": [], "textures": [], "renderTargets": []}, {"eventId": 19, "name": "DrawIndexed", "type": "draw", "drawcallInfo": {"numIndices": 4900}, "eid": 19, "shaders": [], "textures": [], "renderTargets": []}, {"eventId": 20, "name": "DrawIndexed", "type": "draw", "drawcallInfo": {"numIndices": 5000}, "eid": 20, "shaders": [], "textures": [], "renderTargets": []}, {"eventId": 21, "name": "DrawIndexed", "type": "draw", "drawcallInfo": {"numIndices": 5100}, "eid": 21, "shaders": [], "textures": [], "renderTargets": []}, {"eventId": 22, "name": "DrawIndexed", "type": "draw", "drawcallInfo": {"numIndices": 5200}, "eid": 22, "shaders": [], "textures": [], "renderTargets": []}, {"eventId": 23, "name": "DrawIndexed", "type": "draw", "drawcallInfo": {"numIndices": 5300}, "eid": 23, "shaders": [], "textures": [], "renderTargets": []}, {"eventId": 24, "name": "DrawIndexed", "type": "draw", "drawcallInfo": {"numIndices": 5400}, "eid": 24, "shaders": [], "textures": [], "renderTargets": []}, {"eventId": 25, "name": "DrawIndexed", "type": "draw", "drawcallInfo": {"numIndices": 5500}, "eid": 25, "shaders": [], "textures": [], "renderTargets": []}, {"eventId": 26, "name": "DrawIndexed", "type": "draw", "drawcallInfo": {"numIndices": 5600}, "eid": 26, "shaders": [], "textures": [], "renderTargets": []}, {"eventId": 27, "name": "DrawIndexed", "type": "draw", "drawcallInfo": {"numIndices": 5700}, "eid": 27, "shaders": [], "textures": [], "renderTargets": []}, {"eventId": 28, "name": "DrawIndexed", "type": "draw", "drawcallInfo": {"numIndices": 5800}, "eid": 28, "shaders": [], "textures": [], "renderTargets": []}, {"eventId": 29, "name": "DrawIndexed", "type": "draw", "drawcallInfo": {"numIndices": 5900}, "eid": 29, "shaders": [], "textures": [], "renderTargets": []}, {"eventId": 30, "name": "DrawIndexed", "type": "draw", "drawcallInfo": {"numIndices": 6000}, "eid": 30, "shaders": [], "textures": [], "renderTargets": []}, {"eventId": 31, "name": "DrawIndexed", "type": "draw", "drawcallInfo": {"numIndices": 6100}, "eid": 31, "shaders": [], "textures": [], "renderTargets": []}, {"eventId": 32, "name": "DrawIndexed", "type": "draw", "drawcallInfo": {"numIndices": 6200}, "eid": 32, "shaders": [], "textures": [], "renderTargets": []}, {"eventId": 33, "name": "DrawIndexed", "type": "draw", "drawcallInfo": {"numIndices": 6300}, "eid": 33, "shaders": [], "textures": [], "renderTargets": []}, {"eventId": 34, "name": "DrawIndexed", "type": "draw", "drawcallInfo": {"numIndices": 6400}, "eid": 34, "shaders": [], "textures": [], "renderTargets": []}, {"eventId": 35, "name": "DrawIndexed", "type": "draw", "drawcallInfo": {"numIndices": 6500}, "eid": 35, "shaders": [], "textures": [], "renderTargets": []}, {"eventId": 36, "name": "DrawIndexed", "type": "draw", "drawcallInfo": {"numIndices": 6600}, "eid": 36, "shaders": [], "textures": [], "renderTargets": []}, {"eventId": 37, "name": "DrawIndexed", "type": "draw", "drawcallInfo": {"numIndices": 6700}, "eid": 37, "shaders": [], "textures": [], "renderTargets": []}, {"eventId": 38, "name": "DrawIndexed", "type": "draw", "drawcallInfo": {"numIndices": 6800}, "eid": 38, "shaders": [], "textures": [], "renderTargets": []}, {"eventId": 39, "name": "DrawIndexed", "type": "draw", "drawcallInfo": {"numIndices": 6900}, "eid": 39, "shaders": [], "textures": [], "renderTargets": []}, {"eventId": 40, "name": "DrawIndexed", "type": "draw", "drawcallInfo": {"numIndices": 7000}, "eid": 40, "shaders": [], "textures": [], "renderTargets": []}, {"eventId": 41, "name": "DrawIndexed", "type": "draw", "drawcallInfo": {"numIndices": 7100}, "eid": 41, "shaders": [], "textures": [], "renderTargets": []}, {"eventId": 42, "name": "DrawIndexed", "type": "draw", "drawcallInfo": {"numIndices": 7200}, "eid": 42, "shaders": [], "textures": [], "renderTargets": []}, {"eventId": 43, "name": "DrawIndexed", "type": "draw", "drawcallInfo": {"numIndices": 7300}, "eid": 43, "shaders": [], "textures": [], "renderTargets": []}, {"eventId": 44, "name": "DrawIndexed", "type": "draw", "drawcallInfo": {"numIndices": 7400}, "eid": 44, "shaders": [], "textures": [], "renderTargets": []}, {"eventId": 45, "name": "DrawIndexed", "type": "draw", "drawcallInfo": {"numIndices": 7500}, "eid": 45, "shaders": [], "textures": [], "renderTargets": []}, {"eventId": 46, "name": "DrawIndexed", "type": "draw", "drawcallInfo": {"numIndices": 7600}, "eid": 46, "shaders": [], "textures": [], "renderTargets": []}, {"eventId": 47, "name": "DrawIndexed", "type": "draw", "drawcallInfo": {"numIndices": 7700}, "eid": 47, "shaders": [], "textures": [], "renderTargets": []}, {"eventId": 48, "name": "DrawIndexed", "type": "draw", "drawcallInfo": {"numIndices": 7800}, "eid": 48, "shaders": [], "textures": [], "renderTargets": []}, {"eventId": 49, "name": "DrawIndexed", "type": "draw", "drawcallInfo": {"numIndices": 7900}, "eid": 49, "shaders": [], "textures": [], "renderTargets": []}, {"eventId": 50, "name": "DrawIndexed", "type": "draw", "drawcallInfo": {"numIndices": 8000}, "eid": 50, "shaders": [], "textures": [], "renderTargets": []}, {"eventId": 51, "name": "DrawIndexed", "type": "draw", "drawcallInfo": {"numIndices": 8100}, "eid": 51, "shaders": [], "textures": [], "renderTargets": []}, {"eventId": 52, "name": "DrawIndexed", "type": "draw", "drawcallInfo": {"numIndices": 8200}, "eid": 52, "shaders": [], "textures": [], "renderTargets": []}, {"eventId": 53, "name": "DrawIndexed", "type": "draw", "drawcallInfo": {"numIndices": 8300}, "eid": 53, "shaders": [], "textures": [], "renderTargets": []}, {"eventId": 54, "name": "DrawIndexed", "type": "draw", "drawcallInfo": {"numIndices": 8400}, "eid": 54, "shaders": [], "textures": [], "renderTargets": []}, {"eventId": 55, "name": "DrawIndexed", "type": "draw", "drawcallInfo": {"numIndices": 8500}, "eid": 55, "shaders": [], "textures": [], "renderTargets": []}, {"eventId": 56, "name": "DrawIndexed", "type": "draw", "drawcallInfo": {"numIndices": 8600}, "eid": 56, "shaders": [], "textures": [], "renderTargets": []}, {"eventId": 57, "name": "DrawIndexed", "type": "draw", "drawcallInfo": {"numIndices": 8700}, "eid": 57, "shaders": [], "textures": [], "renderTargets": []}, {"eventId": 58, "name": "DrawIndexed", "type": "draw", "drawcallInfo": {"numIndices": 8800}, "eid": 58, "shaders": [], "textures": [], "renderTargets": []}, {"eventId": 59, "name": "DrawIndexed", "type": "draw", "drawcallInfo": {"numIndices": 8900}, "eid": 59, "shaders": [], "textures": [], "renderTargets": []}, {"eventId": 60, "name": "DrawIndexed", "type": "draw", "drawcallInfo": {"numIndices": 9000}, "eid": 60, "shaders": [], "textures": [], "renderTargets": []}, {"eventId": 61, "name": "DrawIndexed", "type": "draw", "drawcallInfo": {"numIndices": 9100}, "eid": 61, "shaders": [], "textures": [], "renderTargets": []}, {"eventId": 62, "name": "DrawIndexed", "type": "draw", "drawcallInfo": {"numIndices": 9200}, "eid": 62, "shaders": [], "textures": [], "renderTargets": []}, {"eventId": 63, "name": "DrawIndexed", "type": "draw", "drawcallInfo": {"numIndices": 9300}, "eid": 63, "shaders": [], "textures": [], "renderTargets": []}, {"eventId": 64, "name": "DrawIndexed", "type": "draw", "drawcallInfo": {"numIndices": 9400}, "eid": 64, "shaders": [], "textures": [], "renderTargets": []}, {"eventId": 65, "name": "DrawIndexed", "type": "draw", "drawcallInfo": {"numIndices": 9500}, "eid": 65, "shaders": [], "textures": [], "renderTargets": []}, {"eventId": 66, "name": "DrawIndexed", "type": "draw", "drawcallInfo": {"numIndices": 9600}, "eid": 66, "shaders": [], "textures": [], "renderTargets": []}, {"eventId": 67, "name": "DrawIndexed", "type": "draw", "drawcallInfo": {"numIndices": 9700}, "eid": 67, "shaders": [], "textures": [], "renderTargets": []}, {"eventId": 68, "name": "DrawIndexed", "type": "draw", "drawcallInfo": {"numIndices": 9800}, "eid": 68, "shaders": [], "textures": [], "renderTargets": []}, {"eventId": 69, "name": "DrawIndexed", "type": "draw", "drawcallInfo": {"numIndices": 9900}, "eid": 69, "shaders": [], "textures": [], "renderTargets": []}, {"eventId": 70, "name": "DrawIndexed", "type": "draw", "drawcallInfo": {"numIndices": 10000}, "eid": 70, "shaders": [], "textures": [], "renderTargets": []}, {"eventId": 71, "name": "DrawIndexed", "type": "draw", "drawcallInfo": {"numIndices": 10100}, "eid": 71, "shaders": [], "textures": [], "renderTargets": []}, {"eventId": 72, "name": "DrawIndexed", "type": "draw", "drawcallInfo": {"numIndices": 10200}, "eid": 72, "shaders": [], "textures": [], "renderTargets": []}, {"eventId": 73, "name": "DrawIndexed", "type": "draw", "drawcallInfo": {"numIndices": 10300}, "eid": 73, "shaders": [], "textures": [], "renderTargets": []}, {"eventId": 74, "name": "DrawIndexed", "type": "draw", "drawcallInfo": {"numIndices": 10400}, "eid": 74, "shaders": [], "textures": [], "renderTargets": []}, {"eventId": 75, "name": "DrawIndexed", "type": "draw", "drawcallInfo": {"numIndices": 10500}, "eid": 75, "shaders": [], "textures": [], "renderTargets": []}, {"eventId": 76, "name": "DrawIndexed", "type": "draw", "drawcallInfo": {"numIndices": 10600}, "eid": 76, "shaders": [], "textures": [], "renderTargets": []}, {"eventId": 77, "name": "DrawIndexed", "type": "draw", "drawcallInfo": {"numIndices": 10700}, "eid": 77, "shaders": [], "textures": [], "renderTargets": []}, {"eventId": 78, "name": "DrawIndexed", "type": "draw", "drawcallInfo": {"numIndices": 10800}, "eid": 78, "shaders": [], "textures": [], "renderTargets": []}, {"eventId": 79, "name": "DrawIndexed", "type": "draw", "drawcallInfo": {"numIndices": 10900}, "eid": 79, "shaders": [], "textures": [], "renderTargets": []}, {"eventId": 80, "name": "DrawIndexed", "type": "draw", "drawcallInfo": {"numIndices": 11000}, "eid": 80, "shaders": [], "textures": [], "renderTargets": []}, {"eventId": 81, "name": "DrawIndexed", "type": "draw", "drawcallInfo": {"numIndices": 11100}, "eid": 81, "shaders": [], "textures": [], "renderTargets": []}, {"eventId": 82, "name": "DrawIndexed", "type": "draw", "drawcallInfo": {"numIndices": 11200}, "eid": 82, "shaders": [], "textures": [], "renderTargets": []}, {"eventId": 83, "name": "DrawIndexed", "type": "draw", "drawcallInfo": {"numIndices": 11300}, "eid": 83, "shaders": [], "textures": [], "renderTargets": []}, {"eventId": 84, "name": "DrawIndexed", "type": "draw", "drawcallInfo": {"numIndices": 11400}, "eid": 84, "shaders": [], "textures": [], "renderTargets": []}, {"eventId": 85, "name": "DrawIndexed", "type": "draw", "drawcallInfo": {"numIndices": 11500}, "eid": 85, "shaders": [], "textures": [], "renderTargets": []}, {"eventId": 86, "name": "DrawIndexed", "type": "draw", "drawcallInfo": {"numIndices": 11600}, "eid": 86, "shaders": [], "textures": [], "renderTargets": []}, {"eventId": 87, "name": "DrawIndexed", "type": "draw", "drawcallInfo": {"numIndices": 11700}, "eid": 87, "shaders": [], "textures": [], "renderTargets": []}, {"eventId": 88, "name": "DrawIndexed", "type": "draw", "drawcallInfo": {"numIndices": 11800}, "eid": 88, "shaders": [], "textures": [], "renderTargets": []}, {"eventId": 89, "name": "DrawIndexed", "type": "draw", "drawcallInfo": {"numIndices": 11900}, "eid": 89, "shaders": [], "textures": [], "renderTargets": []}, {"eventId": 90, "name": "DrawIndexed", "type": "draw", "drawcallInfo": {"numIndices": 12000}, "eid": 90, "shaders": [], "textures": [], "renderTargets": []}, {"eventId": 91, "name": "DrawIndexed", "type": "draw", "drawcallInfo": {"numIndices": 12100}, "eid": 91, "shaders": [], "textures": [], "renderTargets": []}, {"eventId": 92, "name": "DrawIndexed", "type": "draw", "drawcallInfo": {"numIndices": 12200}, "eid": 92, "shaders": [], "textures": [], "renderTargets": []}, {"eventId": 93, "name": "DrawIndexed", "type": "draw", "drawcallInfo": {"numIndices": 12300}, "eid": 93, "shaders": [], "textures": [], "renderTargets": []}, {"eventId": 94, "name": "DrawIndexed", "type": "draw", "drawcallInfo": {"numIndices": 12400}, "eid": 94, "shaders": [], "textures": [], "renderTargets": []}, {"eventId": 95, "name": "DrawIndexed", "type": "draw", "drawcallInfo": {"numIndices": 12500}, "eid": 95, "shaders": [], "textures": [], "renderTargets": []}, {"eventId": 96, "name": "DrawIndexed", "type": "draw", "drawcallInfo": {"numIndices": 12600}, "eid": 96, "shaders": [], "textures": [], "renderTargets": []}, {"eventId": 97, "name": "DrawIndexed", "type": "draw", "drawcallInfo": {"numIndices": 12700}, "eid": 97, "shaders": [], "textures": [], "renderTargets": []}, {"eventId": 98, "name": "DrawIndexed", "type": "draw", "drawcallInfo": {"numIndices": 12800}, "eid": 98, "shaders": [], "textures": [], "renderTargets": []}, {"eventId": 99, "name": "DrawIndexed", "type": "draw", "drawcallInfo": {"numIndices": 12900}, "eid": 99, "shaders": [], "textures": [], "renderTargets": []}, {"eventId": 100, "name": "DrawIndexed", "type": "draw", "drawcallInfo": {"numIndices": 13000}, "eid": 100, "shaders": [], "textures": [], "renderTargets": []}, {"eventId": 101, "name": "DrawIndexed", "type": "draw", "drawcallInfo": {"numIndices": 13100}, "eid": 101, "shaders": [], "textures": [], "renderTargets": []}, {"eventId": 102, "name": "DrawIndexed", "type": "draw", "drawcallInfo": {"numIndices": 13200}, "eid": 102, "shaders": [], "textures": [], "renderTargets": []}, {"eventId": 103, "name": "DrawIndexed", "type": "draw", "drawcallInfo": {"numIndices": 13300}, "eid": 103, "shaders": [], "textures": [], "renderTargets": []}, {"eventId": 104, "name": "DrawIndexed", "type": "draw", "drawcallInfo": {"numIndices": 13400}, "eid": 104, "shaders": [], "textures": [], "renderTargets": []}, {"eventId": 105, "name": "DrawIndexed", "type": "draw", "drawcallInfo": {"numIndices": 13500}, "eid": 105, "shaders": [], "textures": [], "renderTargets": []}, {"eventId": 106, "name": "DrawIndexed", "type": "draw", "drawcallInfo": {"numIndices": 13600}, "eid": 106, "shaders": [], "textures": [], "renderTargets": []}, {"eventId": 107, "name": "DrawIndexed", "type": "draw", "drawcallInfo": {"numIndices": 13700}, "eid": 107, "shaders": [], "textures": [], "renderTargets": []}, {"eventId": 108, "name": "DrawIndexed", "type": "draw", "drawcallInfo": {"numIndices": 13800}, "eid": 108, "shaders": [], "textures": [], "renderTargets": []}, {"eventId": 109, "name": "DrawIndexed", "type": "draw", "drawcallInfo": {"numIndices": 13900}, "eid": 109, "shaders": [], "textures": [], "renderTargets": []}, {"eventId": 110, "name": "DrawIndexed", "type": "draw", "drawcallInfo": {"numIndices": 14000}, "eid": 110, "shaders": [], "textures": [], "renderTargets": []}, {"eventId": 111, "name": "DrawIndexed", "type": "draw", "drawcallInfo": {"numIndices": 14100}, "eid": 111, "shaders": [], "textures": [], "renderTargets": []}, {"eventId": 112, "name": "DrawIndexed", "type": "draw", "drawcallInfo": {"numIndices": 14200}, "eid": 112, "shaders": [], "textures": [], "renderTargets": []}, {"eventId": 113, "name": "DrawIndexed", "type": "draw", "drawcallInfo": {"numIndices": 14300}, "eid": 113, "shaders": [], "textures": [], "renderTargets": []}, {"eventId": 114, "name": "DrawIndexed", "type": "draw", "drawcallInfo": {"numIndices": 14400}, "eid": 114, "shaders": [], "textures": [], "renderTargets": []}, {"eventId": 115, "name": "DrawIndexed", "type": "draw", "drawcallInfo": {"numIndices": 14500}, "eid": 115, "shaders": [], "textures": [], "renderTargets": []}, {"eventId": 116, "name": "DrawIndexed", "type": "draw", "drawcallInfo": {"numIndices": 14600}, "eid": 116, "shaders": [], "textures": [], "renderTargets": []}, {"eventId": 117, "name": "DrawIndexed", "type": "draw", "drawcallInfo": {"numIndices": 14700}, "eid": 117, "shaders": [], "textures": [], "renderTargets": []}, {"eventId": 118, "name": "DrawIndexed", "type": "draw", "drawcallInfo": {"numIndices": 14800}, "eid": 118, "shaders": [], "textures": [], "renderTargets": []}, {"eventId": 119, "name": "DrawIndexed", "type": "draw", "drawcallInfo": {"numIndices": 14900}, "eid": 119, "shaders": [], "textures": [], "renderTargets": []}, {"eventId": 120, "name": "DrawIndexed", "type": "draw", "drawcallInfo": {"numIndices": 15000}, "eid": 120, "shaders": [], "textures": [], "renderTargets": []}, {"eventId": 121, "name": "DrawIndexed", "type": "draw", "drawcallInfo": {"numIndices": 15100}, "eid": 121, "shaders": [], "textures": [], "renderTargets": []}, {"eventId": 122, "name": "DrawIndexed", "type": "draw", "drawcallInfo": {"numIndices": 15200}, "eid": 122, "shaders": [], "textures": [], "renderTargets": []}, {"eventId": 123, "name": "DrawIndexed", "type": "draw", "drawcallInfo": {"numIndices": 15300}, "eid": 123, "shaders": [], "textures": [], "renderTargets": []}, {"eventId": 124, "name": "DrawIndexed", "type": "draw", "drawcallInfo": {"numIndices": 15400}, "eid": 124, "shaders": [], "textures": [], "renderTargets": []}, {"eventId": 125, "name": "DrawIndexed", "type": "draw", "drawcallInfo": {"numIndices": 15500}, "eid": 125, "shaders": [], "textures": [], "renderTargets": []}, {"eventId": 126, "name": "DrawIndexed", "type": "draw", "drawcallInfo": {"numIndices": 15600}, "eid": 126, "shaders": [], "textures": [], "renderTargets": []}, {"eventId": 127, "name": "DrawIndexed", "type": "draw", "drawcallInfo": {"numIndices": 15700}, "eid": 127, "shaders": [], "textures": [], "renderTargets": []}, {"eventId": 128, "name": "DrawIndexed", "type": "draw", "drawcallInfo": {"numIndices": 15800}, "eid": 128, "shaders": [], "textures": [], "renderTargets": []}, {"eventId": 129, "name": "DrawIndexed", "type": "draw", "drawcallInfo": {"numIndices": 15900}, "eid": 129, "shaders": [], "textures": [], "renderTargets": []}, {"eventId": 130, "name": "DrawIndexed", "type": "draw", "drawcallInfo": {"numIndices": 16000}, "eid": 130, "shaders": [], "textures": [], "renderTargets": []}, {"eventId": 131, "name": "DrawIndexed", "type": "draw", "drawcallInfo": {"numIndices": 16100}, "eid": 131, "shaders": [], "textures": [], "renderTargets": []}, {"eventId": 132, "name": "DrawIndexed", "type": "draw", "drawcallInfo": {"numIndices": 16200}, "eid": 132, "shaders": [], "textures": [], "renderTargets": []}, {"eventId": 133, "name": "DrawIndexed", "type": "draw", "drawcallInfo": {"numIndices": 16300}, "eid": 133, "shaders": [], "textures": [], "renderTargets": []}, {"eventId": 134, "name": "DrawIndexed", "type": "draw", "drawcallInfo": {"numIndices": 16400}, "eid": 134, "shaders": [], "textures": [], "renderTargets": []}, {"eventId": 135, "name": "DrawIndexed", "type": "draw", "drawcallInfo": {"numIndices": 16500}, "eid": 135, "shaders": [], "textures": [], "renderTargets": []}, {"eventId": 136, "name": "DrawIndexed", "type": "draw", "drawcallInfo": {"numIndices": 16600}, "eid": 136, "shaders": [], "textures": [], "renderTargets": []}, {"eventId": 137, "name": "DrawIndexed", "type": "draw", "drawcallInfo": {"numIndices": 16700}, "eid": 137, "shaders": [], "textures": [], "renderTargets": []}, {"eventId": 138, "name": "DrawIndexed", "type": "draw", "drawcallInfo": {"numIndices": 16800}, "eid": 138, "shaders": [], "textures": [], "renderTargets": []}, {"eventId": 139, "name": "DrawIndexed", "type": "draw", "drawcallInfo": {"numIndices": 16900}, "eid": 139, "shaders": [], "textures": [], "renderTargets": []}, {"eventId": 140, "name": "DrawIndexed", "type": "draw", "drawcallInfo": {"numIndices": 17000}, "eid": 140, "shaders": [], "textures": [], "renderTargets": []}, {"eventId": 141, "name": "DrawIndexed", "type": "draw", "drawcallInfo": {"numIndices": 17100}, "eid": 141, "shaders": [], "textures": [], "renderTargets": []}, {"eventId": 142, "name": "DrawIndexed", "type": "draw", "drawcallInfo": {"numIndices": 17200}, "eid": 142, "shaders": [], "textures": [], "renderTargets": []}, {"eventId": 143, "name": "DrawIndexed", "type": "draw", "drawcallInfo": {"numIndices": 17300}, "eid": 143, "shaders": [], "textures": [], "renderTargets": []}, {"eventId": 144, "name": "DrawIndexed", "type": "draw", "drawcallInfo": {"numIndices": 17400}, "eid": 144, "shaders": [], "textures": [], "renderTargets": []}, {"eventId": 145, "name": "DrawIndexed", "type": "draw", "drawcallInfo": {"numIndices": 17500}, "eid": 145, "shaders": [], "textures": [], "renderTargets": []}, {"eventId": 146, "name": "DrawIndexed", "type": "draw", "drawcallInfo": {"numIndices": 17600}, "eid": 146, "shaders": [], "textures": [], "renderTargets": []}, {"eventId": 147, "name": "DrawIndexed", "type": "draw", "drawcallInfo": {"numIndices": 17700}, "eid": 147, "shaders": [], "textures": [], "renderTargets": []}, {"eventId": 148, "name": "DrawIndexed", "type": "draw", "drawcallInfo": {"numIndices": 17800}, "eid": 148, "shaders": [], "textures": [], "renderTargets": []}, {"eventId": 149, "name": "DrawIndexed", "type": "draw", "drawcallInfo": {"numIndices": 17900}, "eid": 149, "shaders": [], "textures": [], "renderTargets": []}, {"eventId": 150, "name": "DrawIndexed", "type": "draw", "drawcallInfo": {"numIndices": 18000}, "eid": 150, "shaders": [], "textures": [], "renderTargets": []}, {"eventId": 151, "name": "DrawIndexed", "type": "draw", "drawcallInfo": {"numIndices": 18100}, "eid": 151, "shaders": [], "textures": [], "renderTargets": []}, {"eventId": 152, "name": "DrawIndexed", "type": "draw", "drawcallInfo": {"numIndices": 18200}, "eid": 152, "shaders": [], "textures": [], "renderTargets": []}, {"eventId": 153, "name": "DrawIndexed", "type": "draw", "drawcallInfo": {"numIndices": 18300}, "eid": 153, "shaders": [], "textures": [], "renderTargets": []}, {"eventId": 154, "name": "DrawIndexed", "type": "draw", "drawcallInfo": {"numIndices": 18400}, "eid": 154, "shaders": [], "textures": [], "renderTargets": []}, {"eventId": 155, "name": "DrawIndexed", "type": "draw", "drawcallInfo": {"numIndices": 18500}, "eid": 155, "shaders": [], "textures": [], "renderTargets": []}, {"eventId": 156, "name": "DrawIndexed", "type": "draw", "drawcallInfo": {"numIndices": 18600}, "eid": 156, "shaders": [], "textures": [], "renderTargets": []}, {"eventId": 157, "name": "DrawIndexed", "type": "draw", "drawcallInfo": {"numIndices": 18700}, "eid": 157, "shaders": [], "textures": [], "renderTargets": []}, {"eventId": 158, "name": "DrawIndexed", "type": "draw", "drawcallInfo": {"numIndices": 18800}, "eid": 158, "shaders": [], "textures": [], "renderTargets": []}, {"eventId": 159, "name": "DrawIndexed", "type": "draw", "drawcallInfo": {"numIndices": 18900}, "eid": 159, "shaders": [], "textures": [], "renderTargets": []}, {"eventId": 160, "name": "DrawIndexed", "type": "draw", "drawcallInfo": {"numIndices": 19000}, "eid": 160, "shaders": [], "textures": [], "renderTargets": []}, {"eventId": 161, "name": "DrawIndexed", "type": "draw", "drawcallInfo": {"numIndices": 19100}, "eid": 161, "shaders": [], "textures": [], "renderTargets": []}, {"eventId": 162, "name": "DrawIndexed", "type": "draw", "drawcallInfo": {"numIndices": 19200}, "eid": 162, "shaders": [], "textures": [], "renderTargets": []}, {"eventId": 163, "name": "DrawIndexed", "type": "draw", "drawcallInfo": {"numIndices": 19300}, "eid": 163, "shaders": [], "textures": [], "renderTargets": []}, {"eventId": 164, "name": "DrawIndexed", "type": "draw", "drawcallInfo": {"numIndices": 19400}, "eid": 164, "shaders": [], "textures": [], "renderTargets": []}, {"eventId": 165, "name": "DrawIndexed", "type": "draw", "drawcallInfo": {"numIndices": 19500}, "eid": 165, "shaders": [], "textures": [], "renderTargets": []}, {"eventId": 166, "name": "DrawIndexed", "type": "draw", "drawcallInfo": {"numIndices": 19600}, "eid": 166, "shaders": [], "textures": [], "renderTargets": []}, {"eventId": 167, "name": "DrawIndexed", "type": "draw", "drawcallInfo": {"numIndices": 19700}, "eid": 167, "shaders": [], "textures": [], "renderTargets": []}, {"eventId": 168, "name": "DrawIndexed", "type": "draw", "drawcallInfo": {"numIndices": 19800}, "eid": 168, "shaders": [], "textures": [], "renderTargets": []}, {"eventId": 169, "name": "DrawIndexed", "type": "draw", "drawcallInfo": {"numIndices": 19900}, "eid": 169, "shaders": [], "textures": [], "renderTargets": []}, {"eventId": 170, "name": "DrawIndexed", "type": "draw", "drawcallInfo": {"numIndices": 20000}, "eid": 170, "shaders": [], "textures": [], "renderTargets": []}, {"eventId": 171, "name": "DrawIndexed", "type": "draw", "drawcallInfo": {"numIndices": 20100}, "eid": 171, "shaders": [], "textures": [], "renderTargets": []}, {"eventId": 172, "name": "DrawIndexed", "type": "draw", "drawcallInfo": {"numIndices": 20200}, "eid": 172, "shaders": [], "textures": [], "renderTargets": []}, {"eventId": 173, "name": "DrawIndexed", "type": "draw", "drawcallInfo": {"numIndices": 20300}, "eid": 173, "shaders": [], "textures": [], "renderTargets": []}, {"eventId": 174, "name": "DrawIndexed", "type": "draw", "drawcallInfo": {"numIndices": 20400}, "eid": 174, "shaders": [], "textures": [], "renderTargets": []}, {"eventId": 175, "name": "DrawIndexed", "type": "draw", "drawcallInfo": {"numIndices": 20500}, "eid": 175, "shaders": [], "textures": [], "renderTargets": []}, {"eventId": 176, "name": "DrawIndexed", "type": "draw", "drawcallInfo": {"numIndices": 20600}, "eid": 176, "shaders": [], "textures": [], "renderTargets": []}, {"eventId": 177, "name": "DrawIndexed", "type": "draw", "drawcallInfo": {"numIndices": 20700}, "eid": 177, "shaders": [], "textures": [], "renderTargets": []}, {"eventId": 178, "name": "DrawIndexed", "type": "draw", "drawcallInfo": {"numIndices": 20800}, "eid": 178, "shaders": [], "textures": [], "renderTargets": []}, {"eventId": 179, "name": "DrawIndexed", "type": "draw", "drawcallInfo": {"numIndices": 20900}, "eid": 179, "shaders": [], "textures": [], "renderTargets": []}, {"eventId": 180, "name": "DrawIndexed", "type": "draw", "drawcallInfo": {"numIndices": 21000}, "eid": 180, "shaders": [], "textures": [], "renderTargets": []}, {"eventId": 181, "name": "DrawIndexed", "type": "draw", "drawcallInfo": {"numIndices": 21100}, "eid": 181, "shaders": [], "textures": [], "renderTargets": []}, {"eventId": 182, "name": "DrawIndexed", "type": "draw", "drawcallInfo": {"numIndices": 21200}, "eid": 182, "shaders": [], "textures": [], "renderTargets": []}, {"eventId": 183, "name": "DrawIndexed", "type": "draw", "drawcallInfo": {"numIndices": 21300}, "eid": 183, "shaders": [], "textures": [], "renderTargets": []}, {"eventId": 184, "name": "DrawIndexed", "type": "draw", "drawcallInfo": {"numIndices": 21400}, "eid": 184, "shaders": [], "textures": [], "renderTargets": []}, {"eventId": 185, "name": "DrawIndexed", "type": "draw", "drawcallInfo": {"numIndices": 21500}, "eid": 185, "shaders": [], "textures": [], "renderTargets": []}, {"eventId": 186, "name": "DrawIndexed", "type": "draw", "drawcallInfo": {"numIndices": 21600}, "eid": 186, "shaders": [], "textures": [], "renderTargets": []}, {"eventId": 187, "name": "DrawIndexed", "type": "draw", "drawcallInfo": {"numIndices": 21700}, "eid": 187, "shaders": [], "textures": [], "renderTargets": []}, {"eventId": 188, "name": "DrawIndexed", "type": "draw", "drawcallInfo": {"numIndices": 21800}, "eid": 188, "shaders": [], "textures": [], "renderTargets": []}, {"eventId": 189, "name": "DrawIndexed", "type": "draw", "drawcallInfo": {"numIndices": 21900}, "eid": 189, "shaders": [], "textures": [], "renderTargets": []}, {"eventId": 190, "name": "DrawIndexed", "type": "draw", "drawcallInfo": {"numIndices": 22000}, "eid": 190, "shaders": [], "textures": [], "renderTargets": []}, {"eventId": 191, "name": "DrawIndexed", "type": "draw", "drawcallInfo": {"numIndices": 22100}, "eid": 191, "shaders": [], "textures": [], "renderTargets": []}, {"eventId": 192, "name": "DrawIndexed", "type": "draw", "drawcallInfo": {"numIndices": 22200}, "eid": 192, "shaders": [], "textures": [], "renderTargets": []}, {"eventId": 193, "name": "DrawIndexed", "type": "draw", "drawcallInfo": {"numIndices": 22300}, "eid": 193, "shaders": [], "textures": [], "renderTargets": []}, {"eventId": 194, "name": "DrawIndexed", "type": "draw", "drawcallInfo": {"numIndices": 22400}, "eid": 194, "shaders": [], "textures": [], "renderTargets": []}, {"eventId": 195, "name": "DrawIndexed", "type": "draw", "drawcallInfo": {"numIndices": 22500}, "eid": 195, "shaders": [], "textures": [], "renderTargets": []}, {"eventId": 196, "name": "DrawIndexed", "type": "draw", "drawcallInfo": {"numIndices": 22600}, "eid": 196, "shaders": [], "textures": [], "renderTargets": []}, {"eventId": 197, "name": "DrawIndexed", "type": "draw", "drawcallInfo": {"numIndices": 22700}, "eid": 197, "shaders": [], "textures": [], "renderTargets": []}, {"eventId": 198, "name": "DrawIndexed", "type": "draw", "drawcallInfo": {"numIndices": 22800}, "eid": 198, "shaders": [], "textures": [], "renderTargets": []}, {"eventId": 199, "name": "DrawIndexed", "type": "draw", "drawcallInfo": {"numIndices": 22900}, "eid": 199, "shaders": [], "textures": [], "renderTargets": []}, {"eventId": 200, "name": "DrawIndexed", "type": "draw", "drawcallInfo": {"numIndices": 23000}, "eid": 200, "shaders": [], "textures": [], "renderTargets": []}, {"eventId": 201, "name": "ClearRenderTargetView", "type": "clear", "eid": 201, "shaders": [], "textures": [], "renderTargets": []}, {"eventId": 202, "name": "Dispatch", "type": "dispatch", "eid": 202, "shaders": [], "textures": [], "renderTargets": []}];
+        const drawEvents = eventData.filter(e => e.type === 'draw' || e.type === 'dispatch');
+        
+        // ========== 虚拟滚动配置 ==========
+        const ITEM_HEIGHT = 32;           // 每行高度 (px)
+        const BUFFER_SIZE = 10;           // 上下缓冲区行数
+        const VISIBLE_ITEMS = 50;         // 可视区域最大显示数量
+        
+        let filteredEvents = [...eventData];  // 筛选后的事件列表
+        let virtualScrollState = {
+            scrollTop: 0,
+            startIndex: 0,
+            endIndex: VISIBLE_ITEMS,
+            totalHeight: 0
+        };
+        
+        // ========== 虚拟滚动核心 ==========
+        function initVirtualScroll() {
+            const container = document.getElementById('eventList');
+            const spacer = document.getElementById('eventListSpacer');
+            const content = document.getElementById('eventListContent');
+            
+            // 计算总高度
+            virtualScrollState.totalHeight = filteredEvents.length * ITEM_HEIGHT;
+            spacer.style.height = `${virtualScrollState.totalHeight}px`;
+            
+            // 初始渲染
+            renderVisibleItems();
+        }
+        
+        function onEventListScroll() {
+            const container = document.getElementById('eventList');
+            virtualScrollState.scrollTop = container.scrollTop;
+            
+            // 使用 requestAnimationFrame 节流
+            requestAnimationFrame(() => {
+                renderVisibleItems();
+            });
+        }
+        
+        function renderVisibleItems() {
+            const container = document.getElementById('eventList');
+            const content = document.getElementById('eventListContent');
+            
+            if (!container || !content) return;
+            
+            const containerHeight = container.clientHeight;
+            const scrollTop = virtualScrollState.scrollTop;
+            
+            // 计算可视范围的起止索引
+            let startIndex = Math.floor(scrollTop / ITEM_HEIGHT) - BUFFER_SIZE;
+            let endIndex = Math.ceil((scrollTop + containerHeight) / ITEM_HEIGHT) + BUFFER_SIZE;
+            
+            // 边界检查
+            startIndex = Math.max(0, startIndex);
+            endIndex = Math.min(filteredEvents.length, endIndex);
+            
+            // 如果范围没变化，跳过渲染
+            if (startIndex === virtualScrollState.startIndex && 
+                endIndex === virtualScrollState.endIndex) {
+                return;
+            }
+            
+            virtualScrollState.startIndex = startIndex;
+            virtualScrollState.endIndex = endIndex;
+            
+            // 构建可视区域 HTML
+            const fragment = document.createDocumentFragment();
+            
+            for (let i = startIndex; i < endIndex; i++) {
+                const event = filteredEvents[i];
+                const itemEl = createEventItemElement(event, i);
+                fragment.appendChild(itemEl);
+            }
+            
+            // 设置内容区偏移量
+            content.style.transform = `translateY(${startIndex * ITEM_HEIGHT}px)`;
+            
+            // 替换内容
+            content.innerHTML = '';
+            content.appendChild(fragment);
+            
+            // 恢复选中状态
+            if (currentEvent) {
+                const selectedEl = content.querySelector(`.event-item[data-eid="${currentEvent.eid}"]`);
+                if (selectedEl) {
+                    selectedEl.classList.add('selected');
+                }
+            }
+        }
+        
+        // ========== 折叠状态管理 ==========
+        // 存储每个 Marker 的展开/折叠状态 (eid -> boolean)
+        const expandState = {};
+        
+        function createEventItemElement(event, index) {
+            const div = document.createElement('div');
+            
+            // 处理 marker_push 和 marker_pop 类型
+            const isMarkerPush = event.type === 'marker_push' || event.type === 'marker';
+            const isMarker = isMarkerPush || event.type === 'marker_pop';
+            
+            let className = 'event-item';
+            if (isMarkerPush) className += ' marker marker-push';
+            else if (event.type === 'marker_pop') className += ' marker';
+            
+            div.className = className;
+            div.dataset.eid = event.eid;
+            div.dataset.type = event.type;
+            div.dataset.name = event.name || '';
+            div.dataset.hasIssue = event.issues && event.issues.length > 0 ? 'true' : 'false';
+            
+            // 设置层级深度
+            const depth = event.depth || 0;
+            if (depth > 0) {
+                div.dataset.depth = Math.min(depth, 6); // 最大支持 6 级
+            }
+            
+            // 是否有子事件
+            const hasChildren = event.hasChildren || event.childCount > 0;
+            const childCount = event.childCount || 0;
+            
+            // 获取展开状态（默认展开前两层）
+            const isExpanded = expandState[event.eid] !== undefined 
+                ? expandState[event.eid] 
+                : (event.expanded !== undefined ? event.expanded : depth < 2);
+            expandState[event.eid] = isExpanded;
+            
+            // 点击事件
+            div.onclick = (e) => {
+                // 如果点击的是折叠按钮，不触发选择
+                if (e.target.classList.contains('event-toggle')) return;
+                selectEvent(event.eid);
+            };
+            
+            // 构建内部结构
+            const typeIcon = getEventTypeIcon(event.type);
+            const durationClass = getDurationClass(event.duration);
+            const durationText = event.duration ? `${event.duration.toFixed(2)}ms` : '';
+            
+            // 折叠按钮（只在有子事件的 Marker 上显示）
+            const toggleClass = hasChildren ? (isExpanded ? 'expanded' : '') : 'no-children';
+            const toggleHtml = hasChildren 
+                ? `<span class="event-toggle ${toggleClass}" data-eid="${event.eid}" onclick="toggleExpand(${event.eid}, event)">▸</span>`
+                : `<span class="event-toggle no-children">▸</span>`;
+            
+            // 子事件数量 Badge
+            const childBadge = hasChildren && childCount > 0
+                ? `<span class="event-child-count">${childCount}</span>`
+                : '';
+            
+            div.innerHTML = `
+                ${toggleHtml}
+                <span class="event-eid">#${event.eid}</span>
+                <span class="event-type ${getEventTypeClass(event.type)}">${typeIcon}</span>
+                <span class="event-name">${escapeHtml(event.name || getDefaultEventName(event))}${childBadge}</span>
+                ${durationText ? `<span class="event-duration ${durationClass}">${durationText}</span>` : ''}
+            `;
+            
+            return div;
+        }
+        
+        // ========== 折叠/展开事件 ==========
+        function toggleExpand(eid, e) {
+            if (e) e.stopPropagation();
+            
+            // 切换状态
+            expandState[eid] = !expandState[eid];
+            
+            // 重新应用筛选（会重新计算可见事件）
+            applyVisibilityFilter();
+        }
+        
+        // 根据折叠状态过滤可见事件
+        function applyVisibilityFilter() {
+            // 首先应用筛选条件
+            const keyword = document.getElementById('eventSearch').value.toLowerCase();
+            const showDraws = document.getElementById('filterDraws').checked;
+            const showDispatch = document.getElementById('filterDispatch').checked;
+            const showClear = document.getElementById('filterClear').checked;
+            const onlyIssues = document.getElementById('filterIssues').checked;
+            
+            // 构建父事件 EID 到展开状态的映射
+            const collapsedParents = new Set();
+            eventData.forEach(event => {
+                if (event.hasChildren && expandState[event.eid] === false) {
+                    collapsedParents.add(event.eid);
+                }
+            });
+            
+            // 判断一个事件是否应该被隐藏（其祖先被折叠）
+            function isHiddenByParent(event) {
+                if (!event.parentEid) return false;
+                if (collapsedParents.has(event.parentEid)) return true;
+                
+                // 递归检查祖先
+                const parent = eventData.find(e => e.eid === event.parentEid);
+                return parent ? isHiddenByParent(parent) : false;
+            }
+            
+            filteredEvents = eventData.filter(event => {
+                const name = (event.name || '').toLowerCase();
+                const type = event.type;
+                const hasIssue = event.issues && event.issues.length > 0;
+                
+                // 检查是否被父级折叠隐藏
+                if (isHiddenByParent(event)) return false;
+                
+                const matchKeyword = !keyword || name.includes(keyword) || 
+                                     String(event.eid).includes(keyword);
+                
+                // Marker Push/Pop 归类为 marker
+                const normalizedType = type === 'marker_push' || type === 'marker_pop' ? 'marker' : type;
+                
+                const matchType = (normalizedType === 'draw' && showDraws) ||
+                                  (normalizedType === 'dispatch' && showDispatch) ||
+                                  (normalizedType === 'clear' && showClear) ||
+                                  (normalizedType === 'copy') ||  // Copy 默认显示
+                                  (normalizedType === 'marker');  // Marker 始终显示
+                const matchIssue = !onlyIssues || hasIssue;
+                
+                return matchKeyword && matchType && matchIssue;
+            });
+            
+            // 重置虚拟滚动状态
+            virtualScrollState.totalHeight = filteredEvents.length * ITEM_HEIGHT;
+            document.getElementById('eventListSpacer').style.height = 
+                `${virtualScrollState.totalHeight}px`;
+            
+            // 更新统计
+            document.getElementById('eventStats').textContent = `${filteredEvents.length} 项`;
+            
+            // 强制重新渲染
+            virtualScrollState.startIndex = -1;
+            renderVisibleItems();
+        }
+        
+        function getEventTypeIcon(type) {
+            const icons = {
+                'draw': '▶',
+                'dispatch': '◆',
+                'clear': '◯',
+                'copy': '⬧',
+                'marker': '▸'
+            };
+            return icons[type] || '●';
+        }
+        
+        function getEventTypeClass(type) {
+            return `event-type-${type}`;
+        }
+        
+        function getDurationClass(duration) {
+            if (!duration) return '';
+            if (duration > 5) return 'very-slow';
+            if (duration > 1) return 'slow';
+            return '';
+        }
+        
+        function getDefaultEventName(event) {
+            const defaults = {
+                'draw': 'Draw Call',
+                'dispatch': 'Dispatch',
+                'clear': 'Clear',
+                'copy': 'Copy',
+                'marker': 'Marker'
+            };
+            return defaults[event.type] || 'Event';
+        }
+        
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+        
+        // ========== 筛选（虚拟滚动版） ==========
+        function filterEvents() {
+            // 重置滚动位置，然后调用可见性筛选
+            document.getElementById('eventList').scrollTop = 0;
+            virtualScrollState.startIndex = 0;
+            virtualScrollState.endIndex = 0;
+            applyVisibilityFilter();
+        }
+        
+        // ========== 面板控制 ==========
+        function togglePanel(panelId) {
+            document.getElementById(panelId).classList.toggle('collapsed');
+        }
+        
+        function toggleSection(header) {
+            header.parentElement.classList.toggle('collapsed');
+        }
+        
+        function togglePipelineSection(sectionId) {
+            document.getElementById(sectionId).classList.toggle('collapsed');
+        }
+        
+        // ========== 事件选择 ==========
+        function selectEvent(eid, scrollToItem = false) {
+            const event = eventData.find(e => e.eid === eid);
+            if (!event) return;
+            
+            currentEvent = event;
+            eventIndex = drawEvents.findIndex(e => e.eid === eid);
+            
+            // 如果需要滚动到该项（来自时间线点击），先调整虚拟滚动位置
+            if (scrollToItem) {
+                const idx = eventData.findIndex(e => e.eid === eid);
+                if (idx !== -1) {
+                    // 滚动容器使该项可见
+                    const container = document.getElementById('eventList');
+                    if (container) {
+                        const targetScrollTop = Math.max(0, idx * ITEM_HEIGHT - container.clientHeight / 2);
+                        container.scrollTop = targetScrollTop;
+                    }
+                    // 强制更新虚拟滚动
+                    renderVisibleItems();
+                }
+            }
+            
+            // 更新列表选中状态
+            document.querySelectorAll('.event-item').forEach(el => {
+                el.classList.remove('selected');
+            });
+            const item = document.querySelector(`.event-item[data-eid="${eid}"]`);
+            if (item) {
+                item.classList.add('selected');
+                // 注意：不再调用 scrollIntoView，由虚拟滚动处理
+            }
+            
+            // 更新时间线光标
+            updateTimelineCursor(event);
+            
+            // 更新工具栏
+            document.getElementById('currentEid').textContent = `EID ${eid}`;
+            
+            // 更新输出预览（优先使用缓存的 RT 快照）
+            if (rtLoadingCache[eid]) {
+                displayRTSnapshot(rtLoadingCache[eid]);
+            } else {
+                updateOutputPreview(event);
+                resetRTLoadPanel();  // 重置懒加载面板
+            }
+            
+            // 更新 Pipeline State
+            updatePipelineState(event);
+        }
+        
+        function updateTimelineCursor(event) {
+            const cursor = document.getElementById('timelineCursor');
+            const timeline = document.getElementById('timeline');
+            
+            if (event.timelinePos !== undefined) {
+                const pos = event.timelinePos * 100;
+                cursor.style.left = `${pos}%`;
+                cursor.style.display = 'block';
+            } else {
+                cursor.style.display = 'none';
+            }
+        }
+        
+        function updateOutputPreview(event) {
+            const img = document.getElementById('outputImg');
+            const empty = document.getElementById('outputEmpty');
+            const viewport = document.getElementById('outputViewport');
+            const lazyPanel = document.getElementById('rtLazyLoadPanel');
+            
+            // 优先使用预导出的 RT 快照（离线模式）
+            if (event.rtSnapshot) {
+                img.src = event.rtSnapshot;
+                img.classList.remove('hidden');
+                empty.classList.add('hidden');
+                viewport.classList.add('has-preview');
+                lazyPanel.style.display = 'none';  // 隐藏懒加载按钮
+                setRTLoadStatus('', '');
+                return;
+            }
+            
+            // 其次使用 output 中的颜色附件
+            if (event.output && event.output.color0) {
+                img.src = event.output.color0;
+                img.classList.remove('hidden');
+                empty.classList.add('hidden');
+                viewport.classList.add('has-preview');
+                lazyPanel.style.display = 'none';
+                return;
+            }
+            
+            // 无预导出数据，显示懒加载面板
+            img.classList.add('hidden');
+            empty.classList.remove('hidden');
+            viewport.classList.remove('has-preview');
+            lazyPanel.style.display = '';  // 显示懒加载按钮
+            resetRTLoadPanel();
+        }
+        
+        function updatePipelineState(event) {
+            // 基本信息
+            document.getElementById('statEid').textContent = event.eid;
+            document.getElementById('statType').textContent = formatEventType(event.type);
+            document.getElementById('statName').textContent = event.name || '-';
+            document.getElementById('statDuration').textContent = event.duration ? `${event.duration.toFixed(2)} ms` : '-';
+            
+            // Draw Call 统计
+            if (event.type === 'draw') {
+                document.getElementById('drawStatsSection').style.display = '';
+                document.getElementById('statVertices').textContent = event.vertices?.toLocaleString() || '-';
+                document.getElementById('statTriangles').textContent = event.triangles?.toLocaleString() || '-';
+                document.getElementById('statInstances').textContent = event.instances || '1';
+            } else {
+                document.getElementById('drawStatsSection').style.display = 'none';
+            }
+            
+            // Shader 绑定
+            updateShaderBindings(event);
+            
+            // 纹理绑定
+            updateTextureBindings(event);
+            
+            // Render Targets
+            updateRenderTargets(event);
+            
+            // 分析建议
+            updateEventAnalysis(event);
+        }
+        
+        function updateShaderBindings(event) {
+            const content = document.getElementById('shaderContent');
+            const count = document.getElementById('shaderCount');
+            
+            if (event.shaders && event.shaders.length > 0) {
+                count.textContent = event.shaders.length;
+                content.innerHTML = event.shaders.map(shader => `
+                    <div class="shader-card">
+                        <div class="shader-type">${shader.type}</div>
+                        <div class="shader-name">${shader.name || 'Unnamed'}</div>
+                        <div class="shader-link" onclick="viewShader('${shader.id}')">
+                            查看详情 →
+                        </div>
+                    </div>
+                `).join('');
+            } else {
+                count.textContent = '0';
+                content.innerHTML = '<div style="color: var(--text-muted); font-size: 10px;">无 Shader 绑定</div>';
+            }
+        }
+        
+        function updateTextureBindings(event) {
+            const grid = document.getElementById('textureBindings');
+            const count = document.getElementById('textureCount');
+            
+            if (event.textures && event.textures.length > 0) {
+                count.textContent = event.textures.length;
+                grid.innerHTML = event.textures.slice(0, 8).map((tex, i) => `
+                    <div class="binding-slot" onclick="viewTexture('${tex.id}')" title="${tex.name || 'Texture ' + i}">
+                        <div class="binding-thumb">
+                            ${tex.thumbnail ? `<img src="${tex.thumbnail}" alt="">` : ''}
+                        </div>
+                        <div class="binding-label">Slot ${i}</div>
+                    </div>
+                `).join('');
+                
+                // 补充空槽位
+                for (let i = event.textures.length; i < 8; i++) {
+                    grid.innerHTML += `
+                        <div class="binding-slot empty">
+                            <div class="binding-thumb"></div>
+                            <div class="binding-label">Slot ${i}</div>
+                        </div>
+                    `;
+                }
+            } else {
+                count.textContent = '0';
+                grid.innerHTML = '<div style="grid-column: 1/-1; color: var(--text-muted); font-size: 10px; text-align: center;">无纹理绑定</div>';
+            }
+        }
+        
+        function updateRenderTargets(event) {
+            const preview = document.getElementById('rtPreview');
+            const count = document.getElementById('rtCount');
+            
+            // 优先使用预导出的 RT 快照（离线模式）
+            if (event.rtSnapshot) {
+                count.textContent = '1';
+                preview.innerHTML = `
+                    <div class="rt-slot">
+                        <div class="rt-thumb" onclick="openLightbox('${event.rtSnapshot}', 'Render Target')">
+                            <img src="${event.rtSnapshot}" alt="RT Preview">
+                        </div>
+                        <div class="rt-label">Color0 (预导出)</div>
+                    </div>
+                `;
+                return;
+            }
+            
+            // 使用 renderTargets 数组
+            if (event.renderTargets && event.renderTargets.length > 0) {
+                count.textContent = event.renderTargets.length;
+                preview.innerHTML = event.renderTargets.map((rt, i) => `
+                    <div class="rt-slot">
+                        <div class="rt-thumb" onclick="openLightbox('${rt.thumbnail}', '${rt.name || 'RT ' + i}')">
+                            ${rt.thumbnail ? `<img src="${rt.thumbnail}" alt="">` : ''}
+                        </div>
+                        <div class="rt-label">${rt.name || 'RT ' + i}</div>
+                    </div>
+                `).join('');
+            } else {
+                count.textContent = '0';
+                preview.innerHTML = '<div style="color: var(--text-muted); font-size: 10px;">无 Render Target（可使用懒加载）</div>';
+            }
+        }
+        
+        function updateEventAnalysis(event) {
+            const content = document.getElementById('eventAnalysis');
+            
+            if (event.issues && event.issues.length > 0) {
+                content.innerHTML = event.issues.map(issue => `
+                    <div class="analysis-tip ${issue.level || 'warn'}">${issue.message}</div>
+                `).join('');
+            } else {
+                content.innerHTML = '<div class="analysis-tip success">✅ 未发现明显问题</div>';
+            }
+        }
+        
+        function formatEventType(type) {
+            const typeMap = {
+                'draw': '🟢 Draw Call',
+                'dispatch': '🟣 Compute Dispatch',
+                'clear': '🟡 Clear',
+                'copy': '🔵 Copy',
+                'marker': '🟠 Marker'
+            };
+            return typeMap[type] || type;
+        }
+        
+        // ========== 滚动到指定事件（时间线点击时调用） ==========
+        function scrollToEvent(eid) {
+            // 直接调用 selectEvent，传入 scrollToItem = true 来滚动并选中
+            selectEvent(eid, true);
+        }
+        
+        // ========== 导航 ==========
+        document.getElementById('prevEvent').addEventListener('click', () => {
+            if (eventIndex > 0) {
+                eventIndex--;
+                selectEvent(drawEvents[eventIndex].eid, true);  // 导航时需要滚动
+            }
+        });
+        
+        document.getElementById('nextEvent').addEventListener('click', () => {
+            if (eventIndex < drawEvents.length - 1) {
+                eventIndex++;
+                selectEvent(drawEvents[eventIndex].eid, true);  // 导航时需要滚动
+            }
+        });
+        
+        // ========== 缩放 ==========
+        document.getElementById('zoomIn').addEventListener('click', () => {
+            currentZoom = Math.min(currentZoom * 1.25, 8);
+            applyZoom();
+        });
+        
+        document.getElementById('zoomOut').addEventListener('click', () => {
+            currentZoom = Math.max(currentZoom / 1.25, 0.1);
+            applyZoom();
+        });
+        
+        function applyZoom() {
+            document.getElementById('outputImg').style.transform = `scale(${currentZoom})`;
+            document.getElementById('zoomLevel').textContent = `${Math.round(currentZoom * 100)}%`;
+        }
+        
+        // ========== 输出切换 ==========
+        function selectOutput(output) {
+            document.querySelectorAll('.output-tab').forEach(tab => {
+                tab.classList.toggle('active', tab.dataset.output === output);
+            });
+            
+            if (currentEvent && currentEvent.output && currentEvent.output[output]) {
+                document.getElementById('outputImg').src = currentEvent.output[output];
+                document.getElementById('outputImg').classList.remove('hidden');
+                document.getElementById('outputEmpty').classList.add('hidden');
+            } else {
+                document.getElementById('outputImg').classList.add('hidden');
+                document.getElementById('outputEmpty').classList.remove('hidden');
+            }
+        }
+        
+        // ========== 跳转 ==========
+        function viewShader(id) {
+            window.location.href = `shaders.html?id=${id}`;
+        }
+        
+        function viewTexture(id) {
+            window.location.href = `textures.html?id=${id}`;
+        }
+        
+        function viewShaderDetail() {
+            if (currentEvent && currentEvent.shaders && currentEvent.shaders.length > 0) {
+                viewShader(currentEvent.shaders[0].id);
+            }
+        }
+        
+        function viewTextureDetail() {
+            if (currentEvent && currentEvent.textures && currentEvent.textures.length > 0) {
+                viewTexture(currentEvent.textures[0].id);
+            }
+        }
+        
+        // ========== Lightbox ==========
+        function openLightbox(src, caption) {
+            if (!src) return;
+            document.getElementById('lightboxImg').src = src;
+            document.getElementById('lightboxCaption').textContent = caption || '';
+            document.getElementById('lightbox').classList.add('active');
+        }
+        
+        function closeLightbox() {
+            document.getElementById('lightbox').classList.remove('active');
+        }
+        
+        // ========== 键盘快捷键 ==========
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                closeLightbox();
+            } else if (e.key === 'ArrowUp' || e.key === 'ArrowLeft') {
+                document.getElementById('prevEvent').click();
+            } else if (e.key === 'ArrowDown' || e.key === 'ArrowRight') {
+                document.getElementById('nextEvent').click();
+            }
+        });
+        
+        // ========== RT 懒加载服务配置 ==========
+        const RT_SERVER_CONFIG = {
+            host: 'localhost',
+            port: 8765,  // 由 Python 生成器填充，默认 8765
+            timeout: 30000  // 30 秒超时
+        };
+        
+        let rtServerOnline = false;
+        let rtLoadingCache = {};  // 缓存已加载的 RT 快照 { eid: base64 }
+        
+        // 检查 RT 服务是否在线
+        async function checkRTServerStatus() {
+            try {
+                const response = await fetch(
+                    `http://${RT_SERVER_CONFIG.host}:${RT_SERVER_CONFIG.port}/api/status`,
+                    { method: 'GET', mode: 'cors' }
+                );
+                if (response.ok) {
+                    rtServerOnline = true;
+                    updateServerStatusUI(true);
+                    return true;
+                }
+            } catch (e) {
+                // 服务不可用
+            }
+            rtServerOnline = false;
+            updateServerStatusUI(false);
+            return false;
+        }
+        
+        function updateServerStatusUI(online) {
+            const statusEl = document.getElementById('serverStatus');
+            if (!statusEl) return;
+            
+            const dot = statusEl.querySelector('.server-status-dot');
+            const text = statusEl.querySelector('.server-status-text');
+            
+            if (online) {
+                dot.classList.add('online');
+                dot.classList.remove('offline');
+                text.textContent = 'RT 服务已连接';
+            } else {
+                dot.classList.remove('online');
+                dot.classList.add('offline');
+                text.textContent = 'RT 服务离线';
+            }
+        }
+        
+        // 从服务器加载 RT 快照
+        async function loadRTFromServer() {
+            if (!currentEvent) {
+                setRTLoadStatus('请先选择一个事件', 'error');
+                return;
+            }
+            
+            const eid = currentEvent.eid;
+            
+            // 检查缓存
+            if (rtLoadingCache[eid]) {
+                displayRTSnapshot(rtLoadingCache[eid]);
+                setRTLoadStatus('已从缓存加载', 'success');
+                return;
+            }
+            
+            // 更新按钮状态
+            const btn = document.getElementById('rtLoadBtn');
+            const iconSpan = btn.querySelector('.rt-load-icon');
+            const textSpan = btn.querySelector('.rt-load-text');
+            
+            btn.disabled = true;
+            btn.classList.add('loading');
+            iconSpan.textContent = '⏳';
+            textSpan.textContent = '正在加载...';
+            setRTLoadStatus(`正在从 RDC 导出 EID ${eid} 的 Render Target...`, '');
+            
+            try {
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), RT_SERVER_CONFIG.timeout);
+                
+                const response = await fetch(
+                    `http://${RT_SERVER_CONFIG.host}:${RT_SERVER_CONFIG.port}/api/rt/${eid}`,
+                    { 
+                        method: 'GET', 
+                        mode: 'cors',
+                        signal: controller.signal
+                    }
+                );
+                
+                clearTimeout(timeoutId);
+                
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    throw new Error(errorText || `HTTP ${response.status}`);
+                }
+                
+                const data = await response.json();
+                
+                if (data.success && data.thumbnail) {
+                    // 缓存结果
+                    rtLoadingCache[eid] = data.thumbnail;
+                    
+                    // 显示快照
+                    displayRTSnapshot(data.thumbnail);
+                    setRTLoadStatus(`✅ 加载成功 (${data.width}x${data.height})`, 'success');
+                } else {
+                    throw new Error(data.error || '无法获取 RT 快照');
+                }
+                
+            } catch (e) {
+                if (e.name === 'AbortError') {
+                    setRTLoadStatus('请求超时，请确保 RT 服务正在运行', 'error');
+                } else {
+                    setRTLoadStatus(`加载失败: ${e.message}`, 'error');
+                }
+                console.error('RT 加载错误:', e);
+            } finally {
+                // 恢复按钮状态
+                btn.disabled = false;
+                btn.classList.remove('loading');
+                iconSpan.textContent = '📷';
+                textSpan.textContent = '从 RDC 加载快照';
+            }
+        }
+        
+        function displayRTSnapshot(base64Data) {
+            const img = document.getElementById('outputImg');
+            const empty = document.getElementById('outputEmpty');
+            const viewport = document.getElementById('outputViewport');
+            
+            // 设置图片源
+            if (!base64Data.startsWith('data:')) {
+                base64Data = 'data:image/png;base64,' + base64Data;
+            }
+            img.src = base64Data;
+            img.classList.remove('hidden');
+            empty.classList.add('hidden');
+            viewport.classList.add('has-preview');
+        }
+        
+        function setRTLoadStatus(message, type) {
+            const statusEl = document.getElementById('rtLoadStatus');
+            statusEl.textContent = message;
+            statusEl.className = 'rt-load-status';
+            if (type) {
+                statusEl.classList.add(type);
+            }
+        }
+        
+        // 重置 RT 加载面板（切换事件时调用）
+        function resetRTLoadPanel() {
+            const viewport = document.getElementById('outputViewport');
+            viewport.classList.remove('has-preview');
+            setRTLoadStatus('', '');
+        }
+        
+        // ========== 初始化 ==========
+        document.addEventListener('DOMContentLoaded', () => {
+            // 初始化虚拟滚动
+            initVirtualScroll();
+            
+            // 检查 RT 服务状态（静默检查，不阻塞）
+            checkRTServerStatus();
+            
+            const params = new URLSearchParams(window.location.search);
+            
+            // 如果有 eid 参数，选中对应事件
+            const eid = params.get('eid');
+            if (eid) {
+                const targetEid = parseInt(eid);
+                selectEvent(targetEid, true);  // 初始化时需要滚动到指定事件
+            } else if (drawEvents.length > 0) {
+                // 默认选中第一个 draw 事件
+                selectEvent(drawEvents[0].eid, true);  // 初始化时滚动到第一项
+            }
+        });
+    </script>
+</body>
+</html>

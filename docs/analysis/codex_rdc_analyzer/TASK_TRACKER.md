@@ -1,7 +1,7 @@
 # RDC Analyzer 任务追踪表
 
 > **创建日期**: 2025-01-20  
-> **最后更新**: 2026-01-23  
+> **最后更新**: 2025-01-23  
 > **目标**: 完成单帧极致分析 + 双帧全方位对比  
 > **环境**: Windows PC + D3D11/D3D12 RDC 文件
 
@@ -20,7 +20,7 @@
 
 ---
 
-## ✅ A-first 闭环已完成（2026-01-23 复审）
+## ✅ A-first 闭环已完成（2025-01-23 复审）
 
 > **结论**: 验证链缺口已补齐，A-first 作为可验收基线成立。  
 > **当前验证记录**:
@@ -45,7 +45,7 @@
 | 7.5 Playbook 建议 | ✅ | steps/expected_impact/risk/engine_howto |
 | 7.6 验证方法 | ✅ | verification_plan 集成到 suggestion |
 | 7.7 Capture Preflight | ✅ | `_build_preflight()` 检测缺失 Markers |
-| 7.8 工程质量底线 | ✅ | 501 passed (2026-01-23) + test_dod_compliance.py |
+| 7.8 工程质量底线 | ✅ | 501 passed (2025-01-23) + test_dod_compliance.py |
 
 > 注：7.8 的“测试全绿”在功能实现层面已满足，但**验证链**仍受 P0-NEW-5/6/7 影响（可复现性/覆盖范围需补齐）。
 

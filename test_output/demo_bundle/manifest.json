@@ -1,0 +1,25 @@
+{
+  "version": "1.0",
+  "generator": "RDC Report Bundle Generator",
+  "generated_at": "2026-02-04 14:58:43",
+  "capture": {
+    "name": "demo_capture",
+    "frame_thumbnail": false
+  },
+  "pages": {
+    "index": "index.html",
+    "textures": "textures.html",
+    "events": "events.html",
+    "shaders": "shaders.html",
+    "recommendations": "recommendations.html"
+  },
+  "stats": {
+    "textures": 0,
+    "events": 0,
+    "shaders": 0,
+    "draw_calls": 0,
+    "dispatch_calls": 0,
+    "vram_bytes": 0,
+    "issues": 0
+  }
+}

@@ -175,16 +175,37 @@ def generate_duplicate_groups(textures):
             if idx != original_idx:
                 wasted += tex["vram_bytes"]
         
+        # 收集组内所有 resource_id
+        group_resource_ids = [t["resource_id"] for t in dup_textures]
+        
         groups.append({
             "fingerprint": fake_hash,
             "count": count,
             "textures": dup_textures,
             "wasted_bytes": wasted,
             "canonical_id": original["id"],
+            "resource_ids": group_resource_ids,  # 新增：组内所有纹理 ID
         })
         
         total_wasted += wasted
         total_dup_count += count - 1  # 不算原始的
+    
+    # 构建纹理 ID -> issues 映射
+    texture_issues_map = {}
+    for group in groups:
+        for res_id in group["resource_ids"]:
+            # 其他纹理 = 组内除自己以外的所有纹理
+            related_ids = [rid for rid in group["resource_ids"] if rid != res_id]
+            if related_ids:
+                if res_id not in texture_issues_map:
+                    texture_issues_map[res_id] = []
+                texture_issues_map[res_id].append({
+                    "type": "duplicate",
+                    "level": "warn",  # 与前端 JS 字段对齐
+                    "message": f"🔁 与 {len(related_ids)} 个其他纹理内容相同",
+                    "related_ids": related_ids,
+                    "fingerprint": group["fingerprint"],
+                })
     
     return {
         "duplicate_groups": groups,
@@ -192,6 +213,7 @@ def generate_duplicate_groups(textures):
         "total_wasted_bytes": total_wasted,
         "unique_textures": len(textures) - total_dup_count,
         "metadata_only": False,
+        "texture_issues_map": texture_issues_map,  # 新增：用于注入到 textures
     }
 
 
@@ -2007,6 +2029,15 @@ def main():
     dup_analysis = generate_duplicate_groups(textures)
     print(f"  [OK] Found {len(dup_analysis['duplicate_groups'])} duplicate groups")
     print(f"  [OK] Wasted VRAM: {dup_analysis['total_wasted_bytes'] / (1024*1024):.1f} MB")
+    
+    # 2.5 将 issues 注入到 textures（用于前端点击跳转）
+    texture_issues_map = dup_analysis.get("texture_issues_map", {})
+    for tex in textures:
+        tex_id = tex.get("id")
+        if tex_id in texture_issues_map:
+            tex["issues"] = texture_issues_map[tex_id]
+    issues_injected = sum(1 for t in textures if t.get("issues"))
+    print(f"  [OK] Issues injected into {issues_injected} textures")
     
     # 3. 生成热度分析
     print("\n[3/6] Generating usage analysis...")

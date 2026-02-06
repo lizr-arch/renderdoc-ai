@@ -247,7 +247,7 @@ renderdoccmd export capture.rdc -o output/ --bindings
 
 #### 编译历史记录
 
-编译步骤记录于：`plans/2026-01-24-185241-Agent01-BuildAndPythonCheck.md`
+编译步骤记录于：`plans/2025-01-24-185241-Agent01-BuildAndPythonCheck.md`
 
 ---
 

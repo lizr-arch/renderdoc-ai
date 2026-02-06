@@ -321,6 +321,8 @@ git commit -m "docs(rdc-analyzer): document fbx export pipeline"
 
 ## Risks & Blockers
 - FBX SDK Python 绑定缺失 → 需实现 C++ CLI（需要构建授权）
+- zip.xml 为 chunk 级结构，未包含 <event> 标签；xmlzip_event_extractor 依赖 event 结构，无法直接生成单事件中间态
+- 需新增 zip.xml → 事件/资源绑定的离线解析（或改用可生成事件结构的输入）
 
 ## Verification / DoD
 - 通过所有新增 pytest

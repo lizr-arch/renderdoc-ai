@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RDC 纹理报告 - {{ rdc_name }}</title>
+    <style>
+{{ static_css }}
+
+{{ dynamic_css|safe }}
+    </style>
+</head>
+<body>
+    <!-- ========== Photoshop 风格主布局 ========== -->
+    <div class="app-container" id="appContainer">
+        <!-- 顶部菜单栏 -->
+        <div class="app-menubar">
+            <div class="app-title">
+                <div class="logo"></div>
+                <span>RDC 纹理分析器</span>
+            </div>
+            <div class="app-menu">
+                <span class="menu-item view-toggle" id="viewToggleBtn" onclick="toggleViewMode()">📐 网格视图</span>
+                <span class="menu-item view-toggle" id="eventBrowserBtn" onclick="showEventBrowser()" style="background: rgba(163, 113, 247, 0.15); color: #a371f7;">🎮 Event Browser</span>
+                <span class="menu-item dropdown-trigger" id="exportMenuTrigger">
+                    导出 ▾
+                    <div class="dropdown-menu" id="exportDropdown">
+                        <div class="dropdown-item" onclick="exportToCSV()">📊 纹理列表 CSV</div>
+                        <div class="dropdown-item" onclick="exportToJSON()">📋 纹理列表 JSON</div>
+                        <div class="dropdown-item" onclick="downloadCurrentTexture()">🖼️ 下载当前纹理</div>
+                        <div class="dropdown-divider"></div>
+                        <div class="dropdown-item" onclick="exportReport()">📄 报告摘要 (TXT)</div>
+                        <div class="dropdown-item" onclick="exportOptimizationReport()">🎯 优化建议 (MD)</div>
+                        <div class="dropdown-item" onclick="exportOptimizationJSON()">🔧 优化建议 (JSON)</div>
+                        <div class="dropdown-item" onclick="exportOptimizationCSV()">📋 问题清单 (CSV)</div>
+                        <div class="dropdown-divider"></div>
+                        <div class="dropdown-item" onclick="exportFullAnalysisJSON()">📦 完整分析数据 (JSON)</div>
+                    </div>
+                </span>
+            </div>
+            <div class="app-meta">
+                <span id="frameThumbnailPreview" class="frame-thumb-preview" style="display:none;" onclick="showFrameThumbnail()">
+                    <img id="frameThumbnailImg" src="" alt="Frame" />
+                </span>
+                <span>{{ rdc_name }} | {{ timestamp }}</span>
+            </div>
+        </div>
+        
+        <!-- 主工作区 (HTML body 将从原文件提取) -->
+        {{ body_content|safe }}
+    </div>
+
+    {{ dynamic_html|safe }}
+
+    <script>
+        // 数据注入
+        const textures = {{ textures_json|safe }};
+        const duplicateAnalysis = {{ duplicates_json|safe }};
+        const usageAnalysis = {{ usage_json|safe }};
+        const eventPassData = {{ event_pass_json|safe }};
+        const reportLinks = {{ report_links_json|safe }};
+        const manifestData = {{ manifest_json|safe }};
+        const frameThumbnail = {{ frame_thumbnail_json|safe }};
+        const optimizationData = {{ optimization_json|safe }};
+        const performanceData = {{ performance_json|safe }};
+        const shaderData = {{ shader_json|safe }};
+        const textureUsageMap = {{ texture_usage_map_json|safe }};
+
+{{ static_js }}
+
+{{ dynamic_js|safe }}
+
+        // 启动
+        init();
+        renderConsistencyPanel();
+        applyHashJump();
+    </script>
+</body>
+</html>

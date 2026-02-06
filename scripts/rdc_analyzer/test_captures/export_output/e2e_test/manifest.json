@@ -1,0 +1,25 @@
+{
+  "version": "1.0",
+  "generator": "RDC Report Bundle Generator",
+  "generated_at": "2026-02-06 10:51:24",
+  "capture": {
+    "name": "E2E_Test_Capture",
+    "frame_thumbnail": false
+  },
+  "pages": {
+    "index": "index.html",
+    "textures": "textures.html",
+    "events": "events.html",
+    "shaders": "shaders.html",
+    "recommendations": "recommendations.html"
+  },
+  "stats": {
+    "textures": 3,
+    "events": 3,
+    "shaders": 3,
+    "draw_calls": 2,
+    "dispatch_calls": 1,
+    "vram_bytes": 29286727,
+    "issues": 3
+  }
+}

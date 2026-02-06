@@ -1,0 +1,892 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>优化建议 - g145_data</title>
+    <link rel="stylesheet" href="common.css">
+    <style>
+        /* ========== Recommendations 页面专用样式 ========== */
+        
+        body {
+            overflow: hidden;
+        }
+        
+        /* 主内容区 */
+        .recommendations-main {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+        }
+        
+        /* 左侧列表面板 */
+        .recommendations-list-panel {
+            width: 400px;
+            display: flex;
+            flex-direction: column;
+            border-right: 1px solid var(--border);
+            background: var(--bg-darker);
+        }
+        
+        /* 统计栏 */
+        .stats-bar {
+            display: flex;
+            gap: 12px;
+            padding: 8px 12px;
+            background: var(--bg-dark);
+            border-bottom: 1px solid var(--border);
+            font-size: 11px;
+        }
+        
+        .stat-item {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+        
+        .stat-count {
+            font-weight: 600;
+            font-family: var(--font-mono);
+        }
+        
+        .stat-count.critical { color: var(--accent-red); }
+        .stat-count.warning { color: var(--accent-yellow); }
+        .stat-count.info { color: var(--accent-blue); }
+        
+        .stat-label {
+            color: var(--text-muted);
+        }
+        
+        /* 筛选工具栏 */
+        .filter-bar {
+            display: flex;
+            gap: 8px;
+            padding: 8px 12px;
+            border-bottom: 1px solid var(--border);
+            background: var(--bg-darker);
+        }
+        
+        .filter-bar select,
+        .filter-bar input {
+            padding: 4px 8px;
+            background: var(--bg-dark);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            color: var(--text-primary);
+            font-size: 11px;
+        }
+        
+        .filter-bar select {
+            min-width: 100px;
+        }
+        
+        .filter-bar input {
+            flex: 1;
+        }
+        
+        .filter-bar input::placeholder {
+            color: var(--text-muted);
+        }
+        
+        /* 建议列表 */
+        .recommendations-list {
+            flex: 1;
+            overflow-y: auto;
+            overflow-x: hidden;
+        }
+        
+        .recommendation-item {
+            display: flex;
+            align-items: flex-start;
+            padding: 10px 12px;
+            border-bottom: 1px solid var(--border);
+            cursor: pointer;
+            transition: background 0.15s;
+            gap: 10px;
+        }
+        
+        .recommendation-item:hover {
+            background: var(--bg-dark);
+        }
+        
+        .recommendation-item.selected {
+            background: var(--bg-medium);
+            border-left: 2px solid var(--accent-blue);
+        }
+        
+        /* 严重程度指示器 */
+        .severity-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            flex-shrink: 0;
+            margin-top: 4px;
+        }
+        
+        .severity-dot.critical { background: var(--accent-red); }
+        .severity-dot.warning { background: var(--accent-yellow); }
+        .severity-dot.info { background: var(--accent-blue); }
+        
+        .recommendation-content {
+            flex: 1;
+            min-width: 0;
+        }
+        
+        .recommendation-title {
+            font-size: 12px;
+            color: var(--text-primary);
+            margin-bottom: 4px;
+            line-height: 1.4;
+        }
+        
+        .recommendation-meta {
+            display: flex;
+            gap: 8px;
+            font-size: 10px;
+            color: var(--text-muted);
+        }
+        
+        .recommendation-id {
+            font-family: var(--font-mono);
+            color: var(--accent-cyan);
+        }
+        
+        .recommendation-category {
+            padding: 1px 6px;
+            background: var(--bg-medium);
+            border-radius: var(--radius-sm);
+        }
+        
+        /* 右侧详情面板 */
+        .detail-panel {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            background: var(--bg-darkest);
+        }
+        
+        .detail-header {
+            padding: 16px;
+            border-bottom: 1px solid var(--border);
+            background: var(--bg-darker);
+        }
+        
+        .detail-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .detail-badges {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+        
+        .badge {
+            padding: 3px 8px;
+            border-radius: var(--radius-sm);
+            font-size: 10px;
+            font-weight: 500;
+        }
+        
+        .badge.critical {
+            background: rgba(239, 68, 68, 0.2);
+            color: var(--accent-red);
+        }
+        
+        .badge.warning {
+            background: rgba(245, 158, 11, 0.2);
+            color: var(--accent-yellow);
+        }
+        
+        .badge.info {
+            background: rgba(59, 130, 246, 0.2);
+            color: var(--accent-blue);
+        }
+        
+        .badge.category {
+            background: var(--bg-medium);
+            color: var(--text-secondary);
+        }
+        
+        /* 详情内容区 */
+        .detail-content {
+            flex: 1;
+            overflow-y: auto;
+            padding: 16px;
+        }
+        
+        .detail-section {
+            margin-bottom: 20px;
+        }
+        
+        .detail-section:last-child {
+            margin-bottom: 0;
+        }
+        
+        .section-title {
+            font-size: 11px;
+            font-weight: 600;
+            color: var(--text-muted);
+            margin-bottom: 8px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .section-text {
+            font-size: 12px;
+            color: var(--text-primary);
+            line-height: 1.6;
+        }
+        
+        .section-code {
+            background: var(--bg-dark);
+            padding: 12px;
+            border-radius: var(--radius-md);
+            font-family: var(--font-mono);
+            font-size: 11px;
+            color: var(--text-secondary);
+            white-space: pre-wrap;
+            overflow-x: auto;
+        }
+        
+        /* 影响程度指示器 */
+        .impact-bar {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .impact-track {
+            flex: 1;
+            height: 6px;
+            background: var(--bg-medium);
+            border-radius: 3px;
+            overflow: hidden;
+            max-width: 200px;
+        }
+        
+        .impact-fill {
+            height: 100%;
+            border-radius: 3px;
+        }
+        
+        .impact-fill.high { background: var(--accent-red); }
+        .impact-fill.medium { background: var(--accent-yellow); }
+        .impact-fill.low { background: var(--accent-green); }
+        
+        .impact-label {
+            font-size: 10px;
+            color: var(--text-muted);
+            min-width: 60px;
+        }
+        
+        /* 空状态 */
+        .empty-state {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            color: var(--text-muted);
+            font-size: 12px;
+        }
+        
+        .empty-icon {
+            font-size: 32px;
+            margin-bottom: 12px;
+            opacity: 0.6;
+        }
+        
+        .empty-title {
+            font-size: 14px;
+            color: var(--text-secondary);
+            margin-bottom: 4px;
+        }
+        
+        /* 无选中状态 */
+        .no-selection {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            color: var(--text-muted);
+            font-size: 12px;
+        }
+        
+        .no-selection-icon {
+            font-size: 48px;
+            margin-bottom: 16px;
+            opacity: 0.4;
+        }
+        
+        /* ========== 证据链面板样式 (M3.2) ========== */
+        
+        .evidence-chain-panel {
+            margin-top: 16px;
+            padding-top: 16px;
+            border-top: 1px solid var(--border);
+        }
+        
+        /* 证据列表 */
+        .evidence-list {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+        
+        .evidence-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 10px;
+            background: var(--bg-dark);
+            border-radius: var(--radius-sm);
+            font-size: 11px;
+            border-left: 3px solid var(--accent-blue);
+        }
+        
+        .evidence-item.critical {
+            border-left-color: var(--accent-red);
+            background: rgba(239, 68, 68, 0.1);
+        }
+        
+        .evidence-item.warning {
+            border-left-color: var(--accent-yellow);
+            background: rgba(245, 158, 11, 0.1);
+        }
+        
+        .evidence-label {
+            color: var(--text-muted);
+            min-width: 100px;
+        }
+        
+        .evidence-value {
+            color: var(--text-primary);
+            font-family: var(--font-mono);
+        }
+        
+        /* 操作按钮 */
+        .action-buttons {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+        
+        .action-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 12px;
+            background: var(--bg-medium);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-md);
+            color: var(--text-primary);
+            font-size: 11px;
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+        
+        .action-btn:hover {
+            background: var(--accent-blue);
+            border-color: var(--accent-blue);
+            color: white;
+        }
+        
+        .action-btn.jump-btn .btn-icon {
+            color: var(--accent-cyan);
+        }
+        
+        .action-btn.highlight-btn .btn-icon {
+            color: var(--accent-yellow);
+        }
+        
+        .action-btn:hover .btn-icon {
+            color: white;
+        }
+        
+        /* 受影响资源/事件标签 */
+        .affected-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+        }
+        
+        .resource-tag, .event-tag {
+            padding: 4px 8px;
+            background: var(--bg-dark);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            font-size: 10px;
+            font-family: var(--font-mono);
+            color: var(--text-secondary);
+        }
+        
+        .resource-tag.clickable, .event-tag.clickable {
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+        
+        .resource-tag.clickable:hover {
+            background: var(--accent-cyan);
+            border-color: var(--accent-cyan);
+            color: white;
+        }
+        
+        .event-tag.clickable:hover {
+            background: var(--accent-purple);
+            border-color: var(--accent-purple);
+            color: white;
+        }
+        
+        .resource-tag.more, .event-tag.more {
+            background: transparent;
+            color: var(--text-muted);
+            border-style: dashed;
+        }
+        
+        /* 影响评分 */
+        .impact-score {
+            font-size: 18px;
+            font-weight: 600;
+            font-family: var(--font-mono);
+        }
+        
+        .impact-score.critical { color: var(--accent-red); }
+        .impact-score.warning { color: var(--accent-yellow); }
+        .impact-score.info { color: var(--accent-blue); }
+        
+        /* 验证方案 */
+        .section-text.verification {
+            background: var(--bg-dark);
+            padding: 10px;
+            border-radius: var(--radius-sm);
+            border-left: 3px solid var(--accent-green);
+        }
+        
+        /* 高亮脉冲动画 */
+        @keyframes highlightPulse {
+            0%, 100% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0); }
+            50% { box-shadow: 0 0 0 8px rgba(59, 130, 246, 0.4); }
+        }
+        
+        .highlight-pulse {
+            animation: highlightPulse 0.6s ease-in-out 3;
+        }
+    </style>
+</head>
+<body>
+    <div class="app-container">
+        <!-- 菜单栏 -->
+        <div class="app-menubar">
+            <div class="app-title">
+                <div class="logo"></div>
+                <span>RDC 分析报告</span>
+            </div>
+            <div class="app-menu">
+                <a href="index.html" class="menu-item">概览</a>
+                <a href="textures.html" class="menu-item">纹理</a>
+                <a href="events.html" class="menu-item">事件</a>
+                <a href="shaders.html" class="menu-item">着色器</a>
+                <a href="recommendations.html" class="menu-item active">优化建议</a>
+            </div>
+            <div class="app-meta">
+                <span>g145_data</span>
+                <span>•</span>
+                <span>2026-02-06 12:12:51</span>
+            </div>
+        </div>
+        
+        <!-- 主内容区 -->
+        <div class="recommendations-main">
+            <!-- 左侧列表面板 -->
+            <div class="recommendations-list-panel">
+                <!-- 统计栏 -->
+                <div class="stats-bar">
+                    <div class="stat-item">
+                        <span class="stat-count critical">0</span>
+                        <span class="stat-label">严重</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-count warning">0</span>
+                        <span class="stat-label">警告</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-count info">0</span>
+                        <span class="stat-label">信息</span>
+                    </div>
+                    <div class="stat-item" style="margin-left: auto;">
+                        <span class="stat-label">共</span>
+                        <span class="stat-count" style="color: var(--text-primary);">0</span>
+                        <span class="stat-label">条</span>
+                    </div>
+                </div>
+                
+                <!-- 筛选工具栏 -->
+                <div class="filter-bar">
+                    <select id="severityFilter">
+                        <option value="all">全部严重度</option>
+                        <option value="critical">🔴 严重</option>
+                        <option value="warning">🟡 警告</option>
+                        <option value="info">🔵 信息</option>
+                    </select>
+                    <select id="categoryFilter">
+                        <option value="all">全部分类</option>
+                        
+                    </select>
+                    <input type="text" id="searchInput" placeholder="搜索建议...">
+                </div>
+                
+                <!-- 建议列表 -->
+                <div class="recommendations-list" id="recommendationsList">
+                    
+                <div class="empty-state">
+                    <div class="empty-icon">✅</div>
+                    <div class="empty-title">没有发现问题</div>
+                    <div>该帧渲染性能良好</div>
+                </div>
+                </div>
+            </div>
+            
+            <!-- 右侧详情面板 -->
+            <div class="detail-panel" id="detailPanel">
+                <div class="no-selection">
+                    <div class="no-selection-icon">💡</div>
+                    <div>选择左侧的建议查看详情</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 详情模板 (隐藏) -->
+    <template id="detailTemplate">
+        <div class="detail-header">
+            <div class="detail-title">
+                <span class="severity-dot"></span>
+                <span class="title-text"></span>
+            </div>
+            <div class="detail-badges">
+                <span class="badge severity"></span>
+                <span class="badge category"></span>
+                <span class="badge id"></span>
+            </div>
+        </div>
+        <div class="detail-content">
+            <div class="detail-section">
+                <div class="section-title">📋 问题描述</div>
+                <div class="section-text description"></div>
+            </div>
+            <div class="detail-section">
+                <div class="section-title">💡 优化建议</div>
+                <div class="section-text suggestion"></div>
+            </div>
+            <div class="detail-section">
+                <div class="section-title">📊 预期影响</div>
+                <div class="impact-bar">
+                    <div class="impact-track">
+                        <div class="impact-fill"></div>
+                    </div>
+                    <span class="impact-label"></span>
+                </div>
+            </div>
+        </div>
+    </template>
+    
+    <!-- 建议数据 (JSON) -->
+    <script id="recommendationsData" type="application/json">
+        []
+    </script>
+    
+    <script>
+        // 建议数据
+        const recommendations = JSON.parse(document.getElementById('recommendationsData').textContent || '[]');
+        
+        // DOM 元素
+        const listEl = document.getElementById('recommendationsList');
+        const detailPanel = document.getElementById('detailPanel');
+        const severityFilter = document.getElementById('severityFilter');
+        const categoryFilter = document.getElementById('categoryFilter');
+        const searchInput = document.getElementById('searchInput');
+        
+        // 当前选中
+        let selectedId = null;
+        
+        // 显示建议详情
+        function showDetail(id) {
+            const rec = recommendations.find(r => r.id === id);
+            if (!rec) return;
+            
+            selectedId = id;
+            
+            // 更新列表选中状态
+            document.querySelectorAll('.recommendation-item').forEach(item => {
+                item.classList.toggle('selected', item.dataset.id === id);
+            });
+            
+            // 严重程度映射
+            const severityMap = {
+                'critical': { label: '严重', color: 'critical' },
+                'warning': { label: '警告', color: 'warning' },
+                'info': { label: '信息', color: 'info' }
+            };
+            
+            const sev = severityMap[rec.severity] || severityMap.info;
+            
+            // 构建详情 HTML
+            detailPanel.innerHTML = `
+                <div class="detail-header">
+                    <div class="detail-title">
+                        <span class="severity-dot ${rec.severity}"></span>
+                        <span>${rec.title}</span>
+                    </div>
+                    <div class="detail-badges">
+                        <span class="badge ${rec.severity}">${sev.label}</span>
+                        <span class="badge category">${rec.category}</span>
+                        <span class="badge" style="background: var(--bg-dark); color: var(--accent-cyan); font-family: var(--font-mono);">${rec.id}</span>
+                    </div>
+                </div>
+                <div class="detail-content">
+                    <div class="detail-section">
+                        <div class="section-title">📋 问题描述</div>
+                        <div class="section-text">${rec.description || '无详细描述'}</div>
+                    </div>
+                    <div class="detail-section">
+                        <div class="section-title">💡 优化建议</div>
+                        <div class="section-text">${rec.suggestion || '无具体建议'}</div>
+                    </div>
+                    ${rec.impact ? `
+                    <div class="detail-section">
+                        <div class="section-title">📊 预期影响</div>
+                        <div class="section-text">${rec.impact}</div>
+                    </div>
+                    ` : ''}
+                    ${renderEvidenceChain(rec.evidence)}
+                </div>
+            `;
+        }
+        
+        // 渲染证据链面板 (M3.2)
+        function renderEvidenceChain(evidence) {
+            if (!evidence || !evidence.evidence_chain) {
+                return '';
+            }
+            
+            const chain = evidence.evidence_chain;
+            let html = '<div class="evidence-chain-panel">';
+            
+            // 摘要
+            if (chain.summary) {
+                html += `<div class="detail-section">
+                    <div class="section-title">🔗 证据链摘要</div>
+                    <div class="section-text">${chain.summary}</div>
+                </div>`;
+            }
+            
+            // 证据列表
+            if (chain.evidences && chain.evidences.length > 0) {
+                html += `<div class="detail-section">
+                    <div class="section-title">📋 证据详情</div>
+                    <div class="evidence-list">`;
+                
+                chain.evidences.forEach(ev => {
+                    const severityClass = ev.severity === 'critical' ? 'critical' : 
+                                         ev.severity === 'warning' ? 'warning' : 'info';
+                    const thresholdText = ev.threshold !== undefined && ev.threshold !== null 
+                        ? ` / 阈值: ${ev.threshold}${ev.unit}` : '';
+                    
+                    html += `<div class="evidence-item ${severityClass}">
+                        <span class="evidence-label">${ev.label}:</span>
+                        <span class="evidence-value">${ev.value}${ev.unit}${thresholdText}</span>
+                    </div>`;
+                });
+                
+                html += `</div></div>`;
+            }
+            
+            // 操作按钮
+            if (chain.actions && chain.actions.length > 0) {
+                html += `<div class="detail-section">
+                    <div class="section-title">🎯 快速跳转</div>
+                    <div class="action-buttons">`;
+                
+                chain.actions.forEach(action => {
+                    if (action.type === 'jump' && action.target_page) {
+                        // 跨页面跳转：构建 URL 并导航
+                        const page = action.target_page.endsWith('.html') ? action.target_page : action.target_page + '.html';
+                        html += `<button class="action-btn jump-btn" onclick="window.location.href=RdcNav.buildLink('${page}', '${action.target_id || ''}')">
+                            <span class="btn-icon">→</span>
+                            <span class="btn-text">${action.label || '跳转'}</span>
+                        </button>`;
+                    } else if (action.type === 'highlight') {
+                        html += `<button class="action-btn highlight-btn" onclick="highlightResource('${action.target_id}')">
+                            <span class="btn-icon">◉</span>
+                            <span class="btn-text">${action.label || '高亮'}</span>
+                        </button>`;
+                    }
+                });
+                
+                html += `</div></div>`;
+            }
+            
+            // 受影响资源
+            if (chain.affected_resources && chain.affected_resources.length > 0) {
+                html += `<div class="detail-section">
+                    <div class="section-title">📦 受影响资源 (${chain.affected_resources.length})</div>
+                    <div class="affected-list">`;
+                
+                chain.affected_resources.slice(0, 10).forEach(resId => {
+                    // 推断资源类型并跨页面跳转
+                    const isTexture = resId.includes('tex') || resId.includes('Texture');
+                    const isShader = resId.includes('shader') || resId.includes('Shader');
+                    const targetPage = isTexture ? 'textures.html' : isShader ? 'shaders.html' : 'events.html';
+                    
+                    html += `<span class="resource-tag clickable" onclick="window.location.href=RdcNav.buildLink('${targetPage}', '${resId}')">${resId}</span>`;
+                });
+                
+                if (chain.affected_resources.length > 10) {
+                    html += `<span class="resource-tag more">+${chain.affected_resources.length - 10} 更多</span>`;
+                }
+                
+                html += `</div></div>`;
+            }
+            
+            // 受影响事件
+            if (chain.affected_events && chain.affected_events.length > 0) {
+                html += `<div class="detail-section">
+                    <div class="section-title">🎬 相关事件 (${chain.affected_events.length})</div>
+                    <div class="affected-list">`;
+                
+                chain.affected_events.slice(0, 8).forEach(eid => {
+                    html += `<span class="event-tag clickable" onclick="window.location.href=RdcNav.buildLink('events.html', 'event_${eid}')">EID ${eid}</span>`;
+                });
+                
+                if (chain.affected_events.length > 8) {
+                    html += `<span class="event-tag more">+${chain.affected_events.length - 8} 更多</span>`;
+                }
+                
+                html += `</div></div>`;
+            }
+            
+            // 影响评分
+            if (chain.impact_score > 0) {
+                const scoreClass = chain.impact_score >= 70 ? 'critical' : 
+                                  chain.impact_score >= 40 ? 'warning' : 'info';
+                html += `<div class="detail-section">
+                    <div class="section-title">⚡ 影响评分</div>
+                    <div class="impact-score ${scoreClass}">${chain.impact_score.toFixed(1)} / 100</div>
+                </div>`;
+            }
+            
+            // 验证方案
+            if (chain.verification_plan) {
+                html += `<div class="detail-section">
+                    <div class="section-title">✅ 验证方案</div>
+                    <div class="section-text verification">${chain.verification_plan}</div>
+                </div>`;
+            }
+            
+            html += '</div>';
+            return html;
+        }
+        
+        // 构建跳转 URL
+        function buildJumpUrl(targetPage, targetId, params) {
+            let url = targetPage;
+            const queryParams = [];
+            if (targetId) queryParams.push(`id=${encodeURIComponent(targetId)}`);
+            if (params) {
+                Object.entries(params).forEach(([k, v]) => {
+                    queryParams.push(`${k}=${encodeURIComponent(v)}`);
+                });
+            }
+            if (queryParams.length > 0) {
+                url += '?' + queryParams.join('&');
+            }
+            return url;
+        }
+        
+        // 高亮资源（本页内）
+        function highlightResource(resourceId) {
+            const el = document.getElementById(resourceId) || 
+                       document.querySelector(`[data-id="${resourceId}"]`);
+            if (el) {
+                el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                el.classList.add('jump-highlight');
+                setTimeout(() => el.classList.remove('jump-highlight'), 2000);
+            }
+        }
+        
+        // 筛选建议
+        function filterRecommendations() {
+            const severity = severityFilter.value;
+            const category = categoryFilter.value;
+            const search = searchInput.value.toLowerCase();
+            
+            document.querySelectorAll('.recommendation-item').forEach(item => {
+                const itemSeverity = item.dataset.severity;
+                const itemCategory = item.dataset.category;
+                const itemText = item.textContent.toLowerCase();
+                
+                const matchSeverity = severity === 'all' || itemSeverity === severity;
+                const matchCategory = category === 'all' || itemCategory === category;
+                const matchSearch = !search || itemText.includes(search);
+                
+                item.style.display = (matchSeverity && matchCategory && matchSearch) ? '' : 'none';
+            });
+        }
+        
+        // 绑定事件
+        severityFilter.addEventListener('change', filterRecommendations);
+        categoryFilter.addEventListener('change', filterRecommendations);
+        searchInput.addEventListener('input', filterRecommendations);
+        
+        // 列表点击事件委托
+        listEl.addEventListener('click', (e) => {
+            const item = e.target.closest('.recommendation-item');
+            if (item) {
+                showDetail(item.dataset.id);
+            }
+        });
+        
+        // 键盘导航
+        document.addEventListener('keydown', (e) => {
+            if (e.target.tagName === 'INPUT') return;
+            
+            const visibleItems = Array.from(document.querySelectorAll('.recommendation-item'))
+                .filter(item => item.style.display !== 'none');
+            
+            if (visibleItems.length === 0) return;
+            
+            const currentIndex = visibleItems.findIndex(item => item.dataset.id === selectedId);
+            
+            if (e.key === 'ArrowDown' || e.key === 'j') {
+                e.preventDefault();
+                const nextIndex = currentIndex < visibleItems.length - 1 ? currentIndex + 1 : 0;
+                showDetail(visibleItems[nextIndex].dataset.id);
+                visibleItems[nextIndex].scrollIntoView({ block: 'nearest' });
+            } else if (e.key === 'ArrowUp' || e.key === 'k') {
+                e.preventDefault();
+                const prevIndex = currentIndex > 0 ? currentIndex - 1 : visibleItems.length - 1;
+                showDetail(visibleItems[prevIndex].dataset.id);
+                visibleItems[prevIndex].scrollIntoView({ block: 'nearest' });
+            }
+        });
+        
+        // 自动选中第一条
+        const firstItem = document.querySelector('.recommendation-item');
+        if (firstItem) {
+            showDetail(firstItem.dataset.id);
+        }
+    </script>
+    
+    <!-- 跨页面导航模块（证据链跳转） -->
+    <script src="navigation.js"></script>
+</body>
+</html>

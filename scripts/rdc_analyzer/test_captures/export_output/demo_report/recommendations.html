@@ -1,0 +1,790 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>优化建议 - Demo_Performance_Capture</title>
+    <link rel="stylesheet" href="common.css">
+    <link rel="stylesheet" href="recommendations.css">
+</head>
+<body>
+    <div class="app-container">
+        <!-- 导航栏 -->
+        <nav class="nav-bar">
+            <div class="nav-brand">
+                <span class="nav-logo">📊</span>
+                <span class="nav-title">RDC 性能报告</span>
+            </div>
+            <div class="nav-links">
+                <a href="index.html" class="nav-link">
+                    <span class="nav-link-icon">🏠</span>
+                    <span class="nav-link-text">概览</span>
+                </a>
+                <a href="textures.html" class="nav-link">
+                    <span class="nav-link-icon">🖼️</span>
+                    <span class="nav-link-text">纹理</span>
+                </a>
+                <a href="events.html" class="nav-link">
+                    <span class="nav-link-icon">📋</span>
+                    <span class="nav-link-text">事件</span>
+                </a>
+                <a href="shaders.html" class="nav-link">
+                    <span class="nav-link-icon">🎨</span>
+                    <span class="nav-link-text">着色器</span>
+                </a>
+                <a href="recommendations.html" class="nav-link active">
+                    <span class="nav-link-icon">💡</span>
+                    <span class="nav-link-text">优化建议</span>
+                </a>
+            </div>
+        </nav>
+        
+        <main class="recommendations-container">
+            <!-- 页面标题 -->
+            <div class="page-header">
+                <div class="page-header-left">
+                    <h1 class="page-title">
+                        <span class="page-title-icon">💡</span>
+                        优化建议
+                    </h1>
+                    <p class="page-subtitle">
+                        <span>Demo_Performance_Capture</span>
+                        <span class="separator">•</span>
+                        <span>共 8 条建议</span>
+                        <span class="separator">•</span>
+                        <span>2026-02-04 14:51:37</span>
+                    </p>
+                </div>
+            </div>
+            
+            <!-- 健康评分卡片 (Grafana 风格) -->
+            <div class="health-score-card warning">
+                <div class="score-circle">
+                    <svg viewBox="0 0 100 100">
+                        <circle class="bg" cx="50" cy="50" r="40"/>
+                        <circle class="progress warning" cx="50" cy="50" r="40" 
+                                stroke-dasharray="251.2" 
+                                stroke-dashoffset="120.6"/>
+                    </svg>
+                    <div class="score-value">
+                        <div class="score-number">52</div>
+                        <div class="score-label">分</div>
+                    </div>
+                </div>
+                <div class="health-details">
+                    <div class="health-title">需要关注</div>
+                    <div class="health-message">存在一些可优化的问题，建议逐步改进。</div>
+                </div>
+            </div>
+            
+            <!-- 统计指标网格 (Datadog 风格) -->
+            <div class="metrics-grid">
+                <div class="metric-card critical">
+                    <div class="metric-header">
+                        <span class="metric-label">严重问题</span>
+                        <span class="metric-icon">🚨</span>
+                    </div>
+                    <div class="metric-value">2</div>
+                    <div class="metric-trend up">
+                        <span>🔺</span>
+                        <span>需要立即处理</span>
+                    </div>
+                </div>
+                <div class="metric-card warning">
+                    <div class="metric-header">
+                        <span class="metric-label">警告</span>
+                        <span class="metric-icon">⚠️</span>
+                    </div>
+                    <div class="metric-value">3</div>
+                    <div class="metric-trend neutral">
+                        <span>建议优化</span>
+                    </div>
+                </div>
+                <div class="metric-card info">
+                    <div class="metric-header">
+                        <span class="metric-label">建议</span>
+                        <span class="metric-icon">ℹ️</span>
+                    </div>
+                    <div class="metric-value">3</div>
+                    <div class="metric-trend neutral">
+                        <span>可选优化</span>
+                    </div>
+                </div>
+                <div class="metric-card success">
+                    <div class="metric-header">
+                        <span class="metric-label">预估优化</span>
+                        <span class="metric-icon">📈</span>
+                    </div>
+                    <div class="metric-value">~67MB</div>
+                    <div class="metric-trend down">
+                        <span>↓</span>
+                        <span>潜在提升</span>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 问题分布图表 -->
+            <div class="charts-row">
+                <!-- 分类分布 -->
+                <div class="chart-card">
+                    <div class="chart-title">
+                        <span class="chart-title-icon">📊</span>
+                        问题分类分布
+                    </div>
+                    <div class="category-bars">
+                        
+                    <div class="category-bar-row">
+                        <div class="category-bar-label">
+                            <span class="category-bar-icon">🖼️</span>
+                            <span class="category-bar-name">纹理</span>
+                        </div>
+                        <div class="category-bar-track">
+                            <div class="category-bar-fill" style="width:100.0%"></div>
+                        </div>
+                        <span class="category-bar-count">3</span>
+                    </div>
+                    <div class="category-bar-row">
+                        <div class="category-bar-label">
+                            <span class="category-bar-icon">🎯</span>
+                            <span class="category-bar-name">绘制调用</span>
+                        </div>
+                        <div class="category-bar-track">
+                            <div class="category-bar-fill" style="width:33.3%"></div>
+                        </div>
+                        <span class="category-bar-count">1</span>
+                    </div>
+                    <div class="category-bar-row">
+                        <div class="category-bar-label">
+                            <span class="category-bar-icon">🎨</span>
+                            <span class="category-bar-name">着色器</span>
+                        </div>
+                        <div class="category-bar-track">
+                            <div class="category-bar-fill" style="width:33.3%"></div>
+                        </div>
+                        <span class="category-bar-count">1</span>
+                    </div>
+                    <div class="category-bar-row">
+                        <div class="category-bar-label">
+                            <span class="category-bar-icon">💾</span>
+                            <span class="category-bar-name">内存</span>
+                        </div>
+                        <div class="category-bar-track">
+                            <div class="category-bar-fill" style="width:33.3%"></div>
+                        </div>
+                        <span class="category-bar-count">1</span>
+                    </div>
+                    <div class="category-bar-row">
+                        <div class="category-bar-label">
+                            <span class="category-bar-icon">📡</span>
+                            <span class="category-bar-name">带宽</span>
+                        </div>
+                        <div class="category-bar-track">
+                            <div class="category-bar-fill" style="width:33.3%"></div>
+                        </div>
+                        <span class="category-bar-count">1</span>
+                    </div>
+                    <div class="category-bar-row">
+                        <div class="category-bar-label">
+                            <span class="category-bar-icon">📋</span>
+                            <span class="category-bar-name">通用</span>
+                        </div>
+                        <div class="category-bar-track">
+                            <div class="category-bar-fill" style="width:33.3%"></div>
+                        </div>
+                        <span class="category-bar-count">1</span>
+                    </div>
+                    </div>
+                </div>
+                
+                <!-- 严重程度分布 -->
+                <div class="chart-card">
+                    <div class="chart-title">
+                        <span class="chart-title-icon">🎯</span>
+                        严重程度分布
+                    </div>
+                    <div class="severity-chart">
+                        <div class="severity-donut">
+                            <svg viewBox="0 0 100 100">
+                                <circle class="segment critical" cx="50" cy="50" r="30" 
+                                        stroke-dasharray="47.1 188.4" 
+                                        stroke-dashoffset="0"/>
+                                <circle class="segment warning" cx="50" cy="50" r="30" 
+                                        stroke-dasharray="70.7 188.4" 
+                                        stroke-dashoffset="-47.1"/>
+                                <circle class="segment info" cx="50" cy="50" r="30" 
+                                        stroke-dasharray="70.7 188.4" 
+                                        stroke-dashoffset="-117.8"/>
+                            </svg>
+                            <div class="severity-donut-center">
+                                <div class="severity-total">8</div>
+                                <div class="severity-label">总计</div>
+                            </div>
+                        </div>
+                        <div class="severity-legend">
+                            <div class="severity-legend-item">
+                                <span class="severity-legend-dot critical"></span>
+                                <span class="severity-legend-label">严重</span>
+                                <span class="severity-legend-count">2</span>
+                            </div>
+                            <div class="severity-legend-item">
+                                <span class="severity-legend-dot warning"></span>
+                                <span class="severity-legend-label">警告</span>
+                                <span class="severity-legend-count">3</span>
+                            </div>
+                            <div class="severity-legend-item">
+                                <span class="severity-legend-dot info"></span>
+                                <span class="severity-legend-label">建议</span>
+                                <span class="severity-legend-count">3</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 工具栏 -->
+            <div class="toolbar">
+                <div class="toolbar-left">
+                    <div class="filter-tabs">
+                        <button class="filter-tab active" data-category="all">
+                            全部<span class="count">8</span>
+                        </button>
+                        
+                <button class="filter-tab" data-category="texture">
+                    🖼️ 纹理<span class="count">3</span>
+                </button>
+                <button class="filter-tab" data-category="drawcall">
+                    🎯 绘制调用<span class="count">1</span>
+                </button>
+                <button class="filter-tab" data-category="shader">
+                    🎨 着色器<span class="count">1</span>
+                </button>
+                <button class="filter-tab" data-category="memory">
+                    💾 内存<span class="count">1</span>
+                </button>
+                <button class="filter-tab" data-category="bandwidth">
+                    📡 带宽<span class="count">1</span>
+                </button>
+                <button class="filter-tab" data-category="general">
+                    📋 通用<span class="count">1</span>
+                </button>
+                    </div>
+                </div>
+                <div class="toolbar-right">
+                    <div class="search-box">
+                        <span class="search-icon">🔍</span>
+                        <input type="text" id="searchInput" placeholder="搜索建议...">
+                    </div>
+                    <div class="sort-dropdown">
+                        <button class="sort-button" id="sortButton">
+                            <span>排序</span>
+                            <span>▼</span>
+                        </button>
+                        <div class="sort-menu" id="sortMenu">
+                            <div class="sort-option active" data-sort="severity">严重程度</div>
+                            <div class="sort-option" data-sort="category">分类</div>
+                            <div class="sort-option" data-sort="impact">影响程度</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 建议列表 -->
+            <div class="recommendations-list" id="recommendationsList">
+                
+                <div class="recommendation-card critical" data-category="texture">
+                    <div class="recommendation-header">
+                        <span class="severity-icon">🚨</span>
+                        <div class="recommendation-title-section">
+                            <div class="recommendation-title">超大纹理 (4K×4K)</div>
+                            <div class="recommendation-rule">TEX_SIZE_001</div>
+                        </div>
+                        <div class="recommendation-badges">
+                            <span class="badge severity-critical">严重</span>
+                            <span class="badge category">纹理</span>
+                        </div>
+                        <span class="expand-icon">▼</span>
+                    </div>
+                    <div class="recommendation-body">
+                        <div class="recommendation-section">
+                            <div class="section-title">问题描述</div>
+                            <div class="detail-text">MainCharacter_Albedo 纹理尺寸为 4096×4096，在移动端会导致严重的内存压力和带宽消耗。</div>
+                        </div>
+                        
+                        <div class='recommendation-section'><div class='section-title'>建议操作</div><ul class='action-steps'>
+                            <li class="action-step">
+                                <span class="step-number">1</span>
+                                <span class="step-text">压缩到 2048×2048</span>
+                            </li>
+                            <li class="action-step">
+                                <span class="step-number">2</span>
+                                <span class="step-text">使用 Mipmap</span>
+                            </li>
+                            <li class="action-step">
+                                <span class="step-number">3</span>
+                                <span class="step-text">考虑 BC7 压缩格式</span>
+                            </li></ul></div>
+                        
+                        <div class="recommendation-section">
+                            <div class="section-title">影响评估</div>
+                            <div class="impact-meter">
+                                <div class="impact-bar">
+                                    <div class="impact-fill high" style="width:90%"></div>
+                                </div>
+                                <span class="impact-label">影响评分: 9/10</span>
+                            </div>
+                        </div>
+                        
+                        <div class='recommendation-section'><div class='section-title'>相关资源</div><a href="textures.html?id=1" class="resource-link">🖼️ 查看纹理 #1</a></div>
+                    </div>
+                </div>
+                <div class="recommendation-card critical" data-category="texture">
+                    <div class="recommendation-header">
+                        <span class="severity-icon">🚨</span>
+                        <div class="recommendation-title-section">
+                            <div class="recommendation-title">未压缩 4K 纹理</div>
+                            <div class="recommendation-rule">TEX_FMT_001</div>
+                        </div>
+                        <div class="recommendation-badges">
+                            <span class="badge severity-critical">严重</span>
+                            <span class="badge category">纹理</span>
+                        </div>
+                        <span class="expand-icon">▼</span>
+                    </div>
+                    <div class="recommendation-body">
+                        <div class="recommendation-section">
+                            <div class="section-title">问题描述</div>
+                            <div class="detail-text">ShadowMap_Main 使用 D32_FLOAT 格式，占用 64MB 显存。</div>
+                        </div>
+                        
+                        <div class='recommendation-section'><div class='section-title'>建议操作</div><ul class='action-steps'>
+                            <li class="action-step">
+                                <span class="step-number">1</span>
+                                <span class="step-text">使用 D24_UNORM_S8_UINT 格式</span>
+                            </li>
+                            <li class="action-step">
+                                <span class="step-number">2</span>
+                                <span class="step-text">降低分辨率到 2048</span>
+                            </li></ul></div>
+                        
+                        <div class="recommendation-section">
+                            <div class="section-title">影响评估</div>
+                            <div class="impact-meter">
+                                <div class="impact-bar">
+                                    <div class="impact-fill high" style="width:80%"></div>
+                                </div>
+                                <span class="impact-label">影响评分: 8/10</span>
+                            </div>
+                        </div>
+                        
+                        <div class='recommendation-section'><div class='section-title'>相关资源</div><a href="textures.html?id=5" class="resource-link">🖼️ 查看纹理 #5</a></div>
+                    </div>
+                </div>
+                <div class="recommendation-card warning" data-category="texture">
+                    <div class="recommendation-header">
+                        <span class="severity-icon">⚠️</span>
+                        <div class="recommendation-title-section">
+                            <div class="recommendation-title">HDR 格式优化</div>
+                            <div class="recommendation-rule">TEX_FMT_002</div>
+                        </div>
+                        <div class="recommendation-badges">
+                            <span class="badge severity-warning">警告</span>
+                            <span class="badge category">纹理</span>
+                        </div>
+                        <span class="expand-icon">▼</span>
+                    </div>
+                    <div class="recommendation-body">
+                        <div class="recommendation-section">
+                            <div class="section-title">问题描述</div>
+                            <div class="detail-text">Skybox_HDR 使用 R32G32B32A32_FLOAT (128bpp)，带宽消耗大。</div>
+                        </div>
+                        
+                        <div class='recommendation-section'><div class='section-title'>建议操作</div><p class="section-content">使用 R16G16B16A16_FLOAT 或 BC6H 压缩</p></div>
+                        
+                        <div class="recommendation-section">
+                            <div class="section-title">影响评估</div>
+                            <div class="impact-meter">
+                                <div class="impact-bar">
+                                    <div class="impact-fill medium" style="width:60%"></div>
+                                </div>
+                                <span class="impact-label">影响评分: 6/10</span>
+                            </div>
+                        </div>
+                        
+                        <div class='recommendation-section'><div class='section-title'>相关资源</div><a href="textures.html?id=7" class="resource-link">🖼️ 查看纹理 #7</a></div>
+                    </div>
+                </div>
+                <div class="recommendation-card warning" data-category="drawcall">
+                    <div class="recommendation-header">
+                        <span class="severity-icon">⚠️</span>
+                        <div class="recommendation-title-section">
+                            <div class="recommendation-title">Draw Call 数量较多</div>
+                            <div class="recommendation-rule">DC_COUNT_001</div>
+                        </div>
+                        <div class="recommendation-badges">
+                            <span class="badge severity-warning">警告</span>
+                            <span class="badge category">绘制调用</span>
+                        </div>
+                        <span class="expand-icon">▼</span>
+                    </div>
+                    <div class="recommendation-body">
+                        <div class="recommendation-section">
+                            <div class="section-title">问题描述</div>
+                            <div class="detail-text">当前帧有 200 个 Draw Call，超过推荐的 150 个阈值。</div>
+                        </div>
+                        
+                        <div class='recommendation-section'><div class='section-title'>建议操作</div><ul class='action-steps'>
+                            <li class="action-step">
+                                <span class="step-number">1</span>
+                                <span class="step-text">合并静态网格</span>
+                            </li>
+                            <li class="action-step">
+                                <span class="step-number">2</span>
+                                <span class="step-text">使用 GPU Instancing</span>
+                            </li>
+                            <li class="action-step">
+                                <span class="step-number">3</span>
+                                <span class="step-text">实现批处理</span>
+                            </li></ul></div>
+                        
+                        <div class="recommendation-section">
+                            <div class="section-title">影响评估</div>
+                            <div class="impact-meter">
+                                <div class="impact-bar">
+                                    <div class="impact-fill medium" style="width:70%"></div>
+                                </div>
+                                <span class="impact-label">影响评分: 7/10</span>
+                            </div>
+                        </div>
+                        
+                        
+                    </div>
+                </div>
+                <div class="recommendation-card warning" data-category="shader">
+                    <div class="recommendation-header">
+                        <span class="severity-icon">⚠️</span>
+                        <div class="recommendation-title-section">
+                            <div class="recommendation-title">PBR Shader 指令较多</div>
+                            <div class="recommendation-rule">SHADER_ALU_001</div>
+                        </div>
+                        <div class="recommendation-badges">
+                            <span class="badge severity-warning">警告</span>
+                            <span class="badge category">着色器</span>
+                        </div>
+                        <span class="expand-icon">▼</span>
+                    </div>
+                    <div class="recommendation-body">
+                        <div class="recommendation-section">
+                            <div class="section-title">问题描述</div>
+                            <div class="detail-text">PBR_Standard_PS 有 320 条指令，可能在低端设备造成瓶颈。</div>
+                        </div>
+                        
+                        <div class='recommendation-section'><div class='section-title'>建议操作</div><ul class='action-steps'>
+                            <li class="action-step">
+                                <span class="step-number">1</span>
+                                <span class="step-text">拆分为 LOD Shader</span>
+                            </li>
+                            <li class="action-step">
+                                <span class="step-number">2</span>
+                                <span class="step-text">减少采样次数</span>
+                            </li>
+                            <li class="action-step">
+                                <span class="step-number">3</span>
+                                <span class="step-text">简化光照模型</span>
+                            </li></ul></div>
+                        
+                        <div class="recommendation-section">
+                            <div class="section-title">影响评估</div>
+                            <div class="impact-meter">
+                                <div class="impact-bar">
+                                    <div class="impact-fill medium" style="width:50%"></div>
+                                </div>
+                                <span class="impact-label">影响评分: 5/10</span>
+                            </div>
+                        </div>
+                        
+                        <div class='recommendation-section'><div class='section-title'>相关资源</div><a href="shaders.html?id=2" class="resource-link">🎨 查看 Shader #2</a></div>
+                    </div>
+                </div>
+                <div class="recommendation-card info" data-category="memory">
+                    <div class="recommendation-header">
+                        <span class="severity-icon">💡</span>
+                        <div class="recommendation-title-section">
+                            <div class="recommendation-title">显存使用分析</div>
+                            <div class="recommendation-rule">MEM_INFO_001</div>
+                        </div>
+                        <div class="recommendation-badges">
+                            <span class="badge severity-info">建议</span>
+                            <span class="badge category">内存</span>
+                        </div>
+                        <span class="expand-icon">▼</span>
+                    </div>
+                    <div class="recommendation-body">
+                        <div class="recommendation-section">
+                            <div class="section-title">问题描述</div>
+                            <div class="detail-text">当前帧纹理显存占用约 234MB，处于中等水平。</div>
+                        </div>
+                        
+                        <div class='recommendation-section'><div class='section-title'>建议操作</div><ul class='action-steps'>
+                            <li class="action-step">
+                                <span class="step-number">1</span>
+                                <span class="step-text">持续监控</span>
+                            </li>
+                            <li class="action-step">
+                                <span class="step-number">2</span>
+                                <span class="step-text">考虑纹理流送</span>
+                            </li></ul></div>
+                        
+                        <div class="recommendation-section">
+                            <div class="section-title">影响评估</div>
+                            <div class="impact-meter">
+                                <div class="impact-bar">
+                                    <div class="impact-fill low" style="width:30%"></div>
+                                </div>
+                                <span class="impact-label">影响评分: 3/10</span>
+                            </div>
+                        </div>
+                        
+                        
+                    </div>
+                </div>
+                <div class="recommendation-card info" data-category="bandwidth">
+                    <div class="recommendation-header">
+                        <span class="severity-icon">💡</span>
+                        <div class="recommendation-title-section">
+                            <div class="recommendation-title">带宽使用提示</div>
+                            <div class="recommendation-rule">BW_INFO_001</div>
+                        </div>
+                        <div class="recommendation-badges">
+                            <span class="badge severity-info">建议</span>
+                            <span class="badge category">带宽</span>
+                        </div>
+                        <span class="expand-icon">▼</span>
+                    </div>
+                    <div class="recommendation-body">
+                        <div class="recommendation-section">
+                            <div class="section-title">问题描述</div>
+                            <div class="detail-text">PostFX_Bloom 每帧读写 16MB 数据，建议优化后处理链。</div>
+                        </div>
+                        
+                        <div class='recommendation-section'><div class='section-title'>建议操作</div><ul class='action-steps'>
+                            <li class="action-step">
+                                <span class="step-number">1</span>
+                                <span class="step-text">使用半分辨率渲染</span>
+                            </li>
+                            <li class="action-step">
+                                <span class="step-number">2</span>
+                                <span class="step-text">合并后处理 Pass</span>
+                            </li></ul></div>
+                        
+                        <div class="recommendation-section">
+                            <div class="section-title">影响评估</div>
+                            <div class="impact-meter">
+                                <div class="impact-bar">
+                                    <div class="impact-fill low" style="width:40%"></div>
+                                </div>
+                                <span class="impact-label">影响评分: 4/10</span>
+                            </div>
+                        </div>
+                        
+                        
+                    </div>
+                </div>
+                <div class="recommendation-card info" data-category="general">
+                    <div class="recommendation-header">
+                        <span class="severity-icon">💡</span>
+                        <div class="recommendation-title-section">
+                            <div class="recommendation-title">Mipmap 建议</div>
+                            <div class="recommendation-rule">TEX_MIP_001</div>
+                        </div>
+                        <div class="recommendation-badges">
+                            <span class="badge severity-info">建议</span>
+                            <span class="badge category">通用</span>
+                        </div>
+                        <span class="expand-icon">▼</span>
+                    </div>
+                    <div class="recommendation-body">
+                        <div class="recommendation-section">
+                            <div class="section-title">问题描述</div>
+                            <div class="detail-text">UI_Atlas 未启用 Mipmap，在缩放时可能出现锯齿。</div>
+                        </div>
+                        
+                        <div class='recommendation-section'><div class='section-title'>建议操作</div><p class="section-content">为 UI 纹理启用 Mipmap</p></div>
+                        
+                        <div class="recommendation-section">
+                            <div class="section-title">影响评估</div>
+                            <div class="impact-meter">
+                                <div class="impact-bar">
+                                    <div class="impact-fill low" style="width:20%"></div>
+                                </div>
+                                <span class="impact-label">影响评分: 2/10</span>
+                            </div>
+                        </div>
+                        
+                        
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 空状态 -->
+            <div class="empty-state" id="emptyState" style="display: none;">
+                <div class="empty-checkmark">
+                    <svg viewBox="0 0 24 24" fill="none">
+                        <path d="M20 6L9 17L4 12" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                </div>
+                <div class="empty-title">太棒了！没有发现问题</div>
+                <div class="empty-desc">当前捕获文件没有检测到明显的性能问题，继续保持！</div>
+            </div>
+            
+            <!-- 搜索无结果状态 -->
+            <div class="empty-state" id="noResultsState" style="display: none;">
+                <div class="empty-icon">🔍</div>
+                <div class="empty-title">未找到匹配结果</div>
+                <div class="empty-desc">尝试使用其他关键词或清除筛选条件</div>
+            </div>
+        </main>
+    </div>
+    
+    <script>
+        // ==================== 数据初始化 ====================
+        const recommendationsData = [{"severity": "critical", "category": "texture", "rule": "TEX_SIZE_001", "title": "超大纹理 (4K×4K)", "detail": "MainCharacter_Albedo 纹理尺寸为 4096×4096，在移动端会导致严重的内存压力和带宽消耗。", "action": "压缩到 2048×2048；使用 Mipmap；考虑 BC7 压缩格式", "impact": 9, "resource_id": "1", "actual_value": "", "threshold_value": ""}, {"severity": "critical", "category": "texture", "rule": "TEX_FMT_001", "title": "未压缩 4K 纹理", "detail": "ShadowMap_Main 使用 D32_FLOAT 格式，占用 64MB 显存。", "action": "使用 D24_UNORM_S8_UINT 格式；降低分辨率到 2048", "impact": 8, "resource_id": "5", "actual_value": "", "threshold_value": ""}, {"severity": "warning", "category": "texture", "rule": "TEX_FMT_002", "title": "HDR 格式优化", "detail": "Skybox_HDR 使用 R32G32B32A32_FLOAT (128bpp)，带宽消耗大。", "action": "使用 R16G16B16A16_FLOAT 或 BC6H 压缩", "impact": 6, "resource_id": "7", "actual_value": "", "threshold_value": ""}, {"severity": "warning", "category": "drawcall", "rule": "DC_COUNT_001", "title": "Draw Call 数量较多", "detail": "当前帧有 200 个 Draw Call，超过推荐的 150 个阈值。", "action": "合并静态网格；使用 GPU Instancing；实现批处理", "impact": 7, "resource_id": "", "actual_value": "", "threshold_value": ""}, {"severity": "warning", "category": "shader", "rule": "SHADER_ALU_001", "title": "PBR Shader 指令较多", "detail": "PBR_Standard_PS 有 320 条指令，可能在低端设备造成瓶颈。", "action": "拆分为 LOD Shader；减少采样次数；简化光照模型", "impact": 5, "resource_id": "2", "actual_value": "", "threshold_value": ""}, {"severity": "info", "category": "memory", "rule": "MEM_INFO_001", "title": "显存使用分析", "detail": "当前帧纹理显存占用约 234MB，处于中等水平。", "action": "持续监控；考虑纹理流送", "impact": 3, "resource_id": "", "actual_value": "", "threshold_value": ""}, {"severity": "info", "category": "bandwidth", "rule": "BW_INFO_001", "title": "带宽使用提示", "detail": "PostFX_Bloom 每帧读写 16MB 数据，建议优化后处理链。", "action": "使用半分辨率渲染；合并后处理 Pass", "impact": 4, "resource_id": "", "actual_value": "", "threshold_value": ""}, {"severity": "info", "category": "general", "rule": "TEX_MIP_001", "title": "Mipmap 建议", "detail": "UI_Atlas 未启用 Mipmap，在缩放时可能出现锯齿。", "action": "为 UI 纹理启用 Mipmap", "impact": 2, "resource_id": "4", "actual_value": "", "threshold_value": ""}];
+        
+        // ==================== DOM 元素 ====================
+        const searchInput = document.getElementById('searchInput');
+        const sortButton = document.getElementById('sortButton');
+        const sortMenu = document.getElementById('sortMenu');
+        const recommendationsList = document.getElementById('recommendationsList');
+        const emptyState = document.getElementById('emptyState');
+        const noResultsState = document.getElementById('noResultsState');
+        
+        // ==================== 状态管理 ====================
+        let currentCategory = 'all';
+        let currentSort = 'severity';
+        let searchQuery = '';
+        
+        // ==================== 分类筛选 ====================
+        document.querySelectorAll('.filter-tab').forEach(tab => {
+            tab.addEventListener('click', () => {
+                document.querySelectorAll('.filter-tab').forEach(t => t.classList.remove('active'));
+                tab.classList.add('active');
+                currentCategory = tab.dataset.category;
+                filterAndRender();
+            });
+        });
+        
+        // ==================== 搜索功能 ====================
+        let searchTimeout;
+        searchInput.addEventListener('input', (e) => {
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(() => {
+                searchQuery = e.target.value.toLowerCase().trim();
+                filterAndRender();
+            }, 200);
+        });
+        
+        // ==================== 排序功能 ====================
+        sortButton.addEventListener('click', (e) => {
+            e.stopPropagation();
+            sortMenu.classList.toggle('open');
+        });
+        
+        document.addEventListener('click', () => {
+            sortMenu.classList.remove('open');
+        });
+        
+        document.querySelectorAll('.sort-option').forEach(option => {
+            option.addEventListener('click', (e) => {
+                e.stopPropagation();
+                document.querySelectorAll('.sort-option').forEach(o => o.classList.remove('active'));
+                option.classList.add('active');
+                currentSort = option.dataset.sort;
+                sortMenu.classList.remove('open');
+                filterAndRender();
+            });
+        });
+        
+        // ==================== 展开/收起 ====================
+        document.querySelectorAll('.recommendation-header').forEach(header => {
+            header.addEventListener('click', () => {
+                const card = header.closest('.recommendation-card');
+                card.classList.toggle('expanded');
+            });
+        });
+        
+        // ==================== 筛选和渲染 ====================
+        function filterAndRender() {
+            const cards = document.querySelectorAll('.recommendation-card');
+            let visibleCount = 0;
+            
+            cards.forEach(card => {
+                const category = card.dataset.category;
+                const text = card.textContent.toLowerCase();
+                
+                const categoryMatch = currentCategory === 'all' || category === currentCategory;
+                const searchMatch = !searchQuery || text.includes(searchQuery);
+                
+                if (categoryMatch && searchMatch) {
+                    card.style.display = 'block';
+                    visibleCount++;
+                } else {
+                    card.style.display = 'none';
+                }
+            });
+            
+            // 显示/隐藏空状态
+            if (visibleCount === 0) {
+                if (searchQuery) {
+                    noResultsState.style.display = 'block';
+                    emptyState.style.display = 'none';
+                } else if (8 === 0) {
+                    emptyState.style.display = 'block';
+                    noResultsState.style.display = 'none';
+                } else {
+                    noResultsState.style.display = 'block';
+                    emptyState.style.display = 'none';
+                }
+            } else {
+                emptyState.style.display = 'none';
+                noResultsState.style.display = 'none';
+            }
+        }
+        
+        // ==================== URL 参数处理 ====================
+        const urlParams = new URLSearchParams(window.location.search);
+        const filterCategory = urlParams.get('category');
+        if (filterCategory) {
+            const tab = document.querySelector(`.filter-tab[data-category="${filterCategory}"]`);
+            if (tab) tab.click();
+        }
+        
+        // ==================== 初始化 ====================
+        // 默认展开前3个严重问题
+        document.querySelectorAll('.recommendation-card.critical').forEach((card, index) => {
+            if (index < 3) card.classList.add('expanded');
+        });
+        
+        // 显示空状态（如果没有问题）
+        if (8 === 0) {
+            emptyState.style.display = 'block';
+        }
+        
+        // ==================== 动画效果 ====================
+        // 健康评分圆环动画
+        setTimeout(() => {
+            const progressCircle = document.querySelector('.score-circle .progress');
+            if (progressCircle) {
+                progressCircle.style.strokeDashoffset = '120.6';
+            }
+        }, 100);
+        
+        // 分类条形图动画
+        document.querySelectorAll('.category-bar-fill').forEach((bar, index) => {
+            const width = bar.style.width;
+            bar.style.width = '0%';
+            setTimeout(() => {
+                bar.style.width = width;
+            }, 100 + index * 50);
+        });
+    </script>
+</body>
+</html>

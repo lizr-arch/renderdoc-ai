@@ -15,17 +15,16 @@ from rdc_parser import ChunkInfo, TextureInfo  # noqa: E402
 
 
 def _make_texture(resource_id: int = 1) -> TextureInfo:
+    """创建测试用的 TextureInfo 对象"""
     return TextureInfo(
         resource_id=resource_id,
-        image_type=1,
-        format=37,  # VK_FORMAT_R8G8B8A8_UNORM
         width=2,
         height=2,
         depth=1,
         mip_levels=1,
-        array_layers=1,
+        array_size=1,
+        format=37,  # VK_FORMAT_R8G8B8A8_UNORM
         samples=1,
-        usage=0,
         chunk_offset=0,
     )
 

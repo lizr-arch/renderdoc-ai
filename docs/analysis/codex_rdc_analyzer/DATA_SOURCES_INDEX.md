@@ -1,6 +1,6 @@
 # 数据来源方式总表（可持续补充）
 
-> **版本**: 1.0.0 | **日期**: 2026-02-01 | **状态**: 维护中
+> **版本**: 1.0.0 | **日期**: 2025-02-01 | **状态**: 维护中
 
 - WHAT：统一记录 RDC Analyzer 的**全部数据来源方式**与可用性/限制，避免“空数据/误期待”。  
 - WHY：不同链路（A/C/B）依赖的数据源不同，必须可追溯、可扩展。  
@@ -73,7 +73,7 @@
 
 ## 5. 数据丰富度对标（RenderDoc 基线）
 
-> 来源基线：`docs/analysis/codex_rdc_analyzer/2026-01-31-rdc-analyzer-data-richness-baseline.md`  
+> 来源基线：`docs/analysis/codex_rdc_analyzer/2025-01-31-rdc-analyzer-data-richness-baseline.md`  
 > 原则：对标 RenderDoc 官方字段全集，标注 **已有/缺失/可扩充/需新增**。
 
 ### 5.1 对标基线（官方字段全集）

@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>RDC Call Chain Analyzer</title>
     <style>
-        :root {
+:root {
             --bg-primary: #0d1117;
             --bg-secondary: #161b22;
             --bg-tertiary: #21262d;
@@ -530,6 +530,352 @@
             color: var(--text-secondary);
         }
         
+        /* Performance Dashboard */
+        .perf-dashboard {
+            padding: 20px;
+        }
+        
+        .perf-score-container {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 40px;
+            margin-bottom: 24px;
+            padding: 24px;
+            background: var(--bg-tertiary);
+            border-radius: 16px;
+        }
+        
+        .perf-score-ring {
+            position: relative;
+            width: 160px;
+            height: 160px;
+        }
+        
+        .perf-score-ring svg {
+            transform: rotate(-90deg);
+        }
+        
+        .perf-score-ring circle {
+            fill: none;
+            stroke-width: 12;
+        }
+        
+        .perf-score-ring .bg {
+            stroke: var(--border);
+        }
+        
+        .perf-score-ring .progress {
+            stroke-linecap: round;
+            transition: stroke-dashoffset 1s ease;
+        }
+        
+        .perf-score-text {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+        }
+        
+        .perf-score-value {
+            font-size: 42px;
+            font-weight: 700;
+        }
+        
+        .perf-score-label {
+            font-size: 14px;
+            color: var(--text-secondary);
+        }
+        
+        .perf-score-excellent { color: var(--success); }
+        .perf-score-good { color: #a9e34b; }
+        .perf-score-fair { color: var(--warning); }
+        .perf-score-poor { color: var(--error); }
+        
+        .perf-summary-stats {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+        
+        .perf-summary-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        
+        .perf-summary-icon {
+            width: 48px;
+            height: 48px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+        }
+        
+        .perf-summary-icon.issues { background: rgba(255, 107, 107, 0.2); }
+        .perf-summary-icon.draws { background: rgba(74, 158, 255, 0.2); }
+        .perf-summary-icon.textures { background: rgba(105, 219, 124, 0.2); }
+        
+        .perf-summary-value {
+            font-size: 24px;
+            font-weight: 600;
+        }
+        
+        .perf-summary-label {
+            font-size: 13px;
+            color: var(--text-secondary);
+        }
+        
+        /* Performance Category Cards */
+        .perf-categories {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+        
+        .perf-category-card {
+            background: var(--bg-tertiary);
+            border-radius: 12px;
+            padding: 20px;
+            border-left: 4px solid var(--accent);
+        }
+        
+        .perf-category-card.warning { border-left-color: var(--warning); }
+        .perf-category-card.error { border-left-color: var(--error); }
+        .perf-category-card.success { border-left-color: var(--success); }
+        
+        .perf-category-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+        
+        .perf-category-name {
+            font-weight: 600;
+            font-size: 15px;
+        }
+        
+        .perf-category-count {
+            background: var(--bg-secondary);
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 13px;
+            font-weight: 600;
+        }
+        
+        .perf-category-bar {
+            height: 8px;
+            background: var(--border);
+            border-radius: 4px;
+            overflow: hidden;
+        }
+        
+        .perf-category-fill {
+            height: 100%;
+            border-radius: 4px;
+            transition: width 0.5s ease;
+        }
+        
+        .perf-category-fill.low { background: var(--success); }
+        .perf-category-fill.medium { background: var(--warning); }
+        .perf-category-fill.high { background: var(--error); }
+        
+        /* Performance Issues List */
+        .perf-issues-section {
+            margin-top: 24px;
+        }
+        
+        .perf-issues-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+        }
+        
+        .perf-issues-title {
+            font-size: 18px;
+            font-weight: 600;
+        }
+        
+        .perf-issues-filter {
+            display: flex;
+            gap: 8px;
+        }
+        
+        .perf-filter-btn {
+            padding: 6px 12px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+            cursor: pointer;
+            font-size: 12px;
+            transition: all 0.2s;
+        }
+        
+        .perf-filter-btn:hover,
+        .perf-filter-btn.active {
+            background: var(--accent);
+            border-color: var(--accent);
+            color: white;
+        }
+        
+        .perf-issue-card {
+            background: var(--bg-tertiary);
+            border-radius: 12px;
+            padding: 16px;
+            margin-bottom: 12px;
+            border-left: 4px solid var(--warning);
+            transition: transform 0.2s;
+        }
+        
+        .perf-issue-card:hover {
+            transform: translateX(4px);
+        }
+        
+        .perf-issue-card.critical { border-left-color: var(--error); }
+        .perf-issue-card.warning { border-left-color: var(--warning); }
+        .perf-issue-card.info { border-left-color: var(--info); }
+        
+        .perf-issue-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 8px;
+        }
+        
+        .perf-issue-rule {
+            font-family: 'Monaco', 'Menlo', monospace;
+            font-size: 12px;
+            color: var(--accent);
+            background: var(--bg-secondary);
+            padding: 4px 8px;
+            border-radius: 4px;
+        }
+        
+        .perf-issue-impact {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 12px;
+        }
+        
+        .perf-impact-bar {
+            width: 60px;
+            height: 6px;
+            background: var(--border);
+            border-radius: 3px;
+            overflow: hidden;
+        }
+        
+        .perf-impact-fill {
+            height: 100%;
+            border-radius: 3px;
+        }
+        
+        .perf-issue-message {
+            font-size: 14px;
+            line-height: 1.5;
+            margin-bottom: 8px;
+        }
+        
+        .perf-issue-details {
+            display: flex;
+            gap: 16px;
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+        
+        .perf-issue-location {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+        
+        /* Performance Recommendations */
+        .perf-recommendations {
+            margin-top: 24px;
+            background: var(--bg-tertiary);
+            border-radius: 12px;
+            padding: 20px;
+        }
+        
+        .perf-rec-title {
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .perf-rec-list {
+            list-style: none;
+        }
+        
+        .perf-rec-item {
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+            padding: 12px 0;
+            border-bottom: 1px solid var(--border);
+        }
+        
+        .perf-rec-item:last-child {
+            border-bottom: none;
+        }
+        
+        .perf-rec-icon {
+            width: 32px;
+            height: 32px;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+            flex-shrink: 0;
+        }
+        
+        .perf-rec-icon.high { background: rgba(255, 107, 107, 0.2); }
+        .perf-rec-icon.medium { background: rgba(255, 169, 77, 0.2); }
+        .perf-rec-icon.low { background: rgba(116, 192, 252, 0.2); }
+        
+        .perf-rec-content {
+            flex: 1;
+        }
+        
+        .perf-rec-text {
+            font-size: 14px;
+            line-height: 1.5;
+        }
+        
+        .perf-rec-priority {
+            font-size: 11px;
+            padding: 2px 8px;
+            border-radius: 4px;
+            margin-left: 8px;
+        }
+        
+        .perf-rec-priority.high {
+            background: rgba(255, 107, 107, 0.2);
+            color: var(--error);
+        }
+        
+        .perf-rec-priority.medium {
+            background: rgba(255, 169, 77, 0.2);
+            color: var(--warning);
+        }
+        
+        .perf-rec-priority.low {
+            background: rgba(116, 192, 252, 0.2);
+            color: var(--info);
+        }
+        
         /* Resource Link (clickable resource IDs) */
         .resource-link {
             color: var(--accent);
@@ -908,6 +1254,492 @@
         @keyframes spin {
             to { transform: rotate(360deg); }
         }
+        
+        /* Shader Styles */
+        .shader-modal {
+            max-width: 1200px;
+            max-height: 90vh;
+        }
+        
+        .shader-modal-body {
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            height: 600px;
+        }
+        
+        .shader-info-header {
+            padding: 16px 24px;
+            background: var(--bg-tertiary);
+            border-bottom: 1px solid var(--border);
+        }
+        
+        .shader-info-header .info-row {
+            display: flex;
+            gap: 24px;
+            flex-wrap: wrap;
+        }
+        
+        .shader-info-header .info-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 13px;
+        }
+        
+        .shader-info-header .info-label {
+            color: var(--text-secondary);
+        }
+        
+        .shader-info-header .info-value {
+            color: var(--text-primary);
+            font-weight: 500;
+        }
+        
+        .shader-code-tabs {
+            display: flex;
+            padding: 8px 24px;
+            gap: 8px;
+            background: var(--bg-secondary);
+            border-bottom: 1px solid var(--border);
+        }
+        
+        .shader-code-tab {
+            padding: 6px 16px;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 13px;
+            color: var(--text-secondary);
+            transition: all 0.2s;
+        }
+        
+        .shader-code-tab:hover {
+            background: var(--bg-primary);
+            color: var(--text-primary);
+        }
+        
+        .shader-code-tab.active {
+            background: var(--accent);
+            border-color: var(--accent);
+            color: white;
+        }
+        
+        .shader-code-container {
+            flex: 1;
+            overflow: auto;
+            background: #1a1a2e;
+        }
+        
+        .shader-code {
+            margin: 0;
+            padding: 16px 24px;
+            font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+            font-size: 13px;
+            line-height: 1.5;
+            color: #e0e0e0;
+            white-space: pre;
+            overflow-x: auto;
+        }
+        
+        .shader-code .keyword {
+            color: #569cd6;
+        }
+        
+        .shader-code .type {
+            color: #4ec9b0;
+        }
+        
+        .shader-code .number {
+            color: #b5cea8;
+        }
+        
+        .shader-code .string {
+            color: #ce9178;
+        }
+        
+        .shader-code .comment {
+            color: #6a9955;
+            font-style: italic;
+        }
+        
+        .shader-code .semantic {
+            color: #dcdcaa;
+        }
+        
+        .shader-code .register {
+            color: #c586c0;
+        }
+        
+        /* Shader Card in Tab */
+        .shaders-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 16px;
+            padding: 16px;
+        }
+        
+        .shader-card {
+            background: var(--bg-tertiary);
+            border-radius: 12px;
+            padding: 16px;
+            cursor: pointer;
+            transition: all 0.2s;
+            border: 1px solid var(--border);
+        }
+        
+        .shader-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+            border-color: var(--accent);
+        }
+        
+        .shader-card-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 12px;
+        }
+        
+        .shader-stage-badge {
+            padding: 4px 10px;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 600;
+            color: white;
+        }
+        
+        .shader-stage-badge.vs { background: #4a9eff; }
+        .shader-stage-badge.ps { background: #ff6b6b; }
+        .shader-stage-badge.gs { background: #ffa94d; }
+        .shader-stage-badge.hs { background: #69db7c; }
+        .shader-stage-badge.ds { background: #74c0fc; }
+        .shader-stage-badge.cs { background: #cc5de8; }
+        
+        .shader-card-name {
+            font-weight: 500;
+            color: var(--text-primary);
+            word-break: break-all;
+        }
+        
+        .shader-card-info {
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+        
+        .shader-card-info div {
+            margin-bottom: 4px;
+        }
+        
+        .shader-card-footer {
+            margin-top: 12px;
+            padding-top: 12px;
+            border-top: 1px solid var(--border);
+            display: flex;
+            gap: 8px;
+        }
+        
+        .shader-resource-tag {
+            font-size: 11px;
+            padding: 2px 8px;
+            background: var(--bg-secondary);
+            border-radius: 4px;
+            color: var(--text-secondary);
+        }
+        
+        /* ============ Mali GPU Analysis Panel ============ */
+        .mali-dashboard {
+            padding: 20px;
+        }
+        
+        .mali-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 24px;
+            flex-wrap: wrap;
+            gap: 16px;
+        }
+        
+        .mali-header h3 {
+            font-size: 18px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .mali-gpu-selector {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        
+        .mali-gpu-selector label {
+            font-size: 14px;
+            color: var(--text-secondary);
+        }
+        
+        .mali-gpu-select {
+            padding: 8px 16px;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+            font-size: 14px;
+            min-width: 200px;
+        }
+        
+        .mali-gpu-select:focus {
+            outline: none;
+            border-color: var(--accent);
+        }
+        
+        .mali-status {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 16px;
+            border-radius: 8px;
+            font-size: 13px;
+        }
+        
+        .mali-status.available {
+            background: rgba(105, 219, 124, 0.15);
+            color: var(--success);
+        }
+        
+        .mali-status.unavailable {
+            background: rgba(255, 107, 107, 0.15);
+            color: var(--error);
+        }
+        
+        /* Mali Summary Cards */
+        .mali-summary {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+        
+        .mali-summary-card {
+            background: var(--bg-secondary);
+            border-radius: 12px;
+            padding: 20px;
+            text-align: center;
+        }
+        
+        .mali-summary-card .value {
+            font-size: 28px;
+            font-weight: 700;
+            color: var(--accent);
+        }
+        
+        .mali-summary-card .label {
+            font-size: 13px;
+            color: var(--text-secondary);
+            margin-top: 4px;
+        }
+        
+        .mali-summary-card.warning .value {
+            color: var(--warning);
+        }
+        
+        .mali-summary-card.error .value {
+            color: var(--error);
+        }
+        
+        /* Mali Shader Table */
+        .mali-shaders-section {
+            background: var(--bg-secondary);
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 24px;
+        }
+        
+        .mali-shaders-section h4 {
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .mali-shader-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+        }
+        
+        .mali-shader-table th {
+            text-align: left;
+            padding: 12px;
+            background: var(--bg-tertiary);
+            color: var(--text-secondary);
+            font-weight: 500;
+            border-bottom: 1px solid var(--border);
+        }
+        
+        .mali-shader-table td {
+            padding: 12px;
+            border-bottom: 1px solid var(--border);
+        }
+        
+        .mali-shader-table tr:hover {
+            background: var(--bg-tertiary);
+        }
+        
+        .mali-shader-name {
+            font-weight: 500;
+            color: var(--accent);
+        }
+        
+        .mali-stage-badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+        
+        .mali-stage-badge.vs { background: rgba(74, 158, 255, 0.2); color: #4a9eff; }
+        .mali-stage-badge.ps { background: rgba(255, 107, 107, 0.2); color: #ff6b6b; }
+        .mali-stage-badge.cs { background: rgba(105, 219, 124, 0.2); color: #69db7c; }
+        .mali-stage-badge.gs { background: rgba(255, 169, 77, 0.2); color: #ffa94d; }
+        
+        /* Mali Cycle Bars */
+        .mali-cycle-bar {
+            display: flex;
+            height: 8px;
+            border-radius: 4px;
+            overflow: hidden;
+            background: var(--bg-tertiary);
+            min-width: 100px;
+        }
+        
+        .mali-cycle-bar .segment {
+            height: 100%;
+        }
+        
+        .mali-cycle-bar .segment.arithmetic { background: #4a9eff; }
+        .mali-cycle-bar .segment.load-store { background: #ffa94d; }
+        .mali-cycle-bar .segment.texture { background: #ff6b6b; }
+        .mali-cycle-bar .segment.varying { background: #69db7c; }
+        
+        /* Mali Bottleneck Badge */
+        .mali-bottleneck {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+        
+        .mali-bottleneck.A { background: rgba(74, 158, 255, 0.2); color: #4a9eff; }
+        .mali-bottleneck.LS { background: rgba(255, 169, 77, 0.2); color: #ffa94d; }
+        .mali-bottleneck.T { background: rgba(255, 107, 107, 0.2); color: #ff6b6b; }
+        .mali-bottleneck.V { background: rgba(105, 219, 124, 0.2); color: #69db7c; }
+        
+        /* Mali Register Warning */
+        .mali-reg-warning {
+            color: var(--warning);
+            font-size: 12px;
+        }
+        
+        .mali-reg-spill {
+            color: var(--error);
+            font-weight: 500;
+        }
+        
+        /* Mali Legend */
+        .mali-legend {
+            display: flex;
+            gap: 24px;
+            flex-wrap: wrap;
+            margin-bottom: 16px;
+            padding: 12px;
+            background: var(--bg-tertiary);
+            border-radius: 8px;
+        }
+        
+        .mali-legend-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+        
+        .mali-legend-color {
+            width: 12px;
+            height: 12px;
+            border-radius: 3px;
+        }
+        
+        .mali-legend-color.arithmetic { background: #4a9eff; }
+        .mali-legend-color.load-store { background: #ffa94d; }
+        .mali-legend-color.texture { background: #ff6b6b; }
+        .mali-legend-color.varying { background: #69db7c; }
+        
+        /* Mali Recommendations */
+        .mali-recommendations {
+            margin-top: 24px;
+            background: var(--bg-tertiary);
+            border-radius: 12px;
+            padding: 20px;
+        }
+        
+        .mali-rec-title {
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .mali-rec-list {
+            list-style: none;
+        }
+        
+        .mali-rec-item {
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+            padding: 12px 0;
+            border-bottom: 1px solid var(--border);
+        }
+        
+        .mali-rec-item:last-child {
+            border-bottom: none;
+        }
+        
+        .mali-rec-icon {
+            width: 28px;
+            height: 28px;
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+            flex-shrink: 0;
+            background: rgba(74, 158, 255, 0.2);
+        }
+        
+        .mali-rec-text {
+            font-size: 14px;
+            line-height: 1.5;
+            color: var(--text-primary);
+        }
+        
+        .mali-rec-shader {
+            font-size: 12px;
+            color: var(--text-secondary);
+            margin-top: 4px;
+        }
     </style>
 </head>
 <body>
@@ -921,7 +1753,7 @@
                 </div>
             </div>
             <div class="header-meta">
-                Generated: 2026-01-16T14:22:18.837370
+                Generated: 2026-02-06T17:36:17.853624
             </div>
         </div>
         
@@ -1002,9 +1834,12 @@
             <div class="detail-panel">
                 <div class="tabs">
                     <div class="tab active" data-tab="pipeline">Pipeline State</div>
+                    <div class="tab" data-tab="shaders">Shaders</div>
                     <div class="tab" data-tab="issues">Issues <span id="issues-badge"></span></div>
                     <div class="tab" data-tab="deps">Dependencies</div>
                     <div class="tab" data-tab="resources">Resources</div>
+                    <div class="tab" data-tab="performance">Performance</div>
+                    <div class="tab" data-tab="mali">Mali GPU</div>
                 </div>
                 
                 <div class="tab-content active" id="tab-pipeline">
@@ -1145,6 +1980,74 @@
                 </div>
             
                 </div>
+                
+                <div class="tab-content" id="tab-shaders">
+                    <div class="empty-state" id="shaders-empty">
+                        <div class="empty-state-icon">💻</div>
+                        <p>Select a draw call to view shaders</p>
+                    </div>
+                    <div id="shaders-content"></div>
+                </div>
+                
+                <div class="tab-content" id="tab-performance">
+                    
+                <div class="empty-state">
+                    <div class="empty-state-icon">⚡</div>
+                    <p>No performance analysis data available</p>
+                    <p style="font-size: 12px; color: var(--text-secondary); margin-top: 8px;">
+                        Run performance analysis to see optimization opportunities
+                    </p>
+                </div>
+            
+                </div>
+                
+                <div class="tab-content" id="tab-mali">
+                    
+                <div class="empty-state">
+                    <div class="empty-state-icon">📱</div>
+                    <p>No Mali GPU analysis data available</p>
+                    <p style="font-size: 12px; color: var(--text-secondary); margin-top: 8px;">
+                        Enable Mali analysis and ensure malioc is installed to see GPU performance data.
+                        <br><br>
+                        <a href="https://developer.arm.com/Tools%20and%20Software/Mali%20Offline%20Compiler" 
+                           target="_blank" style="color: var(--accent);">
+                            Download Mali Offline Compiler
+                        </a>
+                    </p>
+                </div>
+            
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Shader Code Modal -->
+    <div class="modal-overlay" id="shader-modal">
+        <div class="modal shader-modal">
+            <div class="modal-header">
+                <div class="modal-title">
+                    <span id="shader-modal-name">Shader</span>
+                    <span class="resource-type-badge" id="shader-modal-stage">VS</span>
+                </div>
+                <button class="modal-close" onclick="closeShaderModal()">&times;</button>
+            </div>
+            <div class="modal-body shader-modal-body" id="shader-modal-body">
+                <div class="shader-info-header" id="shader-info-header"></div>
+                <div class="shader-code-tabs">
+                    <button class="shader-code-tab active" data-code="asm">ASM</button>
+                    <button class="shader-code-tab" data-code="hlsl">HLSL</button>
+                </div>
+                <div class="shader-code-container">
+                    <pre class="shader-code" id="shader-code-content"><code></code></pre>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="export-btn export-btn-secondary" onclick="copyShaderCode()">
+                    📋 Copy Code
+                </button>
+                <button class="export-btn export-btn-primary" onclick="closeShaderModal()">
+                    Close
+                </button>
             </div>
         </div>
     </div>
@@ -1177,10 +2080,10 @@
     </div>
     
     <script>
-        // Embedded data
-        const analysisData = {"metadata": {"export_time": "2026-01-16T14:22:18.836369", "analyzer_version": "1.0.0", "source_file": "test_capture.rdc", "api_type": "D3D11", "frame_number": null, "total_events": 3, "total_draw_calls": 3}, "draw_calls": [{"event_id": 100, "name": "DrawIndexed_GBuffer", "draw_type": "DRAW_INDEXED", "vertex_count": 0, "instance_count": 1, "index_offset": 0, "vertex_offset": 0, "pipeline_state": {"input_assembly": {"topology": "TRIANGLE_LIST", "vertex_buffers": []}, "rasterizer": {"fill_mode": "SOLID", "cull_mode": "BACK", "front_ccw": false, "depth_bias": 0, "scissor_enabled": false}, "output_merger": {"render_targets": []}}, "issues": [], "resource_reads": [], "resource_writes": []}, {"event_id": 200, "name": "DrawInstanced_Shadows", "draw_type": "DRAW_INSTANCED", "vertex_count": 0, "instance_count": 1, "index_offset": 0, "vertex_offset": 0, "pipeline_state": {"input_assembly": {"topology": "TRIANGLE_LIST", "vertex_buffers": []}, "rasterizer": {"fill_mode": "SOLID", "cull_mode": "BACK", "front_ccw": false, "depth_bias": 0, "scissor_enabled": false}, "output_merger": {"render_targets": []}}, "issues": [], "resource_reads": [], "resource_writes": []}, {"event_id": 300, "name": "DrawIndexed_Lighting", "draw_type": "DRAW_INDEXED", "vertex_count": 0, "instance_count": 1, "index_offset": 0, "vertex_offset": 0, "pipeline_state": {"input_assembly": {"topology": "TRIANGLE_LIST", "vertex_buffers": []}, "rasterizer": {"fill_mode": "SOLID", "cull_mode": "BACK", "front_ccw": false, "depth_bias": 0, "scissor_enabled": false}, "output_merger": {"render_targets": []}}, "issues": [], "resource_reads": [], "resource_writes": []}], "issues": [{"event_id": 100, "rule_id": "BIND001", "severity": "error", "category": "binding", "message": "Missing vertex shader", "details": {}}, {"event_id": 200, "rule_id": "BIND002", "severity": "warning", "category": "binding", "message": "Null constant buffer at slot 0", "details": {}}], "dependencies": [{"source_event": 100, "target_event": 200, "resource_id": 1001, "resource_name": "GBuffer_Color", "dependency_type": 1, "access_detail": "WRITE -> READ"}, {"source_event": 200, "target_event": 300, "resource_id": 1002, "resource_name": "ShadowMap", "dependency_type": 1, "access_detail": "WRITE -> READ"}], "resource_lifetimes": [{"resource_id": 1001, "resource_name": "GBuffer_Color", "resource_type": "RENDER_TARGET", "first_access_event": 100, "last_access_event": 300, "read_count": 2, "write_count": 1, "hazards": [], "is_written_never_read": false}, {"resource_id": 1002, "resource_name": "ShadowMap", "resource_type": "TEXTURE", "first_access_event": 200, "last_access_event": 300, "read_count": 1, "write_count": 1, "hazards": [], "is_written_never_read": false}, {"resource_id": 2001, "resource_name": "PerFrame_CB", "resource_type": "BUFFER", "first_access_event": 100, "last_access_event": 300, "read_count": 3, "write_count": 0, "hazards": [], "is_written_never_read": false}], "statistics": {"total_draw_calls": 3, "total_issues": 2, "issues_by_severity": {"error": 1, "warning": 1}, "issues_by_category": {"binding": 2}, "issues_by_rule": {"BIND001": 1, "BIND002": 1}, "total_resources": 3, "total_dependencies": 2, "dependencies_by_type": {"1": 2}, "redundant_bindings": 0, "missing_resources": 1, "unused_resources": 0}, "resource_samples": {"1001": {"width": 1920, "height": 1080, "format": "R8G8B8A8_UNORM", "mip_levels": 1, "array_size": 1, "thumbnail": "iVBORw0KGgoAAAANSUhEUgAAAIAAAABICAYAAAA+hf0SAAAA30lEQVR4nO3VsQ3DMBAEwZPM/kuWXIaCnQGYMzjsX9v7Xnt2eyu+s98IOztff4EvKUCcAsQpQJwCxClAnALEKUCcAsQpQJwCxBlAnBMQpwBxChCnAHEKEKcAcQoQpwBxChCnAHEGEOcExClAnALEKUCcAsQpQJwCxClAnALEKUCcAsQpQJwBxDkBcQoQpwBxChCnAHEKEKcAcQoQpwBxChBnAHFOQJwCxClAnALEKUCcAsQpQJwCxClAnALEKUCcAsQZQJwTEKcAcQoQpwBxChCnAHEKEKcAcQoQpwBr+wMXBoMWaTBNWAAAAABJRU5ErkJggg=="}, "1002": {"width": 2048, "height": 2048, "format": "D32_FLOAT", "mip_levels": 1, "array_size": 4, "thumbnail": "iVBORw0KGgoAAAANSUhEUgAAAIAAAACACAYAAADDPmHLAAABlElEQVR4nO3awQnDQAwAwTgluSwVpJrcldOBf4GQnfke+i2CAx3Xdd2vBzPz9Pza3cd38/PT8+/HV/6eAOIEECeAOAHECSBOAHHHeZ73L/9Tze9X522AOAHECSBOAHECiBNAnADiDvcAm563AeIEECeAOAHECSBOAHECiHMPMO15GyBOAHECiBNAnADiBBAngDj3ANuetwHiBBAngDgBxAkgTgBxAohzDzDteRsgTgBxAogTQJwA4gQQJ4A49wDbnrcB4gQQJ4A4AcQJIE4AcQKIcw8w7XkbIE4AcQKIE0CcAOIEECeAOPcA2563AeIEECeAOAHECSBOAHECiHMPMO15GyBOAHECiBNAnADiBBAngDj3ANuetwHiBBAngDgBxAkgTgBxAohzDzDteRsgTgBxAogTQJwA4gQQJ4A49wDbnrcB4gQQJ4A4AcQJIE4AcQKIcw8w7XkbIE4AcQKIE0CcAOIEECeAOPcA2563AeIEECeAOAHECSBOAHECiHMPMO15GyBOAHECiBNAnADiBBAngLgPp1GQYHSSkaQAAAAASUVORK5CYII="}, "2001": {"size_bytes": 256, "constants": [{"name": "ViewMatrix", "type": "float4x4", "offset": 0}, {"name": "ProjMatrix", "type": "float4x4", "offset": 64}, {"name": "CameraPos", "type": "float3", "offset": 128, "value": [10.5, 20.0, -5.0]}, {"name": "Time", "type": "float", "offset": 140, "value": 1.234}]}}}; const _unused = {
+// Embedded data
+        const analysisData = {"metadata": {"export_time": "2026-02-06T17:36:17.853624", "analyzer_version": "1.0.0", "source_file": "test_capture.rdc", "api_type": "D3D11", "frame_number": null, "total_events": 3, "total_draw_calls": 3}, "draw_calls": [{"event_id": 100, "name": "DrawIndexed_GBuffer", "draw_type": "DRAW_INDEXED", "vertex_count": 0, "instance_count": 1, "index_offset": 0, "vertex_offset": 0, "pipeline_state": {"input_assembly": {"topology": "TRIANGLE_LIST", "vertex_buffers": []}, "rasterizer": {"fill_mode": "SOLID", "cull_mode": "BACK", "front_ccw": false, "depth_bias": 0, "scissor_enabled": false}, "output_merger": {"render_targets": []}}, "issues": [], "resource_reads": [], "resource_writes": [], "shaders": [], "bound_textures": []}, {"event_id": 200, "name": "DrawInstanced_Shadows", "draw_type": "DRAW_INSTANCED", "vertex_count": 0, "instance_count": 1, "index_offset": 0, "vertex_offset": 0, "pipeline_state": {"input_assembly": {"topology": "TRIANGLE_LIST", "vertex_buffers": []}, "rasterizer": {"fill_mode": "SOLID", "cull_mode": "BACK", "front_ccw": false, "depth_bias": 0, "scissor_enabled": false}, "output_merger": {"render_targets": []}}, "issues": [], "resource_reads": [], "resource_writes": [], "shaders": [], "bound_textures": []}, {"event_id": 300, "name": "DrawIndexed_Lighting", "draw_type": "DRAW_INDEXED", "vertex_count": 0, "instance_count": 1, "index_offset": 0, "vertex_offset": 0, "pipeline_state": {"input_assembly": {"topology": "TRIANGLE_LIST", "vertex_buffers": []}, "rasterizer": {"fill_mode": "SOLID", "cull_mode": "BACK", "front_ccw": false, "depth_bias": 0, "scissor_enabled": false}, "output_merger": {"render_targets": []}}, "issues": [], "resource_reads": [], "resource_writes": [], "shaders": [], "bound_textures": []}], "issues": [{"event_id": 100, "rule_id": "BIND001", "severity": "error", "category": "binding", "message": "Missing vertex shader", "details": {}}, {"event_id": 200, "rule_id": "BIND002", "severity": "warning", "category": "binding", "message": "Null constant buffer at slot 0", "details": {}}], "dependencies": [{"source_event": 100, "target_event": 200, "resource_id": 1001, "resource_name": "GBuffer_Color", "dependency_type": 1, "access_detail": "WRITE -> READ"}, {"source_event": 200, "target_event": 300, "resource_id": 1002, "resource_name": "ShadowMap", "dependency_type": 1, "access_detail": "WRITE -> READ"}], "resource_lifetimes": [{"resource_id": 1001, "resource_name": "GBuffer_Color", "resource_type": "RENDER_TARGET", "first_access_event": 100, "last_access_event": 300, "read_count": 2, "write_count": 1, "hazards": [], "is_written_never_read": false}, {"resource_id": 1002, "resource_name": "ShadowMap", "resource_type": "TEXTURE", "first_access_event": 200, "last_access_event": 300, "read_count": 1, "write_count": 1, "hazards": [], "is_written_never_read": false}, {"resource_id": 2001, "resource_name": "PerFrame_CB", "resource_type": "BUFFER", "first_access_event": 100, "last_access_event": 300, "read_count": 3, "write_count": 0, "hazards": [], "is_written_never_read": false}], "statistics": {"total_draw_calls": 3, "total_issues": 2, "issues_by_severity": {"error": 1, "warning": 1}, "issues_by_category": {"binding": 2}, "issues_by_rule": {"BIND001": 1, "BIND002": 1}, "total_resources": 3, "total_dependencies": 2, "dependencies_by_type": {"1": 2}, "redundant_bindings": 0, "missing_resources": 1, "unused_resources": 0}, "resource_samples": {"1001": {"width": 1920, "height": 1080, "format": "R8G8B8A8_UNORM", "mip_levels": 1, "array_size": 1, "thumbnail": "iVBORw0KGgoAAAANSUhEUgAAAIAAAABICAYAAAA+hf0SAAAA30lEQVR4nO3VsQ3DMBAEwZPM/kuWXIaCnQGYMzjsX9v7Xnt2eyu+s98IOztff4EvKUCcAsQpQJwCxClAnALEKUCcAsQpQJwCxBlAnBMQpwBxChCnAHEKEKcAcQoQpwBxChCnAHEGEOcExClAnALEKUCcAsQpQJwCxClAnALEKUCcAsQpQJwBxDkBcQoQpwBxChCnAHEKEKcAcQoQpwBxChBnAHFOQJwCxClAnALEKUCcAsQpQJwCxClAnALEKUCcAsQZQJwTEKcAcQoQpwBxChCnAHEKEKcAcQoQpwBr+wMXBoMWaTBNWAAAAABJRU5ErkJggg=="}, "1002": {"width": 2048, "height": 2048, "format": "D32_FLOAT", "mip_levels": 1, "array_size": 4, "thumbnail": "iVBORw0KGgoAAAANSUhEUgAAAIAAAACACAYAAADDPmHLAAABlElEQVR4nO3awQnDQAwAwTgluSwVpJrcldOBf4GQnfke+i2CAx3Xdd2vBzPz9Pza3cd38/PT8+/HV/6eAOIEECeAOAHECSBOAHHHeZ73L/9Tze9X522AOAHECSBOAHECiBNAnADiDvcAm563AeIEECeAOAHECSBOAHECiHMPMO15GyBOAHECiBNAnADiBBAngDj3ANuetwHiBBAngDgBxAkgTgBxAohzDzDteRsgTgBxAogTQJwA4gQQJ4A49wDbnrcB4gQQJ4A4AcQJIE4AcQKIcw8w7XkbIE4AcQKIE0CcAOIEECeAOPcA2563AeIEECeAOAHECSBOAHECiHMPMO15GyBOAHECiBNAnADiBBAngDj3ANuetwHiBBAngDgBxAkgTgBxAohzDzDteRsgTgBxAogTQJwA4gQQJ4A49wDbnrcB4gQQJ4A4AcQJIE4AcQKIcw8w7XkbIE4AcQKIE0CcAOIEECeAOPcA2563AeIEECeAOAHECSBOAHECiHMPMO15GyBOAHECiBNAnADiBBAngLgPp1GQYHSSkaQAAAAASUVORK5CYII="}, "2001": {"size_bytes": 256, "constants": [{"name": "ViewMatrix", "type": "float4x4", "offset": 0}, {"name": "ProjMatrix", "type": "float4x4", "offset": 64}, {"name": "CameraPos", "type": "float3", "offset": 128, "value": [10.5, 20.0, -5.0]}, {"name": "Time", "type": "float", "offset": 140, "value": 1.234}]}}}; const _unused = {
   "metadata": {
-    "export_time": "2026-01-16T14:22:18.837370",
+    "export_time": "2026-02-06T17:36:17.853624",
     "analyzer_version": "1.0.0",
     "source_file": "test_capture.rdc",
     "api_type": "D3D11",
@@ -1215,7 +2118,9 @@
       },
       "issues": [],
       "resource_reads": [],
-      "resource_writes": []
+      "resource_writes": [],
+      "shaders": [],
+      "bound_textures": []
     },
     {
       "event_id": 200,
@@ -1243,7 +2148,9 @@
       },
       "issues": [],
       "resource_reads": [],
-      "resource_writes": []
+      "resource_writes": [],
+      "shaders": [],
+      "bound_textures": []
     },
     {
       "event_id": 300,
@@ -1271,7 +2178,9 @@
       },
       "issues": [],
       "resource_reads": [],
-      "resource_writes": []
+      "resource_writes": [],
+      "shaders": [],
+      "bound_textures": []
     }
   ],
   "issues": [
@@ -1440,6 +2349,11 @@
             if (call) {
                 renderPipelineState(call);
                 updateIssuesBadge(eventId);
+            }
+            
+            // Update shaders tab
+            if (typeof updateShadersContent === 'function') {
+                updateShadersContent(eventId);
             }
         }
         
@@ -1628,6 +2542,15 @@
         function renderBindingsTable(title, bindings) {
             if (!bindings || bindings.length === 0) return '';
             
+            // 检查是否是 Constant Buffers 且包含 members 数据
+            const isCB = title === 'Constant Buffers';
+            const hasCBMembers = isCB && bindings.some(b => b.members && b.members.length > 0);
+            
+            if (hasCBMembers) {
+                // 渲染带展开功能的 CB 表格
+                return renderCBWithMembers(bindings);
+            }
+            
             return `
                 <div style="margin-top: 12px;">
                     <strong style="font-size: 13px; color: var(--text-secondary);">${title}</strong>
@@ -1653,6 +2576,135 @@
                     </table>
                 </div>
             `;
+        }
+        
+        // 渲染带成员展开的 Constant Buffer 表格
+        function renderCBWithMembers(cbs) {
+            const cbId = 'cb-' + Math.random().toString(36).substr(2, 9);
+            
+            return `
+                <div style="margin-top: 12px;">
+                    <strong style="font-size: 13px; color: var(--text-secondary);">Constant Buffers</strong>
+                    <div class="cb-list" style="margin-top: 8px;">
+                        ${cbs.map((cb, idx) => {
+                            const hasMembers = cb.members && cb.members.length > 0;
+                            const cbItemId = cbId + '-' + idx;
+                            return `
+                                <div class="cb-item" style="border: 1px solid var(--border-color); border-radius: 6px; margin-bottom: 8px; overflow: hidden;">
+                                    <div class="cb-header" 
+                                         style="display: flex; justify-content: space-between; align-items: center; padding: 10px 12px; background: var(--bg-secondary); cursor: ${hasMembers ? 'pointer' : 'default'};"
+                                         ${hasMembers ? `onclick="toggleCBMembers('${cbItemId}')"` : ''}>
+                                        <div style="display: flex; align-items: center; gap: 12px;">
+                                            ${hasMembers ? `<span class="cb-expand-icon" id="${cbItemId}-icon" style="font-size: 10px; transition: transform 0.2s;">▶</span>` : '<span style="width: 10px;"></span>'}
+                                            <span style="font-weight: 600; color: var(--text-primary);">[${cb.slot}] ${cb.name || 'cb' + cb.slot}</span>
+                                        </div>
+                                        <div style="display: flex; gap: 16px; font-size: 12px; color: var(--text-secondary);">
+                                            <span>Size: ${formatBytes(cb.size || 0)}</span>
+                                            ${hasMembers ? `<span style="color: var(--accent-color);">${cb.members.length} members</span>` : ''}
+                                        </div>
+                                    </div>
+                                    ${hasMembers ? `
+                                        <div class="cb-members" id="${cbItemId}-members" style="display: none; border-top: 1px solid var(--border-color);">
+                                            <table class="binding-table" style="margin: 0; font-size: 11px;">
+                                                <thead>
+                                                    <tr style="background: var(--bg-tertiary);">
+                                                        <th style="padding: 6px 10px;">Name</th>
+                                                        <th style="padding: 6px 10px;">Type</th>
+                                                        <th style="padding: 6px 10px;">Value</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    ${renderCBMembers(cb.members)}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    ` : ''}
+                                </div>
+                            `;
+                        }).join('')}
+                    </div>
+                </div>
+            `;
+        }
+        
+        // 递归渲染 CB 成员（支持嵌套结构）
+        function renderCBMembers(members, indent = 0) {
+            if (!members || members.length === 0) return '';
+            
+            return members.map(m => {
+                const hasChildren = m.members && m.members.length > 0;
+                const indentPx = indent * 16;
+                const typeStr = formatCBType(m);
+                const valueStr = formatCBValue(m);
+                
+                let html = `
+                    <tr>
+                        <td style="padding: 4px 10px; padding-left: ${10 + indentPx}px;">
+                            ${hasChildren ? '<span style="color: var(--accent-color);">▸</span> ' : ''}
+                            <span style="font-family: monospace;">${m.name}</span>
+                        </td>
+                        <td style="padding: 4px 10px; color: var(--text-secondary);">${typeStr}</td>
+                        <td style="padding: 4px 10px; font-family: monospace; font-size: 10px; max-width: 300px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${valueStr}">${valueStr}</td>
+                    </tr>
+                `;
+                
+                // 递归渲染子成员
+                if (hasChildren) {
+                    html += renderCBMembers(m.members, indent + 1);
+                }
+                
+                return html;
+            }).join('');
+        }
+        
+        // 格式化 CB 变量类型
+        function formatCBType(member) {
+            const baseType = member.type || 'Unknown';
+            const rows = member.rows || 1;
+            const cols = member.columns || 1;
+            
+            if (rows > 1 && cols > 1) {
+                return `${baseType}${rows}x${cols}`; // 矩阵
+            } else if (rows > 1 || cols > 1) {
+                return `${baseType}${Math.max(rows, cols)}`; // 向量
+            }
+            return baseType;
+        }
+        
+        // 格式化 CB 变量值
+        function formatCBValue(member) {
+            if (member.members && member.members.length > 0) {
+                return `[struct: ${member.members.length} fields]`;
+            }
+            
+            const value = member.value;
+            if (!value || !Array.isArray(value)) return 'N/A';
+            
+            // 限制显示长度
+            const maxDisplay = 8;
+            const displayValues = value.slice(0, maxDisplay).map(v => {
+                if (typeof v === 'number') {
+                    return Math.abs(v) < 0.0001 ? '0' : v.toFixed(3);
+                }
+                return String(v);
+            });
+            
+            if (value.length > maxDisplay) {
+                displayValues.push('...');
+            }
+            
+            return '[' + displayValues.join(', ') + ']';
+        }
+        
+        // 切换 CB 成员展开/折叠
+        function toggleCBMembers(cbId) {
+            const membersDiv = document.getElementById(cbId + '-members');
+            const icon = document.getElementById(cbId + '-icon');
+            if (membersDiv && icon) {
+                const isExpanded = membersDiv.style.display !== 'none';
+                membersDiv.style.display = isExpanded ? 'none' : 'block';
+                icon.style.transform = isExpanded ? 'rotate(0deg)' : 'rotate(90deg)';
+            }
         }
         
         function updateIssuesBadge(eventId) {
@@ -2202,7 +3254,7 @@
             let hexStr = '';
             sampleData.bytes.forEach((b, i) => {
                 hexStr += b.toString(16).padStart(2, '0');
-                hexStr += (i % 16 === 15) ? '\n' : ' ';
+                hexStr += (i % 16 === 15) ? '\\n' : ' ';
             });
             
             downloadFile(hexStr, `resource_${currentResourceData.id}.hex`, 'text/plain');
@@ -2238,6 +3290,208 @@
         document.addEventListener('DOMContentLoaded', () => {
             makeResourceLinksClickable();
         });
+        
+        // ========== SHADER FUNCTIONS ==========
+        let currentShaderData = null;
+        let currentShaderCodeType = 'asm';
+        
+        function updateShadersContent(eventId) {
+            const content = document.getElementById('shaders-content');
+            const empty = document.getElementById('shaders-empty');
+            
+            // Find shaders for this event from analysisData
+            const drawCall = analysisData.draw_calls?.find(d => d.event_id === eventId);
+            const shaders = drawCall?.shaders || analysisData.shaders_by_event?.[eventId] || [];
+            
+            if (!shaders || shaders.length === 0) {
+                empty.style.display = 'block';
+                content.innerHTML = '';
+                return;
+            }
+            
+            empty.style.display = 'none';
+            
+            let html = '<div class="shaders-grid">';
+            
+            shaders.forEach((shader, index) => {
+                const stage = shader.type || shader.stage || 'Unknown';
+                const stageLower = stage.toLowerCase();
+                const name = shader.name || shader.entry_point || `Shader_${index}`;
+                const encoding = shader.encoding || 'Unknown';
+                const hasDebug = shader.has_debug_info ? '✓' : '✗';
+                const cbCount = shader.constant_blocks?.length || 0;
+                const srvCount = shader.read_only_resources?.length || 0;
+                const uavCount = shader.read_write_resources?.length || 0;
+                
+                html += `
+                    <div class="shader-card" onclick='openShaderModal(${JSON.stringify(shader).replace(/'/g, "\\'")})'>
+                        <div class="shader-card-header">
+                            <span class="shader-stage-badge ${stageLower}">${stage}</span>
+                            <span class="shader-card-name">${escapeHtml(name)}</span>
+                        </div>
+                        <div class="shader-card-info">
+                            <div>📦 Encoding: ${encoding}</div>
+                            <div>🔍 Debug Info: ${hasDebug}</div>
+                            ${shader.hash ? `<div>🔐 Hash: ${shader.hash}</div>` : ''}
+                        </div>
+                        <div class="shader-card-footer">
+                            ${cbCount > 0 ? `<span class="shader-resource-tag">${cbCount} CB</span>` : ''}
+                            ${srvCount > 0 ? `<span class="shader-resource-tag">${srvCount} SRV</span>` : ''}
+                            ${uavCount > 0 ? `<span class="shader-resource-tag">${uavCount} UAV</span>` : ''}
+                        </div>
+                    </div>
+                `;
+            });
+            
+            html += '</div>';
+            content.innerHTML = html;
+        }
+        
+        function openShaderModal(shader) {
+            currentShaderData = shader;
+            currentShaderCodeType = 'asm';
+            
+            const modal = document.getElementById('shader-modal');
+            const nameEl = document.getElementById('shader-modal-name');
+            const stageEl = document.getElementById('shader-modal-stage');
+            const headerEl = document.getElementById('shader-info-header');
+            const codeEl = document.getElementById('shader-code-content');
+            
+            // Set header info
+            nameEl.textContent = shader.name || shader.entry_point || 'Shader';
+            stageEl.textContent = shader.type || shader.stage || '?';
+            stageEl.className = `resource-type-badge shader-stage-badge ${(shader.type || '').toLowerCase()}`;
+            
+            // Build info header
+            let infoHtml = '<div class="info-row">';
+            if (shader.entry_point) {
+                infoHtml += `<div class="info-item"><span class="info-label">Entry:</span><span class="info-value">${escapeHtml(shader.entry_point)}</span></div>`;
+            }
+            if (shader.encoding) {
+                infoHtml += `<div class="info-item"><span class="info-label">Encoding:</span><span class="info-value">${shader.encoding}</span></div>`;
+            }
+            if (shader.hash) {
+                infoHtml += `<div class="info-item"><span class="info-label">Hash:</span><span class="info-value">${shader.hash}</span></div>`;
+            }
+            if (shader.debug_file) {
+                infoHtml += `<div class="info-item"><span class="info-label">Source:</span><span class="info-value">${escapeHtml(shader.debug_file)}</span></div>`;
+            }
+            infoHtml += '</div>';
+            
+            // Add signature info if available
+            if (shader.input_signature && shader.input_signature.length > 0) {
+                infoHtml += `<div class="info-row" style="margin-top: 8px;">
+                    <div class="info-item"><span class="info-label">Inputs:</span><span class="info-value">${shader.input_signature.map(s => s.semantic_name + s.semantic_index).join(', ')}</span></div>
+                </div>`;
+            }
+            
+            headerEl.innerHTML = infoHtml;
+            
+            // Set code content
+            updateShaderCodeContent();
+            
+            // Init code tabs
+            document.querySelectorAll('.shader-code-tab').forEach(tab => {
+                tab.classList.remove('active');
+                if (tab.dataset.code === 'asm') tab.classList.add('active');
+                
+                tab.onclick = () => {
+                    document.querySelectorAll('.shader-code-tab').forEach(t => t.classList.remove('active'));
+                    tab.classList.add('active');
+                    currentShaderCodeType = tab.dataset.code;
+                    updateShaderCodeContent();
+                };
+            });
+            
+            // Show modal
+            modal.classList.add('active');
+            
+            // ESC to close
+            document.addEventListener('keydown', handleShaderModalEscape);
+        }
+        
+        function updateShaderCodeContent() {
+            const codeEl = document.getElementById('shader-code-content').querySelector('code');
+            
+            if (!currentShaderData) {
+                codeEl.textContent = '// No shader data';
+                return;
+            }
+            
+            let code = '';
+            if (currentShaderCodeType === 'asm') {
+                code = currentShaderData.source_asm || '// No ASM disassembly available';
+            } else {
+                code = currentShaderData.source_hlsl || '// No HLSL source available\\n// (HLSL is only available if debug info was embedded during compilation)';
+            }
+            
+            // Apply basic syntax highlighting
+            codeEl.innerHTML = highlightShaderCode(code, currentShaderCodeType);
+        }
+        
+        function highlightShaderCode(code, type) {
+            // Escape HTML first
+            let highlighted = escapeHtml(code);
+            
+            // Apply syntax highlighting patterns
+            if (type === 'asm') {
+                // ASM/DXBC style highlighting
+                // Comments
+                highlighted = highlighted.replace(/(\/\/.*)/g, '<span class="comment">$1</span>');
+                // Registers (r0, v0, o0, cb0, etc.)
+                highlighted = highlighted.replace(/\\b([rvocst]\\d+)\\b/g, '<span class="register">$1</span>');
+                // Keywords
+                highlighted = highlighted.replace(/\\b(dcl_|def|mov|add|mul|div|mad|dp3|dp4|sample|ld|store|ret|if|else|endif|loop|endloop|call|break)\\b/gi, '<span class="keyword">$1</span>');
+            } else {
+                // HLSL style highlighting
+                // Comments
+                highlighted = highlighted.replace(/(\/\/.*)/g, '<span class="comment">$1</span>');
+                highlighted = highlighted.replace(/(\/\\*[\\s\\S]*?\\*\/)/g, '<span class="comment">$1</span>');
+                // Strings
+                highlighted = highlighted.replace(/(".*?")/g, '<span class="string">$1</span>');
+                // Keywords
+                highlighted = highlighted.replace(/\\b(struct|cbuffer|Texture2D|SamplerState|float|float2|float3|float4|int|uint|bool|void|return|if|else|for|while|do|switch|case|break|continue|discard|true|false)\\b/g, '<span class="keyword">$1</span>');
+                // Types
+                highlighted = highlighted.replace(/\\b(float4x4|float3x3|float2x2|half|double|sampler|texture)\\b/g, '<span class="type">$1</span>');
+                // Semantics
+                highlighted = highlighted.replace(/(:\\s*)(SV_\\w+|POSITION\\d*|TEXCOORD\\d*|COLOR\\d*|NORMAL\\d*)/gi, '$1<span class="semantic">$2</span>');
+                // Numbers
+                highlighted = highlighted.replace(/\\b(\\d+\\.\\d+f?|\\d+f?|0x[0-9a-fA-F]+)\\b/g, '<span class="number">$1</span>');
+            }
+            
+            return highlighted;
+        }
+        
+        function closeShaderModal() {
+            const modal = document.getElementById('shader-modal');
+            modal.classList.remove('active');
+            document.removeEventListener('keydown', handleShaderModalEscape);
+            currentShaderData = null;
+        }
+        
+        function handleShaderModalEscape(e) {
+            if (e.key === 'Escape') {
+                closeShaderModal();
+            }
+        }
+        
+        function copyShaderCode() {
+            if (!currentShaderData) return;
+            
+            const code = currentShaderCodeType === 'asm' 
+                ? (currentShaderData.source_asm || '') 
+                : (currentShaderData.source_hlsl || '');
+            
+            navigator.clipboard.writeText(code).then(() => {
+                // Show feedback
+                const btn = event.target;
+                const originalText = btn.innerHTML;
+                btn.innerHTML = '✓ Copied!';
+                setTimeout(() => { btn.innerHTML = originalText; }, 1500);
+            }).catch(err => {
+                console.error('Failed to copy:', err);
+            });
+        }
     </script>
 </body>
 </html>

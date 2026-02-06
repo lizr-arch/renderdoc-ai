@@ -27,7 +27,7 @@
 1. `WORK_SUMMARY_ARCH.md` （架构/模块/文件结构）
 2. `WORK_SUMMARY_ROUTES.md` （A/B/C 路线 + 数据来源 + 验证状态）
 3. `WORK_SUMMARY_SCHEMA.md` （Schema / Pipeline / Bridge）
-4. `2026-01-31-rdc-analyzer-data-richness-baseline.md` （数据丰富度基线）
+4. `2025-01-31-rdc-analyzer-data-richness-baseline.md` （数据丰富度基线）
 5. `WORK_SUMMARY_VERIFICATION.md` （证据化验证 + CLI 用法）
 6. `WORK_SUMMARY_ROADMAP.md` （未来优先级 + 决策 + 参考）
 7. `WORK_SUMMARY_BUILD.md` （环境/编译）
@@ -46,7 +46,7 @@
 
 - `WORK_SUMMARY_SCHEMA.md`
 
-- `2026-01-31-rdc-analyzer-data-richness-baseline.md`
+- `2025-01-31-rdc-analyzer-data-richness-baseline.md`
 
 
 

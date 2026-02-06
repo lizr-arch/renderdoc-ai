@@ -109,7 +109,7 @@ del /f "d:\Code\git\renderdoc\x64\Development\obj\qrenderdoc_module\vc140.pdb" 2
 
 ## 9. 编译验证记录
 
-**验证日期**：2026-01-24
+**验证日期**：2025-01-24
 
 **验证结果**：
 ```

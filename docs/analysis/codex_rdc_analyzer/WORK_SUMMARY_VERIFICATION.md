@@ -201,8 +201,8 @@ def local_mali_rdc():
 - WHY: 避免“点击无变化”导致无法证明交互发生；避免历史产物混淆。
 - HOW: 脚本在点击后注入 `CDP CLICK` 徽标；`run_YYYYMMDD-HHMMSS` 目录隔离。
 
-**执行结果（run_20260125-192309）**
-- 路径：`docs/analysis/codex_rdc_analyzer/html_review/run_20260125-192309/`
+**执行结果（run_20250125-192309）**
+- 路径：`docs/analysis/codex_rdc_analyzer/html_review/run_20250125-192309/`
 - click_selector: `null`（页面未匹配到预设事件选择器）
 - 截图哈希（7 张）：
   - 01_baseline.png `fa5bafedcef76484be3a4f838e111f4691a1e90b07a2ac5834b69591c4c0afee` (76878)
@@ -227,7 +227,7 @@ def local_mali_rdc():
 **复现步骤**
 - 命令：  
   `pwsh -File scripts/_tmp_html_ui_review_cdp.ps1 -Html "D:\renderdoc\goog pixel-9\g145_from_convert_report.html" -OutDir "docs/analysis/codex_rdc_analyzer/html_review" -LogFile "edge_log"`
-- 产物目录：`docs/analysis/codex_rdc_analyzer/html_review/run_20260125-202852/`
+- 产物目录：`docs/analysis/codex_rdc_analyzer/html_review/run_20250125-202852/`
 
 **证据**
 - 日志：`edge_log.err` 多次出现  
@@ -247,8 +247,8 @@ def local_mali_rdc():
 - WHY: 满足“真实事件元素点击”要求，避免仅靠徽标注入。
 - HOW: JS 先渲染事件树，再按 `.event-node` 等选择器优先命中。
 
-**执行结果（run_20260125-204759）**
-- 路径：`docs/analysis/codex_rdc_analyzer/html_review/run_20260125-204759/`
+**执行结果（run_20250125-204759）**
+- 路径：`docs/analysis/codex_rdc_analyzer/html_review/run_20250125-204759/`
 - click_found: `true`
 - click_strategy: `event-node`
 - click_text: `#35 vkCmdDrawIndexed`
@@ -257,14 +257,14 @@ def local_mali_rdc():
 - 05_scroll2.png `441cc9058bc46d9039f30052c6e9c6e6f501dfb1796bcc73a8b7bb7a0a3baa01`
 - 06_event_click.png `755670e007c94e2aef04d1a2b6f26fbf1dfc68b60a9ff3f1940e3e556403d051`
 
-### 7.6.4 自动化 Headless 审阅（2026-01-25，本次）
+### 7.6.4 自动化 Headless 审阅（2025-01-25，本次）
 
 - WHAT: 对最新生成的 `g145_report.html` 执行 headless CDP 截图与事件点击验证。
 - WHY: 验证新增 “Events reported/listed” 与 “Texture Memory 双口径” 对应页面能正常渲染。
-- HOW: 使用 `scripts/_tmp_html_ui_review_cdp.ps1` 输出到 `html_review/run_20260125-223218/`。
+- HOW: 使用 `scripts/_tmp_html_ui_review_cdp.ps1` 输出到 `html_review/run_20250125-223218/`。
 
 **执行结果**
-- 路径：`docs/analysis/codex_rdc_analyzer/html_review/run_20260125-223218/`
+- 路径：`docs/analysis/codex_rdc_analyzer/html_review/run_20250125-223218/`
 - click_found: `false`（未命中事件元素；fallback 点击）
 - click_strategy: `fallback`
 - click_text: ``
@@ -292,8 +292,8 @@ def local_mali_rdc():
 - WHY: 提升 click_found 命中率，让“步骤可追溯”。
 - HOW: 更新 `scripts/_tmp_html_ui_review_cdp.ps1`，新增 `showEventBrowser()` 与 step_log 记录。
 
-**执行结果（run_20260125-230339）**
-- 路径：`docs/analysis/codex_rdc_analyzer/html_review/run_20260125-230339/`
+**执行结果（run_20250125-230339）**
+- 路径：`docs/analysis/codex_rdc_analyzer/html_review/run_20250125-230339/`
 - click_found: `true`
 - click_strategy: `event-node`
 - click_text: `📌 #0 vkCmdCopyBufferToImage`（unicode escape 读取）
@@ -308,8 +308,8 @@ def local_mali_rdc():
 - WHY: 解决相对路径导致 DOM 不命中的问题，并增强验收步骤可追溯性。
 - HOW: 更新 `scripts/_tmp_html_ui_review_cdp.ps1` 的路径归一化与 step_log 输出。
 
-**执行结果（run_20260125-232313）**
-- 路径：`docs/analysis/codex_rdc_analyzer/html_review/run_20260125-232313/`
+**执行结果（run_20250125-232313）**
+- 路径：`docs/analysis/codex_rdc_analyzer/html_review/run_20250125-232313/`
 - click_found: `true`
 - click_strategy: `event-node`
 - html_input: `scripts/rdc_analyzer/test_output/g145_report.html`
@@ -323,7 +323,7 @@ def local_mali_rdc():
 - WHY: 便于快速诊断，无需打开 review.json。
 - HOW: `scripts/_tmp_html_ui_review_cdp.ps1` 输出 `StepLog:` 行。
 
-**执行结果（run_20260126-102719）**
+**执行结果（run_20250126-102719）**
 - 控制台输出包含 `html_input/html_abs/file_url/doc_ready/doc_url`。
 - review.json 仍保留完整 step_log。
 
@@ -340,7 +340,7 @@ def local_mali_rdc():
 
 ---
 
-### 7.8 Full HTML 模式验收（2026-01-26）
+### 7.8 Full HTML 模式验收（2025-01-26）
 
 - WHAT: 增加 `analyze_rdc.py --html-mode full` 的 JSON 解析与纹理目录解析能力，并进行 TDD 验证。
 - WHY: 让新 RDC 能生成“完整报告 HTML”（含 Event Browser），与 UI 视觉验收脚本对齐。
@@ -356,7 +356,7 @@ def local_mali_rdc():
 
 ---
 
-### 7.9 g145-battle-2 内容缺失根因与验收缺口（2026-01-26）
+### 7.9 g145-battle-2 内容缺失根因与验收缺口（2025-01-26）
 
 - WHAT: 解释 “Shader Details 为空 / Textures 为空” 的原因，并修复验收缺口。
 - WHY: 需要准确报告 + 验收能捕获此类问题。
@@ -395,7 +395,7 @@ def local_mali_rdc():
 
 ---
 
-### 7.11 g145-battle-2 完整性对齐（Chunk 统计 + 比例）（2026-01-26）
+### 7.11 g145-battle-2 完整性对齐（Chunk 统计 + 比例）（2025-01-26）
 
 - WHAT: 记录 Vulkan chunk 统计并与解析出的 shader/texture 数量做一致性对齐。
 - WHY: 用可量化比例判断解析完整性，低于阈值需要人工确认。
@@ -421,7 +421,7 @@ def local_mali_rdc():
 
 ---
 
-### 7.12 纹理来源优先级与 UI 口径（2026-01-26）
+### 7.12 纹理来源优先级与 UI 口径（2025-01-26）
 
 - WHAT: 引入 Replay API 作为纹理元数据权威来源，并将来源优先级改为 `manifest → replay_api → chunk_parse`。
 - WHY: 与 RenderDoc UI 口径一致，避免 `vkCreateImage` 造成的假阴性。

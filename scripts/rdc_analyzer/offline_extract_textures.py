@@ -75,7 +75,7 @@ def build_manifest_entries(
             "height": tex.height,
             "depth": tex.depth,
             "mip_levels": tex.mip_levels,
-            "array_layers": tex.array_layers,
+            "array_layers": tex.array_size,
             "format": tex.format,
             "format_name": tex.format_name,
             "status": "metadata_only",
