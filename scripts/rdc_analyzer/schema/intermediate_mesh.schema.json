@@ -1,0 +1,81 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://renderdoc.org/schemas/intermediate_mesh.schema.json",
+  "title": "RDC Intermediate Mesh",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "schema_path",
+    "mesh"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string"
+    },
+    "schema_path": {
+      "type": "string"
+    },
+    "mesh": {
+      "type": "object",
+      "required": [
+        "axis",
+        "unit_scale",
+        "topology",
+        "vertex_layout",
+        "index_format",
+        "vertex_count",
+        "index_count"
+      ],
+      "properties": {
+        "axis": {
+          "type": "string"
+        },
+        "unit_scale": {
+          "type": "number"
+        },
+        "topology": {
+          "type": "string"
+        },
+        "vertex_layout": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "semantic",
+              "format",
+              "offset",
+              "stride"
+            ],
+            "properties": {
+              "semantic": {
+                "type": "string"
+              },
+              "format": {
+                "type": "string"
+              },
+              "offset": {
+                "type": "integer"
+              },
+              "stride": {
+                "type": "integer"
+              }
+            }
+          }
+        },
+        "index_format": {
+          "type": "string",
+          "enum": [
+            "uint16",
+            "uint32"
+          ]
+        },
+        "vertex_count": {
+          "type": "integer"
+        },
+        "index_count": {
+          "type": "integer"
+        }
+      }
+    }
+  }
+}

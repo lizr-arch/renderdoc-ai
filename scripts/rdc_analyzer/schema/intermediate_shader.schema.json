@@ -1,0 +1,34 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://renderdoc.org/schemas/intermediate_shader.schema.json",
+  "title": "RDC Intermediate Shader",
+  "type": "object",
+  "required": [
+    "shader"
+  ],
+  "properties": {
+    "shader": {
+      "type": "object",
+      "required": [
+        "stage",
+        "bytecode_format",
+        "entry",
+        "disassembly"
+      ],
+      "properties": {
+        "stage": {
+          "type": "string"
+        },
+        "bytecode_format": {
+          "type": "string"
+        },
+        "entry": {
+          "type": "string"
+        },
+        "disassembly": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}
