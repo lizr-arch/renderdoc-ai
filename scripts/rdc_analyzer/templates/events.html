@@ -12,12 +12,50 @@
             overflow: hidden;
         }
         
+        /* Events 页面面板宽度覆盖 */
+        #panelLeft {
+            width: 320px;
+            min-width: 280px;
+            max-width: 400px;
+        }
+        
+        #panelRight {
+            width: 300px;
+            min-width: 260px;
+            max-width: 360px;
+        }
+        
         /* 事件列表 */
         .event-list {
             flex: 1;
             overflow-y: auto;
             overflow-x: hidden;
             position: relative;
+        }
+        
+        /* 自定义滚动条样式 - 使拖动块清晰可见 */
+        .event-list::-webkit-scrollbar {
+            width: 12px;
+        }
+        
+        .event-list::-webkit-scrollbar-track {
+            background: var(--bg-darker);
+            border-left: 1px solid var(--border);
+        }
+        
+        .event-list::-webkit-scrollbar-thumb {
+            background: var(--bg-medium);
+            border-radius: 6px;
+            border: 2px solid var(--bg-darker);
+            min-height: 40px;
+        }
+        
+        .event-list::-webkit-scrollbar-thumb:hover {
+            background: var(--accent-blue);
+        }
+        
+        .event-list::-webkit-scrollbar-thumb:active {
+            background: var(--accent-cyan);
         }
         
         /* 虚拟滚动容器 */
@@ -216,6 +254,36 @@
         .timeline-bar.clear { background: var(--accent-yellow); }
         .timeline-bar.mixed { background: var(--accent-blue); }
         
+        /* 时间线空状态 */
+        .timeline-empty {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 4px;
+            background: var(--bg-darkest);
+            color: var(--text-muted);
+            font-size: 11px;
+        }
+        
+        .timeline-empty.visible {
+            display: flex;
+        }
+        
+        .timeline-empty-icon {
+            font-size: 16px;
+            opacity: 0.6;
+        }
+        
+        .timeline-empty-text {
+            opacity: 0.8;
+        }
+        
         .timeline-marker {
             position: absolute;
             top: 0;
@@ -245,48 +313,159 @@
             z-index: 10;
         }
         
-        /* Pipeline State 详情面板 */
+        /* Pipeline State 详情面板 - 增强版 */
         .pipeline-section {
             margin-bottom: 12px;
+            border-radius: var(--radius);
+            background: linear-gradient(135deg, var(--bg-dark) 0%, var(--bg-darkest) 100%);
+            border: 1px solid var(--border);
+            overflow: hidden;
+            transition: all 0.2s ease;
+        }
+        
+        .pipeline-section:hover {
+            border-color: var(--border-light);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.3);
         }
         
         .pipeline-header {
             display: flex;
             align-items: center;
             justify-content: space-between;
-            padding: 8px;
-            background: var(--bg-dark);
-            border-radius: var(--radius-sm);
+            padding: 10px 12px;
+            background: linear-gradient(90deg, rgba(255,255,255,0.03) 0%, transparent 100%);
             cursor: pointer;
-            margin-bottom: 4px;
+            border-bottom: 1px solid transparent;
+            transition: all 0.15s ease;
+        }
+        
+        .pipeline-section:not(.collapsed) .pipeline-header {
+            border-bottom-color: var(--border);
         }
         
         .pipeline-header:hover {
-            background: var(--bg-medium);
+            background: linear-gradient(90deg, rgba(255,255,255,0.06) 0%, transparent 100%);
         }
         
         .pipeline-title {
+            display: flex;
+            align-items: center;
+            gap: 8px;
             font-size: 11px;
-            font-weight: 500;
+            font-weight: 600;
             color: var(--text-primary);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .pipeline-title::before {
+            content: '';
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            background-size: contain;
+            background-repeat: no-repeat;
+            opacity: 0.8;
+        }
+        
+        /* Section 图标 */
+        #shaderSection .pipeline-title::before {
+            content: '⚙️';
+            background: none;
+        }
+        
+        #textureSection .pipeline-title::before {
+            content: '🖼️';
+            background: none;
+        }
+        
+        #rtSection .pipeline-title::before {
+            content: '🎯';
+            background: none;
         }
         
         .pipeline-badge {
             font-size: 9px;
-            padding: 2px 6px;
-            border-radius: 8px;
+            font-weight: 600;
+            padding: 3px 8px;
+            border-radius: 10px;
+            background: var(--accent-blue);
+            color: white;
+            min-width: 20px;
+            text-align: center;
+            transition: all 0.15s ease;
+        }
+        
+        .pipeline-badge:empty,
+        .pipeline-badge:contains("0") {
             background: var(--bg-medium);
             color: var(--text-muted);
         }
         
+        /* Section 主题色 */
+        #shaderSection .pipeline-badge {
+            background: linear-gradient(135deg, #8b5cf6 0%, #6366f1 100%);
+        }
+        
+        #textureSection .pipeline-badge {
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+        }
+        
+        #rtSection .pipeline-badge {
+            background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+        }
+        
+        .pipeline-toggle {
+            font-size: 10px;
+            color: var(--text-muted);
+            transition: transform 0.2s ease;
+        }
+        
+        .pipeline-section.collapsed .pipeline-toggle {
+            transform: rotate(-90deg);
+        }
+        
         .pipeline-content {
-            padding: 8px;
+            padding: 12px;
             background: var(--bg-darkest);
-            border-radius: var(--radius-sm);
+            max-height: 400px;
+            overflow-y: auto;
+            animation: slideDown 0.2s ease;
+        }
+        
+        @keyframes slideDown {
+            from {
+                opacity: 0;
+                max-height: 0;
+                padding-top: 0;
+                padding-bottom: 0;
+            }
+            to {
+                opacity: 1;
+                max-height: 400px;
+                padding-top: 12px;
+                padding-bottom: 12px;
+            }
         }
         
         .pipeline-section.collapsed .pipeline-content {
             display: none;
+        }
+        
+        /* 空状态提示 */
+        .pipeline-empty {
+            text-align: center;
+            padding: 16px;
+            color: var(--text-muted);
+            font-size: 10px;
+        }
+        
+        .pipeline-empty::before {
+            content: '📭';
+            display: block;
+            font-size: 20px;
+            margin-bottom: 8px;
+            opacity: 0.5;
         }
         
         /* Shader 信息 */
@@ -442,6 +621,70 @@
         
         .stat-value.highlight {
             color: var(--accent-blue);
+            font-weight: 600;
+        }
+        
+        /* 属性区块（事件信息、Draw Call 统计、分析建议） */
+        .prop-section {
+            margin-bottom: 12px;
+            border-radius: var(--radius);
+            background: var(--bg-dark);
+            border: 1px solid var(--border);
+            overflow: hidden;
+        }
+        
+        .prop-section-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 10px 12px;
+            background: linear-gradient(90deg, rgba(102, 126, 234, 0.1) 0%, transparent 100%);
+            cursor: pointer;
+            border-bottom: 1px solid var(--border);
+        }
+        
+        .prop-section-header:hover {
+            background: linear-gradient(90deg, rgba(102, 126, 234, 0.15) 0%, transparent 100%);
+        }
+        
+        .prop-section-title {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 11px;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+        
+        .prop-section-title::before {
+            font-size: 14px;
+        }
+        
+        /* 区块图标 */
+        #drawStatsSection .prop-section-title::before {
+            content: '📊';
+        }
+        
+        #analysisSection .prop-section-title::before {
+            content: '💡';
+        }
+        
+        .prop-section-toggle {
+            font-size: 10px;
+            color: var(--text-muted);
+            transition: transform 0.2s ease;
+        }
+        
+        .prop-section.collapsed .prop-section-toggle {
+            transform: rotate(-90deg);
+        }
+        
+        .prop-section-content {
+            padding: 10px 12px;
+        }
+        
+        .prop-section.collapsed .prop-section-content {
+            display: none;
         }
         
         /* 筛选增强 */
@@ -519,10 +762,120 @@
             max-height: 100%;
             object-fit: contain;
         }
+        
+        /* ========== RT 懒加载面板样式 ========== */
+        .rt-lazy-load-panel {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 8px;
+            z-index: 10;
+        }
+        
+        .rt-load-btn {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 12px 24px;
+            background: linear-gradient(135deg, var(--accent-blue), var(--accent-cyan));
+            border: none;
+            border-radius: var(--radius-md);
+            color: white;
+            font-size: 13px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+            box-shadow: 0 4px 12px rgba(0, 122, 204, 0.3);
+        }
+        
+        .rt-load-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 16px rgba(0, 122, 204, 0.4);
+        }
+        
+        .rt-load-btn:active {
+            transform: translateY(0);
+        }
+        
+        .rt-load-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .rt-load-btn.loading {
+            background: var(--bg-medium);
+        }
+        
+        .rt-load-btn.loading .rt-load-icon {
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+        
+        .rt-load-status {
+            font-size: 11px;
+            color: var(--text-muted);
+            text-align: center;
+            min-height: 16px;
+        }
+        
+        .rt-load-status.error {
+            color: var(--accent-red);
+        }
+        
+        .rt-load-status.success {
+            color: var(--accent-green);
+        }
+        
+        /* 当已有预览图时隐藏懒加载面板 */
+        .canvas-viewport.has-preview .rt-lazy-load-panel {
+            display: none;
+        }
+        
+        /* 服务状态指示器 */
+        .server-status {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 8px 12px;
+            background: var(--bg-dark);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            font-size: 10px;
+            color: var(--text-muted);
+            z-index: 100;
+        }
+        
+        .server-status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--text-muted);
+        }
+        
+        .server-status-dot.online {
+            background: var(--accent-green);
+            box-shadow: 0 0 6px var(--accent-green);
+        }
+        
+        .server-status-dot.offline {
+            background: var(--accent-red);
+        }
     </style>
 </head>
 <body>
-    <div class="app-container">
+    <div class="app-container fixed">
         <!-- 顶部菜单栏 -->
         <header class="app-menubar">
             <div class="app-title">
@@ -548,7 +901,7 @@
         <!-- 主工作区 -->
         <div class="app-workspace">
             <!-- 左侧面板 - 事件列表 -->
-            <aside class="panel-left" style="width: 320px;" id="panelLeft">
+            <aside class="panel-left" id="panelLeft">
                 <div class="panel-header" onclick="togglePanel('panelLeft')">
                     <span class="panel-title">事件列表</span>
                     <span class="panel-toggle">▼</span>
@@ -558,6 +911,11 @@
                 <div class="timeline-container" id="timeline">
                     {{TIMELINE_BARS_HTML}}
                     <div class="timeline-cursor" id="timelineCursor" style="display: none;"></div>
+                    <!-- 空状态提示 -->
+                    <div class="timeline-empty" id="timelineEmpty">
+                        <span class="timeline-empty-icon">📊</span>
+                        <span class="timeline-empty-text">无事件数据 - 请在 RenderDoc 中生成报告</span>
+                    </div>
                 </div>
                 
                 <!-- 筛选工具栏 -->
@@ -633,12 +991,20 @@
                             <div class="canvas-empty-text">从左侧列表选择事件</div>
                         </div>
                         <img class="preview-img hidden" id="outputImg" src="" alt="Output Preview">
+                        <!-- 懒加载按钮区域 -->
+                        <div class="rt-lazy-load-panel" id="rtLazyLoadPanel">
+                            <button class="rt-load-btn" id="rtLoadBtn" onclick="loadRTFromServer()">
+                                <span class="rt-load-icon">📷</span>
+                                <span class="rt-load-text">从 RDC 加载快照</span>
+                            </button>
+                            <div class="rt-load-status" id="rtLoadStatus"></div>
+                        </div>
                     </div>
                 </div>
             </main>
             
             <!-- 右侧面板 - Pipeline State -->
-            <aside class="panel-right" style="width: 300px;" id="panelRight">
+            <aside class="panel-right" id="panelRight">
                 <div class="panel-header" onclick="togglePanel('panelRight')">
                     <span class="panel-title">Pipeline State</span>
                     <span class="panel-toggle">▼</span>
@@ -646,9 +1012,9 @@
                 
                 <div class="panel-content" id="pipelinePanel">
                     <!-- 事件概要 -->
-                    <div class="prop-section">
+                    <div class="prop-section" id="eventInfoSection">
                         <div class="prop-section-header">
-                            <span class="prop-section-title">事件信息</span>
+                            <span class="prop-section-title">📌 事件信息</span>
                         </div>
                         <div class="prop-section-content">
                             <div class="stat-row">
@@ -696,10 +1062,13 @@
                     <div class="pipeline-section" id="shaderSection">
                         <div class="pipeline-header" onclick="togglePipelineSection('shaderSection')">
                             <span class="pipeline-title">Shaders</span>
-                            <span class="pipeline-badge" id="shaderCount">0</span>
+                            <div style="display:flex;align-items:center;gap:8px">
+                                <span class="pipeline-badge" id="shaderCount">0</span>
+                                <span class="pipeline-toggle">▼</span>
+                            </div>
                         </div>
                         <div class="pipeline-content" id="shaderContent">
-                            <!-- 动态填充 -->
+                            <div class="pipeline-empty" id="shaderEmpty">未绑定 Shader</div>
                         </div>
                     </div>
                     
@@ -707,9 +1076,13 @@
                     <div class="pipeline-section" id="textureSection">
                         <div class="pipeline-header" onclick="togglePipelineSection('textureSection')">
                             <span class="pipeline-title">纹理绑定</span>
-                            <span class="pipeline-badge" id="textureCount">0</span>
+                            <div style="display:flex;align-items:center;gap:8px">
+                                <span class="pipeline-badge" id="textureCount">0</span>
+                                <span class="pipeline-toggle">▼</span>
+                            </div>
                         </div>
                         <div class="pipeline-content">
+                            <div class="pipeline-empty" id="textureEmpty">无纹理绑定</div>
                             <div class="binding-grid" id="textureBindings">
                                 <!-- 动态填充 -->
                             </div>
@@ -720,9 +1093,13 @@
                     <div class="pipeline-section" id="rtSection">
                         <div class="pipeline-header" onclick="togglePipelineSection('rtSection')">
                             <span class="pipeline-title">Render Targets</span>
-                            <span class="pipeline-badge" id="rtCount">0</span>
+                            <div style="display:flex;align-items:center;gap:8px">
+                                <span class="pipeline-badge" id="rtCount">0</span>
+                                <span class="pipeline-toggle">▼</span>
+                            </div>
                         </div>
                         <div class="pipeline-content">
+                            <div class="pipeline-empty" id="rtEmpty">无 Render Target</div>
                             <div class="rt-preview" id="rtPreview">
                                 <!-- 动态填充 -->
                             </div>
@@ -761,6 +1138,12 @@
         <span class="lightbox-close" onclick="closeLightbox()">&times;</span>
         <img class="lightbox-img" id="lightboxImg" src="" alt="Preview">
         <div class="lightbox-caption" id="lightboxCaption"></div>
+    </div>
+    
+    <!-- RT 服务状态指示器 -->
+    <div class="server-status" id="serverStatus">
+        <span class="server-status-dot offline"></span>
+        <span class="server-status-text">RT 服务离线</span>
     </div>
     
     <script>
@@ -1069,12 +1452,27 @@
         }
         
         // ========== 事件选择 ==========
-        function selectEvent(eid) {
+        function selectEvent(eid, scrollToItem = false) {
             const event = eventData.find(e => e.eid === eid);
             if (!event) return;
             
             currentEvent = event;
             eventIndex = drawEvents.findIndex(e => e.eid === eid);
+            
+            // 如果需要滚动到该项（来自时间线点击），先调整虚拟滚动位置
+            if (scrollToItem) {
+                const idx = eventData.findIndex(e => e.eid === eid);
+                if (idx !== -1) {
+                    // 滚动容器使该项可见
+                    const container = document.getElementById('eventList');
+                    if (container) {
+                        const targetScrollTop = Math.max(0, idx * ITEM_HEIGHT - container.clientHeight / 2);
+                        container.scrollTop = targetScrollTop;
+                    }
+                    // 强制更新虚拟滚动
+                    renderVisibleItems();
+                }
+            }
             
             // 更新列表选中状态
             document.querySelectorAll('.event-item').forEach(el => {
@@ -1083,7 +1481,7 @@
             const item = document.querySelector(`.event-item[data-eid="${eid}"]`);
             if (item) {
                 item.classList.add('selected');
-                item.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+                // 注意：不再调用 scrollIntoView，由虚拟滚动处理
             }
             
             // 更新时间线光标
@@ -1092,8 +1490,13 @@
             // 更新工具栏
             document.getElementById('currentEid').textContent = `EID ${eid}`;
             
-            // 更新输出预览
-            updateOutputPreview(event);
+            // 更新输出预览（优先使用缓存的 RT 快照）
+            if (rtLoadingCache[eid]) {
+                displayRTSnapshot(rtLoadingCache[eid]);
+            } else {
+                updateOutputPreview(event);
+                resetRTLoadPanel();  // 重置懒加载面板
+            }
             
             // 更新 Pipeline State
             updatePipelineState(event);
@@ -1115,15 +1518,36 @@
         function updateOutputPreview(event) {
             const img = document.getElementById('outputImg');
             const empty = document.getElementById('outputEmpty');
+            const viewport = document.getElementById('outputViewport');
+            const lazyPanel = document.getElementById('rtLazyLoadPanel');
             
+            // 优先使用预导出的 RT 快照（离线模式）
+            if (event.rtSnapshot) {
+                img.src = event.rtSnapshot;
+                img.classList.remove('hidden');
+                empty.classList.add('hidden');
+                viewport.classList.add('has-preview');
+                lazyPanel.style.display = 'none';  // 隐藏懒加载按钮
+                setRTLoadStatus('', '');
+                return;
+            }
+            
+            // 其次使用 output 中的颜色附件
             if (event.output && event.output.color0) {
                 img.src = event.output.color0;
                 img.classList.remove('hidden');
                 empty.classList.add('hidden');
-            } else {
-                img.classList.add('hidden');
-                empty.classList.remove('hidden');
+                viewport.classList.add('has-preview');
+                lazyPanel.style.display = 'none';
+                return;
             }
+            
+            // 无预导出数据，显示懒加载面板
+            img.classList.add('hidden');
+            empty.classList.remove('hidden');
+            viewport.classList.remove('has-preview');
+            lazyPanel.style.display = '';  // 显示懒加载按钮
+            resetRTLoadPanel();
         }
         
         function updatePipelineState(event) {
@@ -1159,30 +1583,51 @@
         function updateShaderBindings(event) {
             const content = document.getElementById('shaderContent');
             const count = document.getElementById('shaderCount');
+            const empty = document.getElementById('shaderEmpty');
             
             if (event.shaders && event.shaders.length > 0) {
                 count.textContent = event.shaders.length;
-                content.innerHTML = event.shaders.map(shader => `
-                    <div class="shader-card">
+                count.style.background = '';  // 使用主题色
+                empty.style.display = 'none';
+                
+                // 清空后重新填充（保留 empty 元素）
+                const cards = content.querySelectorAll('.shader-card');
+                cards.forEach(c => c.remove());
+                
+                event.shaders.forEach(shader => {
+                    const card = document.createElement('div');
+                    card.className = 'shader-card';
+                    card.innerHTML = `
                         <div class="shader-type">${shader.type}</div>
                         <div class="shader-name">${shader.name || 'Unnamed'}</div>
                         <div class="shader-link" onclick="viewShader('${shader.id}')">
                             查看详情 →
                         </div>
-                    </div>
-                `).join('');
+                    `;
+                    content.appendChild(card);
+                });
             } else {
                 count.textContent = '0';
-                content.innerHTML = '<div style="color: var(--text-muted); font-size: 10px;">无 Shader 绑定</div>';
+                count.style.background = 'var(--bg-medium)';  // 灰色背景
+                empty.style.display = '';
+                
+                // 移除卡片
+                const cards = content.querySelectorAll('.shader-card');
+                cards.forEach(c => c.remove());
             }
         }
         
         function updateTextureBindings(event) {
             const grid = document.getElementById('textureBindings');
             const count = document.getElementById('textureCount');
+            const empty = document.getElementById('textureEmpty');
             
             if (event.textures && event.textures.length > 0) {
                 count.textContent = event.textures.length;
+                count.style.background = '';
+                empty.style.display = 'none';
+                grid.style.display = '';
+                
                 grid.innerHTML = event.textures.slice(0, 8).map((tex, i) => `
                     <div class="binding-slot" onclick="viewTexture('${tex.id}')" title="${tex.name || 'Texture ' + i}">
                         <div class="binding-thumb">
@@ -1203,28 +1648,77 @@
                 }
             } else {
                 count.textContent = '0';
-                grid.innerHTML = '<div style="grid-column: 1/-1; color: var(--text-muted); font-size: 10px; text-align: center;">无纹理绑定</div>';
+                count.style.background = 'var(--bg-medium)';
+                empty.style.display = '';
+                grid.style.display = 'none';
+                grid.innerHTML = '';
             }
         }
         
         function updateRenderTargets(event) {
             const preview = document.getElementById('rtPreview');
             const count = document.getElementById('rtCount');
+            const empty = document.getElementById('rtEmpty');
             
+            // 辅助函数：显示 RT
+            function showRT(html, num) {
+                count.textContent = num;
+                count.style.background = '';
+                empty.style.display = 'none';
+                preview.style.display = '';
+                preview.innerHTML = html;
+            }
+            
+            // 辅助函数：隐藏 RT
+            function hideRT() {
+                count.textContent = '0';
+                count.style.background = 'var(--bg-medium)';
+                empty.style.display = '';
+                preview.style.display = 'none';
+                preview.innerHTML = '';
+            }
+            
+            // 优先使用 output.color0（新格式）
+            if (event.output && event.output.color0) {
+                showRT(`
+                    <div class="rt-slot">
+                        <div class="rt-thumb" onclick="openLightbox('${event.output.color0}', 'Render Target')">
+                            <img src="${event.output.color0}" alt="RT Preview">
+                        </div>
+                        <div class="rt-label">Color0</div>
+                    </div>
+                `, 1);
+                return;
+            }
+            
+            // 兼容旧格式 rtSnapshot
+            if (event.rtSnapshot) {
+                showRT(`
+                    <div class="rt-slot">
+                        <div class="rt-thumb" onclick="openLightbox('${event.rtSnapshot}', 'Render Target')">
+                            <img src="${event.rtSnapshot}" alt="RT Preview">
+                        </div>
+                        <div class="rt-label">Color0 (预导出)</div>
+                    </div>
+                `, 1);
+                return;
+            }
+            
+            // 使用 renderTargets 数组
             if (event.renderTargets && event.renderTargets.length > 0) {
-                count.textContent = event.renderTargets.length;
-                preview.innerHTML = event.renderTargets.map((rt, i) => `
+                showRT(event.renderTargets.map((rt, i) => `
                     <div class="rt-slot">
                         <div class="rt-thumb" onclick="openLightbox('${rt.thumbnail}', '${rt.name || 'RT ' + i}')">
                             ${rt.thumbnail ? `<img src="${rt.thumbnail}" alt="">` : ''}
                         </div>
                         <div class="rt-label">${rt.name || 'RT ' + i}</div>
                     </div>
-                `).join('');
-            } else {
-                count.textContent = '0';
-                preview.innerHTML = '<div style="color: var(--text-muted); font-size: 10px;">无 Render Target</div>';
+                `).join(''), event.renderTargets.length);
+                return;
             }
+            
+            // 无数据
+            hideRT();
         }
         
         function updateEventAnalysis(event) {
@@ -1250,37 +1744,24 @@
             return typeMap[type] || type;
         }
         
-        // ========== 滚动到指定事件 ==========
+        // ========== 滚动到指定事件（时间线点击时调用） ==========
         function scrollToEvent(eid) {
-            // 在筛选后的列表中查找事件索引
-            const idx = filteredEvents.findIndex(e => e.eid === eid);
-            if (idx === -1) return;
-            
-            // 计算滚动位置
-            const targetScrollTop = idx * ITEM_HEIGHT;
-            const container = document.getElementById('eventList');
-            
-            // 直接设置滚动位置（不使用 smooth，避免虚拟滚动跳跃）
-            container.scrollTop = targetScrollTop - container.clientHeight / 2 + ITEM_HEIGHT / 2;
-            
-            // 触发重新渲染
-            virtualScrollState.scrollTop = container.scrollTop;
-            virtualScrollState.startIndex = -1;  // 强制重新渲染
-            renderVisibleItems();
+            // 直接调用 selectEvent，传入 scrollToItem = true 来滚动并选中
+            selectEvent(eid, true);
         }
         
         // ========== 导航 ==========
         document.getElementById('prevEvent').addEventListener('click', () => {
             if (eventIndex > 0) {
                 eventIndex--;
-                selectEvent(drawEvents[eventIndex].eid);
+                selectEvent(drawEvents[eventIndex].eid, true);  // 导航时需要滚动
             }
         });
         
         document.getElementById('nextEvent').addEventListener('click', () => {
             if (eventIndex < drawEvents.length - 1) {
                 eventIndex++;
-                selectEvent(drawEvents[eventIndex].eid);
+                selectEvent(drawEvents[eventIndex].eid, true);  // 导航时需要滚动
             }
         });
         
@@ -1360,24 +1841,204 @@
             }
         });
         
+        // ========== RT 懒加载服务配置 ==========
+        const RT_SERVER_CONFIG = {
+            host: 'localhost',
+            port: {{RT_SERVER_PORT}},  // 由 Python 生成器填充，默认 8765
+            timeout: 30000  // 30 秒超时
+        };
+        
+        let rtServerOnline = false;
+        let rtLoadingCache = {};  // 缓存已加载的 RT 快照 { eid: base64 }
+        
+        // 检查 RT 服务是否在线
+        async function checkRTServerStatus() {
+            try {
+                const response = await fetch(
+                    `http://${RT_SERVER_CONFIG.host}:${RT_SERVER_CONFIG.port}/api/status`,
+                    { method: 'GET', mode: 'cors' }
+                );
+                if (response.ok) {
+                    rtServerOnline = true;
+                    updateServerStatusUI(true);
+                    return true;
+                }
+            } catch (e) {
+                // 服务不可用
+            }
+            rtServerOnline = false;
+            updateServerStatusUI(false);
+            return false;
+        }
+        
+        function updateServerStatusUI(online) {
+            const statusEl = document.getElementById('serverStatus');
+            if (!statusEl) return;
+            
+            const dot = statusEl.querySelector('.server-status-dot');
+            const text = statusEl.querySelector('.server-status-text');
+            
+            if (online) {
+                dot.classList.add('online');
+                dot.classList.remove('offline');
+                text.textContent = 'RT 服务已连接';
+            } else {
+                dot.classList.remove('online');
+                dot.classList.add('offline');
+                text.textContent = 'RT 服务离线';
+            }
+        }
+        
+        // 从服务器加载 RT 快照
+        async function loadRTFromServer() {
+            if (!currentEvent) {
+                setRTLoadStatus('请先选择一个事件', 'error');
+                return;
+            }
+            
+            const eid = currentEvent.eid;
+            
+            // 检查缓存
+            if (rtLoadingCache[eid]) {
+                displayRTSnapshot(rtLoadingCache[eid]);
+                setRTLoadStatus('已从缓存加载', 'success');
+                return;
+            }
+            
+            // 更新按钮状态
+            const btn = document.getElementById('rtLoadBtn');
+            const iconSpan = btn.querySelector('.rt-load-icon');
+            const textSpan = btn.querySelector('.rt-load-text');
+            
+            btn.disabled = true;
+            btn.classList.add('loading');
+            iconSpan.textContent = '⏳';
+            textSpan.textContent = '正在加载...';
+            setRTLoadStatus(`正在从 RDC 导出 EID ${eid} 的 Render Target...`, '');
+            
+            try {
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), RT_SERVER_CONFIG.timeout);
+                
+                const response = await fetch(
+                    `http://${RT_SERVER_CONFIG.host}:${RT_SERVER_CONFIG.port}/api/rt/${eid}`,
+                    { 
+                        method: 'GET', 
+                        mode: 'cors',
+                        signal: controller.signal
+                    }
+                );
+                
+                clearTimeout(timeoutId);
+                
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    throw new Error(errorText || `HTTP ${response.status}`);
+                }
+                
+                const data = await response.json();
+                
+                if (data.success && data.thumbnail) {
+                    // 缓存结果
+                    rtLoadingCache[eid] = data.thumbnail;
+                    
+                    // 显示快照
+                    displayRTSnapshot(data.thumbnail);
+                    setRTLoadStatus(`✅ 加载成功 (${data.width}x${data.height})`, 'success');
+                } else {
+                    throw new Error(data.error || '无法获取 RT 快照');
+                }
+                
+            } catch (e) {
+                if (e.name === 'AbortError') {
+                    setRTLoadStatus('请求超时，请确保 RT 服务正在运行', 'error');
+                } else {
+                    setRTLoadStatus(`加载失败: ${e.message}`, 'error');
+                }
+                console.error('RT 加载错误:', e);
+            } finally {
+                // 恢复按钮状态
+                btn.disabled = false;
+                btn.classList.remove('loading');
+                iconSpan.textContent = '📷';
+                textSpan.textContent = '从 RDC 加载快照';
+            }
+        }
+        
+        function displayRTSnapshot(base64Data) {
+            const img = document.getElementById('outputImg');
+            const empty = document.getElementById('outputEmpty');
+            const viewport = document.getElementById('outputViewport');
+            
+            // 设置图片源
+            if (!base64Data.startsWith('data:')) {
+                base64Data = 'data:image/png;base64,' + base64Data;
+            }
+            img.src = base64Data;
+            img.classList.remove('hidden');
+            empty.classList.add('hidden');
+            viewport.classList.add('has-preview');
+        }
+        
+        function setRTLoadStatus(message, type) {
+            const statusEl = document.getElementById('rtLoadStatus');
+            statusEl.textContent = message;
+            statusEl.className = 'rt-load-status';
+            if (type) {
+                statusEl.classList.add(type);
+            }
+        }
+        
+        // 重置 RT 加载面板（切换事件时调用）
+        function resetRTLoadPanel() {
+            const viewport = document.getElementById('outputViewport');
+            viewport.classList.remove('has-preview');
+            setRTLoadStatus('', '');
+        }
+        
         // ========== 初始化 ==========
         document.addEventListener('DOMContentLoaded', () => {
             // 初始化虚拟滚动
             initVirtualScroll();
             
+            // 检查时间线是否有数据，显示空状态提示
+            const timelineContainer = document.getElementById('timeline');
+            const timelineEmpty = document.getElementById('timelineEmpty');
+            const timelineBars = timelineContainer.querySelectorAll('.timeline-bar');
+            if (timelineBars.length === 0 && timelineEmpty) {
+                timelineEmpty.classList.add('visible');
+            }
+            
+            // 检查 RT 服务状态（静默检查，不阻塞）
+            checkRTServerStatus();
+            
             const params = new URLSearchParams(window.location.search);
             
-            // 如果有 eid 参数，选中对应事件
-            const eid = params.get('eid');
+            // 如果有 eid 或 target 参数，选中对应事件
+            const eid = params.get('eid') || params.get('target');
+            const shouldHighlight = params.get('highlight') === 'true';
+            
             if (eid) {
                 const targetEid = parseInt(eid);
-                selectEvent(targetEid);
-                scrollToEvent(targetEid);
+                selectEvent(targetEid, true);  // 初始化时需要滚动到指定事件
+                
+                // 如果有 highlight 参数，使用 RdcNav 高亮
+                if (shouldHighlight && typeof RdcNav !== 'undefined') {
+                    setTimeout(() => {
+                        const row = document.querySelector(`[data-eid="${targetEid}"]`);
+                        if (row) {
+                            RdcNav.highlight(row);
+                        }
+                    }, 200);
+                }
             } else if (drawEvents.length > 0) {
                 // 默认选中第一个 draw 事件
-                selectEvent(drawEvents[0].eid);
+                selectEvent(drawEvents[0].eid, true);  // 初始化时滚动到第一项
             }
         });
     </script>
+    
+    <!-- 跨页面导航模块（证据链跳转） -->
+    <script src="navigation.js"></script>
 </body>
 </html>

@@ -883,10 +883,22 @@
             // 检查 URL 参数
             const params = new URLSearchParams(window.location.search);
             
-            // 如果有 id 参数，选中对应纹理
-            const id = params.get('id');
+            // 如果有 id 或 target 参数，选中对应纹理
+            const id = params.get('id') || params.get('target');
+            const shouldHighlight = params.get('highlight') === 'true';
+            
             if (id) {
                 selectTexture(id);
+                
+                // 如果有 highlight 参数，使用 RdcNav 高亮（延迟等待 DOM 更新）
+                if (shouldHighlight && typeof RdcNav !== 'undefined') {
+                    setTimeout(() => {
+                        const item = document.querySelector(`.texture-item[data-id="${id}"]`);
+                        if (item) {
+                            RdcNav.highlight(item);
+                        }
+                    }, 150);
+                }
             }
             
             // 如果有 filter 参数，应用筛选

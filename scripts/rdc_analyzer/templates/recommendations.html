@@ -326,6 +326,160 @@
             margin-bottom: 16px;
             opacity: 0.4;
         }
+        
+        /* ========== 证据链面板样式 (M3.2) ========== */
+        
+        .evidence-chain-panel {
+            margin-top: 16px;
+            padding-top: 16px;
+            border-top: 1px solid var(--border);
+        }
+        
+        /* 证据列表 */
+        .evidence-list {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+        
+        .evidence-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 10px;
+            background: var(--bg-dark);
+            border-radius: var(--radius-sm);
+            font-size: 11px;
+            border-left: 3px solid var(--accent-blue);
+        }
+        
+        .evidence-item.critical {
+            border-left-color: var(--accent-red);
+            background: rgba(239, 68, 68, 0.1);
+        }
+        
+        .evidence-item.warning {
+            border-left-color: var(--accent-yellow);
+            background: rgba(245, 158, 11, 0.1);
+        }
+        
+        .evidence-label {
+            color: var(--text-muted);
+            min-width: 100px;
+        }
+        
+        .evidence-value {
+            color: var(--text-primary);
+            font-family: var(--font-mono);
+        }
+        
+        /* 操作按钮 */
+        .action-buttons {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+        
+        .action-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 12px;
+            background: var(--bg-medium);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-md);
+            color: var(--text-primary);
+            font-size: 11px;
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+        
+        .action-btn:hover {
+            background: var(--accent-blue);
+            border-color: var(--accent-blue);
+            color: white;
+        }
+        
+        .action-btn.jump-btn .btn-icon {
+            color: var(--accent-cyan);
+        }
+        
+        .action-btn.highlight-btn .btn-icon {
+            color: var(--accent-yellow);
+        }
+        
+        .action-btn:hover .btn-icon {
+            color: white;
+        }
+        
+        /* 受影响资源/事件标签 */
+        .affected-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+        }
+        
+        .resource-tag, .event-tag {
+            padding: 4px 8px;
+            background: var(--bg-dark);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            font-size: 10px;
+            font-family: var(--font-mono);
+            color: var(--text-secondary);
+        }
+        
+        .resource-tag.clickable, .event-tag.clickable {
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+        
+        .resource-tag.clickable:hover {
+            background: var(--accent-cyan);
+            border-color: var(--accent-cyan);
+            color: white;
+        }
+        
+        .event-tag.clickable:hover {
+            background: var(--accent-purple);
+            border-color: var(--accent-purple);
+            color: white;
+        }
+        
+        .resource-tag.more, .event-tag.more {
+            background: transparent;
+            color: var(--text-muted);
+            border-style: dashed;
+        }
+        
+        /* 影响评分 */
+        .impact-score {
+            font-size: 18px;
+            font-weight: 600;
+            font-family: var(--font-mono);
+        }
+        
+        .impact-score.critical { color: var(--accent-red); }
+        .impact-score.warning { color: var(--accent-yellow); }
+        .impact-score.info { color: var(--accent-blue); }
+        
+        /* 验证方案 */
+        .section-text.verification {
+            background: var(--bg-dark);
+            padding: 10px;
+            border-radius: var(--radius-sm);
+            border-left: 3px solid var(--accent-green);
+        }
+        
+        /* 高亮脉冲动画 */
+        @keyframes highlightPulse {
+            0%, 100% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0); }
+            50% { box-shadow: 0 0 0 8px rgba(59, 130, 246, 0.4); }
+        }
+        
+        .highlight-pulse {
+            animation: highlightPulse 0.6s ease-in-out 3;
+        }
     </style>
 </head>
 <body>
@@ -508,8 +662,160 @@
                         <div class="section-text">${rec.impact}</div>
                     </div>
                     ` : ''}
+                    ${renderEvidenceChain(rec.evidence)}
                 </div>
             `;
+        }
+        
+        // 渲染证据链面板 (M3.2)
+        function renderEvidenceChain(evidence) {
+            if (!evidence || !evidence.evidence_chain) {
+                return '';
+            }
+            
+            const chain = evidence.evidence_chain;
+            let html = '<div class="evidence-chain-panel">';
+            
+            // 摘要
+            if (chain.summary) {
+                html += `<div class="detail-section">
+                    <div class="section-title">🔗 证据链摘要</div>
+                    <div class="section-text">${chain.summary}</div>
+                </div>`;
+            }
+            
+            // 证据列表
+            if (chain.evidences && chain.evidences.length > 0) {
+                html += `<div class="detail-section">
+                    <div class="section-title">📋 证据详情</div>
+                    <div class="evidence-list">`;
+                
+                chain.evidences.forEach(ev => {
+                    const severityClass = ev.severity === 'critical' ? 'critical' : 
+                                         ev.severity === 'warning' ? 'warning' : 'info';
+                    const thresholdText = ev.threshold !== undefined && ev.threshold !== null 
+                        ? ` / 阈值: ${ev.threshold}${ev.unit}` : '';
+                    
+                    html += `<div class="evidence-item ${severityClass}">
+                        <span class="evidence-label">${ev.label}:</span>
+                        <span class="evidence-value">${ev.value}${ev.unit}${thresholdText}</span>
+                    </div>`;
+                });
+                
+                html += `</div></div>`;
+            }
+            
+            // 操作按钮
+            if (chain.actions && chain.actions.length > 0) {
+                html += `<div class="detail-section">
+                    <div class="section-title">🎯 快速跳转</div>
+                    <div class="action-buttons">`;
+                
+                chain.actions.forEach(action => {
+                    if (action.type === 'jump' && action.target_page) {
+                        // 跨页面跳转：构建 URL 并导航
+                        const page = action.target_page.endsWith('.html') ? action.target_page : action.target_page + '.html';
+                        html += `<button class="action-btn jump-btn" onclick="window.location.href=RdcNav.buildLink('${page}', '${action.target_id || ''}')">
+                            <span class="btn-icon">→</span>
+                            <span class="btn-text">${action.label || '跳转'}</span>
+                        </button>`;
+                    } else if (action.type === 'highlight') {
+                        html += `<button class="action-btn highlight-btn" onclick="highlightResource('${action.target_id}')">
+                            <span class="btn-icon">◉</span>
+                            <span class="btn-text">${action.label || '高亮'}</span>
+                        </button>`;
+                    }
+                });
+                
+                html += `</div></div>`;
+            }
+            
+            // 受影响资源
+            if (chain.affected_resources && chain.affected_resources.length > 0) {
+                html += `<div class="detail-section">
+                    <div class="section-title">📦 受影响资源 (${chain.affected_resources.length})</div>
+                    <div class="affected-list">`;
+                
+                chain.affected_resources.slice(0, 10).forEach(resId => {
+                    // 推断资源类型并跨页面跳转
+                    const isTexture = resId.includes('tex') || resId.includes('Texture');
+                    const isShader = resId.includes('shader') || resId.includes('Shader');
+                    const targetPage = isTexture ? 'textures.html' : isShader ? 'shaders.html' : 'events.html';
+                    
+                    html += `<span class="resource-tag clickable" onclick="window.location.href=RdcNav.buildLink('${targetPage}', '${resId}')">${resId}</span>`;
+                });
+                
+                if (chain.affected_resources.length > 10) {
+                    html += `<span class="resource-tag more">+${chain.affected_resources.length - 10} 更多</span>`;
+                }
+                
+                html += `</div></div>`;
+            }
+            
+            // 受影响事件
+            if (chain.affected_events && chain.affected_events.length > 0) {
+                html += `<div class="detail-section">
+                    <div class="section-title">🎬 相关事件 (${chain.affected_events.length})</div>
+                    <div class="affected-list">`;
+                
+                chain.affected_events.slice(0, 8).forEach(eid => {
+                    html += `<span class="event-tag clickable" onclick="window.location.href=RdcNav.buildLink('events.html', 'event_${eid}')">EID ${eid}</span>`;
+                });
+                
+                if (chain.affected_events.length > 8) {
+                    html += `<span class="event-tag more">+${chain.affected_events.length - 8} 更多</span>`;
+                }
+                
+                html += `</div></div>`;
+            }
+            
+            // 影响评分
+            if (chain.impact_score > 0) {
+                const scoreClass = chain.impact_score >= 70 ? 'critical' : 
+                                  chain.impact_score >= 40 ? 'warning' : 'info';
+                html += `<div class="detail-section">
+                    <div class="section-title">⚡ 影响评分</div>
+                    <div class="impact-score ${scoreClass}">${chain.impact_score.toFixed(1)} / 100</div>
+                </div>`;
+            }
+            
+            // 验证方案
+            if (chain.verification_plan) {
+                html += `<div class="detail-section">
+                    <div class="section-title">✅ 验证方案</div>
+                    <div class="section-text verification">${chain.verification_plan}</div>
+                </div>`;
+            }
+            
+            html += '</div>';
+            return html;
+        }
+        
+        // 构建跳转 URL
+        function buildJumpUrl(targetPage, targetId, params) {
+            let url = targetPage;
+            const queryParams = [];
+            if (targetId) queryParams.push(`id=${encodeURIComponent(targetId)}`);
+            if (params) {
+                Object.entries(params).forEach(([k, v]) => {
+                    queryParams.push(`${k}=${encodeURIComponent(v)}`);
+                });
+            }
+            if (queryParams.length > 0) {
+                url += '?' + queryParams.join('&');
+            }
+            return url;
+        }
+        
+        // 高亮资源（本页内）
+        function highlightResource(resourceId) {
+            const el = document.getElementById(resourceId) || 
+                       document.querySelector(`[data-id="${resourceId}"]`);
+            if (el) {
+                el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                el.classList.add('jump-highlight');
+                setTimeout(() => el.classList.remove('jump-highlight'), 2000);
+            }
         }
         
         // 筛选建议
@@ -574,5 +880,8 @@
             showDetail(firstItem.dataset.id);
         }
     </script>
+    
+    <!-- 跨页面导航模块（证据链跳转） -->
+    <script src="navigation.js"></script>
 </body>
 </html>

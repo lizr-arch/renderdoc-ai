@@ -459,6 +459,9 @@ class PerformanceIssue:
     # 相关事件列表 (用于批量问题)
     related_events: List[int] = field(default_factory=list)
     
+    # 证据链 (M2.2)
+    evidence_chain: Optional['EvidenceChain'] = None
+    
     def to_canonical(self) -> 'CanonicalIssue':
         """转换为 CanonicalIssue 格式"""
         # 构建 event_ids 列表
@@ -485,6 +488,13 @@ class PerformanceIssue:
             evidence['pass_index'] = self.pass_index
         if self.title:
             evidence['title'] = self.title
+        
+        # M2.3: 添加证据链到 evidence
+        if self.evidence_chain is not None:
+            try:
+                evidence['evidence_chain'] = self.evidence_chain.to_dict()
+            except Exception:
+                pass  # 忽略序列化失败
         
         return CanonicalIssue(
             code=self.rule_id,

@@ -54,9 +54,13 @@ class ReportBundleGenerator:
         self.mali_data: Dict = {}
         self.frame_thumbnail: str = ""
         self.texture_usage_map: Dict = {}
+        self.shader_usage_map: Dict = {}  # shader_id -> List[usage_record]
         
         # RT 预览服务配置
         self.rt_server_port: int = 8765  # 默认端口
+        
+        # 资源使用索引（证据链数据基础）
+        self.resource_usage_index: Dict = {}
         
         # 统计数据（用于 index 页面）
         self.stats: Dict = {
@@ -177,10 +181,18 @@ class ReportBundleGenerator:
         self.stats["dispatch_calls"] = dispatch
         self.stats["clear_calls"] = clear
     
-    def set_shaders(self, shaders: List[Dict], mali_data: Dict = None):
-        """设置 Shader 数据"""
+    def set_shaders(self, shaders: List[Dict], mali_data: Dict = None, usage_map: Dict = None):
+        """
+        设置 Shader 数据
+        
+        Args:
+            shaders: Shader 数据列表
+            mali_data: Mali Offline Compiler 分析结果
+            usage_map: Shader 使用映射 {shader_id: [usage_record]}
+        """
         self.shaders = shaders or []
         self.mali_data = mali_data or {}
+        self.shader_usage_map = usage_map or {}
         self.stats["total_shaders"] = len(self.shaders)
     
     def set_performance_data(self, data: Dict):
@@ -199,6 +211,20 @@ class ReportBundleGenerator:
     def set_frame_thumbnail(self, thumbnail: str):
         """设置帧缩略图（Base64 Data URI）"""
         self.frame_thumbnail = thumbnail or ""
+    
+    def set_resource_usage_index(self, usage_index):
+        """
+        设置资源使用索引（证据链数据基础）
+        
+        Args:
+            usage_index: ResourceUsageIndex 对象或其序列化后的字典
+        """
+        if hasattr(usage_index, 'to_dict'):
+            self.resource_usage_index = usage_index.to_dict()
+        elif isinstance(usage_index, dict):
+            self.resource_usage_index = usage_index
+        else:
+            self.resource_usage_index = {}
     
     def _estimate_bpp(self, format_str: str) -> float:
         """根据格式字符串估算每像素字节数"""
@@ -523,12 +549,15 @@ class ReportBundleGenerator:
         
         # 生成纹理列表 HTML（用于无 JS 环境的 fallback）
         texture_list_html = ""
-        for tex in self.textures[:50]:  # 限制初始渲染数量
+        for tex in self.textures:
             tex_id = tex.get("id") or tex.get("resource_id", "")
             raw_name = tex.get("name", "")
             width = tex.get("width", 0)
             height = tex.get("height", 0)
             fmt = tex.get("format", "UNKNOWN")
+            mips = tex.get("mips", 1)
+            vram = tex.get("vram", 0)
+            has_issue = bool(tex.get("issues"))
             thumb = self._normalize_thumbnail(tex.get("thumbnail", ""))
             
             # 优化纹理名称显示
@@ -548,13 +577,22 @@ class ReportBundleGenerator:
                 thumb_html = f'<img src="{thumb}" alt="">'
 
             texture_list_html += f'''
-                <div class="texture-item" data-id="{tex_id}" onclick="selectTexture('{tex_id}')">
-                    <div class="texture-thumb">
+                <div class="texture-item"
+                     data-id="{tex_id}"
+                     data-name="{display_name}"
+                     data-format="{fmt}"
+                     data-width="{width}"
+                     data-height="{height}"
+                     data-mip-levels="{mips}"
+                     data-vram="{vram}"
+                     data-has-issue="{str(has_issue).lower()}"
+                     onclick="selectTexture('{tex_id}')">
+                    <div class="texture-item-thumb">
                         {thumb_html}
                     </div>
-                    <div class="texture-info">
-                        <div class="texture-name">{display_name}{size_tag}</div>
-                        <div class="texture-meta">{width}×{height} • {simple_fmt}</div>
+                    <div class="texture-item-info">
+                        <div class="texture-item-name">{display_name}{size_tag}</div>
+                        <div class="texture-item-meta">{width}×{height} • {simple_fmt}</div>
                     </div>
                 </div>'''
         
@@ -635,7 +673,7 @@ class ReportBundleGenerator:
         """生成 shaders.html Shader 分析页面"""
         template = self._load_template("shaders.html")
         
-        # 处理 Mali 分析数据
+        # 处理 Mali 分析数据和使用信息
         shader_with_mali = []
         mali_analyzed_count = 0
         
@@ -650,6 +688,9 @@ class ReportBundleGenerator:
                     shader_copy["mali"] = mali_result
                     mali_analyzed_count += 1
             
+            # 注入 Shader 使用信息（从 shader_usage_map）
+            shader_copy["usages"] = self.shader_usage_map.get(str(shader_id), [])
+            
             shader_with_mali.append(shader_copy)
         
         # 生成 Shader 列表 HTML（用于初始渲染）
@@ -659,7 +700,8 @@ class ReportBundleGenerator:
             name = shader.get("name", f"Shader {shader_id}")
             shader_type = shader.get("type", "Unknown")
             shader_type_lower = str(shader_type).lower()
-            usage_count = len(shader.get("usedBy", []) or [])
+            # 从 shader_usage_map 获取使用次数，回退到 usedBy
+            usage_count = len(self.shader_usage_map.get(str(shader_id), []) or shader.get("usedBy", []) or [])
             has_issue = bool(shader.get("issues") or shader.get("suggestions"))
             mali_cycles = 0
             if isinstance(shader.get("mali"), dict):
@@ -729,7 +771,7 @@ class ReportBundleGenerator:
         # 处理结构化问题
         for issue in issues:
             if isinstance(issue, dict):
-                all_issues.append({
+                item = {
                     "id": issue.get("rule_id", f"ISSUE-{len(all_issues)+1:03d}"),
                     "severity": issue.get("severity", "info"),
                     "category": issue.get("category", "general"),
@@ -737,7 +779,11 @@ class ReportBundleGenerator:
                     "description": issue.get("message", ""),
                     "suggestion": issue.get("suggestion", ""),
                     "impact": issue.get("impact", ""),
-                })
+                }
+                # M3.3: 保留证据链数据
+                if "evidence" in issue:
+                    item["evidence"] = issue["evidence"]
+                all_issues.append(item)
             else:
                 # 字符串格式
                 all_issues.append({
@@ -939,18 +985,28 @@ class ReportBundleGenerator:
         output_files["manifest"] = str(manifest_path)
         print(f"  [OK] Generated: {manifest_path.name}")
         
-        # 6. 复制 CSS 文件到输出目录
+        # 6.5 生成 resource_usage.json（资源使用索引，证据链数据基础）
+        if self.resource_usage_index:
+            usage_path = self.output_dir / "resource_usage.json"
+            usage_path.write_text(json.dumps(self.resource_usage_index, indent=2, ensure_ascii=False), encoding="utf-8")
+            output_files["resource_usage"] = str(usage_path)
+            print(f"  [OK] Generated: {usage_path.name}")
+        
+        # 6. 复制 CSS 和 JS 文件到输出目录
         import shutil
-        css_files = ["common.css"]  # recommendations.css 已废弃（2025-01-21）
-        for css_name in css_files:
-            css_src = TEMPLATES_DIR / css_name
-            css_dst = self.output_dir / css_name
-            if css_src.exists():
-                shutil.copy2(css_src, css_dst)
-                output_files[f"css_{css_name}"] = str(css_dst)
-                print(f"  [OK] Copied: {css_dst.name}")
+        static_files = [
+            "common.css",      # 公共样式
+            "navigation.js",   # 跨页面导航模块（M3: 证据链跳转）
+        ]
+        for file_name in static_files:
+            file_src = TEMPLATES_DIR / file_name
+            file_dst = self.output_dir / file_name
+            if file_src.exists():
+                shutil.copy2(file_src, file_dst)
+                output_files[f"static_{file_name}"] = str(file_dst)
+                print(f"  [OK] Copied: {file_dst.name}")
             else:
-                print(f"  [WARN] {css_name} not found at {css_src}")
+                print(f"  [WARN] {file_name} not found at {file_src}")
         
         # 7. 生成 RT 预览服务启动脚本（使用拆分模块）
         startup_scripts = generate_rt_server_scripts(self.output_dir, self.rt_server_port)

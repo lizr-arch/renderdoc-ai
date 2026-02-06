@@ -1070,10 +1070,22 @@
         document.addEventListener('DOMContentLoaded', () => {
             const params = new URLSearchParams(window.location.search);
             
-            // 如果有 id 参数，选中对应 Shader
-            const id = params.get('id');
+            // 如果有 id/sid/target 参数，选中对应 Shader
+            const id = params.get('id') || params.get('sid') || params.get('target');
+            const shouldHighlight = params.get('highlight') === 'true';
+            
             if (id) {
                 selectShader(id);
+                
+                // 如果有 highlight 参数，使用 RdcNav 高亮
+                if (shouldHighlight && typeof RdcNav !== 'undefined') {
+                    setTimeout(() => {
+                        const item = document.querySelector(`.shader-item[data-id="${id}"]`);
+                        if (item) {
+                            RdcNav.highlight(item);
+                        }
+                    }, 150);
+                }
             } else if (shaderData.length > 0) {
                 selectShader(shaderData[0].id);
             }
@@ -1092,5 +1104,8 @@
             }
         });
     </script>
+    
+    <!-- 跨页面导航模块（证据链跳转） -->
+    <script src="navigation.js"></script>
 </body>
 </html>
