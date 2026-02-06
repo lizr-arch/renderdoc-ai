@@ -10,22 +10,30 @@
 
 ### 高优先级（P0）
 
-- [ ] **P0-NEW-3**: 规范化 `suggestion.verification_plan` 的 schema
-  - 统一 `how_to_verify` vs `how_to_capture`
-  - 统一 `expected_direction` 枚举值 (`increase/decrease/unchanged`)
-  - 文件: `main.py:_build_suggestions()`
+- [x] **P0-NEW-3**: 规范化 `suggestion.verification_plan` 的 schema ✅ 2025-02-05
+  - ✅ 统一 `how_to_verify` → `how_to_capture`
+  - ✅ 统一 `expected_direction` 枚举值 (`increase/decrease/unchanged`)
+  - ✅ 文件: `main.py:_build_suggestions()` 已标准化
+  - ✅ DOD 测试: `test_dod_compliance.py::TestVerificationPlanSchema` 4/4 通过
 
 ### 中优先级（P1）
 
-- [ ] **P1-NEW-2**: 清理 pytest warnings
-  - 5 个 `PytestReturnNotNoneWarning`
-  - 改 `return True/False` 为 `assert ...`
+- [x] **P1-NEW-2**: 清理 pytest warnings ✅ 2025-02-05
+  - ✅ 完整测试套件 (682 tests) 无 `PytestReturnNotNoneWarning`
+  - 问题可能已在先前会话中修复
+
+- [x] **P1-NEW-3**: 跨页面证据链导航 ✅ 2025-02-05
+  - ✅ Texture → Event 链接 (textures.html?id=X&highlight=true)
+  - ✅ Event → Shader 链接 (shaders.html?shader_id=X)
+  - ✅ Shader → Event 返回链接
+  - ✅ ID 类型兼容性修复 (String vs Number 比较)
+  - 文件: `report_bundle_generator.py`, `textures.html`, `events.html`, `shaders.html`
 
 ### 低优先级（P2）
 
 - [ ] 编译 `renderdoccmd export` 命令
-- [x] 添加 Adreno GPU 专项分析（完成于 2026-01-26）
-- [x] 添加 Tile-Based 效率分析（完成于 2026-01-26）
+- [x] 添加 Adreno GPU 专项分析（完成于 2025-01-26）
+- [x] 添加 Tile-Based 效率分析（完成于 2025-01-26）
 
 ---
 
