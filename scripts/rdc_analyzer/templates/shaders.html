@@ -717,7 +717,8 @@
         
         // ========== Shader 选择 ==========
         function selectShader(id) {
-            const shader = shaderData.find(s => s.id === id);
+            // 使用宽松比较以兼容数字 ID 和字符串 ID
+            const shader = shaderData.find(s => String(s.id) === String(id));
             if (!shader) return;
             
             currentShader = shader;

@@ -331,6 +331,47 @@
             color: var(--text-muted);
             font-size: 9px;
         }
+        
+        /* 关联资源链接样式 */
+        .related-resources {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 4px;
+            margin-top: 6px;
+        }
+        
+        .resource-link {
+            display: inline-block;
+            padding: 2px 6px;
+            background: var(--bg-medium);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            font-size: 10px;
+            font-family: var(--font-mono);
+            color: var(--accent-blue);
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+        
+        .resource-link:hover {
+            background: var(--accent-blue);
+            border-color: var(--accent-blue);
+            color: white;
+        }
+        
+        /* 跳转高亮动画 */
+        .jump-highlight {
+            animation: jumpPulse 2s ease-out;
+        }
+        
+        @keyframes jumpPulse {
+            0%, 100% {
+                background: inherit;
+            }
+            10%, 30% {
+                background: rgba(78, 154, 241, 0.3);
+            }
+        }
     </style>
 </head>
 <body>
@@ -517,6 +558,11 @@
                                 🔀 对比
                             </button>
                         </div>
+                        <div class="detail-actions" style="margin-top: 6px;">
+                            <button class="detail-action-btn secondary" onclick="scrollToCurrentTexture()">
+                                📍 在列表中定位
+                            </button>
+                        </div>
                     </div>
                 </div>
             </aside>
@@ -576,6 +622,30 @@
             header.parentElement.classList.toggle('collapsed');
         }
 
+        // 生成动态 SVG 占位符（基于纹理元数据）
+        function generatePlaceholderSvg(texture) {
+            const name = texture.name || texture.display_name || 'Unknown';
+            const width = texture.width || 256;
+            const height = texture.height || 256;
+            
+            // 基于名称生成稳定颜色（与 Python 端保持一致）
+            let hash = 0;
+            for (let i = 0; i < name.length; i++) {
+                hash = ((hash * 31) + name.charCodeAt(i)) & 0xFFFFFFFF;
+            }
+            const hue = hash % 360;
+            const sat = 60 + ((hash >> 8) % 20);
+            const light = 45 + ((hash >> 16) % 15);
+            
+            const displayName = name.length > 12 ? name.substring(0, 12) : name;
+            const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
+                <rect fill="hsl(${hue},${sat}%,${light}%)" width="128" height="128"/>
+                <text x="64" y="58" text-anchor="middle" fill="rgba(255,255,255,0.9)" font-size="11" font-family="Arial">${width}×${height}</text>
+                <text x="64" y="76" text-anchor="middle" fill="rgba(255,255,255,0.6)" font-size="9" font-family="Arial">${displayName}</text>
+            </svg>`;
+            return 'data:image/svg+xml;base64,' + btoa(svg);
+        }
+
         function renderListThumbnails() {
             document.querySelectorAll('.texture-item').forEach(item => {
                 const texId = String(item.dataset.id || "");
@@ -585,6 +655,10 @@
 
                 if (texture && texture.thumbnail) {
                     thumbEl.innerHTML = `<img src="${texture.thumbnail}" alt="">`;
+                } else if (texture) {
+                    // 使用动态 SVG 占位符
+                    const placeholder = generatePlaceholderSvg(texture);
+                    thumbEl.innerHTML = `<img src="${placeholder}" alt="">`;
                 } else {
                     thumbEl.innerHTML = "<div class='thumb-placeholder'>?</div>";
                 }
@@ -593,7 +667,8 @@
         
         // ========== 纹理选择 ==========
         function selectTexture(id) {
-            const texture = textureData.find(t => t.id === id);
+            // 使用宽松比较以兼容数字 ID 和字符串 ID
+            const texture = textureData.find(t => String(t.id) === String(id));
             if (!texture) return;
             
             currentTexture = texture;
@@ -638,8 +713,10 @@
                 imgEl.classList.remove('hidden');
                 emptyEl.classList.add('hidden');
             } else {
-                imgEl.classList.add('hidden');
-                emptyEl.classList.remove('hidden');
+                // 使用动态 SVG 占位符
+                imgEl.src = generatePlaceholderSvg(texture);
+                imgEl.classList.remove('hidden');
+                emptyEl.classList.add('hidden');
             }
         }
         
@@ -663,7 +740,21 @@
             if (texture.issues && texture.issues.length > 0) {
                 texture.issues.forEach(issue => {
                     const level = issue.level || 'warn';
-                    html += `<div class="analysis-tip ${level}">${issue.message}</div>`;
+                    let message = issue.message || '';
+                    
+                    // 如果有关联的资源 ID 列表，渲染为可点击链接
+                    if (issue.related_ids && issue.related_ids.length > 0) {
+                        html += `<div class="analysis-tip ${level}">
+                            <div>${message}</div>
+                            <div class="related-resources">
+                                ${issue.related_ids.map(rid => 
+                                    `<span class="resource-link" onclick="selectTextureByResourceId('${rid}')" title="点击定位">${rid}</span>`
+                                ).join(' ')}
+                            </div>
+                        </div>`;
+                    } else {
+                        html += `<div class="analysis-tip ${level}">${message}</div>`;
+                    }
                 });
             } else {
                 html = '<div class="analysis-tip success">✅ 未发现明显问题</div>';
@@ -854,6 +945,49 @@
                 window.location.href = `events.html?eid=${eid}`;
             } else if (currentTexture && currentTexture.usedBy && currentTexture.usedBy.length > 0) {
                 window.location.href = `events.html?eid=${currentTexture.usedBy[0].eid}`;
+            }
+        }
+        
+        // ========== 根据 resource_id 选中纹理（右侧面板点击联动） ==========
+        function selectTextureByResourceId(resourceId) {
+            // 在 textureData 中查找匹配的纹理
+            const texture = textureData.find(t => 
+                String(t.id) === String(resourceId) || 
+                String(t.resource_id) === String(resourceId)
+            );
+            
+            if (!texture) {
+                console.warn('Texture not found:', resourceId);
+                return false;
+            }
+            
+            // 选中纹理
+            selectTexture(texture.id || texture.resource_id);
+            
+            // 滚动左侧列表到对应位置
+            scrollToTextureInList(texture.id || texture.resource_id);
+            
+            return true;
+        }
+        
+        // ========== 滚动左侧列表到指定纹理 ==========
+        function scrollToTextureInList(textureId) {
+            const item = document.querySelector(`.texture-item[data-id="${textureId}"]`);
+            if (item) {
+                item.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                
+                // 添加短暂高亮效果
+                item.classList.add('jump-highlight');
+                setTimeout(() => {
+                    item.classList.remove('jump-highlight');
+                }, 2000);
+            }
+        }
+        
+        // ========== 在列表中定位当前选中纹理 ==========
+        function scrollToCurrentTexture() {
+            if (currentTexture) {
+                scrollToTextureInList(currentTexture.id || currentTexture.resource_id);
             }
         }
         

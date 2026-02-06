@@ -1349,7 +1349,7 @@
                 if (collapsedParents.has(event.parentEid)) return true;
                 
                 // 递归检查祖先
-                const parent = eventData.find(e => e.eid === event.parentEid);
+                const parent = eventData.find(e => String(e.eid) === String(event.parentEid));
                 return parent ? isHiddenByParent(parent) : false;
             }
             
@@ -1453,15 +1453,16 @@
         
         // ========== 事件选择 ==========
         function selectEvent(eid, scrollToItem = false) {
-            const event = eventData.find(e => e.eid === eid);
+            // 使用宽松比较以兼容数字 EID 和字符串 EID
+            const event = eventData.find(e => String(e.eid) === String(eid));
             if (!event) return;
             
             currentEvent = event;
-            eventIndex = drawEvents.findIndex(e => e.eid === eid);
+            eventIndex = drawEvents.findIndex(e => String(e.eid) === String(eid));
             
             // 如果需要滚动到该项（来自时间线点击），先调整虚拟滚动位置
             if (scrollToItem) {
-                const idx = eventData.findIndex(e => e.eid === eid);
+                const idx = eventData.findIndex(e => String(e.eid) === String(eid));
                 if (idx !== -1) {
                     // 滚动容器使该项可见
                     const container = document.getElementById('eventList');
@@ -2022,8 +2023,8 @@
                 const targetEid = parseInt(eid);
                 selectEvent(targetEid, true);  // 初始化时需要滚动到指定事件
                 
-                // 如果有 highlight 参数，使用 RdcNav 高亮
-                if (shouldHighlight && typeof RdcNav !== 'undefined') {
+                // 跨页面跳转时自动高亮目标事件（无需显式传 highlight=true）
+                if (typeof RdcNav !== 'undefined') {
                     setTimeout(() => {
                         const row = document.querySelector(`[data-eid="${targetEid}"]`);
                         if (row) {

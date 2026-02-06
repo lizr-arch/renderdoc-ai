@@ -534,7 +534,10 @@ class ReportBundleGenerator:
         textures_with_usage = []
         for tex in self.textures:
             tex_copy = dict(tex)
-            tex_id = tex.get("id") or tex.get("resource_id")
+            # 兼容多种 ID 字段名
+            tex_id = tex.get("id") or tex.get("resource_id") or tex.get("resourceId")
+            # 确保前端能通过 id 查找纹理
+            tex_copy["id"] = tex_id
             raw_name = tex.get("name", "")
             width = tex.get("width", 0)
             height = tex.get("height", 0)
@@ -543,7 +546,18 @@ class ReportBundleGenerator:
             # 优化名称和格式显示
             tex_copy["display_name"] = self._format_texture_name(raw_name, tex_id, width, height)
             tex_copy["simple_format"] = self._simplify_format_name(fmt)
-            tex_copy["usages"] = self.texture_usage_map.get(str(tex_id), [])
+            
+            # 适配前端期望的 usedBy 格式 (eid, name, slot)
+            raw_usages = self.texture_usage_map.get(str(tex_id), [])
+            tex_copy["usedBy"] = [
+                {
+                    "eid": u.get("event_id", u.get("eid", 0)),
+                    "name": u.get("draw_name", u.get("name", "Draw Call")),
+                    "slot": u.get("slot", 0)
+                }
+                for u in raw_usages
+            ]
+            
             tex_copy["thumbnail"] = self._normalize_thumbnail(tex.get("thumbnail", ""))
             textures_with_usage.append(tex_copy)
         
@@ -688,8 +702,16 @@ class ReportBundleGenerator:
                     shader_copy["mali"] = mali_result
                     mali_analyzed_count += 1
             
-            # 注入 Shader 使用信息（从 shader_usage_map）
-            shader_copy["usages"] = self.shader_usage_map.get(str(shader_id), [])
+            # 注入 Shader 使用信息（从 shader_usage_map），适配前端 usedBy 格式
+            raw_usages = self.shader_usage_map.get(str(shader_id), [])
+            shader_copy["usedBy"] = [
+                {
+                    "eid": u.get("event_id", u.get("eid", 0)),
+                    "name": u.get("draw_name", u.get("name", "Draw Call")),
+                    "slot": u.get("slot", 0)
+                }
+                for u in raw_usages
+            ]
             
             shader_with_mali.append(shader_copy)
         
