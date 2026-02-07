@@ -2,7 +2,7 @@
 
 
 
-> **更新日期**: 2025-02-05 | **版本**: 2.4.0 | **维护**: Codex Agent
+> **更新日期**: 2025-02-06 | **版本**: 2.5.0 | **维护**: Codex Agent
 
 
 
@@ -118,7 +118,20 @@
 
 
 
-### 📋 待办与规划
+### � 统计对比与 CI (v2.5.0 新增)
+
+| 文档 | 说明 | 关键词 |
+|------|------|--------|
+| [MULTI_FRAME_GUIDE.md](MULTI_FRAME_GUIDE.md) | **多帧统计对比使用指南** - Phase 5 完整功能 ⭐ | 多帧采样, 显著性检测, CI集成, JUnit |
+| [API_REFERENCE.md](API_REFERENCE.md) | **API 参考手册** - 模块接口说明 | API, stats, diff, rules, CLI |
+
+**Phase 5 功能摘要**:
+- **P5.1** 多帧采样：`--samples N` 收集统计数据
+- **P5.2** 显著性检测：Welch's t-test + Cohen's d
+- **P5.3** 语义对齐：`--align-strategy marker` 支持新增/删除事件
+- **P5.4** CI 集成：`--junit-xml` 生成 JUnit 报告
+
+### �📋 待办与规划
 
 | 文档 | 说明 | 关键词 |
 
@@ -171,6 +184,9 @@
 
 | **支持哪些纹理格式？** | [TEXTURE_DECODERS.md](TEXTURE_DECODERS.md) (48种: BC1-7, ASTC, ETC2等) |
 | **如何选择报告导出路线？** | [EXPORT_ROUTES.md](EXPORT_ROUTES.md) ⭐ |
+| **如何进行多帧统计对比？** | [MULTI_FRAME_GUIDE.md](MULTI_FRAME_GUIDE.md) ⭐ |
+| **如何集成 CI/CD 回归门禁？** | [MULTI_FRAME_GUIDE.md](MULTI_FRAME_GUIDE.md) (JUnit XML 输出) |
+| **API 接口文档在哪？** | [API_REFERENCE.md](API_REFERENCE.md) |
 
 
 
