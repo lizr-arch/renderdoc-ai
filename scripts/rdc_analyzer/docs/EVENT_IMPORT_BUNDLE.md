@@ -73,6 +73,25 @@ py -3 scripts/rdc_analyzer/export_event_import_bundle.py \
 
 > 直接文件模式下，宽高来自 `material.textures[]` 的 `width/height` 字段。
 
+
+
+### 2.5 批处理导出（多个 event）
+
+当你已经有一批 `event_<id>/intermediate/` 时，可一次性批量导出：
+
+```bash
+py -3 scripts/rdc_analyzer/export_event_import_bundle_batch.py   --root "D:\backup\out_new4"   --out "D:\backup\import_bundle_batch_out"
+```
+
+可选参数：
+- `--events "22149,22150"`：只导出指定 event。
+- `--rgba-manifest <path>`：给所有 event 使用同一个 RGBA manifest。
+- `--fail-fast`：遇到第一个失败就停止。
+
+输出：
+- 每个 event 仍输出 `event_<id>/import_bundle/`。
+- 额外生成 `batch_import_bundle_summary.json`（统计成功/失败和错误原因）。
+
 ### 2.4 一步式（zip.xml + zip -> intermediate -> import bundle）
 
 ```bash

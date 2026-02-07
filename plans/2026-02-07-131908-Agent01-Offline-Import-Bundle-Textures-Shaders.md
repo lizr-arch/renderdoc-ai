@@ -276,3 +276,7 @@ write_intermediate(...)
 - 2026-02-07: 新增固定目录自动发现协议：默认查找 `event_<id>/rgba/rgba_manifest.json`，无 manifest 时回退 `tex_<texture_id>.rgba` 自动注入。
 
 - 2026-02-07: 自动发现真实样本烟测通过（不传 `--rgba-manifest`）：`event_22149/rgba/rgba_manifest.json` 生效，`texture_id=127279` 输出 `rgba_bytes_png`。
+
+- 2026-02-07: 新增批处理脚本 `export_event_import_bundle_batch.py`，支持 root 扫描 event_*、可选 events 过滤、summary 汇总。
+
+- 2026-02-07: 批处理真实烟测通过：`--root D:\backup\out_new4 --events 22149`，生成 `batch_import_bundle_summary.json`，成功 1/1。
