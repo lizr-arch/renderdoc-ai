@@ -1005,6 +1005,77 @@ def cmd_compare_multi_frame(args):
             if not args.quiet:
                 print(f"[+] JSON 统计报告: {json_path}")
         
+        # JUnit XML 输出 (CI 集成)
+        if args.junit_xml:
+            try:
+                from .stats.junit_reporter import JUnitReporter
+                
+                # 构建 JUnit 兼容的比较结果
+                junit_data = {
+                    'baseline_count': baseline_count,
+                    'target_count': target_count,
+                    'metrics': {},
+                    'significance': {},
+                    'baseline': {},
+                    'target': {},
+                }
+                
+                # 转换指标数据
+                for metric_name, metric_result in comparison_result.metrics.items():
+                    junit_data['metrics'][metric_name] = {
+                        'baseline': metric_result.baseline_mean,
+                        'target': metric_result.target_mean,
+                        'change': metric_result.delta,
+                        'change_pct': metric_result.delta_percent,
+                    }
+                    # 计算 p 值（从 z_score 估算）
+                    import math
+                    z = abs(metric_result.z_score) if not math.isinf(metric_result.z_score) else 10.0
+                    # 使用近似公式 p ≈ 2 * (1 - Φ(z))，简化为阈值判断
+                    p_value = 0.001 if z > 3.29 else (0.01 if z > 2.58 else (0.05 if z > 1.96 else (0.10 if z > 1.645 else 1.0)))
+                    
+                    junit_data['significance'][metric_name] = {
+                        'level': metric_result.significance.name.lower() if metric_result.significance else 'none',
+                        'z_score': metric_result.z_score if not math.isinf(metric_result.z_score) else 999.0,
+                        'p_value': p_value,
+                        'effect_size': metric_result.effect_size,
+                    }
+                
+                # 转换基准/目标统计（使用 dataclass 属性）
+                metric_attrs = ['draw_calls', 'vertices', 'triangles', 'texture_count', 
+                               'texture_memory', 'buffer_count', 'buffer_memory', 'shader_count']
+                
+                for metric_name in metric_attrs:
+                    baseline_stat = getattr(baseline_aggregated, metric_name, None)
+                    if baseline_stat:
+                        junit_data['baseline'][metric_name] = {
+                            'mean': baseline_stat.mean,
+                            'std': baseline_stat.std,
+                        }
+                
+                for metric_name in metric_attrs:
+                    target_stat = getattr(target_aggregated, metric_name, None)
+                    if target_stat:
+                        junit_data['target'][metric_name] = {
+                            'mean': target_stat.mean,
+                            'std': target_stat.std,
+                        }
+                
+                reporter = JUnitReporter(
+                    suite_name="RDC Multi-Frame Regression",
+                    fail_threshold=args.fail_threshold,
+                    confidence_level=args.confidence_level
+                )
+                junit_path = reporter.save(junit_data, args.junit_xml)
+                output_files.append(str(junit_path))
+                if not args.quiet:
+                    print(f"[+] JUnit XML: {junit_path}")
+            except Exception as e:
+                print(f"[!] 警告: JUnit XML 生成失败: {e}")
+                if args.verbose:
+                    import traceback
+                    traceback.print_exc()
+        
         # 打印输出文件列表
         if output_files and not args.quiet:
             print()
