@@ -81,6 +81,14 @@ def _save_page_shot(page, out_dir: Path, name: str) -> None:
     page.screenshot(path=str(out_dir / name), full_page=False)
 
 
+def _pick_search_key(*candidates: str) -> str:
+    for candidate in candidates:
+        value = (candidate or '').strip()
+        if value:
+            return value
+    return ''
+
+
 def run_smoke(
     report_dir: Path,
     out_dir: Path,
@@ -122,7 +130,11 @@ def run_smoke(
             textures_total = page.locator(".texture-item").count()
             textures_visible_before = _visible_count(page, ".texture-item")
 
-            page.fill("#textureSearch", "image_267")
+            first_texture_name = page.locator(".texture-item").first.get_attribute("data-name") or ""
+            first_texture_id = page.locator(".texture-item").first.get_attribute("data-id") or ""
+            texture_search_key = _pick_search_key(first_texture_name, first_texture_id)
+            if texture_search_key:
+                page.fill("#textureSearch", texture_search_key)
             page.wait_for_timeout(120)
             textures_visible_after_search = _visible_count(page, ".texture-item")
             if capture_screenshots:
@@ -193,8 +205,10 @@ def run_smoke(
             shaders_pager_present = page.locator("#shaderPager").count() > 0
 
             first_shader_id = page.locator(".shader-item").first.get_attribute("data-id") or ""
-            search_key = first_shader_id[:4] if len(first_shader_id) >= 4 else first_shader_id
-            page.fill("#shaderSearch", search_key)
+            first_shader_name = page.locator(".shader-item").first.get_attribute("data-name") or ""
+            search_key = _pick_search_key(first_shader_name, first_shader_id)
+            if search_key:
+                page.fill("#shaderSearch", search_key)
             page.wait_for_timeout(120)
             shaders_visible_after_search = _visible_count(page, ".shader-item")
             if capture_screenshots:
@@ -211,11 +225,15 @@ def run_smoke(
                     next_btn.click()
                     page.wait_for_timeout(120)
                     offpage_id = page.locator(".shader-item").first.get_attribute("data-id") or ""
-                    if offpage_id:
-                        page.fill("#shaderSearch", offpage_id)
+                    offpage_name = page.locator(".shader-item").first.get_attribute("data-name") or ""
+                    offpage_search_key = _pick_search_key(offpage_name, offpage_id)
+                    if offpage_search_key:
+                        page.fill("#shaderSearch", offpage_search_key)
                         page.wait_for_timeout(120)
                         offpage_visible = _visible_count(page, ".shader-item")
-                        offpage_hits = page.locator(f'.shader-item[data-id="{offpage_id}"]').count()
+                        offpage_hits = 0
+                        if offpage_id:
+                            offpage_hits = page.locator(f'.shader-item[data-id="{offpage_id}"]').count()
                         offpage_search_effective = offpage_visible > 0 and offpage_hits > 0
                     else:
                         offpage_search_effective = False
