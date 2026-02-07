@@ -19,6 +19,18 @@
             overflow-y: auto;
             overflow-x: hidden;
             min-height: 0;
+            scrollbar-gutter: stable;
+        }
+
+        #textureList {
+            scrollbar-gutter: stable both-edges;
+        }
+
+        #propertiesPanel {
+            overflow-y: auto;
+            overflow-x: hidden;
+            min-height: 0;
+            scrollbar-gutter: stable;
         }
         
         /* 网格视图切换 */
@@ -608,9 +620,77 @@
         
         // ========== 纹理数据 (由 Python 生成器填充) ==========
         const textureData = {{TEXTURE_DATA_JSON}};
-        const textureMap = new Map(
-            textureData.map(t => [String(t.id || t.resource_id || ""), t])
-        );
+        const textureMap = new Map();
+        textureData.forEach(texture => {
+            const id = String(texture.id || "");
+            const resourceId = String(texture.resource_id || "");
+            if (id) textureMap.set(id, texture);
+            if (resourceId) textureMap.set(resourceId, texture);
+        });
+
+        function getTextureById(id) {
+            return textureMap.get(String(id || "")) || null;
+        }
+
+        function getTextureListItemById(id) {
+            const key = String(id || "");
+            return document.querySelector(`.texture-item[data-id="${key}"]`) ||
+                   document.querySelector(`.texture-item[data-resource-id="${key}"]`);
+        }
+
+        function getTextureMipCount(texture) {
+            const raw = texture?.mipLevels ?? texture?.mips ?? 1;
+            const parsed = parseInt(raw, 10);
+            return Number.isFinite(parsed) ? parsed : 1;
+        }
+
+        function syncTextureItemDataset(item) {
+            const texId = String(item.dataset.id || item.dataset.resourceId || "");
+            const texture = getTextureById(texId);
+            if (!texture) return;
+
+            if (!item.dataset.id && texture.id !== undefined) {
+                item.dataset.id = String(texture.id);
+            }
+            if (!item.dataset.resourceId && texture.resource_id !== undefined) {
+                item.dataset.resourceId = String(texture.resource_id);
+            }
+            if (!item.dataset.name) {
+                item.dataset.name = String(texture.display_name || texture.name || "");
+            }
+            if (!item.dataset.format) {
+                item.dataset.format = String(texture.simple_format || texture.format || "");
+            }
+            if (!item.dataset.width && texture.width !== undefined) {
+                item.dataset.width = String(texture.width);
+            }
+            if (!item.dataset.height && texture.height !== undefined) {
+                item.dataset.height = String(texture.height);
+            }
+            if (!item.dataset.mipLevels) {
+                item.dataset.mipLevels = String(getTextureMipCount(texture));
+            }
+            if (!item.dataset.vram && texture.vram !== undefined) {
+                item.dataset.vram = String(texture.vram || 0);
+            }
+            if (!item.dataset.hasIssue) {
+                item.dataset.hasIssue = String(Boolean(texture.issues && texture.issues.length > 0));
+            }
+        }
+
+        function prepareTextureListData() {
+            document.querySelectorAll('.texture-item').forEach(syncTextureItemDataset);
+        }
+
+        function getTextureItemField(item, fieldName, fallbackSelector) {
+            const datasetValue = item.dataset[fieldName];
+            if (datasetValue !== undefined && datasetValue !== null && datasetValue !== "") {
+                return datasetValue;
+            }
+            if (!fallbackSelector) return "";
+            const el = item.querySelector(fallbackSelector);
+            return el ? (el.textContent || "") : "";
+        }
         
         // ========== 面板折叠 ==========
         function togglePanel(panelId) {
@@ -648,9 +728,9 @@
 
         function renderListThumbnails() {
             document.querySelectorAll('.texture-item').forEach(item => {
-                const texId = String(item.dataset.id || "");
-                const texture = textureMap.get(texId);
-                const thumbEl = item.querySelector('.texture-thumb');
+                const texId = String(item.dataset.id || item.dataset.resourceId || "");
+                const texture = getTextureById(texId);
+                const thumbEl = item.querySelector('.texture-item-thumb, .texture-thumb');
                 if (!thumbEl) return;
 
                 if (texture && texture.thumbnail) {
@@ -664,11 +744,10 @@
                 }
             });
         }
-        
+
         // ========== 纹理选择 ==========
         function selectTexture(id) {
-            // 使用宽松比较以兼容数字 ID 和字符串 ID
-            const texture = textureData.find(t => String(t.id) === String(id));
+            const texture = getTextureById(id);
             if (!texture) return;
             
             currentTexture = texture;
@@ -677,7 +756,7 @@
             document.querySelectorAll('.texture-item').forEach(el => {
                 el.classList.remove('selected');
             });
-            const item = document.querySelector(`.texture-item[data-id="${id}"]`);
+            const item = getTextureListItemById(texture.id || texture.resource_id || id);
             if (item) item.classList.add('selected');
             
             // 更新预览
@@ -687,8 +766,8 @@
             
             // 更新属性面板（优先使用 display_name）
             document.getElementById('propName').textContent = texture.display_name || texture.name || '-';
-            document.getElementById('propId').textContent = texture.id || '-';
-            document.getElementById('propDimensions').textContent = `${texture.width}×${texture.height}`;
+            document.getElementById('propId').textContent = texture.resource_id || texture.id || '-';
+            document.getElementById('propDimensions').textContent = `${texture.width || 0}×${texture.height || 0}`;
             document.getElementById('propFormat').textContent = texture.format || '-';
             document.getElementById('propMipmap').innerHTML = formatMipmap(texture);
             document.getElementById('propVram').textContent = formatBytes(texture.vram || 0);
@@ -721,8 +800,10 @@
         }
         
         function formatMipmap(texture) {
-            const mipCount = texture.mipLevels || 1;
-            const expectedMips = Math.floor(Math.log2(Math.max(texture.width, texture.height))) + 1;
+            const mipCount = getTextureMipCount(texture);
+            const width = Math.max(parseInt(texture.width || 1, 10) || 1, 1);
+            const height = Math.max(parseInt(texture.height || 1, 10) || 1, 1);
+            const expectedMips = Math.floor(Math.log2(Math.max(width, height))) + 1;
             
             if (mipCount >= expectedMips) {
                 return `${mipCount} 级 <span class="mip-status good">✓</span>`;
@@ -732,7 +813,7 @@
                 return `无 <span class="mip-status warn">⚠</span>`;
             }
         }
-        
+
         function updateAnalysis(texture) {
             const content = document.getElementById('analysisContent');
             let html = '';
@@ -765,20 +846,28 @@
         
         function updateUsage(texture) {
             const list = document.getElementById('usageList');
+            const usageList = (texture.usedBy && texture.usedBy.length > 0)
+                ? texture.usedBy
+                : (texture.usages || []);
             
-            if (texture.usedBy && texture.usedBy.length > 0) {
-                list.innerHTML = texture.usedBy.slice(0, 10).map(usage => `
-                    <div class="usage-item" onclick="jumpToEvent(${usage.eid})">
-                        <span class="usage-eid">EID ${usage.eid}</span>
-                        <span class="usage-name">${usage.name || 'Draw Call'}</span>
-                        <span class="usage-slot">Slot ${usage.slot || 0}</span>
+            if (usageList.length > 0) {
+                list.innerHTML = usageList.slice(0, 10).map(usage => {
+                    const eid = usage.eid || usage.eventId || usage.event_id || usage.id || usage;
+                    const name = usage.name || usage.eventName || 'Draw Call';
+                    const slot = usage.slot || 0;
+                    return `
+                    <div class="usage-item" onclick="jumpToEvent(${eid})">
+                        <span class="usage-eid">EID ${eid}</span>
+                        <span class="usage-name">${name}</span>
+                        <span class="usage-slot">Slot ${slot}</span>
                     </div>
-                `).join('');
+                `;
+                }).join('');
                 
-                if (texture.usedBy.length > 10) {
+                if (usageList.length > 10) {
                     list.innerHTML += `
                         <div class="usage-item" style="justify-content: center; color: var(--text-muted);">
-                            还有 ${texture.usedBy.length - 10} 个事件...
+                            还有 ${usageList.length - 10} 个事件...
                         </div>
                     `;
                 }
@@ -790,16 +879,22 @@
                 `;
             }
         }
-        
+
         // ========== 筛选与排序 ==========
         function filterTextures() {
-            const keyword = document.getElementById('textureSearch').value.toLowerCase();
+            const rawKeyword = document.getElementById('textureSearch').value || '';
+            const keyword = rawKeyword.toLowerCase().trim().replaceAll('×', 'x');
             let visible = 0;
             
             document.querySelectorAll('.texture-item').forEach(item => {
-                const name = item.dataset.name?.toLowerCase() || '';
-                const format = item.dataset.format?.toLowerCase() || '';
-                const matchKeyword = !keyword || name.includes(keyword) || format.includes(keyword);
+                const name = getTextureItemField(item, 'name', '.texture-item-name, .texture-name').toLowerCase();
+                const format = getTextureItemField(item, 'format', '.texture-item-meta, .texture-meta').toLowerCase();
+                const width = item.dataset.width || '';
+                const height = item.dataset.height || '';
+                const dimensions = `${width}x${height}`;
+                const resourceId = (item.dataset.resourceId || '').toLowerCase();
+                const searchBlob = `${name} ${format} ${dimensions} ${resourceId}`;
+                const matchKeyword = !keyword || searchBlob.includes(keyword);
                 const matchFilter = checkFilter(item);
                 
                 if (matchKeyword && matchFilter) {
@@ -814,10 +909,12 @@
         }
         
         function checkFilter(item) {
+            const width = parseInt(item.dataset.width || '0', 10) || 0;
+            const mipLevels = parseInt(item.dataset.mipLevels || item.dataset.mips || '1', 10) || 1;
             if (currentFilter === 'all') return true;
             if (currentFilter === 'issues') return item.dataset.hasIssue === 'true';
-            if (currentFilter === 'large') return parseInt(item.dataset.width) >= 2048;
-            if (currentFilter === 'nomip') return item.dataset.mipLevels === '1';
+            if (currentFilter === 'large') return width >= 2048;
+            if (currentFilter === 'nomip') return mipLevels <= 1;
             return true;
         }
         
@@ -833,18 +930,24 @@
             const sortBy = document.getElementById('sortSelect').value;
             const list = document.getElementById('textureList');
             const items = Array.from(list.querySelectorAll('.texture-item'));
+            const parseNumber = (value) => {
+                const parsed = parseInt(value || '0', 10);
+                return Number.isFinite(parsed) ? parsed : 0;
+            };
             
             items.sort((a, b) => {
                 switch (sortBy) {
                     case 'name':
-                        return (a.dataset.name || '').localeCompare(b.dataset.name || '');
-                    case 'size':
-                        return (parseInt(b.dataset.width) * parseInt(b.dataset.height)) - 
-                               (parseInt(a.dataset.width) * parseInt(a.dataset.height));
+                        return String(a.dataset.name || '').localeCompare(String(b.dataset.name || ''));
+                    case 'size': {
+                        const sizeA = parseNumber(a.dataset.width) * parseNumber(a.dataset.height);
+                        const sizeB = parseNumber(b.dataset.width) * parseNumber(b.dataset.height);
+                        return sizeB - sizeA;
+                    }
                     case 'vram':
-                        return parseInt(b.dataset.vram || 0) - parseInt(a.dataset.vram || 0);
+                        return parseNumber(b.dataset.vram) - parseNumber(a.dataset.vram);
                     case 'format':
-                        return (a.dataset.format || '').localeCompare(b.dataset.format || '');
+                        return String(a.dataset.format || '').localeCompare(String(b.dataset.format || ''));
                     default:
                         return 0;
                 }
@@ -852,7 +955,7 @@
             
             items.forEach(item => list.appendChild(item));
         }
-        
+
         // ========== 通道切换 ==========
         function toggleChannel(channel) {
             activeChannels[channel] = !activeChannels[channel];
@@ -911,6 +1014,11 @@
         document.getElementById('compareBtn').addEventListener('click', () => {
             const panel = document.getElementById('comparePanel');
             panel.classList.toggle('active');
+        });
+
+        document.getElementById('gridViewBtn').addEventListener('click', () => {
+            document.body.classList.toggle('view-mode-grid');
+            document.getElementById('gridViewBtn').classList.toggle('active', document.body.classList.contains('view-mode-grid'));
         });
         
         function addToCompare() {
@@ -972,7 +1080,7 @@
         
         // ========== 滚动左侧列表到指定纹理 ==========
         function scrollToTextureInList(textureId) {
-            const item = document.querySelector(`.texture-item[data-id="${textureId}"]`);
+            const item = getTextureListItemById(textureId);
             if (item) {
                 item.scrollIntoView({ behavior: 'smooth', block: 'center' });
                 
@@ -983,7 +1091,7 @@
                 }, 2000);
             }
         }
-        
+
         // ========== 在列表中定位当前选中纹理 ==========
         function scrollToCurrentTexture() {
             if (currentTexture) {
@@ -1027,7 +1135,7 @@
                 // 如果有 highlight 参数，使用 RdcNav 高亮（延迟等待 DOM 更新）
                 if (shouldHighlight && typeof RdcNav !== 'undefined') {
                     setTimeout(() => {
-                        const item = document.querySelector(`.texture-item[data-id="${id}"]`);
+                        const item = getTextureListItemById(id);
                         if (item) {
                             RdcNav.highlight(item);
                         }
@@ -1041,7 +1149,8 @@
                 setFilter(filter);
             }
             
-            // 初始化筛选器状态
+            // 初始化列表数据与筛选器状态
+            prepareTextureListData();
             setFilter('all');
             renderListThumbnails();
         });

@@ -20,6 +20,11 @@
             overflow-y: auto;
             overflow-x: hidden;
             min-height: 0;
+            scrollbar-gutter: stable;
+        }
+
+        #shaderList {
+            scrollbar-gutter: stable both-edges;
         }
 
         .toolbar-btn.primary {
@@ -44,20 +49,54 @@
             color: var(--text-primary);
         }
 
+        .canvas-toolbar {
+            flex-wrap: nowrap;
+        }
+
+        #currentShader {
+            max-width: 340px;
+            min-width: 0;
+            text-align: left;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
         .toolbar-group.primary-actions {
-            padding: 2px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 2px 4px;
             background: var(--bg-dark);
             border: 1px solid var(--border);
             border-radius: 999px;
+            flex-shrink: 0;
         }
 
         .toolbar-group.primary-actions .toolbar-btn {
             width: auto;
-            min-width: 96px;
-            height: 28px;
-            padding: 0 12px;
-            font-size: 11px;
+            min-width: 112px;
+            height: 30px;
+            padding: 0 14px;
+            font-size: 12px;
+            font-weight: 600;
+            white-space: nowrap;
             letter-spacing: 0.2px;
+            line-height: 1;
+            flex-shrink: 0;
+        }
+
+        @media (max-width: 1520px) {
+            #currentShader {
+                max-width: 240px;
+            }
+
+            .toolbar-group.primary-actions .toolbar-btn {
+                min-width: 96px;
+                height: 28px;
+                padding: 0 10px;
+                font-size: 11px;
+            }
         }
         
         .shader-item {
@@ -361,6 +400,233 @@
             color: var(--text-muted);
         }
         
+        /* ========== M4.3 多维度性能分析样式 ========== */
+        
+        /* GPU 选择下拉框 */
+        .gpu-selector {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 0 12px;
+            background: var(--bg-darker);
+            border-radius: 6px;
+            border: 1px solid var(--border);
+        }
+        
+        .gpu-selector-label {
+            font-size: 10px;
+            color: var(--text-muted);
+            white-space: nowrap;
+        }
+        
+        .gpu-selector select {
+            background: transparent;
+            border: none;
+            color: var(--text-primary);
+            font-size: 11px;
+            font-family: var(--font-mono);
+            padding: 6px 4px;
+            cursor: pointer;
+            min-width: 140px;
+        }
+        
+        .gpu-selector select:focus {
+            outline: none;
+        }
+        
+        .gpu-selector select option {
+            background: var(--bg-dark);
+            color: var(--text-primary);
+        }
+        
+        /* 健康评分徽章 */
+        .health-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 10px;
+            font-weight: 600;
+            font-family: var(--font-mono);
+        }
+        
+        .health-badge.excellent {
+            background: rgba(62, 175, 124, 0.2);
+            color: var(--accent-green);
+        }
+        
+        .health-badge.good {
+            background: rgba(62, 175, 124, 0.15);
+            color: #6bcf8e;
+        }
+        
+        .health-badge.warning {
+            background: rgba(249, 197, 19, 0.2);
+            color: var(--accent-yellow);
+        }
+        
+        .health-badge.critical {
+            background: rgba(235, 87, 87, 0.2);
+            color: var(--accent-red);
+        }
+        
+        /* 多维度性能网格 */
+        .perf-metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 8px;
+            margin-bottom: 12px;
+        }
+        
+        .metric-card {
+            background: var(--bg-darkest);
+            border-radius: var(--radius-sm);
+            padding: 10px;
+            text-align: center;
+            position: relative;
+            border: 1px solid transparent;
+            transition: border-color 0.2s;
+        }
+        
+        .metric-card:hover {
+            border-color: var(--border);
+        }
+        
+        .metric-card.highlight {
+            border-color: var(--accent-blue);
+        }
+        
+        .metric-value {
+            font-size: 16px;
+            font-weight: 600;
+            font-family: var(--font-mono);
+            color: var(--text-primary);
+            margin-bottom: 2px;
+        }
+        
+        .metric-label {
+            font-size: 9px;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+        }
+        
+        .metric-sublabel {
+            font-size: 8px;
+            color: var(--text-muted);
+            margin-top: 2px;
+        }
+        
+        /* 瓶颈指示器 */
+        .bound-indicator {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 3px 8px;
+            border-radius: 4px;
+            font-size: 10px;
+            font-weight: 500;
+        }
+        
+        .bound-indicator.A { background: rgba(88, 166, 255, 0.2); color: var(--accent-blue); }
+        .bound-indicator.LS { background: rgba(62, 175, 124, 0.2); color: var(--accent-green); }
+        .bound-indicator.T { background: rgba(165, 120, 255, 0.2); color: var(--accent-purple); }
+        .bound-indicator.V { background: rgba(255, 159, 64, 0.2); color: var(--accent-orange); }
+        
+        /* 问题检测列表 */
+        .issues-list {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+        
+        .issue-item {
+            display: flex;
+            align-items: flex-start;
+            gap: 8px;
+            padding: 8px 10px;
+            background: var(--bg-darkest);
+            border-radius: var(--radius-sm);
+            font-size: 10px;
+            line-height: 1.4;
+        }
+        
+        .issue-item.critical {
+            border-left: 3px solid var(--accent-red);
+        }
+        
+        .issue-item.warning {
+            border-left: 3px solid var(--accent-yellow);
+        }
+        
+        .issue-item.info {
+            border-left: 3px solid var(--accent-blue);
+        }
+        
+        .issue-icon {
+            font-size: 12px;
+            flex-shrink: 0;
+        }
+        
+        .issue-content {
+            flex: 1;
+        }
+        
+        .issue-title {
+            color: var(--text-primary);
+            font-weight: 500;
+            margin-bottom: 2px;
+        }
+        
+        .issue-desc {
+            color: var(--text-muted);
+        }
+        
+        /* 加权成本条 */
+        .cost-bar-container {
+            background: var(--bg-darkest);
+            border-radius: var(--radius-sm);
+            padding: 10px 12px;
+            margin-bottom: 12px;
+        }
+        
+        .cost-bar-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 6px;
+        }
+        
+        .cost-bar-label {
+            font-size: 10px;
+            color: var(--text-muted);
+        }
+        
+        .cost-bar-value {
+            font-size: 11px;
+            font-weight: 600;
+            font-family: var(--font-mono);
+            color: var(--text-primary);
+        }
+        
+        .cost-bar {
+            height: 8px;
+            background: var(--bg-medium);
+            border-radius: 4px;
+            overflow: hidden;
+        }
+        
+        .cost-bar-fill {
+            height: 100%;
+            border-radius: 4px;
+            transition: width 0.3s ease;
+        }
+        
+        .cost-bar-fill.low { background: linear-gradient(90deg, #3eaf7c, #4fc08d); }
+        .cost-bar-fill.medium { background: linear-gradient(90deg, #f9c513, #e0a800); }
+        .cost-bar-fill.high { background: linear-gradient(90deg, #eb5757, #c74343); }
+
         /* 建议面板 */
         .suggestion-section {
             margin-top: 12px;
@@ -551,6 +817,7 @@
                 <div class="shader-list" id="shaderList">
                     {{SHADER_LIST_HTML}}
                 </div>
+                <div class="shader-pager" id="shaderPager"></div>
             </aside>
             
             <!-- 中间主区域 - 代码查看器 -->
@@ -565,6 +832,33 @@
                     <div class="toolbar-group primary-actions">
                         <button class="toolbar-btn primary" id="hlslBtn" title="查看 HLSL 代码">查看 HLSL 代码</button>
                         <button class="toolbar-btn secondary" id="aiOptimizeBtn" title="AI Shader 优化">AI Shader 优化</button>
+                    </div>
+                    
+                    <!-- GPU 选择器 (M4.3) -->
+                    <div class="gpu-selector" id="gpuSelectorContainer">
+                        <span class="gpu-selector-label">目标 GPU:</span>
+                        <select id="gpuSelector" onchange="onGpuChange()">
+                            <optgroup label="🏆 旗舰级">
+                                <option value="Mali-G720">Mali-G720 (Flagship)</option>
+                                <option value="Mali-G715">Mali-G715</option>
+                                <option value="Mali-G710">Mali-G710</option>
+                            </optgroup>
+                            <optgroup label="⭐ 高端">
+                                <option value="Mali-G615">Mali-G615 (Premium)</option>
+                                <option value="Mali-G610">Mali-G610</option>
+                                <option value="Mali-G78" selected>Mali-G78 (默认)</option>
+                                <option value="Mali-G77">Mali-G77</option>
+                            </optgroup>
+                            <optgroup label="📱 主流">
+                                <option value="Mali-G510">Mali-G510 (Mainstream)</option>
+                                <option value="Mali-G57">Mali-G57</option>
+                                <option value="Mali-G52">Mali-G52</option>
+                            </optgroup>
+                            <optgroup label="💡 入门">
+                                <option value="Mali-G310">Mali-G310 (Entry)</option>
+                                <option value="Mali-G31">Mali-G31</option>
+                            </optgroup>
+                        </select>
                     </div>
                     
                     <div class="toolbar-group">
@@ -698,9 +992,165 @@
         let currentShader = null;
         let currentFilter = 'all';
         let hlslViewEnabled = false;
+        let currentGpu = 'Mali-G78';
         
         // ========== Shader 数据 (由 Python 生成器填充) ==========
         const shaderData = {{SHADER_DATA_JSON}};
+        
+        // ========== M4.3 多维度性能分析 ==========
+        
+        // GPU 档位阈值配置
+        const GPU_TIER_THRESHOLDS = {
+            'flagship': { cycleWarn: 80, cycleError: 150, regWarn: 40, regError: 48 },
+            'premium':  { cycleWarn: 60, cycleError: 120, regWarn: 36, regError: 44 },
+            'mainstream': { cycleWarn: 40, cycleError: 80, regWarn: 32, regError: 40 },
+            'entry':    { cycleWarn: 25, cycleError: 50, regWarn: 28, regError: 36 }
+        };
+        
+        const GPU_TO_TIER = {
+            'Mali-G720': 'flagship', 'Mali-G715': 'flagship', 'Mali-G710': 'flagship',
+            'Mali-G615': 'premium', 'Mali-G610': 'premium', 'Mali-G78': 'premium', 'Mali-G77': 'premium',
+            'Mali-G510': 'mainstream', 'Mali-G57': 'mainstream', 'Mali-G52': 'mainstream',
+            'Mali-G310': 'entry', 'Mali-G31': 'entry'
+        };
+        
+        // 瓶颈名称映射
+        const BOUND_NAMES = {
+            'A': '算术单元 (ALU)',
+            'LS': '加载/存储',
+            'T': '纹理采样',
+            'V': '变量插值'
+        };
+        
+        // 健康评分计算 (前端简化版)
+        function calculateHealthScore(mali, dynamicMetrics, tier) {
+            if (!mali) return { score: 0, level: 'unknown' };
+            
+            const thresholds = GPU_TIER_THRESHOLDS[tier] || GPU_TIER_THRESHOLDS.premium;
+            const cycles = mali.totalCycles || 0;
+            const regs = mali.workRegisters || 0;
+            
+            // 周期评分 (0-40分)
+            let cyclesScore = 40;
+            if (cycles > thresholds.cycleError) cyclesScore = 10;
+            else if (cycles > thresholds.cycleWarn) cyclesScore = 25;
+            
+            // 寄存器评分 (0-30分)
+            let regScore = 30;
+            if (regs > thresholds.regError) regScore = 5;
+            else if (regs > thresholds.regWarn) regScore = 15;
+            
+            // 基础分 (30分)
+            let base = 30;
+            
+            // 问题扣分
+            let penalty = 0;
+            if (mali.stackSpilling) penalty += 15;
+            if (cycles > 100 && (dynamicMetrics?.drawCount || 1) > 10) penalty += 10;
+            
+            const score = Math.max(0, Math.min(100, cyclesScore + regScore + base - penalty));
+            
+            let level = 'excellent';
+            if (score < 50) level = 'critical';
+            else if (score < 70) level = 'warning';
+            else if (score < 85) level = 'good';
+            
+            return { score, level };
+        }
+        
+        // 计算加权成本
+        function calculateWeightedCost(mali, dynamicMetrics) {
+            if (!mali) return 0;
+            const cycles = mali.totalCycles || 0;
+            const draws = dynamicMetrics?.drawCount || 1;
+            const coverage = dynamicMetrics?.coverage || 0.5;
+            const pixels = 1920 * 1080 * coverage; // 假设 1080p
+            
+            // 寄存器惩罚
+            const regs = mali.workRegisters || 0;
+            const regPenalty = 1.0 + Math.max(0, (regs - 32) / 32) * 0.3;
+            
+            return (cycles * pixels * draws * regPenalty) / 1e6; // MCP
+        }
+        
+        // 检测问题
+        function detectIssues(mali, dynamicMetrics, tier) {
+            const issues = [];
+            if (!mali) return issues;
+            
+            const thresholds = GPU_TIER_THRESHOLDS[tier] || GPU_TIER_THRESHOLDS.premium;
+            const cycles = mali.totalCycles || 0;
+            const regs = mali.workRegisters || 0;
+            
+            // R1: 周期数过高
+            if (cycles > thresholds.cycleError) {
+                issues.push({
+                    level: 'critical',
+                    title: '周期数严重超标',
+                    desc: `${cycles} cycles > ${thresholds.cycleError} (${tier} 级阈值)`
+                });
+            } else if (cycles > thresholds.cycleWarn) {
+                issues.push({
+                    level: 'warning',
+                    title: '周期数偏高',
+                    desc: `${cycles} cycles > ${thresholds.cycleWarn}`
+                });
+            }
+            
+            // R2: 寄存器压力
+            if (regs > thresholds.regError) {
+                issues.push({
+                    level: 'critical',
+                    title: '寄存器压力过高',
+                    desc: `${regs} 工作寄存器，Occupancy ≤ 1/4`
+                });
+            } else if (regs > thresholds.regWarn) {
+                issues.push({
+                    level: 'warning',
+                    title: '寄存器使用较多',
+                    desc: `${regs} 工作寄存器，Occupancy ≤ 1/2`
+                });
+            }
+            
+            // R3: 栈溢出
+            if (mali.stackSpilling) {
+                issues.push({
+                    level: 'critical',
+                    title: '栈溢出 (Stack Spilling)',
+                    desc: '寄存器不足，数据溢出到内存'
+                });
+            }
+            
+            // R4: 纹理采样密集
+            if (mali.tex && mali.totalCycles && mali.tex / mali.totalCycles > 0.5) {
+                issues.push({
+                    level: 'warning',
+                    title: '纹理采样密集',
+                    desc: `纹理周期占比 ${Math.round(mali.tex / mali.totalCycles * 100)}%`
+                });
+            }
+            
+            // R5: 高频调用
+            if (dynamicMetrics?.drawCount > 50 && cycles > 30) {
+                issues.push({
+                    level: 'warning',
+                    title: '高频调用热点',
+                    desc: `被 ${dynamicMetrics.drawCount} 次 DrawCall 调用`
+                });
+            }
+            
+            return issues;
+        }
+        
+        // GPU 切换事件
+        function onGpuChange() {
+            const selector = document.getElementById('gpuSelector');
+            currentGpu = selector.value;
+            if (currentShader) {
+                updateMaliAnalysis(currentShader);
+                updateSuggestions(currentShader);
+            }
+        }
         
         // ========== 面板控制 ==========
         function togglePanel(panelId) {
@@ -836,7 +1286,9 @@
         function updateMaliAnalysis(shader) {
             const content = document.getElementById('maliContent');
             
-            if (!shader.mali) {
+            // M4.3: 优先使用 maliAnalysis (新格式)，回退到 mali (旧格式)
+            const maliAnalysis = shader.maliAnalysis || shader.mali;
+            if (!maliAnalysis) {
                 content.innerHTML = `
                     <div class="empty-mali">
                         <div class="empty-mali-icon">📊</div>
@@ -846,27 +1298,90 @@
                 return;
             }
             
-            const mali = shader.mali;
-            const cycleClass = mali.totalCycles > 100 ? 'poor' : (mali.totalCycles > 50 ? 'moderate' : 'good');
+            // 标准化 Mali 数据格式 (M4.3)
+            const mali = {
+                totalCycles: maliAnalysis.cycles || maliAnalysis.totalCycles || 0,
+                workRegisters: maliAnalysis.workRegisters || 0,
+                uniformRegisters: maliAnalysis.uniformRegisters || 0,
+                boundUnit: maliAnalysis.boundUnit || maliAnalysis.bound || 'A',
+                fmaUtil: maliAnalysis.fmaUtil || 0,
+                cvtUtil: maliAnalysis.cvtUtil || 0,
+                sfuUtil: maliAnalysis.sfuUtil || 0,
+                stackSpilling: maliAnalysis.stackSpilling || false,
+                hasLateZS: maliAnalysis.hasLateZS || false,
+                cycleDetails: maliAnalysis.cycleDetails || {}
+            };
+            
+            const tier = GPU_TO_TIER[currentGpu] || 'premium';
+            
+            // M4.3: 优先使用后端预计算的 dynamicMetrics
+            const dynamicMetrics = shader.dynamicMetrics || {
+                drawCount: shader.usedBy?.length || 1,
+                pixelCoverage: 0.5,
+                viewportWidth: 1920,
+                viewportHeight: 1080
+            };
+            // 兼容旧字段名
+            dynamicMetrics.coverage = dynamicMetrics.pixelCoverage || dynamicMetrics.coverage || 0.5;
+            
+            // 计算多维度指标
+            const health = calculateHealthScore(mali, dynamicMetrics, tier);
+            const weightedCost = calculateWeightedCost(mali, dynamicMetrics);
+            const issues = detectIssues(mali, dynamicMetrics, tier);
+            
+            // 健康评分图标
+            const healthIcons = {
+                'excellent': '🟢',
+                'good': '🟢',
+                'warning': '🟡',
+                'critical': '🔴'
+            };
+            
+            // 瓶颈判定
+            const boundUnit = mali.boundUnit || 'A';
+            const boundName = BOUND_NAMES[boundUnit] || boundUnit;
+            
+            // 成本等级
+            const costLevel = weightedCost > 1000 ? 'high' : (weightedCost > 300 ? 'medium' : 'low');
+            const costPercent = Math.min(100, (weightedCost / 2000) * 100);
             
             content.innerHTML = `
-                <!-- 性能指标网格 -->
-                <div class="perf-grid">
-                    <div class="perf-card">
-                        <div class="perf-card-value ${cycleClass}">${mali.totalCycles || '-'}</div>
-                        <div class="perf-card-label">总周期</div>
+                <!-- M4.3 健康评分头部 -->
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <span class="health-badge ${health.level}">${healthIcons[health.level]} ${health.score}</span>
+                        <span style="font-size: 10px; color: var(--text-muted);">健康评分</span>
                     </div>
-                    <div class="perf-card">
-                        <div class="perf-card-value">${mali.shortestPath || '-'}</div>
-                        <div class="perf-card-label">最短路径</div>
+                    <span class="bound-indicator ${boundUnit}" title="瓶颈单元">${boundName}</span>
+                </div>
+                
+                <!-- 多维度性能网格 -->
+                <div class="perf-metrics-grid">
+                    <div class="metric-card">
+                        <div class="metric-value" style="color: ${mali.totalCycles > 80 ? 'var(--accent-red)' : 'var(--text-primary)'};">${mali.totalCycles || '-'}</div>
+                        <div class="metric-label">周期数</div>
+                        <div class="metric-sublabel">cycles</div>
                     </div>
-                    <div class="perf-card">
-                        <div class="perf-card-value">${mali.longestPath || '-'}</div>
-                        <div class="perf-card-label">最长路径</div>
+                    <div class="metric-card">
+                        <div class="metric-value" style="color: ${mali.workRegisters > 36 ? 'var(--accent-yellow)' : 'var(--text-primary)'};">${mali.workRegisters || '-'}</div>
+                        <div class="metric-label">寄存器</div>
+                        <div class="metric-sublabel">work regs</div>
                     </div>
-                    <div class="perf-card">
-                        <div class="perf-card-value">${mali.boundUnit || '-'}</div>
-                        <div class="perf-card-label">瓶颈单元</div>
+                    <div class="metric-card">
+                        <div class="metric-value">${dynamicMetrics.drawCount}</div>
+                        <div class="metric-label">调用次数</div>
+                        <div class="metric-sublabel">draws</div>
+                    </div>
+                </div>
+                
+                <!-- 加权成本条 -->
+                <div class="cost-bar-container">
+                    <div class="cost-bar-header">
+                        <span class="cost-bar-label">加权成本 (MCP)</span>
+                        <span class="cost-bar-value">${weightedCost.toFixed(1)}</span>
+                    </div>
+                    <div class="cost-bar">
+                        <div class="cost-bar-fill ${costLevel}" style="width: ${costPercent}%"></div>
                     </div>
                 </div>
                 
@@ -902,18 +1417,43 @@
                     </div>
                 </div>
                 
-                <!-- 寄存器使用 -->
-                <div class="register-usage">
+                <!-- 问题检测 -->
+                ${issues.length > 0 ? `
+                <div style="margin-top: 12px;">
+                    <div style="font-size: 10px; color: var(--text-muted); text-transform: uppercase; margin-bottom: 8px;">
+                        检测到 ${issues.length} 个问题
+                    </div>
+                    <div class="issues-list">
+                        ${issues.map(issue => `
+                            <div class="issue-item ${issue.level}">
+                                <span class="issue-icon">${issue.level === 'critical' ? '🔴' : '🟡'}</span>
+                                <div class="issue-content">
+                                    <div class="issue-title">${issue.title}</div>
+                                    <div class="issue-desc">${issue.desc}</div>
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+                ` : `
+                <div style="margin-top: 12px; text-align: center; padding: 12px; background: var(--bg-darkest); border-radius: var(--radius-sm);">
+                    <span style="color: var(--accent-green);">✅</span>
+                    <span style="font-size: 10px; color: var(--text-muted); margin-left: 6px;">未检测到明显问题</span>
+                </div>
+                `}
+                
+                <!-- 寄存器详情（折叠） -->
+                <div class="register-usage" style="margin-top: 12px;">
                     <div class="register-item">
                         <div class="register-value">${mali.workRegisters || '-'}</div>
                         <div class="register-label">工作寄存器</div>
                     </div>
                     <div class="register-item">
                         <div class="register-value">${mali.uniformRegisters || '-'}</div>
-                        <div class="register-label">Uniform 寄存器</div>
+                        <div class="register-label">Uniform</div>
                     </div>
                     <div class="register-item">
-                        <div class="register-value">${mali.stackSpilling ? '是' : '否'}</div>
+                        <div class="register-value" style="color: ${mali.stackSpilling ? 'var(--accent-red)' : 'var(--accent-green)'};">${mali.stackSpilling ? '⚠️ 是' : '✓ 否'}</div>
                         <div class="register-label">栈溢出</div>
                     </div>
                 </div>
@@ -981,13 +1521,15 @@
         
         // ========== 筛选与排序 ==========
         function filterShaders() {
-            const keyword = document.getElementById('shaderSearch').value.toLowerCase();
+            const rawKeyword = document.getElementById('shaderSearch').value || '';
+            const keyword = rawKeyword.toLowerCase().trim();
             let visible = 0;
             
             document.querySelectorAll('.shader-item').forEach(item => {
-                const name = item.dataset.name?.toLowerCase() || '';
-                const type = item.dataset.type?.toLowerCase() || '';
-                const matchKeyword = !keyword || name.includes(keyword);
+                const name = (item.dataset.name || item.querySelector('.shader-item-name')?.textContent || '').toLowerCase();
+                const type = (item.dataset.type || '').toLowerCase();
+                const shaderId = String(item.dataset.id || '').toLowerCase();
+                const matchKeyword = !keyword || `${name} ${type} ${shaderId}`.includes(keyword);
                 const matchFilter = checkFilter(item);
                 
                 if (matchKeyword && matchFilter) {

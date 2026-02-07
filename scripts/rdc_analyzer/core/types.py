@@ -1059,3 +1059,267 @@ class EvidenceChain:
         if self.verification_plan:
             result['verification_plan'] = self.verification_plan
         return result
+
+
+# ============================================================================
+# M4.1: 资源使用模式热力图数据结构
+# ============================================================================
+
+class UsagePattern:
+    """
+    使用模式枚举 (M4.1 - 重构版)
+    
+    基于业界调研（NVIDIA Nsight、AMD RDNA Performance Guide）:
+    - 驱动不做冗余状态追踪，应用程序负责避免重复绑定
+    - Context Roll（PSO 切换）是真正的性能开销
+    - 排序 Draw Call 是主要优化手段
+    
+    本枚举用于描述资源的"使用分布模式"而非"API 调用冗余"，
+    帮助用户理解资源在帧内的使用效率和缓存友好性。
+    
+    颜色建议:
+        FIRST_USE: 黄色 - 首次使用，有状态加载开销
+        CONTINUOUS: 绿色 - 连续使用，缓存友好（好）
+        SPARSE: 蓝色 - 稀疏使用，中间有其他 Draw（一般）
+        ISOLATED: 灰色 - 单次使用后不再用（可能是一次性资源）
+    """
+    FIRST_USE = "first"          # 首次使用（有状态加载开销）
+    CONTINUOUS = "continuous"    # 连续使用，无中间其他 Draw（缓存友好 ✅）
+    SPARSE = "sparse"            # 稀疏使用，中间有其他 Draw（一般）
+    ISOLATED = "isolated"        # 仅单次使用后不再用（可能是一次性资源）
+
+
+# 向后兼容：保留旧名称作为别名
+class BindingStatus:
+    """
+    绑定状态枚举 (已弃用，请使用 UsagePattern)
+    
+    保留用于向后兼容，内部映射到 UsagePattern。
+    """
+    NORMAL = UsagePattern.CONTINUOUS      # 正常 -> 连续使用
+    FIRST_BIND = UsagePattern.FIRST_USE   # 首次绑定 -> 首次使用
+    REDUNDANT = UsagePattern.CONTINUOUS   # 冗余 -> 连续使用（重新定义）
+    UNBOUND = "unbound"                   # 保留：未绑定
+
+
+@dataclass
+class BindingHeatmapEntry:
+    """
+    单个使用模式热力图条目 (M4.1 - 重构版)
+    
+    记录某个资源在某个事件范围内的使用模式。
+    用于在时间线上渲染热力图色块。
+    
+    字段说明:
+        event_start: 起始事件 ID (包含)
+        event_end: 结束事件 ID (包含)
+        status: 使用模式 (UsagePattern 枚举值)
+        binding_type: 绑定类型 (SRV | UAV | RTV | DSV 等)
+        slot: 绑定槽位
+        color: 建议的渲染颜色 (CSS 颜色值)
+        tooltip: 悬停提示文本
+    """
+    event_start: int
+    event_end: int
+    status: str  # UsagePattern 枚举值
+    binding_type: str = ""
+    slot: int = -1
+    color: str = ""  # 由 status 自动计算
+    tooltip: str = ""
+    
+    def __post_init__(self):
+        """根据 status 自动设置默认颜色"""
+        if not self.color:
+            # 新颜色方案（基于使用模式分析）
+            color_map = {
+                UsagePattern.FIRST_USE: "#ffc857",    # 黄色 - 首次使用
+                UsagePattern.CONTINUOUS: "#4ecdc4",   # 青/绿色 - 连续使用（好）
+                UsagePattern.SPARSE: "#6c8ebf",       # 蓝色 - 稀疏使用
+                UsagePattern.ISOLATED: "#888888",     # 灰色 - 孤立使用
+                BindingStatus.UNBOUND: "#555555",     # 深灰 - 未绑定
+            }
+            self.color = color_map.get(self.status, "#888888")
+    
+    def to_dict(self) -> Dict[str, Any]:
+        """转换为字典格式（用于 JSON 序列化）
+        
+        输出字段名使用 camelCase 以适配前端 JavaScript:
+            - eventId: 起始事件 ID
+            - eventIdEnd: 结束事件 ID
+            - pattern: 使用模式 (FIRST_USE/CONTINUOUS/SPARSE/ISOLATED)
+        """
+        # 将 status 转换为前端期望的 pattern 格式
+        # 注意：使用字符串值作为 key，因为 UsagePattern 成员都是字符串
+        pattern_map = {
+            "first": "FIRST_USE",
+            "continuous": "CONTINUOUS",
+            "sparse": "SPARSE",
+            "isolated": "ISOLATED",
+            "unbound": "ISOLATED",
+        }
+        pattern = pattern_map.get(self.status, str(self.status).upper())
+        
+        return {
+            'eventId': self.event_start,
+            'eventIdEnd': self.event_end,
+            'pattern': pattern,
+            'bindingType': self.binding_type,
+            'slot': self.slot,
+            'color': self.color,
+            'tooltip': self.tooltip
+        }
+
+
+@dataclass
+class BindingHeatmapData:
+    """
+    资源使用模式热力图数据 (M4.1 - 重构版)
+    
+    存储单个资源的完整使用模式热力图数据。
+    包含该资源在整帧中的所有使用分布状态。
+    
+    设计理念（基于 AMD RDNA Performance Guide）:
+    - 连续使用（CONTINUOUS）= 缓存友好，是"好"的模式
+    - 稀疏使用（SPARSE）= 可能导致缓存颠簸，值得关注
+    - 高复用（多个 Draw 共享）= 资源利用率高
+    
+    字段说明:
+        resource_id: 资源 ID（纹理/Buffer/Shader）
+        resource_type: 资源类型（texture | buffer | shader）
+        resource_name: 资源名称（用于显示）
+        entries: 热力图条目列表
+        total_usages: 总使用次数
+        continuous_count: 连续使用次数（缓存友好）
+        sparse_count: 稀疏使用次数（可能有缓存问题）
+        isolated_count: 孤立使用次数（一次性资源）
+        reuse_score: 复用评分 (0-100, 越高越好)
+        continuity_score: 连续性评分 (0-100, 越高越好)
+    """
+    resource_id: str
+    resource_type: str = "texture"  # texture | buffer | shader
+    resource_name: str = ""
+    entries: List[BindingHeatmapEntry] = field(default_factory=list)
+    total_usages: int = 0
+    continuous_count: int = 0  # 连续使用次数
+    sparse_count: int = 0      # 稀疏使用次数
+    isolated_count: int = 0    # 孤立使用次数
+    reuse_score: float = 0.0   # 复用评分
+    continuity_score: float = 100.0  # 连续性评分
+    
+    # 向后兼容字段 (deprecated)
+    total_bindings: int = 0    # -> total_usages
+    redundant_count: int = 0   # -> continuous_count (重新定义)
+    efficiency_score: float = 100.0  # -> continuity_score
+    
+    def add_entry(self, entry: BindingHeatmapEntry) -> None:
+        """添加热力图条目"""
+        self.entries.append(entry)
+        self.total_usages += 1
+        self.total_bindings = self.total_usages  # 同步更新向后兼容字段
+        
+        # 根据状态统计
+        if entry.status == UsagePattern.CONTINUOUS:
+            self.continuous_count += 1
+        elif entry.status == UsagePattern.SPARSE:
+            self.sparse_count += 1
+        elif entry.status == UsagePattern.ISOLATED:
+            self.isolated_count += 1
+    
+    def compute_scores(self, total_draws: int = 0) -> None:
+        """
+        计算使用模式评分
+        
+        复用评分公式:
+            reuse_score = (使用该资源的 Draw 数 / 总 Draw 数) * 100
+            评分越高，说明资源被更多 Draw 共享（好）
+        
+        连续性评分公式:
+            continuity_score = (连续使用次数 / 总使用次数) * 100
+            评分越高，说明资源使用越集中（缓存友好，好）
+        
+        Args:
+            total_draws: 帧内总 Draw 数（用于计算复用评分）
+        """
+        if self.total_usages == 0:
+            self.reuse_score = 0.0
+            self.continuity_score = 100.0
+            return
+        
+        # 复用评分
+        if total_draws > 0:
+            self.reuse_score = min(100.0, (self.total_usages / total_draws) * 100)
+        else:
+            self.reuse_score = 0.0
+        
+        # 连续性评分 (连续使用占比，不计首次使用)
+        usage_after_first = self.total_usages - 1  # 首次使用不计入
+        if usage_after_first > 0:
+            self.continuity_score = (self.continuous_count / usage_after_first) * 100
+        else:
+            self.continuity_score = 100.0  # 只用一次，默认满分
+        
+        # 同步到向后兼容字段
+        self.redundant_count = self.continuous_count
+        self.efficiency_score = self.continuity_score
+    
+    def compute_efficiency(self) -> float:
+        """计算绑定效率评分 (向后兼容，调用 compute_scores)"""
+        self.compute_scores()
+        return self.efficiency_score
+    
+    def to_dict(self) -> Dict[str, Any]:
+        """转换为字典格式（用于 JSON 序列化）"""
+        return {
+            'resource_id': self.resource_id,
+            'resource_type': self.resource_type,
+            'resource_name': self.resource_name,
+            'entries': [e.to_dict() for e in self.entries],
+            'total_bindings': self.total_bindings,
+            'redundant_count': self.redundant_count,
+            'efficiency_score': round(self.efficiency_score, 1)
+        }
+
+
+@dataclass
+class HeatmapCollection:
+    """
+    热力图数据集合 (M4.1)
+    
+    存储整帧所有资源的热力图数据。
+    提供按资源 ID 查询和批量导出功能。
+    
+    字段说明:
+        heatmaps: 资源 ID -> BindingHeatmapData 的映射
+        event_count: 帧内总事件数
+        draw_event_ids: Draw/Dispatch 事件 ID 列表（用于时间线对齐）
+    """
+    heatmaps: Dict[str, BindingHeatmapData] = field(default_factory=dict)
+    event_count: int = 0
+    draw_event_ids: List[int] = field(default_factory=list)
+    
+    def add_heatmap(self, heatmap: BindingHeatmapData) -> None:
+        """添加资源热力图"""
+        self.heatmaps[heatmap.resource_id] = heatmap
+    
+    def get_heatmap(self, resource_id: str) -> Optional[BindingHeatmapData]:
+        """获取指定资源的热力图"""
+        return self.heatmaps.get(resource_id)
+    
+    def get_resources_with_redundancy(self, min_redundant: int = 1) -> List[str]:
+        """获取有冗余绑定的资源 ID 列表"""
+        return [
+            rid for rid, hm in self.heatmaps.items()
+            if hm.redundant_count >= min_redundant
+        ]
+    
+    def to_dict(self) -> Dict[str, Any]:
+        """转换为字典格式（用于 JSON 序列化）"""
+        return {
+            'event_count': self.event_count,
+            'draw_event_ids': self.draw_event_ids,
+            'heatmaps': {rid: hm.to_dict() for rid, hm in self.heatmaps.items()}
+        }
+    
+    def to_list(self) -> List[Dict[str, Any]]:
+        """转换为列表格式（用于前端渲染下拉框）"""
+        return [hm.to_dict() for hm in self.heatmaps.values()]

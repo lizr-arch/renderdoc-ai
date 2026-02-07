@@ -204,6 +204,113 @@
             margin-left: 6px;
         }
         
+        /* Pass 分组行样式 */
+        .pass-group-header {
+            display: flex;
+            align-items: center;
+            padding: 8px 12px;
+            background: linear-gradient(135deg, var(--bg-darker) 0%, var(--bg-dark) 100%);
+            border-bottom: 2px solid var(--accent-purple);
+            cursor: pointer;
+            font-size: 12px;
+            gap: 10px;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+        
+        .pass-group-header:hover {
+            background: linear-gradient(135deg, var(--bg-dark) 0%, var(--bg-medium) 100%);
+        }
+        
+        .pass-group-header.collapsed {
+            border-bottom-color: var(--border);
+            opacity: 0.8;
+        }
+        
+        .pass-group-icon {
+            font-size: 14px;
+        }
+        
+        .pass-group-name {
+            flex: 1;
+            font-weight: 600;
+            color: var(--accent-purple);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        
+        .pass-group-stats {
+            display: flex;
+            gap: 12px;
+            font-size: 10px;
+            color: var(--text-muted);
+        }
+        
+        .pass-stat {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+        
+        .pass-stat-value {
+            font-family: var(--font-mono);
+            color: var(--text-secondary);
+        }
+        
+        .pass-stat-value.slow {
+            color: var(--accent-yellow);
+        }
+        
+        .pass-stat-value.very-slow {
+            color: var(--accent-red);
+        }
+        
+        .pass-group-toggle {
+            width: 20px;
+            height: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--text-muted);
+            transition: transform 0.2s;
+        }
+        
+        .pass-group-toggle.expanded {
+            transform: rotate(90deg);
+        }
+        
+        /* Pass 分组模式开关 */
+        .pass-mode-toggle {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 8px;
+            background: var(--bg-darker);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 10px;
+            color: var(--text-muted);
+            transition: all 0.15s;
+        }
+        
+        .pass-mode-toggle:hover {
+            border-color: var(--accent-purple);
+            color: var(--text-secondary);
+        }
+        
+        .pass-mode-toggle.active {
+            background: var(--accent-purple);
+            border-color: var(--accent-purple);
+            color: white;
+        }
+        
+        .pass-mode-toggle .toggle-icon {
+            font-size: 12px;
+        }
+        
         /* Marker Push 样式 */
         .event-item.marker-push {
             background: var(--bg-darker);
@@ -872,6 +979,206 @@
         .server-status-dot.offline {
             background: var(--accent-red);
         }
+        
+        /* ========== 资源绑定热力图样式 ========== */
+        
+        /* 热力图控制栏 */
+        .heatmap-controls {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 8px 12px;
+            background: var(--bg-darker);
+            border-bottom: 1px solid var(--border);
+        }
+        
+        .heatmap-controls.hidden {
+            display: none;
+        }
+        
+        .heatmap-toggle-btn {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 12px;
+            background: var(--bg-dark);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            color: var(--text-secondary);
+            font-size: 11px;
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+        
+        .heatmap-toggle-btn:hover {
+            background: var(--bg-medium);
+            border-color: var(--border-light);
+        }
+        
+        .heatmap-toggle-btn.active {
+            background: var(--accent-blue);
+            border-color: var(--accent-blue);
+            color: white;
+        }
+        
+        .heatmap-toggle-btn .toggle-icon {
+            font-size: 14px;
+        }
+        
+        /* 资源选择器 */
+        .heatmap-resource-selector {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .heatmap-resource-selector label {
+            font-size: 11px;
+            color: var(--text-muted);
+        }
+        
+        .heatmap-resource-select {
+            min-width: 180px;
+            padding: 5px 10px;
+            background: var(--bg-dark);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            color: var(--text-primary);
+            font-size: 11px;
+            cursor: pointer;
+        }
+        
+        .heatmap-resource-select:focus {
+            outline: none;
+            border-color: var(--accent-blue);
+        }
+        
+        .heatmap-resource-select option {
+            background: var(--bg-dark);
+            color: var(--text-primary);
+        }
+        
+        /* 热力图容器（覆盖在时间线上） */
+        .heatmap-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            pointer-events: none;
+            z-index: 5;
+            display: none;
+        }
+        
+        .heatmap-layer.visible {
+            display: block;
+        }
+        
+        /* 热力图单元格 */
+        .heatmap-cell {
+            position: absolute;
+            top: 4px;
+            bottom: 4px;
+            border-radius: 2px;
+            pointer-events: auto;
+            cursor: pointer;
+            opacity: 0.85;
+            transition: opacity 0.15s, transform 0.1s;
+        }
+        
+        .heatmap-cell:hover {
+            opacity: 1;
+            transform: scaleY(1.15);
+            z-index: 10;
+        }
+        
+        .heatmap-cell.selected {
+            box-shadow: 0 0 0 2px var(--accent-cyan);
+            z-index: 15;
+        }
+        
+        /* 使用模式颜色 */
+        .heatmap-cell.pattern-FIRST_USE {
+            background: var(--accent-blue);
+        }
+        
+        .heatmap-cell.pattern-CONTINUOUS {
+            background: var(--accent-green);
+        }
+        
+        .heatmap-cell.pattern-SPARSE {
+            background: var(--accent-yellow);
+        }
+        
+        .heatmap-cell.pattern-ISOLATED {
+            background: var(--accent-red);
+        }
+        
+        /* 热力图统计面板 */
+        .heatmap-stats {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            margin-left: auto;
+            font-size: 10px;
+            color: var(--text-muted);
+        }
+        
+        .heatmap-stat-item {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+        
+        .heatmap-stat-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 2px;
+        }
+        
+        .heatmap-stat-dot.first-use { background: var(--accent-blue); }
+        .heatmap-stat-dot.continuous { background: var(--accent-green); }
+        .heatmap-stat-dot.sparse { background: var(--accent-yellow); }
+        .heatmap-stat-dot.isolated { background: var(--accent-red); }
+        
+        .heatmap-score {
+            padding: 4px 8px;
+            background: var(--bg-dark);
+            border-radius: var(--radius-sm);
+            font-weight: 500;
+        }
+        
+        .heatmap-score.good { color: var(--accent-green); }
+        .heatmap-score.medium { color: var(--accent-yellow); }
+        .heatmap-score.poor { color: var(--accent-red); }
+        
+        /* 热力图提示框 */
+        .heatmap-tooltip {
+            position: fixed;
+            padding: 8px 12px;
+            background: var(--bg-darkest);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            font-size: 11px;
+            color: var(--text-primary);
+            pointer-events: none;
+            z-index: 1000;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+            display: none;
+        }
+        
+        .heatmap-tooltip.visible {
+            display: block;
+        }
+        
+        .heatmap-tooltip-title {
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+        
+        .heatmap-tooltip-detail {
+            color: var(--text-muted);
+        }
     </style>
 </head>
 <body>
@@ -907,8 +1214,48 @@
                     <span class="panel-toggle">▼</span>
                 </div>
                 
+                <!-- 热力图控制栏 -->
+                <div class="heatmap-controls" id="heatmapControls">
+                    <button class="heatmap-toggle-btn" id="heatmapToggle" onclick="toggleHeatmap()">
+                        <span class="toggle-icon">🔥</span>
+                        <span>绑定热力图</span>
+                    </button>
+                    
+                    <div class="heatmap-resource-selector" id="heatmapSelector" style="display: none;">
+                        <label>资源:</label>
+                        <select class="heatmap-resource-select" id="heatmapResourceSelect" onchange="onHeatmapResourceChange()">
+                            <option value="">-- 选择资源 --</option>
+                        </select>
+                    </div>
+                    
+                    <div class="heatmap-stats" id="heatmapStats" style="display: none;">
+                        <div class="heatmap-stat-item">
+                            <span class="heatmap-stat-dot first-use"></span>
+                            <span>首次</span>
+                        </div>
+                        <div class="heatmap-stat-item">
+                            <span class="heatmap-stat-dot continuous"></span>
+                            <span>连续</span>
+                        </div>
+                        <div class="heatmap-stat-item">
+                            <span class="heatmap-stat-dot sparse"></span>
+                            <span>稀疏</span>
+                        </div>
+                        <div class="heatmap-stat-item">
+                            <span class="heatmap-stat-dot isolated"></span>
+                            <span>孤立</span>
+                        </div>
+                        <div class="heatmap-stat-item">
+                            <span>连续性:</span>
+                            <span class="heatmap-score" id="heatmapScoreDisplay">--</span>
+                        </div>
+                    </div>
+                </div>
+                
                 <!-- 时间线可视化 -->
                 <div class="timeline-container" id="timeline">
+                    <!-- 热力图图层 -->
+                    <div class="heatmap-layer" id="heatmapLayer"></div>
                     {{TIMELINE_BARS_HTML}}
                     <div class="timeline-cursor" id="timelineCursor" style="display: none;"></div>
                     <!-- 空状态提示 -->
@@ -940,6 +1287,16 @@
                             <input type="checkbox" id="filterIssues" onchange="filterEvents()">
                             <span>⚠️ 仅问题</span>
                         </label>
+                        <button class="pass-mode-toggle" id="passModeToggle" onclick="togglePassGroupMode()">
+                            <span class="toggle-icon">📁</span>
+                            <span>Pass 分组</span>
+                        </button>
+                        <button class="pass-mode-toggle" id="expandAllBtn" onclick="expandAllPasses()" style="display: none;" title="全部展开">
+                            <span>⊞</span>
+                        </button>
+                        <button class="pass-mode-toggle" id="collapseAllBtn" onclick="collapseAllPasses()" style="display: none;" title="全部折叠">
+                            <span>⊟</span>
+                        </button>
                         <span class="stats-badge" id="eventStats">{{EVENT_COUNT}} 项</span>
                     </div>
                 </div>
@@ -1156,12 +1513,24 @@
         const eventData = {{EVENT_DATA_JSON}};
         const drawEvents = eventData.filter(e => e.type === 'draw' || e.type === 'dispatch');
         
+        // ========== 热力图数据 (由 Python 生成器填充) ==========
+        const heatmapData = {{HEATMAP_DATA_JSON}};
+        let heatmapEnabled = false;
+        let currentHeatmapResource = null;
+        
         // ========== 虚拟滚动配置 ==========
         const ITEM_HEIGHT = 32;           // 每行高度 (px)
         const BUFFER_SIZE = 10;           // 上下缓冲区行数
         const VISIBLE_ITEMS = 50;         // 可视区域最大显示数量
         
         let filteredEvents = [...eventData];  // 筛选后的事件列表
+        
+        // ========== Pass 分组模式状态 ==========
+        let passGroupMode = false;           // 是否启用 Pass 分组视图
+        let passGroups = [];                 // 分组后的 Pass 列表 [{name, startEid, endEid, children: [events], collapsed: false, gpuTime: 0}]
+        let passExpandState = {};            // 每个 Pass 的展开/折叠状态 (passName -> boolean, true=展开)
+        let flatDisplayList = [];            // 扁平化显示列表 (包含 Pass headers 和 events)
+        
         let virtualScrollState = {
             scrollTop: 0,
             startIndex: 0,
@@ -1175,8 +1544,9 @@
             const spacer = document.getElementById('eventListSpacer');
             const content = document.getElementById('eventListContent');
             
-            // 计算总高度
-            virtualScrollState.totalHeight = filteredEvents.length * ITEM_HEIGHT;
+            // 计算总高度 (Pass 模式使用 flatDisplayList)
+            const itemCount = passGroupMode ? flatDisplayList.length : filteredEvents.length;
+            virtualScrollState.totalHeight = itemCount * ITEM_HEIGHT;
             spacer.style.height = `${virtualScrollState.totalHeight}px`;
             
             // 初始渲染
@@ -1202,13 +1572,16 @@
             const containerHeight = container.clientHeight;
             const scrollTop = virtualScrollState.scrollTop;
             
+            // 根据模式选择数据源
+            const dataSource = passGroupMode ? flatDisplayList : filteredEvents;
+            
             // 计算可视范围的起止索引
             let startIndex = Math.floor(scrollTop / ITEM_HEIGHT) - BUFFER_SIZE;
             let endIndex = Math.ceil((scrollTop + containerHeight) / ITEM_HEIGHT) + BUFFER_SIZE;
             
             // 边界检查
             startIndex = Math.max(0, startIndex);
-            endIndex = Math.min(filteredEvents.length, endIndex);
+            endIndex = Math.min(dataSource.length, endIndex);
             
             // 如果范围没变化，跳过渲染
             if (startIndex === virtualScrollState.startIndex && 
@@ -1223,8 +1596,18 @@
             const fragment = document.createDocumentFragment();
             
             for (let i = startIndex; i < endIndex; i++) {
-                const event = filteredEvents[i];
-                const itemEl = createEventItemElement(event, i);
+                const item = dataSource[i];
+                let itemEl;
+                
+                if (passGroupMode && item.type === 'pass_header') {
+                    // 渲染 Pass 分组头
+                    itemEl = createPassHeaderElement(item, i);
+                } else {
+                    // 渲染普通事件
+                    const event = passGroupMode ? item.event : item;
+                    itemEl = createEventItemElement(event, i);
+                }
+                
                 fragment.appendChild(itemEl);
             }
             
@@ -1241,6 +1624,57 @@
                 if (selectedEl) {
                     selectedEl.classList.add('selected');
                 }
+            }
+        }
+        
+        // 创建 Pass 分组头元素
+        function createPassHeaderElement(item, index) {
+            const pass = item.pass;
+            const div = document.createElement('div');
+            div.className = 'pass-group-header' + (item.isExpanded ? ' expanded' : '');
+            div.setAttribute('data-pass-key', item.passKey);
+            div.onclick = () => togglePassExpand(item.passKey);
+            
+            // 缩进（基于 depth）
+            const indent = pass.depth * 16;
+            
+            // 格式化 GPU 时间
+            const gpuTimeStr = pass.gpuTime > 0 ? formatGpuTime(pass.gpuTime) : '-';
+            
+            div.innerHTML = `
+                <span class="pass-toggle-icon" style="margin-left: ${indent}px">
+                    ${item.isExpanded ? '▼' : '▶'}
+                </span>
+                <span class="pass-name">${escapeHtml(pass.name)}</span>
+                <div class="pass-stats">
+                    <span class="pass-stat-item">
+                        <span class="stat-label">Draw</span>
+                        <span class="stat-value">${pass.drawCount}</span>
+                    </span>
+                    <span class="pass-stat-item">
+                        <span class="stat-label">GPU</span>
+                        <span class="stat-value">${gpuTimeStr}</span>
+                    </span>
+                    <span class="pass-stat-item">
+                        <span class="stat-label">总计</span>
+                        <span class="stat-value">${pass.children.length}</span>
+                    </span>
+                </div>
+            `;
+            
+            return div;
+        }
+        
+        // 格式化 GPU 时间（毫秒转可读格式）
+        function formatGpuTime(timeMs) {
+            if (timeMs < 0.001) {
+                return (timeMs * 1000000).toFixed(0) + ' ns';
+            } else if (timeMs < 1) {
+                return (timeMs * 1000).toFixed(1) + ' µs';
+            } else if (timeMs < 1000) {
+                return timeMs.toFixed(2) + ' ms';
+            } else {
+                return (timeMs / 1000).toFixed(2) + ' s';
             }
         }
         
@@ -1377,13 +1811,22 @@
                 return matchKeyword && matchType && matchIssue;
             });
             
+            // 如果在 Pass 分组模式，重建分组
+            if (passGroupMode) {
+                buildPassGroups();
+            }
+            
             // 重置虚拟滚动状态
-            virtualScrollState.totalHeight = filteredEvents.length * ITEM_HEIGHT;
+            const itemCount = passGroupMode ? flatDisplayList.length : filteredEvents.length;
+            virtualScrollState.totalHeight = itemCount * ITEM_HEIGHT;
             document.getElementById('eventListSpacer').style.height = 
                 `${virtualScrollState.totalHeight}px`;
             
             // 更新统计
-            document.getElementById('eventStats').textContent = `${filteredEvents.length} 项`;
+            const statsText = passGroupMode 
+                ? `${passGroups.length} 个 Pass, ${filteredEvents.length} 项`
+                : `${filteredEvents.length} 项`;
+            document.getElementById('eventStats').textContent = statsText;
             
             // 强制重新渲染
             virtualScrollState.startIndex = -1;
@@ -1436,6 +1879,184 @@
             virtualScrollState.startIndex = 0;
             virtualScrollState.endIndex = 0;
             applyVisibilityFilter();
+        }
+        
+        // ========== Pass 分组模式 ==========
+        function togglePassGroupMode() {
+            passGroupMode = !passGroupMode;
+            const toggleBtn = document.getElementById('passModeToggle');
+            const expandAllBtn = document.getElementById('expandAllBtn');
+            const collapseAllBtn = document.getElementById('collapseAllBtn');
+            
+            if (passGroupMode) {
+                toggleBtn.classList.add('active');
+                expandAllBtn.style.display = 'inline-flex';
+                collapseAllBtn.style.display = 'inline-flex';
+                buildPassGroups();
+            } else {
+                toggleBtn.classList.remove('active');
+                expandAllBtn.style.display = 'none';
+                collapseAllBtn.style.display = 'none';
+                passGroups = [];
+                flatDisplayList = [];
+            }
+            
+            // 重新筛选并渲染
+            filterEvents();
+        }
+        
+        function buildPassGroups() {
+            // 基于 marker_push/marker_pop 构建 Pass 分组
+            // marker_push 开启一个 Pass，marker_pop 关闭它
+            passGroups = [];
+            const stack = [];  // 嵌套 Pass 栈
+            let currentPass = null;
+            let ungroupedEvents = [];
+            
+            for (const event of filteredEvents) {
+                if (event.type === 'marker_push' || event.type === 'marker') {
+                    // 新 Pass 开始
+                    const newPass = {
+                        name: event.name || `Pass ${event.eid}`,
+                        startEid: event.eid,
+                        endEid: null,
+                        children: [],
+                        gpuTime: 0,
+                        drawCount: 0,
+                        depth: stack.length,
+                        markerEvent: event
+                    };
+                    
+                    if (currentPass) {
+                        stack.push(currentPass);
+                    }
+                    currentPass = newPass;
+                    passGroups.push(newPass);
+                    
+                } else if (event.type === 'marker_pop') {
+                    // Pass 结束
+                    if (currentPass) {
+                        currentPass.endEid = event.eid;
+                        // 计算 GPU 时间总和
+                        currentPass.gpuTime = currentPass.children.reduce((sum, e) => {
+                            return sum + (parseFloat(e.gpuTime) || 0);
+                        }, 0);
+                        currentPass.drawCount = currentPass.children.filter(e => 
+                            e.type === 'draw' || e.type === 'dispatch'
+                        ).length;
+                    }
+                    currentPass = stack.pop() || null;
+                    
+                } else {
+                    // 普通事件，加入当前 Pass
+                    if (currentPass) {
+                        currentPass.children.push(event);
+                    } else {
+                        ungroupedEvents.push(event);
+                    }
+                }
+            }
+            
+            // 处理未闭合的 Pass
+            while (currentPass) {
+                currentPass.endEid = currentPass.children.length > 0 
+                    ? currentPass.children[currentPass.children.length - 1].eid 
+                    : currentPass.startEid;
+                currentPass.gpuTime = currentPass.children.reduce((sum, e) => {
+                    return sum + (parseFloat(e.gpuTime) || 0);
+                }, 0);
+                currentPass.drawCount = currentPass.children.filter(e => 
+                    e.type === 'draw' || e.type === 'dispatch'
+                ).length;
+                currentPass = stack.pop() || null;
+            }
+            
+            // 如果有未分组的事件，创建一个"未分组"Pass
+            if (ungroupedEvents.length > 0) {
+                const gpuSum = ungroupedEvents.reduce((sum, e) => sum + (parseFloat(e.gpuTime) || 0), 0);
+                passGroups.unshift({
+                    name: '未分组事件',
+                    startEid: ungroupedEvents[0].eid,
+                    endEid: ungroupedEvents[ungroupedEvents.length - 1].eid,
+                    children: ungroupedEvents,
+                    gpuTime: gpuSum,
+                    drawCount: ungroupedEvents.filter(e => e.type === 'draw' || e.type === 'dispatch').length,
+                    depth: 0,
+                    markerEvent: null
+                });
+            }
+            
+            // 初始化展开状态（默认全部展开）
+            passGroups.forEach((pass, idx) => {
+                const key = `pass_${idx}_${pass.name}`;
+                if (passExpandState[key] === undefined) {
+                    passExpandState[key] = true;  // 默认展开
+                }
+            });
+            
+            // 构建扁平显示列表
+            buildFlatDisplayList();
+        }
+        
+        function buildFlatDisplayList() {
+            flatDisplayList = [];
+            
+            passGroups.forEach((pass, idx) => {
+                const key = `pass_${idx}_${pass.name}`;
+                const isExpanded = passExpandState[key] !== false;
+                
+                // 添加 Pass header
+                flatDisplayList.push({
+                    type: 'pass_header',
+                    pass: pass,
+                    passIndex: idx,
+                    passKey: key,
+                    isExpanded: isExpanded
+                });
+                
+                // 如果展开，添加子事件
+                if (isExpanded) {
+                    pass.children.forEach(event => {
+                        flatDisplayList.push({
+                            type: 'event',
+                            event: event,
+                            passIndex: idx
+                        });
+                    });
+                }
+            });
+        }
+        
+        function togglePassExpand(passKey) {
+            passExpandState[passKey] = !passExpandState[passKey];
+            buildFlatDisplayList();
+            
+            // 重新渲染
+            virtualScrollState.startIndex = -1;  // 强制重渲染
+            virtualScrollState.endIndex = -1;
+            renderVisibleItems();
+        }
+        
+        function expandAllPasses() {
+            passGroups.forEach((pass, idx) => {
+                const key = `pass_${idx}_${pass.name}`;
+                passExpandState[key] = true;
+            });
+            buildFlatDisplayList();
+            virtualScrollState.startIndex = -1;
+            virtualScrollState.endIndex = -1;
+            renderVisibleItems();
+        }
+        
+        function collapseAllPasses() {
+            passGroups.forEach((pass, idx) => {
+                const key = `pass_${idx}_${pass.name}`;
+                passExpandState[key] = false;
+            });
+            buildFlatDisplayList();
+            virtualScrollState.startIndex = -1;
+            virtualScrollState.endIndex = -1;
+            renderVisibleItems();
         }
         
         // ========== 面板控制 ==========
@@ -1501,6 +2122,11 @@
             
             // 更新 Pipeline State
             updatePipelineState(event);
+            
+            // 更新热力图高亮（双向联动）
+            if (heatmapEnabled) {
+                highlightHeatmapCell(eid);
+            }
         }
         
         function updateTimelineCursor(event) {
@@ -1831,14 +2457,256 @@
             document.getElementById('lightbox').classList.remove('active');
         }
         
+        // ========== 热力图功能 ==========
+        
+        // 切换热力图显示
+        function toggleHeatmap() {
+            heatmapEnabled = !heatmapEnabled;
+            
+            const toggleBtn = document.getElementById('heatmapToggle');
+            const selector = document.getElementById('heatmapSelector');
+            const stats = document.getElementById('heatmapStats');
+            const layer = document.getElementById('heatmapLayer');
+            
+            toggleBtn.classList.toggle('active', heatmapEnabled);
+            
+            if (heatmapEnabled) {
+                selector.style.display = '';
+                stats.style.display = '';
+                
+                // 初始化资源选择器
+                initHeatmapResourceSelector();
+                
+                // 如果有数据，默认选择第一个资源
+                const select = document.getElementById('heatmapResourceSelect');
+                if (select.options.length > 1) {
+                    select.selectedIndex = 1;
+                    onHeatmapResourceChange();
+                }
+            } else {
+                selector.style.display = 'none';
+                stats.style.display = 'none';
+                layer.classList.remove('visible');
+                layer.innerHTML = '';
+            }
+        }
+        
+        // 初始化资源选择器
+        function initHeatmapResourceSelector() {
+            const select = document.getElementById('heatmapResourceSelect');
+            select.innerHTML = '<option value="">-- 选择资源 --</option>';
+            
+            // 添加纹理选项
+            if (heatmapData && heatmapData.textures) {
+                const textures = Object.entries(heatmapData.textures);
+                if (textures.length > 0) {
+                    const optgroup = document.createElement('optgroup');
+                    optgroup.label = '纹理';
+                    textures.forEach(([id, data]) => {
+                        const option = document.createElement('option');
+                        option.value = `texture:${id}`;
+                        option.textContent = `🖼️ ${id} (${data.total_uses || 0} 次使用)`;
+                        optgroup.appendChild(option);
+                    });
+                    select.appendChild(optgroup);
+                }
+            }
+            
+            // 添加 Shader 选项
+            if (heatmapData && heatmapData.shaders) {
+                const shaders = Object.entries(heatmapData.shaders);
+                if (shaders.length > 0) {
+                    const optgroup = document.createElement('optgroup');
+                    optgroup.label = 'Shaders';
+                    shaders.forEach(([id, data]) => {
+                        const option = document.createElement('option');
+                        option.value = `shader:${id}`;
+                        option.textContent = `⚙️ ${id} (${data.total_uses || 0} 次使用)`;
+                        optgroup.appendChild(option);
+                    });
+                    select.appendChild(optgroup);
+                }
+            }
+        }
+        
+        // 资源选择变化
+        function onHeatmapResourceChange() {
+            const select = document.getElementById('heatmapResourceSelect');
+            const value = select.value;
+            
+            if (!value) {
+                currentHeatmapResource = null;
+                clearHeatmap();
+                return;
+            }
+            
+            const [type, id] = value.split(':');
+            const dataSource = type === 'texture' ? heatmapData.textures : heatmapData.shaders;
+            const resourceData = dataSource ? dataSource[id] : null;
+            
+            if (resourceData) {
+                currentHeatmapResource = { type, id, data: resourceData };
+                renderHeatmap(resourceData);
+                updateHeatmapStats(resourceData);
+            } else {
+                clearHeatmap();
+            }
+        }
+        
+        // 渲染热力图
+        function renderHeatmap(resourceData) {
+            const layer = document.getElementById('heatmapLayer');
+            const timeline = document.getElementById('timeline');
+            layer.innerHTML = '';
+            layer.classList.add('visible');
+            
+            if (!resourceData || !resourceData.entries || resourceData.entries.length === 0) {
+                return;
+            }
+            
+            // 获取时间线范围
+            const minEid = Math.min(...eventData.map(e => e.eid));
+            const maxEid = Math.max(...eventData.map(e => e.eid));
+            const eidRange = maxEid - minEid || 1;
+            
+            // 渲染每个 entry
+            resourceData.entries.forEach(entry => {
+                const cell = document.createElement('div');
+                cell.className = `heatmap-cell pattern-${entry.pattern}`;
+                
+                // 计算位置
+                const startEid = entry.eventId;
+                const endEid = entry.eventIdEnd || entry.eventId;
+                const left = ((startEid - minEid) / eidRange) * 100;
+                const width = Math.max(((endEid - startEid + 1) / eidRange) * 100, 0.5);
+                
+                cell.style.left = `${left}%`;
+                cell.style.width = `${width}%`;
+                
+                // 数据属性
+                cell.dataset.eid = startEid;
+                cell.dataset.eidEnd = endEid;
+                cell.dataset.pattern = entry.pattern;
+                
+                // 事件监听
+                cell.addEventListener('click', () => onHeatmapCellClick(startEid));
+                cell.addEventListener('mouseenter', (e) => showHeatmapTooltip(e, entry, startEid, endEid));
+                cell.addEventListener('mouseleave', hideHeatmapTooltip);
+                
+                layer.appendChild(cell);
+            });
+        }
+        
+        // 清除热力图
+        function clearHeatmap() {
+            const layer = document.getElementById('heatmapLayer');
+            layer.classList.remove('visible');
+            layer.innerHTML = '';
+            
+            document.getElementById('heatmapScoreDisplay').textContent = '--';
+            document.getElementById('heatmapScoreDisplay').className = 'heatmap-score';
+        }
+        
+        // 更新热力图统计
+        function updateHeatmapStats(resourceData) {
+            const scoreDisplay = document.getElementById('heatmapScoreDisplay');
+            const score = resourceData.continuity_score;
+            
+            if (score !== undefined && score !== null) {
+                scoreDisplay.textContent = `${score.toFixed(0)}%`;
+                
+                // 颜色等级
+                scoreDisplay.className = 'heatmap-score';
+                if (score >= 70) {
+                    scoreDisplay.classList.add('good');
+                } else if (score >= 40) {
+                    scoreDisplay.classList.add('medium');
+                } else {
+                    scoreDisplay.classList.add('poor');
+                }
+            } else {
+                scoreDisplay.textContent = '--';
+                scoreDisplay.className = 'heatmap-score';
+            }
+        }
+        
+        // 热力图单元格点击
+        function onHeatmapCellClick(eid) {
+            selectEvent(eid, true);
+            highlightHeatmapCell(eid);
+        }
+        
+        // 高亮当前选中的热力图单元格
+        function highlightHeatmapCell(eid) {
+            // 清除之前的选中状态
+            document.querySelectorAll('.heatmap-cell.selected').forEach(el => {
+                el.classList.remove('selected');
+            });
+            
+            // 找到包含该 eid 的单元格
+            const cells = document.querySelectorAll('.heatmap-cell');
+            cells.forEach(cell => {
+                const startEid = parseInt(cell.dataset.eid);
+                const endEid = parseInt(cell.dataset.eidEnd) || startEid;
+                if (eid >= startEid && eid <= endEid) {
+                    cell.classList.add('selected');
+                }
+            });
+        }
+        
+        // 显示热力图提示框
+        function showHeatmapTooltip(e, entry, startEid, endEid) {
+            const tooltip = document.getElementById('heatmapTooltip');
+            const title = document.getElementById('heatmapTooltipTitle');
+            const detail = document.getElementById('heatmapTooltipDetail');
+            
+            const patternLabels = {
+                'FIRST_USE': '🔵 首次使用',
+                'CONTINUOUS': '🟢 连续使用',
+                'SPARSE': '🟡 稀疏使用',
+                'ISOLATED': '🔴 孤立使用'
+            };
+            
+            title.textContent = patternLabels[entry.pattern] || entry.pattern;
+            
+            if (startEid === endEid) {
+                detail.textContent = `事件 #${startEid}`;
+            } else {
+                detail.textContent = `事件 #${startEid} - #${endEid} (${endEid - startEid + 1} 次)`;
+            }
+            
+            // 定位
+            tooltip.style.left = `${e.clientX + 10}px`;
+            tooltip.style.top = `${e.clientY + 10}px`;
+            tooltip.classList.add('visible');
+        }
+        
+        // 隐藏热力图提示框
+        function hideHeatmapTooltip() {
+            document.getElementById('heatmapTooltip').classList.remove('visible');
+        }
+        
+        // 事件选中时同步热力图高亮
+        const originalSelectEvent = selectEvent;
+        selectEvent = function(eid, scrollToItem = false) {
+            originalSelectEvent(eid, scrollToItem);
+            if (heatmapEnabled && currentHeatmapResource) {
+                highlightHeatmapCell(eid);
+            }
+        };
+        
         // ========== 键盘快捷键 ==========
         document.addEventListener('keydown', (e) => {
             if (e.key === 'Escape') {
                 closeLightbox();
+                hideHeatmapTooltip();
             } else if (e.key === 'ArrowUp' || e.key === 'ArrowLeft') {
                 document.getElementById('prevEvent').click();
             } else if (e.key === 'ArrowDown' || e.key === 'ArrowRight') {
                 document.getElementById('nextEvent').click();
+            } else if (e.key === 'h' || e.key === 'H') {
+                // H 键切换热力图
+                toggleHeatmap();
             }
         });
         
@@ -2041,5 +2909,11 @@
     
     <!-- 跨页面导航模块（证据链跳转） -->
     <script src="navigation.js"></script>
+    
+    <!-- 热力图 Tooltip -->
+    <div class="heatmap-tooltip" id="heatmapTooltip">
+        <div class="heatmap-tooltip-title" id="heatmapTooltipTitle"></div>
+        <div class="heatmap-tooltip-detail" id="heatmapTooltipDetail"></div>
+    </div>
 </body>
 </html>

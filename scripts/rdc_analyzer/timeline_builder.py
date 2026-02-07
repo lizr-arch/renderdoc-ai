@@ -317,7 +317,12 @@ def prepare_events_for_frontend(
                     "id": str(pipeline_id)
                 })
         
-        prepared["shaders"] = shaders_list
+        # 如果 shaders_list 为空，但事件本身已有 shaders 字段，则保留原有
+        if shaders_list:
+            prepared["shaders"] = shaders_list
+        elif "shaders" not in prepared or not prepared["shaders"]:
+            prepared["shaders"] = []
+        # 否则保留 dict(evt) 复制的 shaders
         
         # 提取纹理绑定信息
         textures_list = []
@@ -376,7 +381,12 @@ def prepare_events_for_frontend(
                         "stage": sr.get("stage", "")
                     })
         
-        prepared["textures"] = textures_list
+        # 如果 textures_list 为空，但事件本身已有 textures 字段，则保留原有
+        if textures_list:
+            prepared["textures"] = textures_list
+        elif "textures" not in prepared or not prepared["textures"]:
+            prepared["textures"] = []
+        # 否则保留 dict(evt) 复制的 textures
         
         # 提取 Render Target 信息（从 renderTargets 字段或推断）
         rt_data = evt.get("renderTargets", [])
