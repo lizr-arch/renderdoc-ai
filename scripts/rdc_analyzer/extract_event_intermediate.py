@@ -5,7 +5,10 @@ import struct
 import zipfile
 
 from parsers.zipxml_event_parser import (
+    build_d3d11_buffer_data_map,
     build_vulkan_buffer_memory_maps,
+    detect_capture_api,
+    extract_d3d11_bindings_for_event,
     extract_vulkan_bindings_for_event,
 )
 from xmlzip_event_extractor import BufferBinding, EventState, write_intermediate
@@ -377,6 +380,230 @@ def extract_vulkan_event_intermediate(xml_path, zip_path, event_id, out_dir, ver
     return intermediate_path
 
 
+
+def _encode_indices(indices: list[int], index_format: str) -> bytes:
+    if not indices:
+        return b""
+    fmt = "<I" if index_format == "uint32" else "<H"
+    out = bytearray()
+    for value in indices:
+        out += struct.pack(fmt, int(value))
+    return bytes(out)
+
+
+def _resolve_d3d11_buffer_blob_for_resource(zip_handle, zip_names, resource_map, resource_id: int):
+    entry = resource_map.get(resource_id)
+    if not entry:
+        raise ValueError(f"buffer {resource_id} has no D3D11 data mapping")
+
+    buffer_index = int(entry.get("buffer_index", -1))
+    zip_entry = _resolve_zip_entry_name(buffer_index, zip_names)
+    if zip_entry is None:
+        raise FileNotFoundError(f"zip entry for buffer_index {buffer_index} not found")
+
+    data = zip_handle.read(zip_entry)
+    return entry, zip_entry, data
+
+
+def extract_d3d11_event_intermediate(xml_path, zip_path, event_id, out_dir, vertex_stride: int = 0):
+    xml_path = str(xml_path)
+    zip_path = str(zip_path)
+    event_id = int(event_id)
+
+    bindings = extract_d3d11_bindings_for_event(xml_path, event_id)
+    draw = bindings.get("draw") or {}
+
+    index_binding = bindings.get("index_buffer")
+    if not index_binding:
+        raise ValueError(f"event {event_id} has no index buffer binding")
+
+    vertex_bindings = list(bindings.get("vertex_buffers") or [])
+    if not vertex_bindings:
+        raise ValueError(f"event {event_id} has no vertex buffer binding")
+
+    resource_map = build_d3d11_buffer_data_map(xml_path, upto_event_id=event_id)
+
+    index_format = index_binding.get("index_format", "uint16")
+    index_stride = _index_stride(index_format)
+    draw_first_index = int(draw.get("start_index_location", 0))
+    draw_index_count = int(draw.get("index_count", 0))
+    base_vertex_location = int(draw.get("base_vertex_location", 0))
+
+    with zipfile.ZipFile(zip_path, "r") as zip_handle:
+        zip_names = set(zip_handle.namelist())
+
+        ib_info, ib_entry, ib_blob = _resolve_d3d11_buffer_blob_for_resource(
+            zip_handle,
+            zip_names,
+            resource_map,
+            int(index_binding.get("resource_id", 0)),
+        )
+
+        ib_start = int(index_binding.get("byte_offset", 0)) + draw_first_index * index_stride
+        ib_size = draw_index_count * index_stride
+        if ib_size <= 0:
+            mapped_size = int(ib_info.get("byte_length", 0))
+            ib_size = max(0, mapped_size - ib_start)
+        index_bytes = _slice_bytes(ib_blob, ib_start, ib_size)
+
+        decoded_indices = _decode_indices(index_bytes, index_format)
+        if decoded_indices and base_vertex_location != 0:
+            adjusted = [idx + base_vertex_location for idx in decoded_indices]
+            if min(adjusted) < 0:
+                raise ValueError(
+                    f"D3D11 base vertex makes index negative (base={base_vertex_location})"
+                )
+            decoded_indices = adjusted
+            index_bytes = _encode_indices(decoded_indices, index_format)
+
+        vertex_binding = dict(vertex_bindings[0])
+        vb_info, vb_entry, vb_blob = _resolve_d3d11_buffer_blob_for_resource(
+            zip_handle,
+            zip_names,
+            resource_map,
+            int(vertex_binding.get("resource_id", 0)),
+        )
+
+        vb_start = int(vertex_binding.get("byte_offset", 0))
+        vb_mapped_size = int(vb_info.get("byte_length", 0))
+
+        if vertex_stride <= 0:
+            if int(vertex_binding.get("stride", 0)) > 0:
+                vertex_stride = int(vertex_binding.get("stride", 0))
+                layout_source = "iaset"
+            else:
+                layout_source = "none"
+        else:
+            layout_source = "cli"
+
+        if vertex_stride <= 0 and decoded_indices:
+            min_vertex_count = max(decoded_indices) + 1
+            vertex_stride = _guess_vertex_stride(max(0, vb_mapped_size - vb_start), min_vertex_count)
+            if vertex_stride > 0:
+                layout_source = "heuristic"
+
+        if decoded_indices and vertex_stride > 0:
+            required_vertex_count = max(decoded_indices) + 1
+            vb_size = required_vertex_count * vertex_stride
+            available = max(0, vb_mapped_size - vb_start)
+            if available > 0:
+                vb_size = min(vb_size, available)
+        else:
+            vb_size = max(0, vb_mapped_size - vb_start)
+            if vb_size <= 0:
+                vb_size = max(0, len(vb_blob) - vb_start)
+
+        vertex_bytes = _slice_bytes(vb_blob, vb_start, vb_size)
+
+    if not decoded_indices:
+        decoded_indices = _decode_indices(index_bytes, index_format)
+
+    vertex_layout = []
+    if vertex_stride > 0:
+        vertex_layout = [
+            {
+                "semantic": "POSITION",
+                "format": "float3",
+                "offset": 0,
+                "stride": int(vertex_stride),
+            }
+        ]
+        vertex_count = len(vertex_bytes) // int(vertex_stride)
+    else:
+        vertex_count = max(decoded_indices) + 1 if decoded_indices else 0
+
+    index_binding["byte_size"] = len(index_bytes)
+    vertex_binding["byte_size"] = len(vertex_bytes)
+
+    state = build_event_state_from_bindings(
+        {
+            "index_buffer": index_binding,
+            "vertex_buffers": [vertex_binding],
+        }
+    )
+
+    event_root = Path(out_dir) / f"event_{event_id}"
+    intermediate_path = write_intermediate_with_mesh_bytes(
+        out_dir=str(event_root),
+        mesh_info={
+            "vertex_layout": vertex_layout,
+            "vertex_count": int(vertex_count),
+            "index_count": len(decoded_indices) if decoded_indices else draw_index_count,
+            "index_format": index_format,
+            "topology": "triangle_list",
+        },
+        vertex_bytes=vertex_bytes,
+        index_bytes=index_bytes,
+        state=state,
+    )
+
+    manifest_path = event_root / "manifest.json"
+    manifest = {}
+    if manifest_path.exists():
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+
+    manifest.update(
+        {
+            "schema_version": "1.0",
+            "schema_path": "schema/intermediate_manifest.schema.json",
+            "event_id": event_id,
+            "api": "D3D11",
+            "sources": {
+                "zip_xml": str(xml_path),
+                "zip_bin": str(zip_path),
+            },
+            "buffers": {
+                "index": {
+                    "resource_id": int(index_binding.get("resource_id", 0)),
+                    "memory_id": 0,
+                    "memory_offset": 0,
+                    "zip_entry": ib_entry,
+                    "byte_offset": int(index_binding.get("byte_offset", 0)),
+                    "byte_size": len(index_bytes),
+                    "source": ib_info.get("source", "unknown"),
+                },
+                "vertex": {
+                    "resource_id": int(vertex_binding.get("resource_id", 0)),
+                    "memory_id": 0,
+                    "memory_offset": 0,
+                    "zip_entry": vb_entry,
+                    "byte_offset": int(vertex_binding.get("byte_offset", 0)),
+                    "byte_size": len(vertex_bytes),
+                    "layout_source": layout_source,
+                    "source": vb_info.get("source", "unknown"),
+                },
+            },
+        }
+    )
+    manifest.setdefault("texture_decode", [])
+    manifest_path.write_text(json.dumps(manifest, indent=2), encoding="utf-8")
+
+    validate_intermediate_tree(event_root)
+    return intermediate_path
+
+
+def extract_event_intermediate(xml_path, zip_path, event_id, out_dir, vertex_stride: int = 0):
+    api = detect_capture_api(str(xml_path))
+    if api == "Vulkan":
+        return extract_vulkan_event_intermediate(
+            xml_path=xml_path,
+            zip_path=zip_path,
+            event_id=event_id,
+            out_dir=out_dir,
+            vertex_stride=vertex_stride,
+        )
+    if api == "D3D11":
+        return extract_d3d11_event_intermediate(
+            xml_path=xml_path,
+            zip_path=zip_path,
+            event_id=event_id,
+            out_dir=out_dir,
+            vertex_stride=vertex_stride,
+        )
+    raise NotImplementedError(
+        f"offline event extraction not implemented for API: {api}. Supported: Vulkan, D3D11"
+    )
+
 def write_intermediate_with_mesh_bytes(out_dir, mesh_info, vertex_bytes, index_bytes, state=None):
     if state is None:
         state = EventState(index_buffer=None, vertex_buffers=[], textures=[], shaders=[])
@@ -429,7 +656,7 @@ def main(argv=None):
     )
     args = parser.parse_args(argv)
 
-    extract_vulkan_event_intermediate(
+    extract_event_intermediate(
         xml_path=args.xml,
         zip_path=args.zip,
         event_id=args.event,

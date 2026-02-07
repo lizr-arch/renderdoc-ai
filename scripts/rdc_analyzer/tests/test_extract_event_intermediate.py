@@ -232,3 +232,108 @@ def test_extract_vulkan_event_intermediate_missing_zip_entry(tmp_path):
             event_id=100,
             out_dir=str(tmp_path / "out"),
         )
+
+
+
+def _write_sample_d3d11_xml(xml_path: Path):
+    xml_path.write_text(
+        """<rdc>
+  <header><driver id="1">D3D11</driver></header>
+  <chunks>
+    <chunk id="1006" chunkIndex="10" name="ID3D11Device::CreateBuffer">
+      <struct name="pDesc" typename="D3D11_BUFFER_DESC">
+        <uint name="ByteWidth" typename="uint32_t">64</uint>
+      </struct>
+      <ResourceId name="pBuffer" typename="ID3D11Buffer *">307</ResourceId>
+      <buffer name="InitialData" typename="Byte Buffer" byteLength="64">33</buffer>
+      <uint name="InitialDataLength" typename="uint64_t">64</uint>
+    </chunk>
+    <chunk id="1006" chunkIndex="11" name="ID3D11Device::CreateBuffer">
+      <struct name="pDesc" typename="D3D11_BUFFER_DESC">
+        <uint name="ByteWidth" typename="uint32_t">12</uint>
+      </struct>
+      <ResourceId name="pBuffer" typename="ID3D11Buffer *">308</ResourceId>
+      <buffer name="InitialData" typename="Byte Buffer" byteLength="12">34</buffer>
+      <uint name="InitialDataLength" typename="uint64_t">12</uint>
+    </chunk>
+    <chunk id="1033" chunkIndex="91" name="ID3D11DeviceContext::IASetVertexBuffers">
+      <uint name="StartSlot" typename="uint32_t">0</uint>
+      <array name="ppVertexBuffers"><ResourceId typename="ID3D11Buffer *">307</ResourceId></array>
+      <array name="pStrides"><uint typename="uint32_t">12</uint></array>
+      <array name="pOffsets"><uint typename="uint32_t">0</uint></array>
+    </chunk>
+    <chunk id="1034" chunkIndex="92" name="ID3D11DeviceContext::IASetIndexBuffer">
+      <ResourceId name="pIndexBuffer" typename="ID3D11Buffer *">308</ResourceId>
+      <enum name="Format" typename="DXGI_FORMAT" string="DXGI_FORMAT_R16_UINT">57</enum>
+      <uint name="Offset" typename="uint32_t">0</uint>
+    </chunk>
+    <chunk id="1071" chunkIndex="100" name="ID3D11DeviceContext::DrawIndexed">
+      <uint name="IndexCount" typename="uint32_t">3</uint>
+      <uint name="StartIndexLocation" typename="uint32_t">0</uint>
+      <int name="BaseVertexLocation" typename="int32_t">0</int>
+    </chunk>
+  </chunks>
+</rdc>
+""",
+        encoding="utf-8",
+    )
+
+
+def _write_sample_d3d11_zip(zip_path: Path, *, with_index=True):
+    with zipfile.ZipFile(zip_path, "w") as handle:
+        handle.writestr("000033", bytes(range(36)))
+        if with_index:
+            handle.writestr("000034", b"\x00\x00\x01\x00\x02\x00")
+
+
+def test_extract_d3d11_event_intermediate_end_to_end(tmp_path):
+    from extract_event_intermediate import extract_event_intermediate
+
+    xml_path = tmp_path / "sample_d3d11.zip.xml"
+    zip_path = tmp_path / "sample_d3d11.zip"
+    out_dir = tmp_path / "out_d3d11"
+
+    _write_sample_d3d11_xml(xml_path)
+    _write_sample_d3d11_zip(zip_path)
+
+    intermediate_path = extract_event_intermediate(
+        xml_path=str(xml_path),
+        zip_path=str(zip_path),
+        event_id=100,
+        out_dir=str(out_dir),
+    )
+
+    mesh_dir = Path(intermediate_path) / "mesh"
+    vertex_bin = mesh_dir / "vertex.bin"
+    index_bin = mesh_dir / "index.bin"
+    manifest_path = out_dir / "event_100" / "manifest.json"
+
+    assert vertex_bin.exists()
+    assert index_bin.exists()
+    assert manifest_path.exists()
+
+    assert len(vertex_bin.read_bytes()) == 36
+    assert index_bin.read_bytes() == b"\x00\x00\x01\x00\x02\x00"
+
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    assert manifest["api"] == "D3D11"
+    assert manifest["buffers"]["vertex"]["zip_entry"] == "000033"
+    assert manifest["buffers"]["index"]["zip_entry"] == "000034"
+
+
+def test_extract_d3d11_event_intermediate_missing_zip_entry(tmp_path):
+    from extract_event_intermediate import extract_event_intermediate
+
+    xml_path = tmp_path / "sample_d3d11.zip.xml"
+    zip_path = tmp_path / "sample_d3d11.zip"
+
+    _write_sample_d3d11_xml(xml_path)
+    _write_sample_d3d11_zip(zip_path, with_index=False)
+
+    with pytest.raises(FileNotFoundError, match="buffer_index 34"):
+        extract_event_intermediate(
+            xml_path=str(xml_path),
+            zip_path=str(zip_path),
+            event_id=100,
+            out_dir=str(tmp_path / "out"),
+        )

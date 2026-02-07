@@ -106,3 +106,68 @@ def test_build_vulkan_buffer_memory_maps(tmp_path):
     assert memory_initial[210]["contents_size"] == 33554432
 
     assert buffer_sizes[901] == 4096
+
+
+
+def test_extract_d3d11_bindings_and_buffer_map(tmp_path):
+    try:
+        from parsers.zipxml_event_parser import (
+            build_d3d11_buffer_data_map,
+            extract_d3d11_bindings_for_event,
+        )
+    except ImportError as exc:
+        pytest.fail(f"zipxml_event_parser missing D3D11 extractor: {exc}")
+
+    xml_path = tmp_path / "sample_d3d11.zip.xml"
+    xml_path.write_text(
+        """<rdc>
+  <header><driver id="1">D3D11</driver></header>
+  <chunks>
+    <chunk id="1006" chunkIndex="10" name="ID3D11Device::CreateBuffer">
+      <struct name="pDesc" typename="D3D11_BUFFER_DESC">
+        <uint name="ByteWidth" typename="uint32_t">64</uint>
+      </struct>
+      <ResourceId name="pBuffer" typename="ID3D11Buffer *">307</ResourceId>
+      <buffer name="InitialData" typename="Byte Buffer" byteLength="64">33</buffer>
+      <uint name="InitialDataLength" typename="uint64_t">64</uint>
+    </chunk>
+    <chunk id="1006" chunkIndex="11" name="ID3D11Device::CreateBuffer">
+      <struct name="pDesc" typename="D3D11_BUFFER_DESC">
+        <uint name="ByteWidth" typename="uint32_t">12</uint>
+      </struct>
+      <ResourceId name="pBuffer" typename="ID3D11Buffer *">308</ResourceId>
+      <buffer name="InitialData" typename="Byte Buffer" byteLength="12">34</buffer>
+      <uint name="InitialDataLength" typename="uint64_t">12</uint>
+    </chunk>
+    <chunk id="1033" chunkIndex="91" name="ID3D11DeviceContext::IASetVertexBuffers">
+      <uint name="StartSlot" typename="uint32_t">0</uint>
+      <array name="ppVertexBuffers"><ResourceId typename="ID3D11Buffer *">307</ResourceId></array>
+      <array name="pStrides"><uint typename="uint32_t">32</uint></array>
+      <array name="pOffsets"><uint typename="uint32_t">0</uint></array>
+    </chunk>
+    <chunk id="1034" chunkIndex="92" name="ID3D11DeviceContext::IASetIndexBuffer">
+      <ResourceId name="pIndexBuffer" typename="ID3D11Buffer *">308</ResourceId>
+      <enum name="Format" typename="DXGI_FORMAT" string="DXGI_FORMAT_R16_UINT">57</enum>
+      <uint name="Offset" typename="uint32_t">0</uint>
+    </chunk>
+    <chunk id="1071" chunkIndex="100" name="ID3D11DeviceContext::DrawIndexed">
+      <uint name="IndexCount" typename="uint32_t">6</uint>
+      <uint name="StartIndexLocation" typename="uint32_t">0</uint>
+      <int name="BaseVertexLocation" typename="int32_t">0</int>
+    </chunk>
+  </chunks>
+</rdc>
+""",
+        encoding="utf-8",
+    )
+
+    bindings = extract_d3d11_bindings_for_event(str(xml_path), event_id=100)
+    assert bindings["index_buffer"]["resource_id"] == 308
+    assert bindings["index_buffer"]["index_format"] == "uint16"
+    assert bindings["draw"]["index_count"] == 6
+    assert bindings["vertex_buffers"][0]["resource_id"] == 307
+    assert bindings["vertex_buffers"][0]["stride"] == 32
+
+    resource_map = build_d3d11_buffer_data_map(str(xml_path), upto_event_id=100)
+    assert resource_map[307]["buffer_index"] == 33
+    assert resource_map[308]["buffer_index"] == 34

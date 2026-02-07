@@ -267,3 +267,22 @@ Task 6 — 文档与计划同步
 - Test evidence:
   - py -3 -m pytest scripts/rdc_analyzer/tests/test_zipxml_event_parser.py scripts/rdc_analyzer/tests/test_zipxml_event_resources.py scripts/rdc_analyzer/tests/test_extract_event_intermediate.py scripts/rdc_analyzer/tests/test_intermediate_schemas.py scripts/rdc_analyzer/tests/test_xmlzip_event_extractor.py scripts/rdc_analyzer/tests/test_xmlzip_intermediate_writer.py scripts/rdc_analyzer/tests/test_xmlzip_texture_decode_integration.py -v --tb=short
   - Result: 19 passed
+
+
+## /do Extension Log (D3D11 Single-Event Offline)
+
+- Extended `zipxml_event_parser.py`:
+  - `extract_d3d11_bindings_for_event()` for IA/VB/IB + DrawIndexed params
+  - `build_d3d11_buffer_data_map()` for `CreateBuffer.InitialData` + `Unmap.MapWrittenData`
+- Extended `extract_event_intermediate.py`:
+  - API dispatcher via XML header driver (`Vulkan` / `D3D11`)
+  - D3D11 extraction path: `extract_d3d11_event_intermediate()`
+  - kept output contract unchanged (`event_<id>/intermediate + manifest.json`)
+- Added tests:
+  - `test_extract_d3d11_bindings_and_buffer_map`
+  - `test_extract_d3d11_event_intermediate_end_to_end`
+  - `test_extract_d3d11_event_intermediate_missing_zip_entry`
+- Verification:
+  - `py -3 -m pytest scripts/rdc_analyzer/tests/test_zipxml_event_resources.py scripts/rdc_analyzer/tests/test_extract_event_intermediate.py -v --tb=short`
+  - `py -3 -m pytest scripts/rdc_analyzer/tests/test_zipxml_event_parser.py scripts/rdc_analyzer/tests/test_zipxml_event_resources.py scripts/rdc_analyzer/tests/test_extract_event_intermediate.py scripts/rdc_analyzer/tests/test_intermediate_schemas.py scripts/rdc_analyzer/tests/test_xmlzip_event_extractor.py scripts/rdc_analyzer/tests/test_xmlzip_intermediate_writer.py scripts/rdc_analyzer/tests/test_xmlzip_texture_decode_integration.py -q`
+  - Result: `22 passed`

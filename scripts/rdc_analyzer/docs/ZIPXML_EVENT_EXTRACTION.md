@@ -1,4 +1,4 @@
-# ZIPXML Event 离线导出指南（Vulkan）
+# ZIPXML Event 离线导出指南（Vulkan + D3D11）
 
 > 目标：在**不依赖 GPU 回放**的情况下，从 `capture.zip.xml + capture.zip` 针对单个 `event_id` 导出可用于后续转换的中间态（mesh/material/shader 占位 + manifest）。
 
@@ -6,16 +6,18 @@
 
 ## 1. 适用范围
 
-当前实现优先支持：
-- API：Vulkan（D3D11/D3D12/GLES 后续接入）
-- 事件：`vkCmdDrawIndexed`（单 event）
+当前实现支持：
+- API：Vulkan、D3D11
+- 事件：`vkCmdDrawIndexed`（Vulkan）与 `ID3D11DeviceContext::DrawIndexed`（D3D11）（单 event）
 - 输入：`renderdoccmd convert -c zip.xml` 生成的 `.zip.xml` 与 `.zip`
 
 ---
 
 ## 2. 数据来源（证据链）
 
-离线导出使用以下链路拼接数据：
+离线导出按 API 分流，使用以下链路拼接数据：
+
+### Vulkan
 
 1. **事件绑定信息（IB/VB + Draw 参数）**
    - 来自 `vkCmdBindIndexBuffer` / `vkCmdBindVertexBuffers` / `vkCmdDrawIndexed`
@@ -39,6 +41,25 @@
      - `buffer123`
 
 5. **字节切片**
+
+### D3D11
+
+1. **事件绑定信息（IB/VB + Draw 参数）**
+   - 来自 `ID3D11DeviceContext::IASetVertexBuffers` / `ID3D11DeviceContext::IASetIndexBuffer` / `ID3D11DeviceContext::DrawIndexed`
+   - 解析结果：
+     - index buffer `resource_id`、`byte_offset`、`index_format`
+     - vertex buffer `resource_id`、`byte_offset`、`stride`
+     - draw `IndexCount/StartIndexLocation/BaseVertexLocation`
+
+2. **Buffer -> ZIP 条目映射**
+   - 优先来源：`ID3D11Device::CreateBuffer` 的 `InitialData`
+   - 更新来源：`ID3D11DeviceContext::Unmap` 的 `MapWrittenData`（在目标 event 之前的最后一次写入优先生效）
+   - 解析结果：`resource_id -> buffer_index`
+
+3. **ZIP 数据读取 + 切片**
+   - 按 `buffer_index` 解析 ZIP entry（`000123` / `buffers/buffer123` / `buffer123`）
+   - `index.bin` 按 `StartIndexLocation + IndexCount` 切片
+   - `vertex.bin` 优先用 IA stride 与索引范围估算切片
    - `index.bin`：按 `index_format + firstIndex + indexCount` 精确切片
    - `vertex.bin`：优先以 `vb_start -> ib_start` 或 `vkCreateBuffer.size` 估算切片范围
 
@@ -115,7 +136,7 @@ py -3 scripts/rdc_analyzer/extract_event_intermediate.py \
 
 ## 7. 已知限制
 
-1. 当前只覆盖 Vulkan `vkCmdDrawIndexed`
+1. 当前只覆盖 DrawIndexed 路径（Vulkan/D3D11）
 2. 顶点布局无法完全从离线数据可靠恢复，`vertex_layout` 可能依赖启发式
 3. shader/material 的完整语义映射仍需结合更多 chunk 与引擎规则
 

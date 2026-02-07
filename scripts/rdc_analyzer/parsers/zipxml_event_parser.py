@@ -22,6 +22,14 @@ class VulkanDrawIndexedCall:
     first_instance: int
 
 
+@dataclass
+class D3D11DrawIndexedCall:
+    event_id: int
+    index_count: int
+    start_index_location: int
+    base_vertex_location: int
+
+
 def _to_int(value, default: int = 0) -> int:
     if value is None:
         return default
@@ -44,6 +52,10 @@ def _detect_api_from_xml(xml_path: str) -> str:
             return "Unknown"
         elem.clear()
     return "Unknown"
+
+
+def detect_capture_api(xml_path: str) -> str:
+    return _detect_api_from_xml(xml_path)
 
 
 def iter_draw_events(xml_path: str):
@@ -70,6 +82,12 @@ def iter_draw_events(xml_path: str):
 
 def _parse_index_format(index_type: str) -> str:
     if "UINT32" in index_type:
+        return "uint32"
+    return "uint16"
+
+
+def _parse_d3d11_index_format(dxgi_format: str) -> str:
+    if "R32_UINT" in dxgi_format:
         return "uint32"
     return "uint16"
 
@@ -130,6 +148,15 @@ def _parse_draw_indexed_chunk(chunk: ET.Element, event_id: int) -> VulkanDrawInd
     )
 
 
+def _parse_d3d11_draw_indexed_chunk(chunk: ET.Element, event_id: int) -> D3D11DrawIndexedCall:
+    return D3D11DrawIndexedCall(
+        event_id=event_id,
+        index_count=_read_numeric_text(chunk, "./uint[@name='IndexCount']"),
+        start_index_location=_read_numeric_text(chunk, "./uint[@name='StartIndexLocation']"),
+        base_vertex_location=_read_numeric_text(chunk, "./int[@name='BaseVertexLocation']"),
+    )
+
+
 def extract_vulkan_bindings_for_event(xml_path: str, event_id: int) -> dict:
     event_id = int(event_id)
     index_binding = None
@@ -171,6 +198,93 @@ def extract_vulkan_bindings_for_event(xml_path: str, event_id: int) -> dict:
         "vertex_buffers": vertex_bindings,
         "draw": draw_info,
     }
+
+
+def extract_d3d11_bindings_for_event(xml_path: str, event_id: int) -> dict:
+    event_id = int(event_id)
+    current_vertex_bindings = []
+    current_index_binding = None
+    found = False
+
+    for _, chunk in ET.iterparse(xml_path, events=("end",)):
+        if chunk.tag != "chunk":
+            continue
+
+        name = chunk.get("name", "")
+        chunk_index = _to_int(chunk.get("chunkIndex"), default=-1)
+
+        if name == "ID3D11DeviceContext::IASetVertexBuffers":
+            start_slot = _read_numeric_text(chunk, "./uint[@name='StartSlot']")
+            buffers = []
+            strides = []
+            offsets = []
+
+            arr = chunk.find("./array[@name='ppVertexBuffers']")
+            if arr is not None:
+                for elem in arr.findall("ResourceId"):
+                    buffers.append(_to_int(elem.text))
+
+            arr = chunk.find("./array[@name='pStrides']")
+            if arr is not None:
+                for elem in arr.findall("uint"):
+                    strides.append(_to_int(elem.text))
+
+            arr = chunk.find("./array[@name='pOffsets']")
+            if arr is not None:
+                for elem in arr.findall("uint"):
+                    offsets.append(_to_int(elem.text))
+
+            parsed = []
+            for index, resource_id in enumerate(buffers):
+                if resource_id <= 0:
+                    continue
+                parsed.append(
+                    {
+                        "slot": start_slot + index,
+                        "resource_id": resource_id,
+                        "byte_offset": offsets[index] if index < len(offsets) else 0,
+                        "stride": strides[index] if index < len(strides) else 0,
+                    }
+                )
+            current_vertex_bindings = parsed
+
+        elif name == "ID3D11DeviceContext::IASetIndexBuffer":
+            resource_elem = chunk.find("./ResourceId[@name='pIndexBuffer']")
+            resource_id = _to_int(resource_elem.text if resource_elem is not None else None)
+            fmt_elem = chunk.find("./enum[@name='Format']")
+            fmt = fmt_elem.get("string", "") if fmt_elem is not None else ""
+            offset = _read_numeric_text(chunk, "./uint[@name='Offset']")
+            if resource_id > 0:
+                current_index_binding = {
+                    "resource_id": resource_id,
+                    "byte_offset": offset,
+                    "index_format": _parse_d3d11_index_format(fmt),
+                }
+            else:
+                current_index_binding = None
+
+        if chunk_index == event_id:
+            found = True
+            if "DrawIndexed" not in name:
+                raise ValueError(f"event {event_id} is not D3D11 DrawIndexed")
+            draw_call = _parse_d3d11_draw_indexed_chunk(chunk, event_id)
+            return {
+                "index_buffer": current_index_binding,
+                "vertex_buffers": list(current_vertex_bindings),
+                "draw": {
+                    "index_count": draw_call.index_count,
+                    "start_index_location": draw_call.start_index_location,
+                    "base_vertex_location": draw_call.base_vertex_location,
+                },
+                "draw_name": name,
+            }
+
+        chunk.clear()
+
+    if not found:
+        raise ValueError(f"event {event_id} not found")
+
+    raise ValueError(f"event {event_id} binding extraction failed")
 
 
 def extract_vulkan_draw_indexed_call(xml_path: str, event_id: int) -> VulkanDrawIndexedCall:
@@ -252,3 +366,86 @@ def build_vulkan_buffer_memory_maps(xml_path: str) -> tuple[dict, dict, dict]:
         chunk.clear()
 
     return buffer_memory, memory_initial, buffer_sizes
+
+
+def build_d3d11_buffer_data_map(xml_path: str, upto_event_id: int | None = None) -> dict:
+    resource_map = {}
+
+    max_event = None
+    if upto_event_id is not None:
+        max_event = int(upto_event_id)
+
+    for _, chunk in ET.iterparse(xml_path, events=("end",)):
+        if chunk.tag != "chunk":
+            continue
+
+        chunk_index = _to_int(chunk.get("chunkIndex"), default=-1)
+        if max_event is not None and chunk_index > max_event:
+            chunk.clear()
+            continue
+
+        name = chunk.get("name", "")
+
+        if name == "ID3D11Device::CreateBuffer":
+            resource_elem = chunk.find("./ResourceId[@name='pBuffer']")
+            initial_elem = chunk.find("./buffer[@name='InitialData']")
+            length_elem = chunk.find("./uint[@name='InitialDataLength']")
+            desc_size = chunk.find("./struct[@name='pDesc']/uint[@name='ByteWidth']")
+
+            resource_id = _to_int(resource_elem.text if resource_elem is not None else None)
+            if resource_id > 0 and initial_elem is not None:
+                resource_map[resource_id] = {
+                    "buffer_index": _to_int(initial_elem.text),
+                    "byte_length": _to_int(length_elem.text if length_elem is not None else initial_elem.get("byteLength")),
+                    "byte_width": _to_int(desc_size.text if desc_size is not None else None),
+                    "source": "CreateBuffer.InitialData",
+                    "chunk_index": chunk_index,
+                    "write_start": 0,
+                    "write_end": _to_int(length_elem.text if length_elem is not None else initial_elem.get("byteLength")),
+                }
+
+        elif name == "ID3D11DeviceContext::Unmap":
+            resource_elem = chunk.find("./ResourceId[@name='pResource']")
+            written_elem = chunk.find("./buffer[@name='MapWrittenData']")
+            start_elem = chunk.find("./uint[@name='Byte offset to start of written data']")
+            end_elem = chunk.find("./uint[@name='Byte offset to end of written data']")
+
+            resource_id = _to_int(resource_elem.text if resource_elem is not None else None)
+            if resource_id > 0 and written_elem is not None:
+                byte_length = _to_int(written_elem.get("byteLength"), default=0)
+                write_start = _to_int(start_elem.text if start_elem is not None else None)
+                write_end = _to_int(end_elem.text if end_elem is not None else None)
+                if write_end > write_start:
+                    byte_length = write_end - write_start
+
+                resource_map[resource_id] = {
+                    "buffer_index": _to_int(written_elem.text),
+                    "byte_length": byte_length,
+                    "byte_width": byte_length,
+                    "source": "Unmap.MapWrittenData",
+                    "chunk_index": chunk_index,
+                    "write_start": write_start,
+                    "write_end": write_end,
+                }
+
+        elif name == "ID3D11DeviceContext::UpdateSubresource":
+            resource_elem = chunk.find("./ResourceId[@name='pDstResource']")
+            src_elem = chunk.find("./buffer[@name='SourceData']")
+            src_len = chunk.find("./uint[@name='SourceDataLength']")
+
+            resource_id = _to_int(resource_elem.text if resource_elem is not None else None)
+            if resource_id > 0 and src_elem is not None:
+                byte_length = _to_int(src_len.text if src_len is not None else src_elem.get("byteLength"))
+                resource_map[resource_id] = {
+                    "buffer_index": _to_int(src_elem.text),
+                    "byte_length": byte_length,
+                    "byte_width": byte_length,
+                    "source": "UpdateSubresource.SourceData",
+                    "chunk_index": chunk_index,
+                    "write_start": 0,
+                    "write_end": byte_length,
+                }
+
+        chunk.clear()
+
+    return resource_map
