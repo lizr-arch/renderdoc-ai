@@ -237,3 +237,31 @@ def test_analyze_xml_report_uses_texture_export_helper():
     script_path = Path(__file__).resolve().parents[1] / "analyze_xml_report.py"
     content = script_path.read_text(encoding="utf-8")
     assert content.count("load_texture_exporter") >= 2
+
+
+def test_shader_full_data_query_and_pager_contract(tmp_path):
+    gen = ReportBundleGenerator(output_dir=tmp_path, capture_name="t.rdc")
+    gen.set_shaders([
+        {"id": str(i), "name": f"Shader_{i}", "type": "vertex" if i % 2 == 0 else "pixel", "usedBy": [{"eid": i}]}
+        for i in range(1, 6)
+    ])
+    outputs = gen.generate_all()
+    html = Path(outputs["shaders"]).read_text(encoding="utf-8")
+    assert 'id="shaderPager"' in html
+    assert 'const allShaders = Array.isArray(shaderData) ? shaderData : []' in html
+    assert 'let filteredShaders = allShaders.slice();' in html
+    assert 'function applyShaderQuery(resetPage)' in html
+    assert 'function renderShaderPage()' in html
+
+
+def test_textures_default_vram_sort_and_auto_select_contract(tmp_path):
+    gen = ReportBundleGenerator(output_dir=tmp_path, capture_name="t.rdc")
+    gen.set_textures([
+        {"id": "1", "resource_id": "1", "name": "Tiny", "width": 4, "height": 4, "vram": 16},
+        {"id": "2", "resource_id": "2", "name": "Readable", "width": 1024, "height": 1024, "vram": 1024 * 1024},
+    ])
+    outputs = gen.generate_all()
+    html = Path(outputs["textures"]).read_text(encoding="utf-8")
+    assert "sortSelect.value = 'vram'" in html
+    assert 'function selectDefaultTexture()' in html
+    assert 'selectDefaultTexture();' in html

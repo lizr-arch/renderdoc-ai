@@ -956,6 +956,32 @@
             items.forEach(item => list.appendChild(item));
         }
 
+        function selectDefaultTexture() {
+            if (!Array.isArray(textureData) || textureData.length === 0) return;
+
+            // 首屏优先展示可读资源：先看尺寸，再看 VRAM
+            const sorted = textureData.slice().sort((a, b) => {
+                const vramA = Number(a?.vram || a?.byteSize || 0);
+                const vramB = Number(b?.vram || b?.byteSize || 0);
+                return vramB - vramA;
+            });
+
+            const readable = sorted.find((tex) => {
+                const w = Number(tex?.width || 0);
+                const h = Number(tex?.height || 0);
+                return Math.max(w, h) >= 256;
+            });
+
+            const target = readable || sorted[0];
+            if (!target) return;
+
+            const targetId = target.id || target.resource_id;
+            if (!targetId) return;
+
+            selectTexture(targetId);
+            scrollToCurrentTexture();
+        }
+
         // ========== 通道切换 ==========
         function toggleChannel(channel) {
             activeChannels[channel] = !activeChannels[channel];
@@ -1125,13 +1151,28 @@
             // 检查 URL 参数
             const params = new URLSearchParams(window.location.search);
             
+            // 初始化列表数据
+            prepareTextureListData();
+
+            // 默认按 VRAM 排序，避免首屏落在 1x1/4x4 等不可读纹理
+            const sortSelect = document.getElementById('sortSelect');
+            if (sortSelect) {
+                sortSelect.value = 'vram';
+            }
+            sortTextures();
+
+            // 应用筛选（默认 all）
+            const filter = params.get('filter') || 'all';
+            setFilter(filter);
+            renderListThumbnails();
+
             // 如果有 id 或 target 参数，选中对应纹理
             const id = params.get('id') || params.get('target');
             const shouldHighlight = params.get('highlight') === 'true';
-            
+
             if (id) {
                 selectTexture(id);
-                
+
                 // 如果有 highlight 参数，使用 RdcNav 高亮（延迟等待 DOM 更新）
                 if (shouldHighlight && typeof RdcNav !== 'undefined') {
                     setTimeout(() => {
@@ -1141,18 +1182,9 @@
                         }
                     }, 150);
                 }
+            } else {
+                selectDefaultTexture();
             }
-            
-            // 如果有 filter 参数，应用筛选
-            const filter = params.get('filter');
-            if (filter) {
-                setFilter(filter);
-            }
-            
-            // 初始化列表数据与筛选器状态
-            prepareTextureListData();
-            setFilter('all');
-            renderListThumbnails();
         });
     </script>
     

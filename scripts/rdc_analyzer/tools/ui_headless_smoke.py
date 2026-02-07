@@ -172,8 +172,16 @@ def run_smoke(
             if capture_screenshots:
                 _save_page_shot(page, out_dir, f"shaders_{vp_tag}_initial.png")
 
-            shaders_total = page.locator(".shader-item").count()
             shaders_visible_before = _visible_count(page, ".shader-item")
+            shaders_total = page.evaluate(
+                """
+                () => {
+                    const text = (document.getElementById('shaderStats')?.textContent || '0').trim();
+                    const parsed = parseInt(text.replace(/\D/g, ''), 10);
+                    return Number.isFinite(parsed) ? parsed : 0;
+                }
+                """
+            )
             shaders_list_scroll = page.evaluate(
                 """
                 () => {
@@ -182,6 +190,7 @@ def run_smoke(
                 }
                 """
             )
+            shaders_pager_present = page.locator("#shaderPager").count() > 0
 
             first_shader_id = page.locator(".shader-item").first.get_attribute("data-id") or ""
             search_key = first_shader_id[:4] if len(first_shader_id) >= 4 else first_shader_id
@@ -190,6 +199,31 @@ def run_smoke(
             shaders_visible_after_search = _visible_count(page, ".shader-item")
             if capture_screenshots:
                 _save_page_shot(page, out_dir, f"shaders_{vp_tag}_search.png")
+
+            # 检查“非首屏 Shader 是否可被搜索到”，验证搜索作用于全量数据
+            offpage_search_effective = True
+            needs_offpage_check = shaders_total > shaders_visible_before
+            if needs_offpage_check and shaders_pager_present:
+                page.fill("#shaderSearch", "")
+                page.wait_for_timeout(80)
+                next_btn = page.locator("#shaderPager .pager-btn").nth(1)
+                if next_btn.count() > 0 and next_btn.is_enabled():
+                    next_btn.click()
+                    page.wait_for_timeout(120)
+                    offpage_id = page.locator(".shader-item").first.get_attribute("data-id") or ""
+                    if offpage_id:
+                        page.fill("#shaderSearch", offpage_id)
+                        page.wait_for_timeout(120)
+                        offpage_visible = _visible_count(page, ".shader-item")
+                        offpage_hits = page.locator(f'.shader-item[data-id="{offpage_id}"]').count()
+                        offpage_search_effective = offpage_visible > 0 and offpage_hits > 0
+                    else:
+                        offpage_search_effective = False
+                else:
+                    offpage_search_effective = False
+
+                page.fill("#shaderSearch", "")
+                page.wait_for_timeout(80)
 
             hlsl_box = page.locator("#hlslBtn").bounding_box()
             ai_box = page.locator("#aiOptimizeBtn").bounding_box()
@@ -212,6 +246,8 @@ def run_smoke(
                 "shaders_has_items": shaders_total > 0,
                 "shaders_search_effective": 0 < shaders_visible_after_search <= shaders_visible_before,
                 "shaders_list_scrollable": shaders_list_scroll["scrollHeight"] > shaders_list_scroll["clientHeight"],
+                "shaders_pager_present": bool(shaders_pager_present),
+                "shaders_offpage_search_effective": bool(offpage_search_effective),
                 "shader_buttons_no_overlap": not overlap,
             }
             passed = all(checks.values())

@@ -27,19 +27,75 @@
             scrollbar-gutter: stable both-edges;
         }
 
+        .shader-list-empty {
+            padding: 18px 12px;
+            color: var(--text-muted);
+            font-size: 11px;
+            text-align: center;
+        }
+
+        .shader-pager {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+            height: 36px;
+            padding: 0 10px;
+            border-top: 1px solid var(--border);
+            background: linear-gradient(180deg, rgba(15, 21, 36, 0.96) 0%, rgba(12, 17, 30, 0.96) 100%);
+            flex-shrink: 0;
+        }
+
+        .shader-pager-info {
+            color: var(--text-muted);
+            font-size: 10px;
+            font-family: var(--font-mono);
+            white-space: nowrap;
+        }
+
+        .shader-pager-controls {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .pager-btn {
+            min-width: 56px;
+            height: 24px;
+            border-radius: 999px;
+            border: 1px solid var(--border);
+            background: var(--bg-dark);
+            color: var(--text-secondary);
+            font-size: 10px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.12s ease;
+        }
+
+        .pager-btn:hover:not(:disabled) {
+            border-color: var(--accent-blue);
+            color: var(--text-primary);
+        }
+
+        .pager-btn:disabled {
+            opacity: 0.45;
+            cursor: not-allowed;
+        }
+
         .toolbar-btn.primary {
-            background: linear-gradient(180deg, #2f81f7 0%, #1f6feb 100%);
-            border: 1px solid #1f6feb;
-            color: #fff;
-            box-shadow: 0 2px 6px rgba(31, 111, 235, 0.35);
+            background: linear-gradient(180deg, #3c8dff 0%, #2a6fd6 100%);
+            border: 1px solid #2f7de8;
+            color: #ffffff;
+            box-shadow: 0 4px 10px rgba(38, 114, 218, 0.28);
         }
 
         .toolbar-btn.primary:hover {
-            filter: brightness(1.08);
+            filter: brightness(1.06);
+            box-shadow: 0 6px 14px rgba(38, 114, 218, 0.34);
         }
 
         .toolbar-btn.secondary {
-            background: rgba(255, 255, 255, 0.06);
+            background: linear-gradient(180deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.03) 100%);
             border: 1px solid var(--border);
             color: var(--text-primary);
         }
@@ -47,6 +103,7 @@
         .toolbar-btn.secondary:hover {
             border-color: var(--accent-blue);
             color: var(--text-primary);
+            background: rgba(52, 105, 180, 0.18);
         }
 
         .canvas-toolbar {
@@ -60,45 +117,48 @@
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
+            color: var(--text-primary);
         }
 
         .toolbar-group.primary-actions {
             display: flex;
             align-items: center;
             gap: 6px;
-            padding: 2px 4px;
-            background: var(--bg-dark);
-            border: 1px solid var(--border);
+            padding: 3px;
+            border: 1px solid rgba(76, 109, 156, 0.5);
             border-radius: 999px;
+            background: linear-gradient(180deg, rgba(20, 33, 57, 0.92) 0%, rgba(13, 24, 42, 0.92) 100%);
+            box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
             flex-shrink: 0;
         }
 
         .toolbar-group.primary-actions .toolbar-btn {
             width: auto;
-            min-width: 112px;
-            height: 30px;
+            min-width: 118px;
+            height: 32px;
             padding: 0 14px;
+            border-radius: 999px;
             font-size: 12px;
-            font-weight: 600;
+            font-weight: 700;
             white-space: nowrap;
-            letter-spacing: 0.2px;
+            letter-spacing: 0.15px;
             line-height: 1;
             flex-shrink: 0;
         }
 
         @media (max-width: 1520px) {
             #currentShader {
-                max-width: 240px;
+                max-width: 220px;
             }
 
             .toolbar-group.primary-actions .toolbar-btn {
-                min-width: 96px;
-                height: 28px;
-                padding: 0 10px;
+                min-width: 100px;
+                height: 30px;
+                padding: 0 11px;
                 font-size: 11px;
             }
         }
-        
+
         .shader-item {
             display: flex;
             align-items: flex-start;
@@ -993,9 +1053,14 @@
         let currentFilter = 'all';
         let hlslViewEnabled = false;
         let currentGpu = 'Mali-G78';
+        let selectedShaderId = null;
+        let currentPage = 1;
+        const shaderPageSize = 100;
         
         // ========== Shader 数据 (由 Python 生成器填充) ==========
         const shaderData = {{SHADER_DATA_JSON}};
+        const allShaders = Array.isArray(shaderData) ? shaderData : [];
+        let filteredShaders = allShaders.slice();
         
         // ========== M4.3 多维度性能分析 ==========
         
@@ -1165,44 +1230,247 @@
             document.getElementById('maliPanel').classList.toggle('collapsed');
         }
         
+        // ========== Shader 列表（全量数据 + 分页） ==========
+        function escapeHtml(value) {
+            return String(value || '')
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        }
+
+        function normalizeShaderType(shader) {
+            return String((shader && (shader.type || shader.stage)) || 'unknown').toLowerCase();
+        }
+
+        function hasShaderIssue(shader) {
+            return Boolean((shader && shader.issues && shader.issues.length > 0) || (shader && shader.suggestions && shader.suggestions.length > 0));
+        }
+
+        function getShaderUsageCount(shader) {
+            return (shader && Array.isArray(shader.usedBy)) ? shader.usedBy.length : 0;
+        }
+
+        function getShaderCycles(shader) {
+            return Number((shader && shader.mali && shader.mali.totalCycles) || 0);
+        }
+
+        function getShaderById(id) {
+            const key = String(id || '');
+            return allShaders.find(function(s) { return String((s && s.id) || '') === key; }) || null;
+        }
+
+        function getShaderTypeTag(typeLower) {
+            if (typeLower === 'vs' || typeLower === 'vertex') return 'vs';
+            if (typeLower === 'fs' || typeLower === 'fragment' || typeLower === 'pixel') return 'fs';
+            if (typeLower === 'cs' || typeLower === 'compute') return 'cs';
+            return '';
+        }
+
+        function getShaderTypeIcon(typeLower) {
+            if (typeLower === 'vs' || typeLower === 'vertex') return '📐';
+            if (typeLower === 'fs' || typeLower === 'fragment' || typeLower === 'pixel') return '🎨';
+            if (typeLower === 'cs' || typeLower === 'compute') return '⚡';
+            if (typeLower === 'geometry') return '📊';
+            if (typeLower === 'hull') return '🔷';
+            if (typeLower === 'domain') return '🔶';
+            return '📜';
+        }
+
+        function matchesTypeFilter(typeLower, shader) {
+            if (currentFilter === 'all') return true;
+            if (currentFilter === 'issues') return hasShaderIssue(shader);
+            if (currentFilter === 'vs') return typeLower === 'vs' || typeLower === 'vertex';
+            if (currentFilter === 'fs') return typeLower === 'fs' || typeLower === 'fragment' || typeLower === 'pixel';
+            if (currentFilter === 'cs') return typeLower === 'cs' || typeLower === 'compute';
+            return typeLower === currentFilter;
+        }
+
+        function renderShaderItem(shader) {
+            const shaderId = String((shader && shader.id) || '');
+            const rawName = String((shader && shader.name) || ('Shader ' + shaderId));
+            const typeLabel = String((shader && (shader.type || shader.stage)) || 'Unknown');
+            const typeLower = typeLabel.toLowerCase();
+            const usageCount = getShaderUsageCount(shader);
+            const cycles = getShaderCycles(shader);
+            const hasIssue = hasShaderIssue(shader);
+            const typeTag = getShaderTypeTag(typeLower);
+            const typeIcon = getShaderTypeIcon(typeLower);
+            const maliBadge = (shader && shader.mali) ? '<span class="mali-badge">Mali</span>' : '';
+
+            return ''
+                + '<div class="shader-item" data-id="' + escapeHtml(shaderId) + '" data-name="' + escapeHtml(rawName) + '" data-type="' + escapeHtml(typeLower) + '" '
+                + 'data-usage="' + usageCount + '" data-cycles="' + cycles + '" data-has-issue="' + (hasIssue ? 'true' : 'false') + '" '
+                + 'onclick="selectShader(this.dataset.id)">'
+                + '<span class="shader-item-type">' + typeIcon + '</span>'
+                + '<div class="shader-item-info">'
+                + '<div class="shader-item-name">' + escapeHtml(rawName) + '</div>'
+                + '<div class="shader-item-meta">'
+                + '<span class="shader-meta-tag ' + typeTag + '">' + escapeHtml(typeLabel) + '</span>'
+                + maliBadge
+                + '</div></div></div>';
+        }
+
+        function renderShaderPager(totalItems, startIndex, endIndex, totalPages) {
+            const pager = document.getElementById('shaderPager');
+            if (!pager) return;
+
+            if (totalItems <= 0) {
+                pager.innerHTML = ''
+                    + '<span class="shader-pager-info">0 / 0</span>'
+                    + '<div class="shader-pager-controls">'
+                    + '<button class="pager-btn" disabled>上一页</button>'
+                    + '<button class="pager-btn" disabled>下一页</button>'
+                    + '</div>';
+                return;
+            }
+
+            const prevDisabled = currentPage <= 1 ? 'disabled' : '';
+            const nextDisabled = currentPage >= totalPages ? 'disabled' : '';
+            pager.innerHTML = ''
+                + '<span class="shader-pager-info">' + startIndex + '-' + endIndex + ' / ' + totalItems + '（第 ' + currentPage + '/' + totalPages + ' 页）</span>'
+                + '<div class="shader-pager-controls">'
+                + '<button class="pager-btn" ' + prevDisabled + ' onclick="goToShaderPage(' + (currentPage - 1) + ')">上一页</button>'
+                + '<button class="pager-btn" ' + nextDisabled + ' onclick="goToShaderPage(' + (currentPage + 1) + ')">下一页</button>'
+                + '</div>';
+        }
+
+        function renderShaderPage() {
+            const list = document.getElementById('shaderList');
+            if (!list) return;
+
+            const totalItems = filteredShaders.length;
+            const totalPages = Math.max(1, Math.ceil(totalItems / shaderPageSize));
+
+            if (totalItems <= 0) {
+                currentPage = 1;
+                list.innerHTML = '<div class="shader-list-empty">未找到匹配 Shader，请调整搜索词或筛选条件。</div>';
+                document.getElementById('shaderStats').textContent = '0 项';
+                renderShaderPager(0, 0, 0, totalPages);
+                selectedShaderId = null;
+                return;
+            }
+
+            currentPage = Math.min(Math.max(currentPage, 1), totalPages);
+            const start = (currentPage - 1) * shaderPageSize;
+            const end = Math.min(start + shaderPageSize, totalItems);
+            const pageItems = filteredShaders.slice(start, end);
+
+            list.innerHTML = pageItems.map(renderShaderItem).join('');
+            document.getElementById('shaderStats').textContent = totalItems + ' 项';
+            renderShaderPager(totalItems, start + 1, end, totalPages);
+
+            if (selectedShaderId) {
+                const stillVisible = filteredShaders.some(function(s) { return String((s && s.id) || '') === String(selectedShaderId); });
+                if (!stillVisible) {
+                    selectedShaderId = null;
+                    currentShader = null;
+                    hlslViewEnabled = false;
+                    document.getElementById('currentShader').textContent = '未匹配到 Shader';
+                    document.getElementById('codeContent').innerHTML = ''
+                        + '<div class="canvas-empty" style="max-width: 420px;">'
+                        + '<div class="canvas-empty-icon">🔎</div>'
+                        + '<div class="canvas-empty-text">当前筛选条件下无匹配 Shader</div>'
+                        + '</div>';
+                } else {
+                    const item = Array.from(list.querySelectorAll('.shader-item')).find(function(el) { return String(el.dataset.id || '') === String(selectedShaderId); });
+                    if (item) item.classList.add('selected');
+                }
+            }
+
+            if (!selectedShaderId && pageItems.length > 0) {
+                selectShader(pageItems[0].id, { ensureVisible: false, scroll: false });
+            }
+        }
+
+        function applyShaderQuery(resetPage) {
+            const shouldResetPage = resetPage !== false;
+            const keyword = (document.getElementById('shaderSearch').value || '').toLowerCase().trim();
+            const sortBy = document.getElementById('sortSelect').value;
+
+            filteredShaders = allShaders.filter(function(shader) {
+                const name = String((shader && shader.name) || '').toLowerCase();
+                const typeLower = normalizeShaderType(shader);
+                const shaderId = String((shader && shader.id) || '').toLowerCase();
+                const hitKeyword = !keyword || (name + ' ' + typeLower + ' ' + shaderId).includes(keyword);
+                const hitFilter = matchesTypeFilter(typeLower, shader);
+                return hitKeyword && hitFilter;
+            });
+
+            filteredShaders.sort(function(a, b) {
+                if (sortBy === 'name') {
+                    return String((a && a.name) || '').localeCompare(String((b && b.name) || ''), 'zh-CN');
+                }
+                if (sortBy === 'cycles') {
+                    return getShaderCycles(b) - getShaderCycles(a);
+                }
+                if (sortBy === 'usage') {
+                    return getShaderUsageCount(b) - getShaderUsageCount(a);
+                }
+                return 0;
+            });
+
+            if (shouldResetPage) {
+                currentPage = 1;
+            }
+
+            renderShaderPage();
+        }
+
+        function goToShaderPage(page) {
+            const totalPages = Math.max(1, Math.ceil(filteredShaders.length / shaderPageSize));
+            const clamped = Math.min(Math.max(page, 1), totalPages);
+            if (clamped === currentPage) return;
+            currentPage = clamped;
+            renderShaderPage();
+        }
+
         // ========== Shader 选择 ==========
-        function selectShader(id) {
-            // 使用宽松比较以兼容数字 ID 和字符串 ID
-            const shader = shaderData.find(s => String(s.id) === String(id));
+        function selectShader(id, options) {
+            const opts = options || {};
+            const shader = getShaderById(id);
             if (!shader) return;
-            
+
+            const shaderId = String((shader && shader.id) || id);
+            selectedShaderId = shaderId;
+
+            const ensureVisible = opts.ensureVisible !== false;
+            const allowScroll = opts.scroll !== false;
+
+            if (ensureVisible) {
+                const idx = filteredShaders.findIndex(function(s) { return String((s && s.id) || '') === shaderId; });
+                if (idx >= 0) {
+                    const targetPage = Math.floor(idx / shaderPageSize) + 1;
+                    if (targetPage !== currentPage) {
+                        currentPage = targetPage;
+                        renderShaderPage();
+                    }
+                }
+            }
+
             currentShader = shader;
             hlslViewEnabled = false;
-            
-            // 更新列表选中状态
-            document.querySelectorAll('.shader-item').forEach(el => {
+
+            document.querySelectorAll('.shader-item').forEach(function(el) {
                 el.classList.remove('selected');
             });
-            const item = document.querySelector(`.shader-item[data-id="${id}"]`);
+            const item = Array.from(document.querySelectorAll('.shader-item')).find(function(el) { return String(el.dataset.id || '') === shaderId; });
             if (item) {
                 item.classList.add('selected');
-                item.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+                if (allowScroll) {
+                    item.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+                }
             }
-            
-            // 更新工具栏
-            document.getElementById('currentShader').textContent = shader.name || `Shader ${id}`;
-            
-            // 更新代码查看器
+
+            document.getElementById('currentShader').textContent = shader.name || ('Shader ' + shaderId);
             updateCodeViewer(shader);
-            
-            // 更新 Mali 分析
             updateMaliAnalysis(shader);
-            
-            // 更新基本信息
             updateShaderInfo(shader);
-            
-            // 更新使用情况
             updateUsageList(shader);
-            
-            // 更新建议
             updateSuggestions(shader);
         }
-        
+
         function getHlslSource(shader) {
             if (!shader) return '';
             if (shader.source_hlsl) {
@@ -1521,63 +1789,21 @@
         
         // ========== 筛选与排序 ==========
         function filterShaders() {
-            const rawKeyword = document.getElementById('shaderSearch').value || '';
-            const keyword = rawKeyword.toLowerCase().trim();
-            let visible = 0;
-            
-            document.querySelectorAll('.shader-item').forEach(item => {
-                const name = (item.dataset.name || item.querySelector('.shader-item-name')?.textContent || '').toLowerCase();
-                const type = (item.dataset.type || '').toLowerCase();
-                const shaderId = String(item.dataset.id || '').toLowerCase();
-                const matchKeyword = !keyword || `${name} ${type} ${shaderId}`.includes(keyword);
-                const matchFilter = checkFilter(item);
-                
-                if (matchKeyword && matchFilter) {
-                    item.classList.remove('hidden');
-                    visible++;
-                } else {
-                    item.classList.add('hidden');
-                }
-            });
-            
-            document.getElementById('shaderStats').textContent = `${visible} 项`;
+            applyShaderQuery(true);
         }
-        
-        function checkFilter(item) {
-            if (currentFilter === 'all') return true;
-            if (currentFilter === 'issues') return item.dataset.hasIssue === 'true';
-            return item.dataset.type === currentFilter;
-        }
-        
+
         function setFilter(filter) {
             currentFilter = filter;
-            document.querySelectorAll('.filter-chip').forEach(chip => {
+            document.querySelectorAll('.filter-chip').forEach(function(chip) {
                 chip.classList.toggle('active', chip.dataset.filter === filter);
             });
-            filterShaders();
+            applyShaderQuery(true);
         }
-        
+
         function sortShaders() {
-            const sortBy = document.getElementById('sortSelect').value;
-            const list = document.getElementById('shaderList');
-            const items = Array.from(list.querySelectorAll('.shader-item'));
-            
-            items.sort((a, b) => {
-                switch (sortBy) {
-                    case 'name':
-                        return (a.dataset.name || '').localeCompare(b.dataset.name || '');
-                    case 'cycles':
-                        return parseInt(b.dataset.cycles || 0) - parseInt(a.dataset.cycles || 0);
-                    case 'usage':
-                        return parseInt(b.dataset.usage || 0) - parseInt(a.dataset.usage || 0);
-                    default:
-                        return 0;
-                }
-            });
-            
-            items.forEach(item => list.appendChild(item));
+            applyShaderQuery(true);
         }
-        
+
         // ========== 跳转 ==========
         function jumpToEvent(eid) {
             if (eid) {
@@ -1612,29 +1838,28 @@
         // ========== 初始化 ==========
         document.addEventListener('DOMContentLoaded', () => {
             const params = new URLSearchParams(window.location.search);
-            
+
+            // 先渲染全量查询（默认 all）
+            setFilter('all');
+
             // 如果有 id/sid/target 参数，选中对应 Shader
             const id = params.get('id') || params.get('sid') || params.get('target');
             const shouldHighlight = params.get('highlight') === 'true';
-            
+
             if (id) {
-                selectShader(id);
-                
-                // 如果有 highlight 参数，使用 RdcNav 高亮
+                selectShader(id, { ensureVisible: true, scroll: false });
+
                 if (shouldHighlight && typeof RdcNav !== 'undefined') {
                     setTimeout(() => {
-                        const item = document.querySelector(`.shader-item[data-id="${id}"]`);
+                        const item = Array.from(document.querySelectorAll('.shader-item')).find(function(el) { return String(el.dataset.id) === String(id); });
                         if (item) {
                             RdcNav.highlight(item);
                         }
                     }, 150);
                 }
-            } else if (shaderData.length > 0) {
-                selectShader(shaderData[0].id);
+            } else if (!currentShader && filteredShaders.length > 0) {
+                selectShader(filteredShaders[0].id, { ensureVisible: false, scroll: false });
             }
-            
-            // 初始化筛选器
-            setFilter('all');
 
             const hlslBtn = document.getElementById('hlslBtn');
             if (hlslBtn) {
@@ -1645,6 +1870,7 @@
             if (aiBtn) {
                 aiBtn.addEventListener('click', toggleAiOptimize);
             }
+        });
         });
     </script>
     
