@@ -1,4 +1,5 @@
 import argparse
+import json
 from pathlib import Path
 import sys
 
@@ -10,8 +11,11 @@ sys.path.insert(0, str(EXPORTERS_DIR))
 from engine_guid import hash_guid
 from messiah_bundle_adapter import (
     collect_material_textures,
+    collect_shader_stages,
     detect_event_id,
+    infer_material_template,
     load_bundle_payload,
+    map_texture_slot_to_parameter,
     parse_obj_mesh,
     resolve_bundle_root,
     resolve_texture_source,
@@ -29,6 +33,27 @@ from messiah_exporter import (
     build_material_xml,
     write_repo_skeleton,
 )
+
+
+def _safe_rel(path: Path, root: Path) -> str:
+    try:
+        return path.relative_to(root).as_posix()
+    except Exception:
+        return str(path)
+
+
+def _unique_parameter_name(candidate: str, used_names: set, extra_seed: int):
+    name = str(candidate or "").strip()
+    if name and name not in used_names:
+        used_names.add(name)
+        return name, extra_seed
+
+    while True:
+        fallback = f"tExtraMap{extra_seed}"
+        extra_seed += 1
+        if fallback not in used_names:
+            used_names.add(fallback)
+            return fallback, extra_seed
 
 
 def export_messiah_from_bundle(bundle_dir, out_dir, event_id=None):
@@ -57,14 +82,37 @@ def export_messiah_from_bundle(bundle_dir, out_dir, event_id=None):
 
     texture_entries = collect_material_textures(materials_payload)
     texture_refs = []
-    for texture_entry in texture_entries:
+    texture_bindings = []
+    used_param_names = set()
+    extra_seed = 0
+    exported_texture_records = []
+    missing_texture_records = []
+
+    for index, texture_entry in enumerate(texture_entries):
+        param_hint = map_texture_slot_to_parameter(texture_entry, index)
+        parameter_name, extra_seed = _unique_parameter_name(param_hint, used_param_names, extra_seed)
+
         source_file = resolve_texture_source(bundle_root, texture_entry)
         if source_file is None:
+            missing_texture_records.append(
+                {
+                    "index": index,
+                    "parameter": parameter_name,
+                    "slot": texture_entry.get("slot"),
+                    "sampler": texture_entry.get("sampler"),
+                    "texture_id": texture_entry.get("texture_id"),
+                    "source_path": texture_entry.get("source_path"),
+                    "output_path": texture_entry.get("output_path"),
+                    "status": texture_entry.get("status"),
+                    "reason": "source_not_found",
+                }
+            )
             continue
 
         texture_key = source_file.name
         texture_guid = hash_guid("Texture", event_id, texture_key)
         texture_refs.append((texture_guid, texture_key, texture_entry))
+        texture_bindings.append((parameter_name, texture_guid))
 
         tex_bytes = source_file.read_bytes()
         width = _to_int(texture_entry.get("width"), 1)
@@ -78,14 +126,32 @@ def export_messiah_from_bundle(bundle_dir, out_dir, event_id=None):
         _write_text(texture_dir / "texture.xml", texture_xml)
         _write_bytes(texture_dir / "resource.data", tex_bytes)
 
-    shader_kind = None
-    shaders = manifest.get("shaders") if isinstance(manifest, dict) else None
-    if isinstance(shaders, list) and shaders:
-        first_shader = shaders[0] if isinstance(shaders[0], dict) else {}
-        shader_kind = first_shader.get("stage")
+        exported_texture_records.append(
+            {
+                "index": index,
+                "parameter": parameter_name,
+                "texture_guid": texture_guid,
+                "source": _safe_rel(source_file, bundle_root),
+                "slot": texture_entry.get("slot"),
+                "sampler": texture_entry.get("sampler"),
+                "texture_id": texture_entry.get("texture_id"),
+                "format": format_name,
+                "width": width,
+                "height": height,
+                "size": len(tex_bytes),
+            }
+        )
 
-    base_texture_guid = texture_refs[0][0] if texture_refs else None
-    material_xml = build_material_xml(shader_kind, "unlit", base_texture_guid)
+    shader_stages = collect_shader_stages(manifest, materials_payload)
+    material_template = infer_material_template(manifest, materials_payload, fallback="unlit")
+
+    base_texture_guid = texture_bindings[0][1] if texture_bindings else None
+    material_xml = build_material_xml(
+        material_template,
+        "unlit",
+        base_texture_guid,
+        texture_bindings=texture_bindings,
+    )
     material_dir = _resource_dir(repo_root, "Material", material_guid)
     material_dir.mkdir(parents=True, exist_ok=True)
     _write_text(material_dir / "resource.xml", material_xml)
@@ -102,6 +168,22 @@ def export_messiah_from_bundle(bundle_dir, out_dir, event_id=None):
 
     repository_xml = _build_repository_xml(event_id, mesh_guid, material_guid, model_guid, texture_refs)
     _write_text(repo_root / "resource.repository", repository_xml)
+
+    mapping_payload = {
+        "schema_version": "1.1",
+        "event_id": event_id,
+        "api": manifest.get("api") if isinstance(manifest, dict) else None,
+        "shader_stages": shader_stages,
+        "material_template": material_template,
+        "material_guid": material_guid,
+        "textures": {
+            "exported": exported_texture_records,
+            "missing": missing_texture_records,
+            "count_exported": len(exported_texture_records),
+            "count_missing": len(missing_texture_records),
+        },
+    }
+    _write_text(repo_root / "import_bundle_mapping.json", json.dumps(mapping_payload, indent=2, ensure_ascii=False))
 
     return repo_root
 

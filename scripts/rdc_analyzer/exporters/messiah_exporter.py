@@ -15,12 +15,40 @@ def write_repo_skeleton(out_dir, event_id):
     return repo_root
 
 
-def build_material_xml(shader_kind, fallback, base_texture_guid=None):
+def build_material_xml(shader_kind, fallback, base_texture_guid=None, texture_bindings=None):
     if isinstance(shader_kind, str) and shader_kind.lower() == "pbr":
         template_name = "PBR"
     else:
         template_name = "Unlit" if fallback == "unlit" else fallback
-    texture_guid = base_texture_guid or "00000000-0000-0000-0000-000000000000"
+
+    zero_guid = "00000000-0000-0000-0000-000000000000"
+    parameters = []
+    if isinstance(texture_bindings, list) and texture_bindings:
+        for item in texture_bindings:
+            if not isinstance(item, (tuple, list)) or len(item) < 2:
+                continue
+            param_name = str(item[0] or "").strip() or "tBaseMap"
+            param_guid = str(item[1] or "").strip() or zero_guid
+            if any(existing_name == param_name for existing_name, _ in parameters):
+                continue
+            parameters.append((param_name, param_guid))
+
+    if not parameters:
+        texture_guid = base_texture_guid or zero_guid
+        parameters = [("tBaseMap", texture_guid)]
+
+    parameter_chunks = []
+    for index, (param_name, texture_guid) in enumerate(parameters):
+        parameter_chunks.append(
+            (
+                f'                                <Element index="{index}">\n'
+                f'                                    <Name>{param_name}</Name>\n'
+                f'                                    <Value>{texture_guid}</Value>\n'
+                '                                </Element>'
+            )
+        )
+    parameters_xml = "\n".join(parameter_chunks)
+
     return (
         "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n"
         "<Resource>\n"
@@ -35,11 +63,8 @@ def build_material_xml(shader_kind, fallback, base_texture_guid=None):
         "                        <Element index=\"0\">\n"
         "                            <LayerName>rdc_layer</LayerName>\n"
         f"                            <ShaderName>{template_name}</ShaderName>\n"
-        "                            <Parameters count=\"1\" ordered=\"true\">\n"
-        "                                <Element index=\"0\">\n"
-        "                                    <Name>tBaseMap</Name>\n"
-        f"                                    <Value>{texture_guid}</Value>\n"
-        "                                </Element>\n"
+        f"                            <Parameters count=\"{len(parameters)}\" ordered=\"true\">\n"
+        f"{parameters_xml}\n"
         "                            </Parameters>\n"
         "                        </Element>\n"
         "                    </Layers>\n"

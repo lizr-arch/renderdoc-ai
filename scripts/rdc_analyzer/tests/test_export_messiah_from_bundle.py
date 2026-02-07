@@ -57,7 +57,29 @@ def _write_bundle(tmp_path: Path, event_id: int = 2001):
                                 "width": 2,
                                 "height": 2,
                                 "format": "R8G8B8A8",
-                            }
+                            },
+                            {
+                                "slot": "PS.normal",
+                                "sampler": "PS.s1",
+                                "texture_id": 12,
+                                "source_path": "textures/tex_12.bin",
+                                "output_path": "textures/tex_12.bin",
+                                "status": "raw_rgba",
+                                "width": 2,
+                                "height": 2,
+                                "format": "R8G8B8A8",
+                            },
+                            {
+                                "slot": "PS.emissive",
+                                "sampler": "PS.s2",
+                                "texture_id": 13,
+                                "source_path": "textures/tex_13.bin",
+                                "output_path": "textures/tex_13.png",
+                                "status": "copied_image",
+                                "width": 2,
+                                "height": 2,
+                                "format": "R8G8B8A8",
+                            },
                         ],
                         "constants": [],
                     }
@@ -72,13 +94,14 @@ def _write_bundle(tmp_path: Path, event_id: int = 2001):
             {
                 "event_id": event_id,
                 "api": "Vulkan",
-                "shaders": [{"stage": "ps"}],
+                "shaders": [{"stage": "vs"}, {"stage": "ps"}],
             }
         ),
         encoding="utf-8",
     )
 
     textures_dir.joinpath("tex_11.png").write_bytes(b"PNGDATA")
+    textures_dir.joinpath("tex_12.bin").write_bytes(bytes([128, 64, 32, 255]) * 4)
     return event_root, bundle_root
 
 
@@ -99,7 +122,20 @@ def test_export_messiah_from_bundle_generates_repository(tmp_path):
     assert mesh_files
     assert material_files
     assert model_files
-    assert texture_files
+    assert len(texture_files) == 2
+
+    material_xml = material_files[0].read_text(encoding="utf-8")
+    assert "<ShaderName>PBR</ShaderName>" in material_xml
+    assert "<Name>tBaseMap</Name>" in material_xml
+    assert "<Name>tNormalMap</Name>" in material_xml
+
+    mapping_path = repo_root / "import_bundle_mapping.json"
+    assert mapping_path.exists()
+    mapping = json.loads(mapping_path.read_text(encoding="utf-8"))
+    assert mapping["material_template"] == "pbr"
+    assert mapping["textures"]["count_exported"] == 2
+    assert mapping["textures"]["count_missing"] == 1
+    assert mapping["textures"]["missing"][0]["parameter"] == "tEmissiveMap"
 
 
 def test_main_supports_event_root_input(tmp_path):

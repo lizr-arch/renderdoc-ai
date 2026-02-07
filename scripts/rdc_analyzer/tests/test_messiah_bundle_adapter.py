@@ -8,8 +8,11 @@ sys.path.insert(0, str(SCRIPT_DIR / "exporters"))
 
 from messiah_bundle_adapter import (  # noqa: E402
     collect_material_textures,
+    collect_shader_stages,
     detect_event_id,
+    infer_material_template,
     load_bundle_payload,
+    map_texture_slot_to_parameter,
     parse_obj_mesh,
     resolve_bundle_root,
     resolve_texture_source,
@@ -96,7 +99,7 @@ def test_resolve_bundle_root(tmp_path):
 
 
 def test_detect_event_id_from_manifest_and_parent(tmp_path):
-    event_root, bundle_root = _write_bundle(tmp_path, 3002)
+    _, bundle_root = _write_bundle(tmp_path, 3002)
     manifest, _ = load_bundle_payload(bundle_root)
     assert detect_event_id(bundle_root, manifest=manifest) == 3002
     assert detect_event_id(bundle_root, explicit_event_id=9999, manifest=manifest) == 9999
@@ -110,6 +113,36 @@ def test_collect_and_resolve_texture_source(tmp_path):
     source = resolve_texture_source(bundle_root, textures[0])
     assert source is not None
     assert source.name == "tex_7.png"
+
+
+def test_collect_shader_stages(tmp_path):
+    _, bundle_root = _write_bundle(tmp_path, 30035)
+    manifest, materials = load_bundle_payload(bundle_root)
+    stages = collect_shader_stages(manifest, materials)
+    assert stages == ["ps"]
+
+
+def test_infer_material_template_prefers_pbr_tokens(tmp_path):
+    _, bundle_root = _write_bundle(tmp_path, 30036)
+    manifest, materials = load_bundle_payload(bundle_root)
+    materials["materials"][0]["textures"].append(
+        {
+            "slot": "PS.normal",
+            "texture_id": 8,
+            "source_path": "textures/tex_8.bin",
+            "output_path": "textures/tex_8.png",
+        }
+    )
+
+    assert infer_material_template(manifest, materials, fallback="unlit") == "pbr"
+
+
+def test_map_texture_slot_to_parameter_rules():
+    assert map_texture_slot_to_parameter({"slot": "PS.t0"}, 0) == "tBaseMap"
+    assert map_texture_slot_to_parameter({"slot": "PS.normal"}, 1) == "tNormalMap"
+    assert map_texture_slot_to_parameter({"slot": "PS.metallicRoughness"}, 2) == "tPBRMap"
+    assert map_texture_slot_to_parameter({"slot": "PS.emissive"}, 3) == "tEmissiveMap"
+    assert map_texture_slot_to_parameter({"slot": "PS.custom"}, 4) == "tExtraMap4"
 
 
 def test_parse_obj_mesh(tmp_path):

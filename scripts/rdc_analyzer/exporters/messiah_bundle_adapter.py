@@ -68,6 +68,84 @@ def collect_material_textures(materials_payload: dict):
     return result
 
 
+def _iter_materials(materials_payload: dict):
+    if not isinstance(materials_payload, dict):
+        return
+    materials = materials_payload.get("materials")
+    if not isinstance(materials, list):
+        return
+    for material in materials:
+        if isinstance(material, dict):
+            yield material
+
+
+def _texture_hint_blob(texture_entry: dict) -> str:
+    parts = []
+    for key in ("slot", "sampler", "name", "semantic", "source_path", "output_path"):
+        value = texture_entry.get(key)
+        if value is None:
+            continue
+        text = str(value).strip().lower()
+        if text:
+            parts.append(text)
+    return " ".join(parts)
+
+
+def collect_shader_stages(manifest: dict, materials_payload: dict):
+    ordered = []
+
+    def _append(stage):
+        if stage is None:
+            return
+        value = str(stage).strip().lower()
+        if value and value not in ordered:
+            ordered.append(value)
+
+    shaders = manifest.get("shaders") if isinstance(manifest, dict) else None
+    if isinstance(shaders, list):
+        for item in shaders:
+            if isinstance(item, dict):
+                _append(item.get("stage"))
+
+    for material in _iter_materials(materials_payload):
+        _append(material.get("shader"))
+
+    return ordered
+
+
+def infer_material_template(manifest: dict, materials_payload: dict, fallback: str = "unlit") -> str:
+    shader_stages = collect_shader_stages(manifest, materials_payload)
+    if "pbr" in shader_stages:
+        return "pbr"
+
+    pbr_tokens = ("normal", "rough", "metal", "spec", "gloss", "ao", "orm", "occlusion")
+    for texture_entry in collect_material_textures(materials_payload):
+        blob = _texture_hint_blob(texture_entry)
+        if any(token in blob for token in pbr_tokens):
+            return "pbr"
+
+    return str(fallback or "unlit").strip().lower() or "unlit"
+
+
+def map_texture_slot_to_parameter(texture_entry: dict, fallback_index: int = 0) -> str:
+    blob = _texture_hint_blob(texture_entry)
+
+    normal_tokens = ("normal", "nrm")
+    pbr_tokens = ("rough", "metal", "spec", "gloss", "ao", "orm", "occlusion")
+    emissive_tokens = ("emissive", "emission")
+    base_tokens = ("basemap", "base", "albedo", "diffuse", "color", "t0", "binding0")
+
+    if any(token in blob for token in normal_tokens):
+        return "tNormalMap"
+    if any(token in blob for token in pbr_tokens):
+        return "tPBRMap"
+    if any(token in blob for token in emissive_tokens):
+        return "tEmissiveMap"
+    if any(token in blob for token in base_tokens):
+        return "tBaseMap"
+    return f"tExtraMap{max(0, int(fallback_index))}"
+
+
 def _parse_obj_index(raw: str, length: int):
     if not raw:
         return None
