@@ -1,0 +1,140 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://renderdoc.org/schemas/import_bundle_manifest.schema.json",
+  "title": "RDC Event Import Bundle Manifest",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "schema_path",
+    "event_id",
+    "api",
+    "sources",
+    "outputs",
+    "statistics",
+    "materials",
+    "shaders"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string"
+    },
+    "schema_path": {
+      "type": "string"
+    },
+    "event_id": {
+      "type": "integer"
+    },
+    "api": {
+      "type": "string"
+    },
+    "sources": {
+      "type": "object",
+      "required": [
+        "intermediate_dir",
+        "zip_xml",
+        "zip_bin"
+      ],
+      "properties": {
+        "intermediate_dir": {
+          "type": "string"
+        },
+        "zip_xml": {
+          "type": "string"
+        },
+        "zip_bin": {
+          "type": "string"
+        }
+      }
+    },
+    "outputs": {
+      "type": "object",
+      "required": [
+        "mesh_obj",
+        "mesh_mtl",
+        "materials",
+        "shaders",
+        "textures"
+      ],
+      "properties": {
+        "mesh_obj": {
+          "type": "string"
+        },
+        "mesh_mtl": {
+          "type": "string"
+        },
+        "materials": {
+          "type": "string"
+        },
+        "shaders": {
+          "type": "string"
+        },
+        "textures": {
+          "type": "string"
+        }
+      }
+    },
+    "statistics": {
+      "type": "object",
+      "required": [
+        "vertex_count",
+        "index_count",
+        "triangle_count",
+        "shader_count",
+        "texture_count",
+        "decoded_texture_count"
+      ],
+      "properties": {
+        "vertex_count": {
+          "type": "integer"
+        },
+        "index_count": {
+          "type": "integer"
+        },
+        "triangle_count": {
+          "type": "integer"
+        },
+        "shader_count": {
+          "type": "integer"
+        },
+        "texture_count": {
+          "type": "integer"
+        },
+        "decoded_texture_count": {
+          "type": "integer"
+        }
+      }
+    },
+    "materials": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    },
+    "shaders": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "stage",
+          "json",
+          "bytecode_format",
+          "entry"
+        ],
+        "properties": {
+          "stage": {
+            "type": "string"
+          },
+          "json": {
+            "type": "string"
+          },
+          "bytecode_format": {
+            "type": "string"
+          },
+          "entry": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}

@@ -286,3 +286,42 @@ Task 6 — 文档与计划同步
   - `py -3 -m pytest scripts/rdc_analyzer/tests/test_zipxml_event_resources.py scripts/rdc_analyzer/tests/test_extract_event_intermediate.py -v --tb=short`
   - `py -3 -m pytest scripts/rdc_analyzer/tests/test_zipxml_event_parser.py scripts/rdc_analyzer/tests/test_zipxml_event_resources.py scripts/rdc_analyzer/tests/test_extract_event_intermediate.py scripts/rdc_analyzer/tests/test_intermediate_schemas.py scripts/rdc_analyzer/tests/test_xmlzip_event_extractor.py scripts/rdc_analyzer/tests/test_xmlzip_intermediate_writer.py scripts/rdc_analyzer/tests/test_xmlzip_texture_decode_integration.py -q`
   - Result: `22 passed`
+
+## /do Extension Log (Import Bundle Closure)
+
+- 日期：2026-02-07
+- 目标：把 `event_<id>/intermediate` 落地为“可导入资源包”，形成单 event 闭环。
+
+### 代码变更
+
+1. 新增 `scripts/rdc_analyzer/export_event_import_bundle.py`
+   - 支持两种入口：
+     - `--intermediate`（已有中间态）
+     - `--xml + --zip + --event`（一步式：先抽取中间态，再导出资源包）
+   - 导出内容：
+     - `mesh/mesh.obj + mesh.mtl`
+     - `materials/materials.json`
+     - `shaders/*.json + *.bin`
+     - `textures/*.png|*.bin`
+     - `bundle_manifest.json`
+   - 纹理策略：优先 `decode_texture -> RGBA8 PNG`，失败回退 `raw_copy`。
+
+2. 新增 schema
+   - `scripts/rdc_analyzer/schema/import_bundle_manifest.schema.json`
+   - `scripts/rdc_analyzer/schema/import_bundle_materials.schema.json`
+   - 导出后自动执行结构校验（复用 `validate_json_file`）。
+
+3. 新增测试
+   - `scripts/rdc_analyzer/tests/test_export_event_import_bundle.py`
+   - 覆盖：
+     - RGBA8 解码为 PNG 成功路径
+     - 未知格式回退 raw_copy 路径
+     - manifest/materials 结构与统计字段检查
+
+### 验证
+
+- `py -3 -m py_compile scripts/rdc_analyzer/export_event_import_bundle.py scripts/rdc_analyzer/tests/test_export_event_import_bundle.py`
+- `py -3 -m pytest scripts/rdc_analyzer/tests/test_export_event_import_bundle.py scripts/rdc_analyzer/tests/test_obj_writer.py scripts/rdc_analyzer/tests/test_export_fbx_assets.py scripts/rdc_analyzer/tests/test_extract_event_intermediate.py scripts/rdc_analyzer/tests/test_intermediate_schemas.py -q`
+- `py -3 -m pytest scripts/rdc_analyzer/tests/test_zipxml_event_parser.py scripts/rdc_analyzer/tests/test_zipxml_event_resources.py scripts/rdc_analyzer/tests/test_extract_event_intermediate.py scripts/rdc_analyzer/tests/test_intermediate_schemas.py scripts/rdc_analyzer/tests/test_xmlzip_event_extractor.py scripts/rdc_analyzer/tests/test_xmlzip_intermediate_writer.py scripts/rdc_analyzer/tests/test_xmlzip_texture_decode_integration.py scripts/rdc_analyzer/tests/test_export_event_import_bundle.py -q`
+
+- 结果：`24 passed`
