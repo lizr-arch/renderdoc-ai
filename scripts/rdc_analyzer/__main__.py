@@ -758,7 +758,8 @@ def cmd_compare(args):
             target_data=target_data,
             baseline_name=baseline_path.name,
             target_name=target_path.name,
-            custom_thresholds=custom_thresholds
+            custom_thresholds=custom_thresholds,
+            align_strategy=args.align_strategy
         )
         
         # 确定输出路径

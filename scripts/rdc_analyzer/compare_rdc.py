@@ -152,7 +152,8 @@ def run_comparison(
     target_data: Dict[str, Any],
     baseline_name: str,
     target_name: str,
-    custom_thresholds: Optional[Dict[RegressionRuleId, float]] = None
+    custom_thresholds: Optional[Dict[RegressionRuleId, float]] = None,
+    align_strategy: str = "signature"
 ) -> tuple:
     """执行对比分析
     
@@ -162,12 +163,13 @@ def run_comparison(
         baseline_name: 基准文件名
         target_name: 目标文件名
         custom_thresholds: 自定义阈值配置
+        align_strategy: DrawCall 对齐策略 ("order", "signature", "marker")
         
     Returns:
         (DiffResult, RegressionReport) 元组
     """
     # Step 1: 计算差异
-    engine = DiffEngine()
+    engine = DiffEngine(align_strategy=align_strategy)
     diff_result = engine.compare(baseline_data, target_data)
     
     # 更新文件名信息
