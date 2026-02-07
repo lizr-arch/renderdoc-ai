@@ -97,6 +97,39 @@ CI 集成选项:
 
 ---
 
+### `compare-multi-frame` - 多帧统计对比 ⭐ (v2.5.0)
+
+采集多帧数据进行统计显著性分析，区分真实回归与随机波动。
+
+```bash
+py -3 -m rdc_analyzer compare-multi-frame BASELINE CURRENT [OPTIONS]
+
+选项:
+  --samples N            每个文件采样帧数 (默认: 5)
+  --align-strategy STR   对齐策略: order | signature | marker (默认: order)
+  -o, --output PATH      输出 HTML 报告
+  --junit-xml PATH       输出 JUnit XML 格式报告
+  --fail-on-regression   发现 HIGH 显著性回归时返回非零退出码
+```
+
+**显著性等级**:
+| 等级 | Z-score | Cohen's d | 含义 |
+|------|---------|-----------|------|
+| HIGH | ≥3.0 | ≥0.8 | 确定回归，需修复 |
+| MEDIUM | ≥2.0 | ≥0.5 | 可疑变化，需关注 |
+| LOW | <2.0 | <0.5 | 可能是噪声 |
+
+**对齐策略说明**:
+| 策略 | 适用场景 |
+|------|----------|
+| `order` | 稳定场景，Draw Call 顺序不变 |
+| `signature` | 场景有小幅改动 |
+| `marker` | RenderDoc 标记的 Pass，推荐生产使用 |
+
+> 📚 详细指南: [MULTI_FRAME_GUIDE.md](docs/MULTI_FRAME_GUIDE.md)
+
+---
+
 ### `audit` - 资产审计
 
 检查单个捕获文件中的资源反模式，无需基线对比。
