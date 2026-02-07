@@ -82,6 +82,12 @@
 - 适用链路：A/B/C
 - 路径：`docs/analysis/codex_rdc_analyzer/TASK_TRACKER.md`
 
+### M4.3_SHADER_PERF_ANALYSIS_DESIGN（M4.3 设计文档）
+- 简介：Mali Shader 多维度性能分析设计，含评分算法、9 条规则、GPU 档位支持。
+- 关键词：shader, malioc, cycles, registers, health score, rules
+- 适用链路：A/C
+- 路径：`docs/analysis/codex_rdc_analyzer/M4.3_SHADER_PERF_ANALYSIS_DESIGN.md`
+
 ### scripts/rdc_analyzer/README（工具入口）
 - 简介：rdc_analyzer CLI 用法与模块入口。
 - 关键词：cli, analyze, compare, usage

@@ -33,7 +33,7 @@
 | **M2: EvidenceChain** | ✅ 已完成 | 12/12 | 证据链生成 |
 | **M3: UI 跳转/高亮** | ✅ 已完成 | 13/13 | 跨页面证据链导航 |
 | M4: 高级可视化 | ⏳ 可选 | 0/6 | 热力图等 |
-| Phase 5: B-mode 对比 | ⏳ 待开始 | 0/4 | 多帧统计 |
+| Phase 5: B-mode 对比 | ✅ 进行中 | 3/4 | 多帧统计 (P5.1/P5.2/P5.4 完成) |
 | P0-NEW-3: Schema 规范 | ⏳ 待开始 | 0/1 | 小范围改动 |
 
 ---
@@ -248,27 +248,27 @@ evidence_chain.to_dict() 输出完整 JSON
 > **目标**: 增强双帧对比能力，支持 CI 回归门禁  
 > **源文档**: `TASK_TRACKER.md` 第 210-268 行
 
-### Phase 5.1 多帧统计采样
+### Phase 5.1 多帧统计采样 ✅ 完成
 
-- [ ] **P5.1.1** 添加 `--samples N` 参数到 compare 命令
-- [ ] **P5.1.2** 实现多帧数据聚合逻辑
-- [ ] **P5.1.3** 输出统计摘要 (mean/median/p95)
+- [x] **P5.1.1** 添加 `--samples N` 参数到 compare 命令
+- [x] **P5.1.2** 实现多帧数据聚合逻辑 (`stats/sampler.py`: `MultiFrameSampler`)
+- [x] **P5.1.3** 输出统计摘要 (mean/median/p95) (`MetricStatistics` dataclass)
 
-### Phase 5.2 统计显著性检测
+### Phase 5.2 统计显著性检测 ✅ 完成
 
-- [ ] **P5.2.1** 引入置信区间计算
-- [ ] **P5.2.2** 输出 `significance` (high/medium/low)
-- [ ] **P5.2.3** 添加 `--confidence-level` 参数
+- [x] **P5.2.1** 引入置信区间计算 (`stats/summary.py`: Z-score + Welch's t-test)
+- [x] **P5.2.2** 输出 `significance` (high/medium/low) + Cohen's d 效应量
+- [x] **P5.2.3** 添加 `--confidence-level` 参数 (支持 90%/95%/99%)
 
-### Phase 5.3 Marker/Pass 对齐
+### Phase 5.3 Marker/Pass 对齐 ⏳ 待开始
 
 - [ ] **P5.3.1** 实现按 marker 名称对齐
 - [ ] **P5.3.2** 实现按 pipeline signature 对齐
 
-### Phase 5.4 CI 集成
+### Phase 5.4 CI 集成 ✅ 完成
 
-- [ ] **P5.4.1** 输出 JUnit XML 格式
-- [ ] **P5.4.2** 实现合理的 exit code
+- [x] **P5.4.1** 输出 JUnit XML 格式 (`stats/junit_reporter.py`)
+- [x] **P5.4.2** 实现合理的 exit code (回归检测 → exit 1)
 - [ ] **P5.4.3** 编写 GitHub Action 示例
 
 ---
