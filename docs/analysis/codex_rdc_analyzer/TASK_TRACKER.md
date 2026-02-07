@@ -16,7 +16,7 @@
 | Phase 3: 双帧对比 | ✅ 已完成 | 3/3 |
 | Phase 4: 真实数据集成 | ✅ 已完成 | 2/2 |
 | **A-first 闭环** | ✅ **已完成** | 11/11 |
-| Phase 5: B-mode 统计对比 | ✅ 进行中 | 3/4 |
+| Phase 5: B-mode 统计对比 | ✅ 已完成 | 4/4 |
 
 ---
 
@@ -207,7 +207,7 @@
 
 ---
 
-## Phase 5: B-mode 统计对比 ✅ 进行中 (3/4 完成)
+## Phase 5: B-mode 统计对比 ✅ 已完成 (4/4)
 
 > **目标**: 增强对比能力，支持 CI 回归门禁
 
@@ -245,15 +245,20 @@
 
 ---
 
-### TASK-P5-03: Marker/Pass 对齐增强 ⏳ 待开始
+### TASK-P5-03: Marker/Pass 对齐增强 ✅ 已完成
 
 | 字段 | 内容 |
 |------|------|
-| **状态** | ⏳ 待开始 |
+| **状态** | ✅ 已完成 |
 | **优先级** | 🟡 P1 |
-| **预估工时** | 4-5h |
-| **问题描述** | 当前 diff 按 event_id 顺序对齐，新增/删除事件会错位 |
+| **完成日期** | 2025-02-06 |
 | **验收标准** | 按 marker/pipeline signature 对齐，减少噪声 |
+
+**实现位置**:
+- [x] `diff/diff_engine.py`: 4 阶段对齐算法 (marker+shader → marker → signature → fallback)
+- [x] CLI `--align-strategy {order,signature,marker}` 参数
+- [x] `compare_rdc.py`: 参数透传到 DiffEngine
+- [x] 13 个单元测试验证 (`test_marker_alignment.py`)
 
 ---
 

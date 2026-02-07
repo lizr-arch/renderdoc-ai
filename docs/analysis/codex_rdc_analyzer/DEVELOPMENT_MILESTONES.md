@@ -33,7 +33,7 @@
 | **M2: EvidenceChain** | ✅ 已完成 | 12/12 | 证据链生成 |
 | **M3: UI 跳转/高亮** | ✅ 已完成 | 13/13 | 跨页面证据链导航 |
 | M4: 高级可视化 | ⏳ 可选 | 0/6 | 热力图等 |
-| Phase 5: B-mode 对比 | ✅ 进行中 | 3/4 | 多帧统计 (P5.1/P5.2/P5.4 完成) |
+| Phase 5: B-mode 对比 | ✅ 完成 | 4/4 | 多帧统计 + CI 集成 |
 | P0-NEW-3: Schema 规范 | ⏳ 待开始 | 0/1 | 小范围改动 |
 
 ---
@@ -260,10 +260,11 @@ evidence_chain.to_dict() 输出完整 JSON
 - [x] **P5.2.2** 输出 `significance` (high/medium/low) + Cohen's d 效应量
 - [x] **P5.2.3** 添加 `--confidence-level` 参数 (支持 90%/95%/99%)
 
-### Phase 5.3 Marker/Pass 对齐 ⏳ 待开始
+### Phase 5.3 Marker/Pass 对齐 ✅ 完成
 
-- [ ] **P5.3.1** 实现按 marker 名称对齐
-- [ ] **P5.3.2** 实现按 pipeline signature 对齐
+- [x] **P5.3.1** 实现按 marker 名称对齐 (`--align-strategy marker`)
+- [x] **P5.3.2** 实现按 pipeline signature 对齐 (`--align-strategy signature`)
+- [x] **P5.3.3** CLI 参数透传到 DiffEngine
 
 ### Phase 5.4 CI 集成 ✅ 完成
 
