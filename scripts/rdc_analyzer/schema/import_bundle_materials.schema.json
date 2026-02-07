@@ -71,6 +71,7 @@
                   "type": "string",
                   "enum": [
                     "decoded_rgba8_png",
+                    "rgba_bytes_png",
                     "copied_image",
                     "raw_copy",
                     "missing_source"

@@ -20,10 +20,39 @@
 py -3 scripts/rdc_analyzer/export_event_import_bundle.py \
   --intermediate "D:\\backup\\out\\event_100\\intermediate" \
   --event 100 \
-  --out "D:\\backup\\import_bundle_out"
+  --out "D:\\backup\\import_bundle_out" \
+  --rgba-manifest "D:\\backup\\rgba_manifest.json"
 ```
 
-### 2.2 一步式（zip.xml + zip -> intermediate -> import bundle）
+
+
+### 2.2 外部 RGBA bytes 覆盖（可选）
+
+当离线中间态里的 `textures/tex_*.bin` 为空，且你已经有自己的纹理解码器产出的 RGBA bytes 时，
+可以通过 `--rgba-manifest` 注入，直接导出 PNG：
+
+```json
+{
+  "textures": [
+    {
+      "texture_id": 7,
+      "slot": "set3.binding4",
+      "rgba_path": "D:/backup/rgba/tex_7.rgba",
+      "width": 128,
+      "height": 192,
+      "row_pitch": 0
+    }
+  ]
+}
+```
+
+说明：
+- `texture_id` 与 `slot` 用于匹配 `materials/material.json` 中的纹理条目。
+- `rgba_path` 支持绝对路径或相对 `intermediate/` 的路径。
+- `row_pitch` 可选；若存在行对齐 padding，会按每行 `width*4` 自动裁切。
+```
+
+### 2.3 一步式（zip.xml + zip -> intermediate -> import bundle）
 
 ```bash
 py -3 scripts/rdc_analyzer/export_event_import_bundle.py \
@@ -92,3 +121,4 @@ py -3 scripts/rdc_analyzer/export_event_import_bundle.py \
 
 3. **没有 `--event` 可以吗？**
    - 传 `--intermediate` 时可省略，工具会尝试从 `event_<id>` 路径自动推断。
+

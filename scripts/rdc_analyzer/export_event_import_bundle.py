@@ -79,7 +79,137 @@ def _safe_stem(path_name: str, fallback: str):
     return clean or fallback
 
 
-def _export_texture_entry(intermediate_path: Path, textures_dir: Path, entry: dict, index: int):
+def _to_int(value, default=0):
+    if value is None:
+        return default
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return default
+
+
+def _resolve_optional_path(base_dir: Path, path_value: str):
+    if not path_value:
+        return None
+
+    raw = Path(path_value)
+    candidates = []
+    if raw.is_absolute():
+        candidates.append(raw)
+    else:
+        candidates.append(base_dir / raw)
+        candidates.append(base_dir / "textures" / raw)
+
+    for candidate in candidates:
+        if candidate.exists():
+            return candidate
+
+    return candidates[0] if candidates else None
+
+
+def _load_rgba_overrides(rgba_manifest, intermediate_path: Path):
+    if not rgba_manifest:
+        return []
+
+    manifest_path = Path(rgba_manifest)
+    if not manifest_path.is_absolute():
+        manifest_path = Path.cwd() / manifest_path
+
+    payload = json.loads(manifest_path.read_text(encoding="utf-8"))
+    items = payload
+    if isinstance(payload, dict):
+        items = payload.get("textures", [])
+
+    overrides = []
+    if not isinstance(items, list):
+        return overrides
+
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+
+        file_path = _resolve_optional_path(
+            intermediate_path,
+            str(item.get("rgba_path") or item.get("path") or ""),
+        )
+        overrides.append(
+            {
+                "texture_id": _to_int(item.get("texture_id"), default=0),
+                "slot": str(item.get("slot") or ""),
+                "file_path": file_path,
+                "width": _to_int(item.get("width"), default=0),
+                "height": _to_int(item.get("height"), default=0),
+                "row_pitch": _to_int(item.get("row_pitch"), default=0),
+            }
+        )
+
+    return overrides
+
+
+def _pick_rgba_override(entry: dict, intermediate_path: Path, rgba_overrides: list[dict]):
+    texture_id = _to_int(entry.get("texture_id"), default=0)
+    slot = str(entry.get("slot") or "")
+
+    inline_path = str(entry.get("rgba_path") or "")
+    if inline_path:
+        return {
+            "texture_id": texture_id,
+            "slot": slot,
+            "file_path": _resolve_optional_path(intermediate_path, inline_path),
+            "width": _to_int(entry.get("rgba_width") or entry.get("width"), default=0),
+            "height": _to_int(entry.get("rgba_height") or entry.get("height"), default=0),
+            "row_pitch": _to_int(entry.get("rgba_row_pitch"), default=0),
+        }
+
+    if not rgba_overrides:
+        return None
+
+    exact = None
+    by_slot = None
+    by_id = None
+    for override in rgba_overrides:
+        override_id = _to_int(override.get("texture_id"), default=0)
+        override_slot = str(override.get("slot") or "")
+
+        if override_id > 0 and override_id == texture_id and override_slot and override_slot == slot:
+            exact = override
+            break
+        if by_slot is None and override_slot and override_slot == slot:
+            by_slot = override
+        if by_id is None and override_id > 0 and override_id == texture_id:
+            by_id = override
+
+    return exact or by_slot or by_id
+
+
+def _pack_rgba_bytes(raw_bytes: bytes, width: int, height: int, row_pitch: int = 0):
+    if width <= 0 or height <= 0:
+        return None
+
+    expected = width * height * 4
+    if row_pitch >= width * 4 and len(raw_bytes) >= row_pitch * height:
+        out = bytearray(expected)
+        for row in range(height):
+            src_start = row * row_pitch
+            src_end = src_start + width * 4
+            dst_start = row * width * 4
+            dst_end = dst_start + width * 4
+            out[dst_start:dst_end] = raw_bytes[src_start:src_end]
+        return bytes(out)
+
+    if len(raw_bytes) >= expected:
+        return raw_bytes[:expected]
+
+    return None
+
+
+def _export_texture_entry(
+    intermediate_path: Path,
+    textures_dir: Path,
+    entry: dict,
+    index: int,
+    rgba_overrides: list[dict] | None = None,
+):
     texture_id = int(entry.get("texture_id", index))
     source_path = str(entry.get("path") or f"tex_{texture_id}.bin")
     src_file = intermediate_path / "textures" / source_path
@@ -102,13 +232,39 @@ def _export_texture_entry(intermediate_path: Path, textures_dir: Path, entry: di
         "format": format_name,
     }
 
+    textures_dir.mkdir(parents=True, exist_ok=True)
+    base_name = _safe_stem(source_path, f"tex_{texture_id}")
+
+    rgba_override = _pick_rgba_override(entry, intermediate_path, rgba_overrides or [])
+    if rgba_override:
+        rgba_file = rgba_override.get("file_path")
+        override_width = _to_int(rgba_override.get("width"), default=width)
+        override_height = _to_int(rgba_override.get("height"), default=height)
+        row_pitch = _to_int(rgba_override.get("row_pitch"), default=0)
+
+        if isinstance(rgba_file, Path) and rgba_file.exists() and override_width > 0 and override_height > 0:
+            rgba_bytes = _pack_rgba_bytes(
+                rgba_file.read_bytes(),
+                width=override_width,
+                height=override_height,
+                row_pitch=row_pitch,
+            )
+            if rgba_bytes:
+                out_name = f"{base_name}.png"
+                dst = textures_dir / out_name
+                save_as_png(rgba_bytes, override_width, override_height, dst)
+                result["output_path"] = f"textures/{out_name}"
+                result["status"] = "rgba_bytes_png"
+                result["width"] = override_width
+                result["height"] = override_height
+                result["format"] = "RGBA8"
+                return result
+
     if not src_file.exists():
         result["status"] = "missing_source"
         return result
 
-    textures_dir.mkdir(parents=True, exist_ok=True)
     src_suffix = src_file.suffix.lower()
-    base_name = _safe_stem(source_path, f"tex_{texture_id}")
     src_data = src_file.read_bytes()
 
     if not src_data and src_suffix not in _IMAGE_SUFFIXES:
@@ -143,7 +299,12 @@ def _export_texture_entry(intermediate_path: Path, textures_dir: Path, entry: di
     return result
 
 
-def _export_materials_bundle(intermediate_path: Path, bundle_root: Path, event_id: int):
+def _export_materials_bundle(
+    intermediate_path: Path,
+    bundle_root: Path,
+    event_id: int,
+    rgba_overrides: list[dict] | None = None,
+):
     material_blob = _load_json(intermediate_path / "materials" / "material.json", {})
     material = material_blob.get("material", {}) if isinstance(material_blob, dict) else {}
 
@@ -158,7 +319,13 @@ def _export_materials_bundle(intermediate_path: Path, bundle_root: Path, event_i
         if not isinstance(texture_entry, dict):
             continue
         exported_textures.append(
-            _export_texture_entry(intermediate_path, textures_dir, texture_entry, index)
+            _export_texture_entry(
+                intermediate_path,
+                textures_dir,
+                texture_entry,
+                index,
+                rgba_overrides=rgba_overrides,
+            )
         )
 
     payload = {
@@ -230,7 +397,7 @@ def _load_mesh_stats(intermediate_path: Path):
     }
 
 
-def export_event_import_bundle(intermediate_dir, out_dir, event_id=None):
+def export_event_import_bundle(intermediate_dir, out_dir, event_id=None, rgba_manifest=None):
     base_path = Path(intermediate_dir)
     if event_id is None:
         event_id = _pick_event_id(base_path)
@@ -254,7 +421,13 @@ def export_event_import_bundle(intermediate_dir, out_dir, event_id=None):
     if mtl_path.exists():
         shutil.copy2(mtl_path, mesh_mtl_out)
 
-    materials_payload, exported_textures = _export_materials_bundle(intermediate_path, bundle_root, event_id)
+    rgba_overrides = _load_rgba_overrides(rgba_manifest, intermediate_path)
+    materials_payload, exported_textures = _export_materials_bundle(
+        intermediate_path,
+        bundle_root,
+        event_id,
+        rgba_overrides=rgba_overrides,
+    )
     shader_entries = _export_shader_bundle(intermediate_path, bundle_root)
 
     source_manifest = _load_json(intermediate_path.parent / "manifest.json", {})
@@ -281,7 +454,7 @@ def export_event_import_bundle(intermediate_dir, out_dir, event_id=None):
             **mesh_stats,
             "shader_count": len(shader_entries),
             "texture_count": len(exported_textures),
-            "decoded_texture_count": len([entry for entry in exported_textures if entry.get("status") == "decoded_rgba8_png"]),
+            "decoded_texture_count": len([entry for entry in exported_textures if entry.get("status") in {"decoded_rgba8_png", "rgba_bytes_png"}]),
         },
         "materials": materials_payload.get("materials", []),
         "shaders": shader_entries,
@@ -293,7 +466,7 @@ def export_event_import_bundle(intermediate_dir, out_dir, event_id=None):
     return bundle_root
 
 
-def _extract_then_export(xml_path, zip_path, event_id: int, out_dir, vertex_stride: int = 0):
+def _extract_then_export(xml_path, zip_path, event_id: int, out_dir, vertex_stride: int = 0, rgba_manifest=None):
     intermediate_path = extract_event_intermediate(
         xml_path=xml_path,
         zip_path=zip_path,
@@ -301,7 +474,7 @@ def _extract_then_export(xml_path, zip_path, event_id: int, out_dir, vertex_stri
         out_dir=out_dir,
         vertex_stride=vertex_stride,
     )
-    return export_event_import_bundle(intermediate_path, out_dir, event_id=event_id)
+    return export_event_import_bundle(intermediate_path, out_dir, event_id=event_id, rgba_manifest=rgba_manifest)
 
 
 def main(argv=None):
@@ -312,6 +485,7 @@ def main(argv=None):
     parser.add_argument("--event", required=False, type=int, help="Target event id")
     parser.add_argument("--out", required=True, help="Output directory")
     parser.add_argument("--vertex-stride", required=False, type=int, default=0, help="Optional vertex stride hint for zip.xml extraction")
+    parser.add_argument("--rgba-manifest", required=False, help="Optional JSON mapping for external RGBA bytes overrides")
     args = parser.parse_args(argv)
 
     if args.intermediate:
@@ -319,6 +493,7 @@ def main(argv=None):
             intermediate_dir=args.intermediate,
             out_dir=args.out,
             event_id=args.event,
+            rgba_manifest=args.rgba_manifest,
         )
     else:
         if not args.xml or not args.zip or args.event is None:
@@ -329,6 +504,7 @@ def main(argv=None):
             event_id=int(args.event),
             out_dir=args.out,
             vertex_stride=int(args.vertex_stride),
+            rgba_manifest=args.rgba_manifest,
         )
 
     print(f"[OK] import bundle generated: {bundle_root}")

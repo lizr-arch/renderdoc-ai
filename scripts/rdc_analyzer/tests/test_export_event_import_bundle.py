@@ -187,3 +187,71 @@ def test_export_event_import_bundle_empty_texture_marks_missing_source(tmp_path)
 
     assert texture_entry["status"] == "missing_source"
     assert texture_entry["output_path"] == ""
+
+
+
+def test_export_event_import_bundle_rgba_manifest_override(tmp_path):
+    from export_event_import_bundle import export_event_import_bundle
+
+    event_id = 102
+    event_root = tmp_path / f"event_{event_id}"
+    intermediate = event_root / "intermediate"
+    intermediate.mkdir(parents=True, exist_ok=True)
+
+    _write_sample_intermediate(intermediate, texture_format="UNKNOWN_FMT")
+    (intermediate / "textures" / "tex_7.bin").write_bytes(b"")
+
+    rgba_dir = tmp_path / "rgba"
+    rgba_dir.mkdir(parents=True, exist_ok=True)
+    rgba_path = rgba_dir / "tex_7.rgba"
+    rgba_path.write_bytes(bytes([255, 0, 0, 255, 0, 255, 0, 255]))
+
+    rgba_manifest = tmp_path / "rgba_manifest.json"
+    rgba_manifest.write_text(
+        json.dumps(
+            {
+                "textures": [
+                    {
+                        "texture_id": 7,
+                        "slot": "albedo",
+                        "rgba_path": str(rgba_path),
+                        "width": 2,
+                        "height": 1,
+                    }
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    manifest_path = event_root / "manifest.json"
+    manifest_path.write_text(
+        json.dumps(
+            {
+                "api": "Vulkan",
+                "sources": {
+                    "zip_xml": "capture.zip.xml",
+                    "zip_bin": "capture.zip",
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    out_dir = tmp_path / "out"
+    bundle_root = export_event_import_bundle(
+        str(intermediate),
+        str(out_dir),
+        event_id=event_id,
+        rgba_manifest=str(rgba_manifest),
+    )
+
+    materials = json.loads((bundle_root / "materials" / "materials.json").read_text(encoding="utf-8"))
+    texture_entry = materials["materials"][0]["textures"][0]
+    assert texture_entry["status"] == "rgba_bytes_png"
+    assert texture_entry["output_path"].endswith(".png")
+    assert texture_entry["width"] == 2
+    assert texture_entry["height"] == 1
+
+    output_texture = bundle_root / texture_entry["output_path"]
+    assert output_texture.exists()

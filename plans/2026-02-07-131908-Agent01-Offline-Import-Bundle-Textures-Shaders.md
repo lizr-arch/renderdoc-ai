@@ -269,3 +269,6 @@ write_intermediate(...)
 - 2026-02-07: `xmlzip_event_extractor.py` 补齐 shader sidecar 字段：`bytecode_format`、`entry`。
 - 2026-02-07: `export_event_import_bundle.py` 对空纹理 payload 标记 `missing_source`，避免误报 `decoded_rgba8_png`。
 - 2026-02-07: 真实样本验证：`D:\backup\大远景_export.zip.xml + .zip`, `event_id=22149`。结果为 `texture_count=10`、`shader_count=2`、纹理状态为 `missing_source`（离线未拿到可解码像素 payload）。
+- 2026-02-07: 新增 `--rgba-manifest` 外部 RGBA bytes 覆盖接口：支持 `texture_id/slot + rgba_path + width/height(+row_pitch)` 直出 PNG（状态 `rgba_bytes_png`），并补齐 schema 与回归测试。
+
+- 2026-02-07: `--rgba-manifest` 真实烟测通过：`event_22149` 中 `texture_id=127279` 成功输出 `rgba_bytes_png`，其余仍按 `missing_source` 回退。
