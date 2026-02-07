@@ -1,0 +1,154 @@
+{
+  "": "https://json-schema.org/draft/2020-12/schema",
+  "": "https://renderdoc.org/schemas/shader_data.schema.json",
+  "title": "RDC Report Shader Data",
+  "type": "array",
+  "items": {
+    "type": "object",
+    "required": [
+      "usedBy",
+      "dynamicMetrics"
+    ],
+    "properties": {
+      "id": {
+        "type": [
+          "string",
+          "integer"
+        ]
+      },
+      "resource_id": {
+        "type": [
+          "string",
+          "integer"
+        ]
+      },
+      "name": {
+        "type": "string"
+      },
+      "type": {
+        "type": "string"
+      },
+      "source": {
+        "type": "string"
+      },
+      "source_hlsl": {
+        "type": "string"
+      },
+      "hlsl": {
+        "type": "string"
+      },
+      "usedBy": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "required": [
+            "eid",
+            "name",
+            "slot"
+          ],
+          "properties": {
+            "eid": {
+              "type": "integer"
+            },
+            "name": {
+              "type": "string"
+            },
+            "slot": {
+              "type": "integer"
+            }
+          }
+        }
+      },
+      "dynamicMetrics": {
+        "type": "object",
+        "required": [
+          "drawCount",
+          "pixelCoverage",
+          "viewportWidth",
+          "viewportHeight"
+        ],
+        "properties": {
+          "drawCount": {
+            "type": "integer"
+          },
+          "pixelCoverage": {
+            "type": "number"
+          },
+          "viewportWidth": {
+            "type": "integer"
+          },
+          "viewportHeight": {
+            "type": "integer"
+          }
+        }
+      },
+      "maliAnalysis": {
+        "type": "object",
+        "required": [
+          "cycles",
+          "boundUnit",
+          "workRegisters",
+          "uniformRegisters",
+          "stackSpilling",
+          "hasLateZS",
+          "cycleDetails"
+        ],
+        "properties": {
+          "cycles": {
+            "type": "number"
+          },
+          "boundUnit": {
+            "type": "string"
+          },
+          "fmaUtil": {
+            "type": "number"
+          },
+          "cvtUtil": {
+            "type": "number"
+          },
+          "sfuUtil": {
+            "type": "number"
+          },
+          "workRegisters": {
+            "type": "integer"
+          },
+          "uniformRegisters": {
+            "type": "integer"
+          },
+          "stackSpilling": {
+            "type": "boolean"
+          },
+          "hasLateZS": {
+            "type": "boolean"
+          },
+          "cycleDetails": {
+            "type": "object",
+            "properties": {
+              "arithmetic": {
+                "type": "number"
+              },
+              "loadStore": {
+                "type": "number"
+              },
+              "texture": {
+                "type": "number"
+              },
+              "varying": {
+                "type": "number"
+              }
+            }
+          }
+        }
+      },
+      "mali": {
+        "type": "object"
+      },
+      "issues": {
+        "type": "array"
+      },
+      "suggestions": {
+        "type": "array"
+      }
+    }
+  }
+}

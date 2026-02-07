@@ -27,8 +27,93 @@ from timeline_builder import (
 )
 from server_scripts import generate_rt_server_scripts
 
+# M4.1: 热力图模块
+from core.heatmap_builder import build_heatmap_from_bindings
+from core.types import ResourceUsageIndex
+
 # 模板目录
 TEMPLATES_DIR = Path(__file__).parent / "templates"
+_SCRIPT_DIR = Path(__file__).resolve().parent
+_SCHEMA_DIR = _SCRIPT_DIR / "schema"
+
+
+def _assert_schema_type(value, expected, path="root"):
+    if expected == "object":
+        if not isinstance(value, dict):
+            raise ValueError(f"{path}: expected object")
+        return
+    if expected == "array":
+        if not isinstance(value, list):
+            raise ValueError(f"{path}: expected array")
+        return
+    if expected == "string":
+        if not isinstance(value, str):
+            raise ValueError(f"{path}: expected string")
+        return
+    if expected == "integer":
+        if not isinstance(value, int) or isinstance(value, bool):
+            raise ValueError(f"{path}: expected integer")
+        return
+    if expected == "number":
+        if not isinstance(value, (int, float)) or isinstance(value, bool):
+            raise ValueError(f"{path}: expected number")
+        return
+    if expected == "boolean":
+        if not isinstance(value, bool):
+            raise ValueError(f"{path}: expected boolean")
+        return
+    if expected == "null":
+        if value is not None:
+            raise ValueError(f"{path}: expected null")
+        return
+    raise ValueError(f"{path}: unsupported schema type {expected!r}")
+
+
+def _validate_schema_node(schema, data, path="root"):
+    expected_type = schema.get("type")
+    if expected_type:
+        if isinstance(expected_type, list):
+            matched = False
+            last_error = None
+            for type_name in expected_type:
+                try:
+                    _assert_schema_type(data, type_name, path)
+                    matched = True
+                    break
+                except ValueError as exc:
+                    last_error = exc
+            if not matched:
+                if last_error is not None:
+                    raise last_error
+                raise ValueError(f"{path}: no matching type in {expected_type!r}")
+        else:
+            _assert_schema_type(data, expected_type, path)
+
+    if "enum" in schema and data not in schema["enum"]:
+        raise ValueError(f"{path}: value not in enum")
+
+    if expected_type == "object":
+        for required_key in schema.get("required", []):
+            if required_key not in data:
+                raise ValueError(f"{path}: missing required field {required_key}")
+        for key, subschema in schema.get("properties", {}).items():
+            if key in data:
+                _validate_schema_node(subschema, data[key], f"{path}.{key}")
+
+    if expected_type == "array":
+        item_schema = schema.get("items")
+        if item_schema:
+            for index, item in enumerate(data):
+                _validate_schema_node(item_schema, item, f"{path}[{index}]")
+
+
+def validate_payload_schema(payload, schema_path: Path):
+    """验证 payload 是否符合 JSON Schema（schema 文件不存在时跳过）"""
+    if not schema_path.exists():
+        # Schema 文件不存在，跳过验证
+        return
+    schema = json.loads(schema_path.read_text(encoding="utf-8"))
+    _validate_schema_node(schema, payload)
 
 
 class ReportBundleGenerator:
@@ -283,6 +368,9 @@ class ReportBundleGenerator:
             result = result.replace(placeholder, str(value))
         return result
     
+    def _validate_payload_schema(self, payload, schema_name: str):
+        validate_payload_schema(payload, _SCHEMA_DIR / schema_name)
+
     def _format_bytes(self, bytes_val: int) -> str:
         """格式化字节大小"""
         if bytes_val < 1024:
@@ -569,8 +657,9 @@ class ReportBundleGenerator:
             width = tex.get("width", 0)
             height = tex.get("height", 0)
             fmt = tex.get("format", "UNKNOWN")
-            mips = tex.get("mips", 1)
-            vram = tex.get("vram", 0)
+            resource_id = tex.get("resource_id") or tex.get("resourceId") or tex_id
+            mips = tex.get("mips", tex.get("mipLevels", 1))
+            vram = tex.get("vram", tex.get("byteSize", 0))
             has_issue = bool(tex.get("issues"))
             thumb = self._normalize_thumbnail(tex.get("thumbnail", ""))
             
@@ -593,20 +682,23 @@ class ReportBundleGenerator:
             texture_list_html += f'''
                 <div class="texture-item"
                      data-id="{tex_id}"
+                     data-resource-id="{resource_id}"
                      data-name="{display_name}"
                      data-format="{fmt}"
+                     data-simple-format="{simple_fmt}"
                      data-width="{width}"
                      data-height="{height}"
                      data-mip-levels="{mips}"
+                     data-mips="{mips}"
                      data-vram="{vram}"
                      data-has-issue="{str(has_issue).lower()}"
                      onclick="selectTexture('{tex_id}')">
-                    <div class="texture-item-thumb">
+                    <div class="texture-item-thumb texture-thumb">
                         {thumb_html}
                     </div>
-                    <div class="texture-item-info">
-                        <div class="texture-item-name">{display_name}{size_tag}</div>
-                        <div class="texture-item-meta">{width}×{height} • {simple_fmt}</div>
+                    <div class="texture-item-info texture-info">
+                        <div class="texture-item-name texture-name">{display_name}{size_tag}</div>
+                        <div class="texture-item-meta texture-meta">{width}×{height} • {simple_fmt}</div>
                     </div>
                 </div>'''
         
@@ -619,6 +711,104 @@ class ReportBundleGenerator:
         }
         
         return self._render_template(template, replacements)
+    
+    def _build_binding_heatmaps(self, events: List[Dict]) -> Dict:
+        """
+        M4.1: 构建资源绑定热力图数据
+        
+        从 prepared_events 中提取纹理和 Shader 绑定信息，
+        使用 HeatmapBuilder 计算使用模式和连续性评分。
+        
+        Args:
+            events: prepare_events_for_frontend 输出的事件列表
+            
+        Returns:
+            热力图数据字典 {
+                "textures": {resource_id: heatmap_result},
+                "shaders": {resource_id: heatmap_result},
+                "summary": {...}
+            }
+        """
+        # 收集资源绑定信息
+        texture_bindings = {}  # resource_id -> [(event_id, slot, resource_type)]
+        shader_bindings = {}   # resource_id -> [(event_id, slot, resource_type)]
+        
+        for evt in events:
+            event_id = evt.get("eventId") or evt.get("eid", 0)
+            
+            # 提取纹理绑定
+            textures = evt.get("textures", [])
+            for tex in textures:
+                if isinstance(tex, dict):
+                    tex_id = str(tex.get("id") or tex.get("resource_id", ""))
+                    slot = tex.get("slot", 0)
+                else:
+                    tex_id = str(tex)
+                    slot = 0
+                
+                if tex_id:
+                    if tex_id not in texture_bindings:
+                        texture_bindings[tex_id] = []
+                    texture_bindings[tex_id].append({
+                        "event_id": event_id,
+                        "slot": slot,
+                        "resource_type": "texture"
+                    })
+            
+            # 提取 Shader 绑定
+            shaders = evt.get("shaders", [])
+            for shader in shaders:
+                if isinstance(shader, dict):
+                    shader_id = str(shader.get("id") or shader.get("resource_id", ""))
+                    slot = shader.get("slot", 0)
+                else:
+                    shader_id = str(shader)
+                    slot = 0
+                
+                if shader_id:
+                    if shader_id not in shader_bindings:
+                        shader_bindings[shader_id] = []
+                    shader_bindings[shader_id].append({
+                        "event_id": event_id,
+                        "slot": slot,
+                        "resource_type": "shader"
+                    })
+        
+        # 提取所有事件 ID 用于判断连续性
+        all_event_ids = [evt.get("eventId") or evt.get("eid", 0) for evt in events]
+        
+        # 使用便捷函数计算热力图
+        texture_heatmaps = {}
+        for tex_id, bindings in texture_bindings.items():
+            try:
+                result = build_heatmap_from_bindings(tex_id, bindings, "texture", all_event_ids)
+                if result:
+                    texture_heatmaps[tex_id] = result
+            except Exception as e:
+                # 静默跳过单个资源的错误
+                pass
+        
+        shader_heatmaps = {}
+        for shader_id, bindings in shader_bindings.items():
+            try:
+                result = build_heatmap_from_bindings(shader_id, bindings, "shader", all_event_ids)
+                if result:
+                    shader_heatmaps[shader_id] = result
+            except Exception as e:
+                pass
+        
+        # 汇总统计
+        summary = {
+            "texture_count": len(texture_heatmaps),
+            "shader_count": len(shader_heatmaps),
+            "total_resources": len(texture_heatmaps) + len(shader_heatmaps),
+        }
+        
+        return {
+            "textures": texture_heatmaps,
+            "shaders": shader_heatmaps,
+            "summary": summary
+        }
     
     def generate_events(self) -> str:
         """生成 events.html 事件时间线"""
@@ -634,6 +824,10 @@ class ReportBundleGenerator:
         prepared_events = prepare_events_for_frontend(
             self.events, self.textures, self.shaders
         )
+        
+        # M4.1: 构建资源绑定热力图数据
+        heatmap_data = self._build_binding_heatmaps(prepared_events)
+        self._validate_payload_schema(heatmap_data, "report_heatmap_data.schema.json")
         
         # 生成事件列表 HTML（用于初始渲染）
         event_list_html = ""
@@ -678,7 +872,9 @@ class ReportBundleGenerator:
             "TIMELINE_BARS_HTML": timeline_bars_html,
             "EVENT_LIST_HTML": event_list_html,
             "EVENT_DATA_JSON": json.dumps(prepared_events, ensure_ascii=False),
-            "RT_SERVER_PORT": str(self.rt_server_port)  # RT 预览服务端口
+            "RT_SERVER_PORT": str(self.rt_server_port),  # RT 预览服务端口
+            # M4.1: 热力图数据
+            "HEATMAP_DATA_JSON": json.dumps(heatmap_data, ensure_ascii=False),
         }
         
         return self._render_template(template, replacements)
@@ -695,16 +891,9 @@ class ReportBundleGenerator:
             shader_copy = dict(shader)
             shader_id = shader.get("id") or shader.get("resource_id")
             
-            # 查找对应的 Mali 分析结果
-            if shader_id and self.mali_data:
-                mali_result = self.mali_data.get(str(shader_id), {})
-                if mali_result:
-                    shader_copy["mali"] = mali_result
-                    mali_analyzed_count += 1
-            
             # 注入 Shader 使用信息（从 shader_usage_map），适配前端 usedBy 格式
             raw_usages = self.shader_usage_map.get(str(shader_id), [])
-            shader_copy["usedBy"] = [
+            used_by_list = [
                 {
                     "eid": u.get("event_id", u.get("eid", 0)),
                     "name": u.get("draw_name", u.get("name", "Draw Call")),
@@ -712,9 +901,60 @@ class ReportBundleGenerator:
                 }
                 for u in raw_usages
             ]
+            shader_copy["usedBy"] = used_by_list
+            
+            # 查找对应的 Mali 分析结果并格式化为前端期望结构
+            if shader_id and self.mali_data:
+                mali_result = self.mali_data.get(str(shader_id), {})
+                if mali_result:
+                    # 转换为前端 maliAnalysis 格式 (M4.3)
+                    cycles_data = mali_result.get("cycles", {})
+                    shader_copy["maliAnalysis"] = {
+                        "cycles": cycles_data.get("total", 0) or cycles_data.get("longest_path", 0),
+                        "boundUnit": mali_result.get("bound", ""),
+                        "fmaUtil": mali_result.get("fma_util", 0),
+                        "cvtUtil": mali_result.get("cvt_util", 0),
+                        "sfuUtil": mali_result.get("sfu_util", 0),
+                        "workRegisters": mali_result.get("work_registers", 0),
+                        "uniformRegisters": mali_result.get("uniform_registers", 0),
+                        "stackSpilling": mali_result.get("stack_spilling", False),
+                        "hasLateZS": mali_result.get("has_late_zs", False),
+                        # 详细周期数据（如有）
+                        "cycleDetails": {
+                            "arithmetic": cycles_data.get("arithmetic", 0),
+                            "loadStore": cycles_data.get("load_store", 0),
+                            "texture": cycles_data.get("texture", 0),
+                            "varying": cycles_data.get("varying", 0),
+                        }
+                    }
+                    # 保留原始 mali 数据兼容旧逻辑
+                    shader_copy["mali"] = mali_result
+                    mali_analyzed_count += 1
+            
+            # M4.3: 注入动态指标 (drawCount, pixelCoverage 估算)
+            draw_count = len(used_by_list) or 1
+            # 基于 Pass 名称启发式估算覆盖率
+            estimated_coverage = 0.5  # 默认 50%
+            for usage in used_by_list:
+                pass_name = usage.get("name", "").lower()
+                if any(kw in pass_name for kw in ["post", "bloom", "blur", "fullscreen", "screen", "blit"]):
+                    estimated_coverage = max(estimated_coverage, 1.0)
+                elif "shadow" in pass_name:
+                    estimated_coverage = max(estimated_coverage, 0.5)
+                elif any(kw in pass_name for kw in ["ui", "hud"]):
+                    estimated_coverage = min(estimated_coverage, 0.2)
+            
+            shader_copy["dynamicMetrics"] = {
+                "drawCount": draw_count,
+                "pixelCoverage": round(estimated_coverage, 2),
+                "viewportWidth": 1920,   # 默认值，可从 capture info 覆盖
+                "viewportHeight": 1080,
+            }
             
             shader_with_mali.append(shader_copy)
         
+        self._validate_payload_schema(shader_with_mali, "shader_data.schema.json")
+
         # 生成 Shader 列表 HTML（用于初始渲染）
         shader_list_html = ""
         for shader in self.shaders[:50]:  # 限制初始渲染
