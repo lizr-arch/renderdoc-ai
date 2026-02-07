@@ -1,0 +1,98 @@
+{
+  "": "https://json-schema.org/draft/2020-12/schema",
+  "": "https://renderdoc.org/schemas/batch_import_bundle_summary.schema.json",
+  "title": "RDC Import Bundle Batch Summary",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "schema_path",
+    "root",
+    "out",
+    "events_total",
+    "success_count",
+    "failed_count",
+    "failed_event_ids",
+    "retry_events_arg",
+    "retry_command",
+    "results"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string"
+    },
+    "schema_path": {
+      "type": "string"
+    },
+    "root": {
+      "type": "string"
+    },
+    "out": {
+      "type": "string"
+    },
+    "events_total": {
+      "type": "integer"
+    },
+    "success_count": {
+      "type": "integer"
+    },
+    "failed_count": {
+      "type": "integer"
+    },
+    "failed_event_ids": {
+      "type": "array",
+      "items": {
+        "type": "integer"
+      }
+    },
+    "retry_events_arg": {
+      "type": "string"
+    },
+    "retry_command": {
+      "type": "string"
+    },
+    "results": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "event_id",
+          "status",
+          "bundle_dir",
+          "error"
+        ],
+        "properties": {
+          "event_id": {
+            "type": "integer"
+          },
+          "status": {
+            "type": "string"
+          },
+          "bundle_dir": {
+            "type": "string"
+          },
+          "error": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "source_summary": {
+      "type": "string"
+    },
+    "retry_files": {
+      "type": "object",
+      "required": [
+        "failed_events",
+        "retry_command"
+      ],
+      "properties": {
+        "failed_events": {
+          "type": "string"
+        },
+        "retry_command": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}

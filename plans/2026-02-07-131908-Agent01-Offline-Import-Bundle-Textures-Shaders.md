@@ -284,3 +284,5 @@ write_intermediate(...)
 - 2026-02-07: 批处理 summary 新增 `failed_event_ids / retry_events_arg / retry_command`，并自动落盘 `batch_import_bundle_failed_events.txt` 与 `batch_import_bundle_retry_command.txt`。
 
 - 2026-02-07: 批处理新增 `--from-summary`，可直接按上次失败 event 列表重跑（支持旧 summary 从 `results` 推导失败列表）。
+
+- 2026-02-07: 新增批处理 summary schema（schema/batch_import_bundle_summary.schema.json），并在 export_event_import_bundle_batch.py 写 summary 前执行强校验；补充对应单测。

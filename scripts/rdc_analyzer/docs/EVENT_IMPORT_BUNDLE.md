@@ -146,6 +146,7 @@ py -3 scripts/rdc_analyzer/export_event_import_bundle.py \
 导出时会自动校验：
 - `schema/import_bundle_manifest.schema.json`
 - `schema/import_bundle_materials.schema.json`
+- `schema/batch_import_bundle_summary.schema.json`（批处理 summary）
 
 如果结构不合法会直接抛错，避免把坏数据传入后续引擎转换步骤。
 

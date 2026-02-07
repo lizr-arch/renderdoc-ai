@@ -112,6 +112,7 @@ def test_run_batch_success_and_missing(tmp_path):
     assert summary["events_total"] == 2
     assert summary["success_count"] == 1
     assert summary["failed_count"] == 1
+    assert summary["schema_path"] == "schema/batch_import_bundle_summary.schema.json"
     assert summary["failed_event_ids"] == [101]
     assert summary["retry_events_arg"] == "101"
     assert "--events \"101\"" in summary["retry_command"]
@@ -139,6 +140,7 @@ def test_main_auto_discover_and_summary_file(tmp_path):
     assert summary["events_total"] == 1
     assert summary["success_count"] == 1
     assert summary["failed_count"] == 0
+    assert summary["schema_path"] == "schema/batch_import_bundle_summary.schema.json"
     assert summary["failed_event_ids"] == []
 
 

@@ -5,6 +5,86 @@ from pathlib import Path
 from export_event_import_bundle import export_event_import_bundle
 
 
+_SCRIPT_DIR = Path(__file__).resolve().parent
+_SCHEMA_DIR = _SCRIPT_DIR / "schema"
+
+
+def _assert_type(value, expected, path="root"):
+    if expected == "object":
+        if not isinstance(value, dict):
+            raise ValueError(f"{path}: expected object")
+        return
+    if expected == "array":
+        if not isinstance(value, list):
+            raise ValueError(f"{path}: expected array")
+        return
+    if expected == "string":
+        if not isinstance(value, str):
+            raise ValueError(f"{path}: expected string")
+        return
+    if expected == "integer":
+        if not isinstance(value, int) or isinstance(value, bool):
+            raise ValueError(f"{path}: expected integer")
+        return
+    if expected == "number":
+        if not isinstance(value, (int, float)) or isinstance(value, bool):
+            raise ValueError(f"{path}: expected number")
+        return
+    if expected == "boolean":
+        if not isinstance(value, bool):
+            raise ValueError(f"{path}: expected boolean")
+        return
+    if expected == "null":
+        if value is not None:
+            raise ValueError(f"{path}: expected null")
+        return
+    raise ValueError(f"{path}: unsupported schema type {expected!r}")
+
+
+def _validate_schema(schema, data, path="root"):
+    expected_type = schema.get("type")
+    if expected_type:
+        if isinstance(expected_type, list):
+            matched = False
+            last_error = None
+            for type_name in expected_type:
+                try:
+                    _assert_type(data, type_name, path)
+                    matched = True
+                    break
+                except ValueError as exc:
+                    last_error = exc
+            if not matched:
+                if last_error is not None:
+                    raise last_error
+                raise ValueError(f"{path}: no matching type in {expected_type!r}")
+        else:
+            _assert_type(data, expected_type, path)
+
+    if "enum" in schema and data not in schema["enum"]:
+        raise ValueError(f"{path}: value not in enum")
+
+    if expected_type == "object":
+        for required_key in schema.get("required", []):
+            if required_key not in data:
+                raise ValueError(f"{path}: missing required field {required_key}")
+        for key, subschema in schema.get("properties", {}).items():
+            if key in data:
+                _validate_schema(subschema, data[key], f"{path}.{key}")
+
+    if expected_type == "array":
+        item_schema = schema.get("items")
+        if item_schema:
+            for index, item in enumerate(data):
+                _validate_schema(item_schema, item, f"{path}[{index}]")
+
+
+def _validate_summary_payload(summary_payload: dict):
+    schema_path = _SCHEMA_DIR / "batch_import_bundle_summary.schema.json"
+    schema = json.loads(schema_path.read_text(encoding="utf-8"))
+    _validate_schema(schema, summary_payload)
+
+
 def _parse_events_arg(events_arg: str):
     if not events_arg:
         return []
@@ -163,6 +243,7 @@ def run_batch(
 
     return {
         "schema_version": "1.0",
+        "schema_path": "schema/batch_import_bundle_summary.schema.json",
         "root": str(intermediate_root),
         "out": str(out_root),
         "events_total": len(results),
@@ -181,6 +262,7 @@ def run_batch(
 
 
 def _write_summary(summary: dict, summary_path: Path):
+    _validate_summary_payload(summary)
     summary_path.parent.mkdir(parents=True, exist_ok=True)
     summary_path.write_text(json.dumps(summary, indent=2), encoding="utf-8")
 
