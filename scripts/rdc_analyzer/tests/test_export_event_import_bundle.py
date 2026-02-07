@@ -206,7 +206,7 @@ def test_export_event_import_bundle_rgba_manifest_override(tmp_path):
     rgba_path = rgba_dir / "tex_7.rgba"
     rgba_path.write_bytes(bytes([255, 0, 0, 255, 0, 255, 0, 255]))
 
-    rgba_manifest = tmp_path / "rgba_manifest.json"
+    rgba_manifest = rgba_dir / "rgba_manifest.json"
     rgba_manifest.write_text(
         json.dumps(
             {
@@ -214,7 +214,7 @@ def test_export_event_import_bundle_rgba_manifest_override(tmp_path):
                     {
                         "texture_id": 7,
                         "slot": "albedo",
-                        "rgba_path": str(rgba_path),
+                        "rgba_path": "tex_7.rgba",
                         "width": 2,
                         "height": 1,
                     }
@@ -255,3 +255,106 @@ def test_export_event_import_bundle_rgba_manifest_override(tmp_path):
 
     output_texture = bundle_root / texture_entry["output_path"]
     assert output_texture.exists()
+
+
+
+def test_export_event_import_bundle_auto_discovers_rgba_manifest(tmp_path):
+    from export_event_import_bundle import export_event_import_bundle
+
+    event_id = 103
+    event_root = tmp_path / f"event_{event_id}"
+    intermediate = event_root / "intermediate"
+    intermediate.mkdir(parents=True, exist_ok=True)
+
+    _write_sample_intermediate(intermediate, texture_format="UNKNOWN_FMT")
+    (intermediate / "textures" / "tex_7.bin").write_bytes(b"")
+
+    rgba_dir = event_root / "rgba"
+    rgba_dir.mkdir(parents=True, exist_ok=True)
+    rgba_path = rgba_dir / "tex_7.rgba"
+    rgba_path.write_bytes(bytes([10, 20, 30, 255, 200, 180, 160, 255]))
+
+    rgba_manifest = rgba_dir / "rgba_manifest.json"
+    rgba_manifest.write_text(
+        json.dumps(
+            {
+                "textures": [
+                    {
+                        "texture_id": 7,
+                        "slot": "albedo",
+                        "rgba_path": "tex_7.rgba",
+                        "width": 2,
+                        "height": 1,
+                    }
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    manifest_path = event_root / "manifest.json"
+    manifest_path.write_text(
+        json.dumps(
+            {
+                "api": "Vulkan",
+                "sources": {
+                    "zip_xml": "capture.zip.xml",
+                    "zip_bin": "capture.zip",
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    out_dir = tmp_path / "out"
+    bundle_root = export_event_import_bundle(str(intermediate), str(out_dir), event_id=event_id)
+
+    materials = json.loads((bundle_root / "materials" / "materials.json").read_text(encoding="utf-8"))
+    texture_entry = materials["materials"][0]["textures"][0]
+    assert texture_entry["status"] == "rgba_bytes_png"
+    assert texture_entry["output_path"].endswith(".png")
+
+    bundle_manifest = json.loads((bundle_root / "bundle_manifest.json").read_text(encoding="utf-8"))
+    assert bundle_manifest["sources"]["rgba_manifest"].endswith("rgba_manifest.json")
+
+
+def test_export_event_import_bundle_auto_discovers_rgba_file_without_manifest(tmp_path):
+    from export_event_import_bundle import export_event_import_bundle
+
+    event_id = 104
+    event_root = tmp_path / f"event_{event_id}"
+    intermediate = event_root / "intermediate"
+    intermediate.mkdir(parents=True, exist_ok=True)
+
+    _write_sample_intermediate(intermediate, texture_format="UNKNOWN_FMT")
+    (intermediate / "textures" / "tex_7.bin").write_bytes(b"")
+
+    rgba_dir = event_root / "rgba"
+    rgba_dir.mkdir(parents=True, exist_ok=True)
+    rgba_file = rgba_dir / "tex_7.rgba"
+    rgba_file.write_bytes(bytes([0, 0, 255, 255, 255, 255, 0, 255]))
+
+    manifest_path = event_root / "manifest.json"
+    manifest_path.write_text(
+        json.dumps(
+            {
+                "api": "Vulkan",
+                "sources": {
+                    "zip_xml": "capture.zip.xml",
+                    "zip_bin": "capture.zip",
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    out_dir = tmp_path / "out"
+    bundle_root = export_event_import_bundle(str(intermediate), str(out_dir), event_id=event_id)
+
+    materials = json.loads((bundle_root / "materials" / "materials.json").read_text(encoding="utf-8"))
+    texture_entry = materials["materials"][0]["textures"][0]
+    assert texture_entry["status"] == "rgba_bytes_png"
+    assert texture_entry["output_path"].endswith(".png")
+
+    bundle_manifest = json.loads((bundle_root / "bundle_manifest.json").read_text(encoding="utf-8"))
+    assert bundle_manifest["sources"].get("rgba_manifest", "") == ""

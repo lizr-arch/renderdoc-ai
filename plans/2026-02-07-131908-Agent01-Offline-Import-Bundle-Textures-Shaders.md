@@ -272,3 +272,7 @@ write_intermediate(...)
 - 2026-02-07: 新增 `--rgba-manifest` 外部 RGBA bytes 覆盖接口：支持 `texture_id/slot + rgba_path + width/height(+row_pitch)` 直出 PNG（状态 `rgba_bytes_png`），并补齐 schema 与回归测试。
 
 - 2026-02-07: `--rgba-manifest` 真实烟测通过：`event_22149` 中 `texture_id=127279` 成功输出 `rgba_bytes_png`，其余仍按 `missing_source` 回退。
+
+- 2026-02-07: 新增固定目录自动发现协议：默认查找 `event_<id>/rgba/rgba_manifest.json`，无 manifest 时回退 `tex_<texture_id>.rgba` 自动注入。
+
+- 2026-02-07: 自动发现真实样本烟测通过（不传 `--rgba-manifest`）：`event_22149/rgba/rgba_manifest.json` 生效，`texture_id=127279` 输出 `rgba_bytes_png`。

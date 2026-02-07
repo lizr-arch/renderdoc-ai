@@ -88,7 +88,7 @@ def _to_int(value, default=0):
         return default
 
 
-def _resolve_optional_path(base_dir: Path, path_value: str):
+def _resolve_optional_path(base_dir: Path, path_value: str, extra_roots: list[Path] | None = None):
     if not path_value:
         return None
 
@@ -97,6 +97,9 @@ def _resolve_optional_path(base_dir: Path, path_value: str):
     if raw.is_absolute():
         candidates.append(raw)
     else:
+        for root in extra_roots or []:
+            candidates.append(root / raw)
+            candidates.append(root / "textures" / raw)
         candidates.append(base_dir / raw)
         candidates.append(base_dir / "textures" / raw)
 
@@ -105,6 +108,20 @@ def _resolve_optional_path(base_dir: Path, path_value: str):
             return candidate
 
     return candidates[0] if candidates else None
+
+
+def _discover_default_rgba_manifest(intermediate_path: Path):
+    event_root = intermediate_path.parent
+    candidates = [
+        event_root / "rgba" / "rgba_manifest.json",
+        event_root / "rgba_manifest.json",
+        intermediate_path / "rgba_manifest.json",
+        intermediate_path / "textures" / "rgba_manifest.json",
+    ]
+    for candidate in candidates:
+        if candidate.exists():
+            return candidate
+    return None
 
 
 def _load_rgba_overrides(rgba_manifest, intermediate_path: Path):
@@ -131,6 +148,7 @@ def _load_rgba_overrides(rgba_manifest, intermediate_path: Path):
         file_path = _resolve_optional_path(
             intermediate_path,
             str(item.get("rgba_path") or item.get("path") or ""),
+            extra_roots=[manifest_path.parent],
         )
         overrides.append(
             {
@@ -149,6 +167,9 @@ def _load_rgba_overrides(rgba_manifest, intermediate_path: Path):
 def _pick_rgba_override(entry: dict, intermediate_path: Path, rgba_overrides: list[dict]):
     texture_id = _to_int(entry.get("texture_id"), default=0)
     slot = str(entry.get("slot") or "")
+    default_width = _to_int(entry.get("rgba_width") or entry.get("width"), default=0)
+    default_height = _to_int(entry.get("rgba_height") or entry.get("height"), default=0)
+    default_row_pitch = _to_int(entry.get("rgba_row_pitch"), default=0)
 
     inline_path = str(entry.get("rgba_path") or "")
     if inline_path:
@@ -156,10 +177,31 @@ def _pick_rgba_override(entry: dict, intermediate_path: Path, rgba_overrides: li
             "texture_id": texture_id,
             "slot": slot,
             "file_path": _resolve_optional_path(intermediate_path, inline_path),
-            "width": _to_int(entry.get("rgba_width") or entry.get("width"), default=0),
-            "height": _to_int(entry.get("rgba_height") or entry.get("height"), default=0),
-            "row_pitch": _to_int(entry.get("rgba_row_pitch"), default=0),
+            "width": default_width,
+            "height": default_height,
+            "row_pitch": default_row_pitch,
         }
+
+    auto_file_candidates = []
+    if texture_id > 0:
+        auto_file_candidates.extend(
+            [
+                intermediate_path / "textures" / f"tex_{texture_id}.rgba",
+                intermediate_path.parent / "rgba" / f"tex_{texture_id}.rgba",
+                intermediate_path.parent / f"tex_{texture_id}.rgba",
+            ]
+        )
+
+    for candidate in auto_file_candidates:
+        if candidate.exists():
+            return {
+                "texture_id": texture_id,
+                "slot": slot,
+                "file_path": candidate,
+                "width": default_width,
+                "height": default_height,
+                "row_pitch": default_row_pitch,
+            }
 
     if not rgba_overrides:
         return None
@@ -421,7 +463,13 @@ def export_event_import_bundle(intermediate_dir, out_dir, event_id=None, rgba_ma
     if mtl_path.exists():
         shutil.copy2(mtl_path, mesh_mtl_out)
 
-    rgba_overrides = _load_rgba_overrides(rgba_manifest, intermediate_path)
+    effective_rgba_manifest = rgba_manifest
+    if not effective_rgba_manifest:
+        discovered_manifest = _discover_default_rgba_manifest(intermediate_path)
+        if discovered_manifest is not None:
+            effective_rgba_manifest = str(discovered_manifest)
+
+    rgba_overrides = _load_rgba_overrides(effective_rgba_manifest, intermediate_path)
     materials_payload, exported_textures = _export_materials_bundle(
         intermediate_path,
         bundle_root,
@@ -442,6 +490,7 @@ def export_event_import_bundle(intermediate_dir, out_dir, event_id=None, rgba_ma
             "intermediate_dir": str(intermediate_path),
             "zip_xml": str((source_manifest.get("sources") or {}).get("zip_xml") or ""),
             "zip_bin": str((source_manifest.get("sources") or {}).get("zip_bin") or ""),
+            "rgba_manifest": str(effective_rgba_manifest or ""),
         },
         "outputs": {
             "mesh_obj": "mesh/mesh.obj",
@@ -485,7 +534,7 @@ def main(argv=None):
     parser.add_argument("--event", required=False, type=int, help="Target event id")
     parser.add_argument("--out", required=True, help="Output directory")
     parser.add_argument("--vertex-stride", required=False, type=int, default=0, help="Optional vertex stride hint for zip.xml extraction")
-    parser.add_argument("--rgba-manifest", required=False, help="Optional JSON mapping for external RGBA bytes overrides")
+    parser.add_argument("--rgba-manifest", required=False, help="Optional JSON mapping for external RGBA bytes overrides; if omitted, auto-discover event_<id>/rgba/rgba_manifest.json")
     args = parser.parse_args(argv)
 
     if args.intermediate:
