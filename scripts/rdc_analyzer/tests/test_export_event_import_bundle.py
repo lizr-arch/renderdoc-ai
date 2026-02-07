@@ -154,3 +154,36 @@ def test_export_event_import_bundle(tmp_path, texture_format, expected_status, e
     assert bundle_manifest["statistics"]["vertex_count"] == 3
     assert bundle_manifest["statistics"]["index_count"] == 3
     assert bundle_manifest["statistics"]["texture_count"] == 1
+
+
+
+def test_export_event_import_bundle_empty_texture_marks_missing_source(tmp_path):
+    from export_event_import_bundle import export_event_import_bundle
+
+    event_id = 101
+    event_root = tmp_path / f"event_{event_id}"
+    intermediate = event_root / "intermediate"
+    intermediate.mkdir(parents=True, exist_ok=True)
+
+    _write_sample_intermediate(intermediate, texture_format="R8G8B8A8")
+    (intermediate / "textures" / "tex_7.bin").write_bytes(b"")
+
+    manifest_path = event_root / "manifest.json"
+    manifest_path.write_text(
+        json.dumps(
+            {
+                "api": "Vulkan",
+                "sources": {"zip_xml": "capture.zip.xml", "zip_bin": "capture.zip"},
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    out_dir = tmp_path / "out"
+    bundle_root = export_event_import_bundle(str(intermediate), str(out_dir), event_id=event_id)
+
+    materials = json.loads((bundle_root / "materials" / "materials.json").read_text(encoding="utf-8"))
+    texture_entry = materials["materials"][0]["textures"][0]
+
+    assert texture_entry["status"] == "missing_source"
+    assert texture_entry["output_path"] == ""

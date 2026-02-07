@@ -109,18 +109,23 @@ def _export_texture_entry(intermediate_path: Path, textures_dir: Path, entry: di
     textures_dir.mkdir(parents=True, exist_ok=True)
     src_suffix = src_file.suffix.lower()
     base_name = _safe_stem(source_path, f"tex_{texture_id}")
+    src_data = src_file.read_bytes()
+
+    if not src_data and src_suffix not in _IMAGE_SUFFIXES:
+        result["status"] = "missing_source"
+        return result
 
     if src_suffix in _IMAGE_SUFFIXES:
         out_name = f"{base_name}{src_suffix}"
         dst = textures_dir / out_name
-        shutil.copy2(src_file, dst)
+        dst.write_bytes(src_data)
         result["output_path"] = f"textures/{out_name}"
         result["status"] = "copied_image"
         return result
 
     if width > 0 and height > 0 and format_name:
         try:
-            rgba = decode_texture(src_file.read_bytes(), width, height, format_name)
+            rgba = decode_texture(src_data, width, height, format_name)
             out_name = f"{base_name}.png"
             dst = textures_dir / out_name
             save_as_png(rgba, width, height, dst)

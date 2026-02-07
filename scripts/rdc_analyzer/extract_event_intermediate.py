@@ -40,8 +40,8 @@ def build_event_state_from_bindings(bindings):
     return EventState(
         index_buffer=index_buffer,
         vertex_buffers=vertex_buffers,
-        textures=[],
-        shaders=[],
+        textures=list(bindings.get("textures") or []),
+        shaders=list(bindings.get("shaders") or []),
     )
 
 
@@ -235,6 +235,9 @@ def extract_vulkan_event_intermediate(xml_path, zip_path, event_id, out_dir, ver
     draw_first_index = int(draw.get("first_index", 0))
     draw_index_count = int(draw.get("index_count", 0))
 
+    shader_blobs = {}
+    texture_blobs = {}
+
     with zipfile.ZipFile(zip_path, "r") as zip_handle:
         zip_names = set(zip_handle.namelist())
 
@@ -280,6 +283,39 @@ def extract_vulkan_event_intermediate(xml_path, zip_path, event_id, out_dir, ver
 
         vertex_bytes = _slice_bytes(vb_blob, vb_start, vb_size)
 
+        for shader in bindings.get("shaders") or []:
+            buffer_index = int(shader.get("buffer_index", 0))
+            if buffer_index <= 0:
+                continue
+            zip_entry = _resolve_zip_entry_name(buffer_index, zip_names)
+            shader["zip_entry"] = zip_entry or ""
+            if not zip_entry:
+                continue
+
+            data = zip_handle.read(zip_entry)
+            byte_length = int(shader.get("byte_length", 0))
+            if byte_length > 0:
+                data = _slice_bytes(data, 0, byte_length)
+
+            shader_path = shader.get("path") or f"{shader.get('stage', 'unknown')}.bin"
+            shader["path"] = shader_path
+            shader_blobs[shader_path] = data
+
+        for texture in bindings.get("textures") or []:
+            texture_path = texture.get("path") or f"tex_{int(texture.get('texture_id', 0))}.bin"
+            texture["path"] = texture_path
+
+            buffer_index = int(texture.get("memory_buffer_index", 0))
+            if buffer_index <= 0:
+                continue
+
+            zip_entry = _resolve_zip_entry_name(buffer_index, zip_names)
+            texture["zip_entry"] = zip_entry or ""
+
+            # Vulkan image memory is commonly GPU-native layout; keep payload extraction optional.
+            if not zip_entry:
+                continue
+
     decoded_indices = _decode_indices(index_bytes, index_format)
     vertex_offset = int(draw.get("vertex_offset", 0))
     if decoded_indices:
@@ -319,6 +355,8 @@ def extract_vulkan_event_intermediate(xml_path, zip_path, event_id, out_dir, ver
         {
             "index_buffer": index_binding,
             "vertex_buffers": [vertex_binding],
+            "textures": bindings.get("textures", []),
+            "shaders": bindings.get("shaders", []),
         }
     )
 
@@ -335,6 +373,8 @@ def extract_vulkan_event_intermediate(xml_path, zip_path, event_id, out_dir, ver
         vertex_bytes=vertex_bytes,
         index_bytes=index_bytes,
         state=state,
+        shader_blobs=shader_blobs,
+        texture_blobs=texture_blobs,
     )
 
     manifest_path = event_root / "manifest.json"
@@ -371,6 +411,10 @@ def extract_vulkan_event_intermediate(xml_path, zip_path, event_id, out_dir, ver
                     "layout_source": layout_source,
                 },
             },
+            "resource_bindings": {
+                "texture_count": len(state.textures or []),
+                "shader_count": len(state.shaders or []),
+            },
         }
     )
     manifest.setdefault("texture_decode", [])
@@ -378,7 +422,6 @@ def extract_vulkan_event_intermediate(xml_path, zip_path, event_id, out_dir, ver
 
     validate_intermediate_tree(event_root)
     return intermediate_path
-
 
 
 def _encode_indices(indices: list[int], index_format: str) -> bytes:
@@ -428,6 +471,9 @@ def extract_d3d11_event_intermediate(xml_path, zip_path, event_id, out_dir, vert
     draw_first_index = int(draw.get("start_index_location", 0))
     draw_index_count = int(draw.get("index_count", 0))
     base_vertex_location = int(draw.get("base_vertex_location", 0))
+
+    shader_blobs = {}
+    texture_blobs = {}
 
     with zipfile.ZipFile(zip_path, "r") as zip_handle:
         zip_names = set(zip_handle.namelist())
@@ -495,6 +541,48 @@ def extract_d3d11_event_intermediate(xml_path, zip_path, event_id, out_dir, vert
 
         vertex_bytes = _slice_bytes(vb_blob, vb_start, vb_size)
 
+        for shader in bindings.get("shaders") or []:
+            buffer_index = int(shader.get("buffer_index", 0))
+            if buffer_index <= 0:
+                continue
+
+            zip_entry = _resolve_zip_entry_name(buffer_index, zip_names)
+            shader["zip_entry"] = zip_entry or ""
+            if not zip_entry:
+                continue
+
+            shader_path = shader.get("path") or f"{shader.get('stage', 'unknown')}.bin"
+            shader["path"] = shader_path
+
+            data = zip_handle.read(zip_entry)
+            byte_length = int(shader.get("byte_length", 0))
+            if byte_length > 0:
+                data = _slice_bytes(data, 0, byte_length)
+            shader_blobs[shader_path] = data
+
+        for texture in bindings.get("textures") or []:
+            buffer_index = int(texture.get("buffer_index", 0))
+            if buffer_index <= 0:
+                continue
+
+            zip_entry = _resolve_zip_entry_name(buffer_index, zip_names)
+            texture["zip_entry"] = zip_entry or ""
+            if not zip_entry:
+                continue
+
+            texture_path = texture.get("path") or f"tex_{int(texture.get('texture_id', 0))}.bin"
+            texture["path"] = texture_path
+
+            blob = zip_handle.read(zip_entry)
+            byte_offset = int(texture.get("byte_offset", 0))
+            byte_length = int(texture.get("byte_length", 0))
+            if byte_length > 0:
+                blob = _slice_bytes(blob, byte_offset, byte_length)
+            else:
+                blob = _slice_bytes(blob, byte_offset, max(0, len(blob) - byte_offset))
+
+            texture_blobs[texture_path] = blob
+
     if not decoded_indices:
         decoded_indices = _decode_indices(index_bytes, index_format)
 
@@ -519,6 +607,8 @@ def extract_d3d11_event_intermediate(xml_path, zip_path, event_id, out_dir, vert
         {
             "index_buffer": index_binding,
             "vertex_buffers": [vertex_binding],
+            "textures": bindings.get("textures", []),
+            "shaders": bindings.get("shaders", []),
         }
     )
 
@@ -535,6 +625,8 @@ def extract_d3d11_event_intermediate(xml_path, zip_path, event_id, out_dir, vert
         vertex_bytes=vertex_bytes,
         index_bytes=index_bytes,
         state=state,
+        shader_blobs=shader_blobs,
+        texture_blobs=texture_blobs,
     )
 
     manifest_path = event_root / "manifest.json"
@@ -573,6 +665,10 @@ def extract_d3d11_event_intermediate(xml_path, zip_path, event_id, out_dir, vert
                     "source": vb_info.get("source", "unknown"),
                 },
             },
+            "resource_bindings": {
+                "texture_count": len(state.textures or []),
+                "shader_count": len(state.shaders or []),
+            },
         }
     )
     manifest.setdefault("texture_decode", [])
@@ -604,16 +700,28 @@ def extract_event_intermediate(xml_path, zip_path, event_id, out_dir, vertex_str
         f"offline event extraction not implemented for API: {api}. Supported: Vulkan, D3D11"
     )
 
-def write_intermediate_with_mesh_bytes(out_dir, mesh_info, vertex_bytes, index_bytes, state=None):
+def write_intermediate_with_mesh_bytes(
+    out_dir,
+    mesh_info,
+    vertex_bytes,
+    index_bytes,
+    state=None,
+    shader_blobs=None,
+    texture_blobs=None,
+):
     if state is None:
         state = EventState(index_buffer=None, vertex_buffers=[], textures=[], shaders=[])
+    if shader_blobs is None:
+        shader_blobs = {}
+    if texture_blobs is None:
+        texture_blobs = {}
 
     write_intermediate(
         out_dir=out_dir,
         state=state,
         buffers={},
-        shaders={},
-        textures={},
+        shaders=shader_blobs,
+        textures=texture_blobs,
     )
 
     intermediate_path = Path(out_dir) / "intermediate"

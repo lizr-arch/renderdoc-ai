@@ -1,6 +1,6 @@
 # ZIPXML Event 离线导出指南（Vulkan + D3D11）
 
-> 目标：在**不依赖 GPU 回放**的情况下，从 `capture.zip.xml + capture.zip` 针对单个 `event_id` 导出可用于后续转换的中间态（mesh/material/shader 占位 + manifest）。
+> 目标：在**不依赖 GPU 回放**的情况下，从 `capture.zip.xml + capture.zip` 针对单个 `event_id` 导出可用于后续转换的中间态（mesh/material/shader/texture 绑定 + manifest）。
 
 ---
 
@@ -9,6 +9,7 @@
 当前实现支持：
 - API：Vulkan、D3D11
 - 事件：`vkCmdDrawIndexed`（Vulkan）与 `ID3D11DeviceContext::DrawIndexed`（D3D11）（单 event）
+- 资源绑定：输出 `material.textures[]` 与 `shaders/*.json + *.bin`（Vulkan + D3D11）
 - 输入：`renderdoccmd convert -c zip.xml` 生成的 `.zip.xml` 与 `.zip`
 
 ---
@@ -40,7 +41,15 @@
      - `buffers/buffer123`
      - `buffer123`
 
-5. **字节切片**
+5. **DescriptorSet 纹理绑定（新增）**
+   - `vkUpdateDescriptorSetWithTemplate` / `vkUpdateDescriptorSets` + `vkCmdBindDescriptorSets`
+   - 输出 `slot=setX.bindingY`、`sampler`、`texture_id(view)`、`image_id`、`format/width/height`
+
+6. **Shader 绑定（新增）**
+   - `vkCreateShaderModule` + `vkCreateGraphicsPipelines` + `vkCmdBindPipeline`
+   - 输出 `shaders/vs|ps.json + .bin`（`bytecode_format=spirv`）
+
+7. **字节切片**
 
 ### D3D11
 
@@ -56,7 +65,12 @@
    - 更新来源：`ID3D11DeviceContext::Unmap` 的 `MapWrittenData`（在目标 event 之前的最后一次写入优先生效）
    - 解析结果：`resource_id -> buffer_index`
 
-3. **ZIP 数据读取 + 切片**
+3. **纹理与 Shader 绑定（新增）**
+   - `PS/VS*SetShaderResources`、`PS/VS*SetSamplers`、`PS/VS*SetShader`
+   - `CreateTexture2D` / `CreateShaderResourceView` / `Create*Shader`
+   - 输出 `material.textures[]` + `shaders/*.json + *.bin`（`bytecode_format=dxbc`）
+
+4. **ZIP 数据读取 + 切片**
    - 按 `buffer_index` 解析 ZIP entry（`000123` / `buffers/buffer123` / `buffer123`）
    - `index.bin` 按 `StartIndexLocation + IndexCount` 切片
    - `vertex.bin` 优先用 IA stride 与索引范围估算切片
@@ -94,7 +108,10 @@ py -3 scripts/rdc_analyzer/extract_event_intermediate.py \
       materials/
         material.json
       shaders/
+        *.json
+        *.bin
       textures/
+        tex_*.bin
 ```
 
 `mesh.json` 中包含：
@@ -138,7 +155,8 @@ py -3 scripts/rdc_analyzer/extract_event_intermediate.py \
 
 1. 当前只覆盖 DrawIndexed 路径（Vulkan/D3D11）
 2. 顶点布局无法完全从离线数据可靠恢复，`vertex_layout` 可能依赖启发式
-3. shader/material 的完整语义映射仍需结合更多 chunk 与引擎规则
+3. Vulkan 纹理若无法离线定位到可解码像素，`textures/tex_*.bin` 可能为空文件，后续由纹理解码阶段补全 RGBA payload
+4. shader/material 的完整语义映射仍需结合更多 chunk 与引擎规则
 
 ---
 

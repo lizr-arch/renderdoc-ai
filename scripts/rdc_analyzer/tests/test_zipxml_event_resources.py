@@ -171,3 +171,94 @@ def test_extract_d3d11_bindings_and_buffer_map(tmp_path):
     resource_map = build_d3d11_buffer_data_map(str(xml_path), upto_event_id=100)
     assert resource_map[307]["buffer_index"] == 33
     assert resource_map[308]["buffer_index"] == 34
+
+
+
+def test_extract_vulkan_descriptor_template_uses_fallback_set_and_view_mapping(tmp_path):
+    from parsers.zipxml_event_parser import extract_vulkan_bindings_for_event
+
+    xml_path = tmp_path / "sample_vulkan_descriptor.zip.xml"
+    xml_path.write_text(
+        """<rdc>
+  <header><driver id="8">Vulkan</driver></header>
+  <chunks>
+    <chunk id="1015" chunkIndex="10" name="vkCreateImage">
+      <struct name="CreateInfo" typename="VkImageCreateInfo">
+        <enum name="format" typename="VkFormat" string="VK_FORMAT_R8G8B8A8_UNORM">37</enum>
+        <struct name="extent" typename="VkExtent3D">
+          <uint name="width" typename="uint32_t">64</uint>
+          <uint name="height" typename="uint32_t">64</uint>
+          <uint name="depth" typename="uint32_t">1</uint>
+        </struct>
+        <uint name="mipLevels" typename="uint32_t">1</uint>
+        <uint name="arrayLayers" typename="uint32_t">1</uint>
+      </struct>
+      <ResourceId name="Image" typename="VkImage">40</ResourceId>
+    </chunk>
+    <chunk id="1043" chunkIndex="11" name="vkBindImageMemory">
+      <ResourceId name="image" typename="VkImage">40</ResourceId>
+      <ResourceId name="memory" typename="VkDeviceMemory">70</ResourceId>
+      <uint name="memoryOffset" typename="uint64_t">128</uint>
+    </chunk>
+    <chunk id="3" chunkIndex="12" name="Internal::Initial Contents">
+      <enum name="type" typename="VkResourceType" string="eResDeviceMemory">5</enum>
+      <ResourceId name="id" typename="VkDeviceMemory">70</ResourceId>
+      <uint name="ContentsSize" typename="uint64_t">4096</uint>
+      <buffer name="Contents" typename="Byte Buffer">99</buffer>
+    </chunk>
+    <chunk id="1016" chunkIndex="13" name="vkCreateImageView">
+      <struct name="CreateInfo" typename="VkImageViewCreateInfo">
+        <ResourceId name="image" typename="VkImage">40</ResourceId>
+      </struct>
+      <ResourceId name="View" typename="VkImageView">50</ResourceId>
+    </chunk>
+    <chunk id="1106" chunkIndex="14" name="vkUpdateDescriptorSetWithTemplate">
+      <ResourceId name="descriptorSet" typename="VkDescriptorSet">300</ResourceId>
+      <array name="Decoded Writes">
+        <struct typename="VkWriteDescriptorSet">
+          <ResourceId name="dstSet" typename="VkDescriptorSet">0</ResourceId>
+          <uint name="dstBinding" typename="uint32_t">2</uint>
+          <enum name="descriptorType" typename="VkDescriptorType" string="VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER">1</enum>
+          <array name="pImageInfo">
+            <struct typename="VkDescriptorImageInfo">
+              <ResourceId name="sampler" typename="VkSampler">7</ResourceId>
+              <ResourceId name="imageView" typename="VkImageView">50</ResourceId>
+              <enum name="imageLayout" typename="VkImageLayout" string="VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL">5</enum>
+            </struct>
+          </array>
+        </struct>
+      </array>
+    </chunk>
+    <chunk id="1062" chunkIndex="15" name="vkCmdBindDescriptorSets">
+      <enum name="pipelineBindPoint" typename="VkPipelineBindPoint" string="VK_PIPELINE_BIND_POINT_GRAPHICS">0</enum>
+      <uint name="firstSet" typename="uint32_t">3</uint>
+      <array name="pDescriptorSets">
+        <ResourceId typename="VkDescriptorSet">300</ResourceId>
+      </array>
+    </chunk>
+    <chunk id="1085" chunkIndex="20" name="vkCmdDrawIndexed">
+      <uint name="indexCount" typename="uint32_t">3</uint>
+      <uint name="instanceCount" typename="uint32_t">1</uint>
+      <uint name="firstIndex" typename="uint32_t">0</uint>
+      <int name="vertexOffset" typename="int32_t">0</int>
+      <uint name="firstInstance" typename="uint32_t">0</uint>
+    </chunk>
+  </chunks>
+</rdc>
+""",
+        encoding="utf-8",
+    )
+
+    bindings = extract_vulkan_bindings_for_event(str(xml_path), event_id=20)
+    textures = bindings.get("textures") or []
+    assert len(textures) == 1
+
+    tex = textures[0]
+    assert tex["slot"] == "set3.binding2"
+    assert tex["sampler"] == "set3.binding2"
+    assert tex["texture_id"] == 50
+    assert tex["image_id"] == 40
+    assert tex["format"] == "VK_FORMAT_R8G8B8A8_UNORM"
+    assert tex["width"] == 64
+    assert tex["height"] == 64
+    assert tex["memory_buffer_index"] == 99

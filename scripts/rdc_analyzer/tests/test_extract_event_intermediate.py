@@ -337,3 +337,48 @@ def test_extract_d3d11_event_intermediate_missing_zip_entry(tmp_path):
             event_id=100,
             out_dir=str(tmp_path / "out"),
         )
+
+
+
+def test_write_intermediate_preserves_shader_metadata(tmp_path):
+    from extract_event_intermediate import write_intermediate_with_mesh_bytes
+    from xmlzip_event_extractor import EventState
+
+    state = EventState(
+        index_buffer=None,
+        vertex_buffers=[],
+        textures=[],
+        shaders=[
+            {
+                "stage": "vs",
+                "bytecode_format": "spirv",
+                "entry": "main_vs",
+                "disassembly": "OpEntryPoint Vertex %main_vs",
+                "path": "vs.bin",
+            }
+        ],
+    )
+
+    intermediate_path = write_intermediate_with_mesh_bytes(
+        out_dir=str(tmp_path),
+        mesh_info={
+            "vertex_layout": [],
+            "vertex_count": 0,
+            "index_count": 0,
+            "index_format": "uint16",
+        },
+        vertex_bytes=b"",
+        index_bytes=b"",
+        state=state,
+        shader_blobs={"vs.bin": b"\x03\x02\x23\x07"},
+    )
+
+    shader_json = Path(intermediate_path) / "shaders" / "vs.json"
+    shader_bin = Path(intermediate_path) / "shaders" / "vs.bin"
+
+    shader = json.loads(shader_json.read_text(encoding="utf-8"))["shader"]
+    assert shader["stage"] == "vs"
+    assert shader["bytecode_format"] == "spirv"
+    assert shader["entry"] == "main_vs"
+    assert "OpEntryPoint" in shader["disassembly"]
+    assert shader_bin.read_bytes() == b"\x03\x02\x23\x07"

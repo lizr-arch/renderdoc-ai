@@ -143,8 +143,10 @@ def write_intermediate(out_dir, state, buffers, shaders, textures):
         shader_schema = build_shader_schema() if build_shader_schema else {}
         if isinstance(shader_schema, dict):
             shader_schema["stage"] = stage
-            if shader.get("disassembly"):
-                shader_schema["disassembly"] = shader.get("disassembly")
+            shader_schema["bytecode_format"] = str(shader.get("bytecode_format") or shader_schema.get("bytecode_format") or "")
+            shader_schema["entry"] = str(shader.get("entry") or shader_schema.get("entry") or "main")
+            if shader.get("disassembly") is not None:
+                shader_schema["disassembly"] = str(shader.get("disassembly") or "")
         shader_json = shader_dir / f"{stage}.json"
         shader_json.write_text(
             json.dumps({"shader": shader_schema}, indent=2), encoding="utf-8"

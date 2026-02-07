@@ -8,7 +8,7 @@
 
 - 输入：`extract_event_intermediate.py` 生成的 `event_<id>/intermediate/`
 - API：与中间态一致（当前优先 Vulkan / D3D11）
-- 输出纹理：优先解码到 RGBA8 PNG；失败时回退为原始 `.bin`
+- 输出纹理：优先解码到 RGBA8 PNG；失败时回退为原始 `.bin`；若源 payload 为空则标记 `missing_source`
 
 ---
 
