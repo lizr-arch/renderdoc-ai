@@ -112,6 +112,9 @@ def test_run_batch_success_and_missing(tmp_path):
     assert summary["events_total"] == 2
     assert summary["success_count"] == 1
     assert summary["failed_count"] == 1
+    assert summary["failed_event_ids"] == [101]
+    assert summary["retry_events_arg"] == "101"
+    assert "--events \"101\"" in summary["retry_command"]
 
     status_by_event = {item["event_id"]: item["status"] for item in summary["results"]}
     assert status_by_event[100] == "ok"
@@ -136,6 +139,7 @@ def test_main_auto_discover_and_summary_file(tmp_path):
     assert summary["events_total"] == 1
     assert summary["success_count"] == 1
     assert summary["failed_count"] == 0
+    assert summary["failed_event_ids"] == []
 
 
 def test_main_with_explicit_events(tmp_path):
@@ -152,7 +156,7 @@ def test_main_with_explicit_events(tmp_path):
     assert not (out_dir / "event_201" / "import_bundle" / "bundle_manifest.json").exists()
 
 
-def test_main_returns_nonzero_on_failure(tmp_path):
+def test_main_returns_nonzero_on_failure_and_writes_retry_files(tmp_path):
     from export_event_import_bundle_batch import main
 
     _write_sample_intermediate_event(tmp_path, 301)
@@ -160,3 +164,76 @@ def test_main_returns_nonzero_on_failure(tmp_path):
     out_dir = tmp_path / "out"
     rc = main(["--root", str(tmp_path), "--out", str(out_dir), "--events", "301,999"])
     assert rc == 2
+
+    summary = json.loads((out_dir / "batch_import_bundle_summary.json").read_text(encoding="utf-8"))
+    assert summary["failed_event_ids"] == [999]
+    assert (out_dir / "batch_import_bundle_failed_events.txt").exists()
+    assert (out_dir / "batch_import_bundle_retry_command.txt").exists()
+
+
+def test_main_from_summary_retries_failed_event_ids(tmp_path):
+    from export_event_import_bundle_batch import main
+
+    _write_sample_intermediate_event(tmp_path, 401)
+    _write_sample_intermediate_event(tmp_path, 402)
+
+    previous_summary = tmp_path / "previous_summary.json"
+    previous_summary.write_text(
+        json.dumps(
+            {
+                "root": str(tmp_path),
+                "out": str(tmp_path / "old_out"),
+                "failed_event_ids": [402],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    retry_out = tmp_path / "retry_out"
+    rc = main(["--from-summary", str(previous_summary), "--out", str(retry_out)])
+    assert rc == 0
+
+    assert (retry_out / "event_402" / "import_bundle" / "bundle_manifest.json").exists()
+    assert not (retry_out / "event_401" / "import_bundle" / "bundle_manifest.json").exists()
+
+    new_summary = json.loads((retry_out / "batch_import_bundle_summary.json").read_text(encoding="utf-8"))
+    assert new_summary.get("source_summary") == str(previous_summary)
+
+
+def test_main_from_summary_uses_results_when_failed_list_missing(tmp_path):
+    from export_event_import_bundle_batch import main
+
+    _write_sample_intermediate_event(tmp_path, 501)
+    _write_sample_intermediate_event(tmp_path, 502)
+
+    previous_summary = tmp_path / "previous_summary_results.json"
+    previous_summary.write_text(
+        json.dumps(
+            {
+                "root": str(tmp_path),
+                "out": str(tmp_path / "old_out"),
+                "results": [
+                    {"event_id": 501, "status": "ok"},
+                    {"event_id": 502, "status": "error"},
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    retry_out = tmp_path / "retry_out2"
+    rc = main(["--from-summary", str(previous_summary), "--out", str(retry_out)])
+    assert rc == 0
+
+    assert (retry_out / "event_502" / "import_bundle" / "bundle_manifest.json").exists()
+    assert not (retry_out / "event_501" / "import_bundle" / "bundle_manifest.json").exists()
+
+
+def test_main_from_summary_requires_root_or_summary_root(tmp_path):
+    from export_event_import_bundle_batch import main
+
+    bad_summary = tmp_path / "bad_summary.json"
+    bad_summary.write_text(json.dumps({"failed_event_ids": [1]}), encoding="utf-8")
+
+    with pytest.raises(ValueError, match="--root is required"):
+        main(["--from-summary", str(bad_summary), "--out", str(tmp_path / "out")])

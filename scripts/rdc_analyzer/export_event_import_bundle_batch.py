@@ -46,6 +46,62 @@ def discover_event_ids(intermediate_root: Path):
     return event_ids
 
 
+def _normalize_event_ids(values):
+    if not isinstance(values, list):
+        return []
+
+    normalized = []
+    seen = set()
+    for value in values:
+        try:
+            event_id = int(value)
+        except (TypeError, ValueError):
+            continue
+        if event_id in seen:
+            continue
+        seen.add(event_id)
+        normalized.append(event_id)
+    return normalized
+
+
+def _failed_event_ids_from_summary(summary_payload: dict):
+    explicit = _normalize_event_ids(summary_payload.get("failed_event_ids"))
+    if explicit:
+        return explicit
+
+    derived = []
+    seen = set()
+    for item in summary_payload.get("results") or []:
+        if not isinstance(item, dict):
+            continue
+        status = str(item.get("status") or "")
+        if status == "ok":
+            continue
+        try:
+            event_id = int(item.get("event_id"))
+        except (TypeError, ValueError):
+            continue
+        if event_id in seen:
+            continue
+        seen.add(event_id)
+        derived.append(event_id)
+    return derived
+
+
+def _build_retry_command(root: Path, out: Path, failed_event_ids: list[int], rgba_manifest: str | None = None):
+    if not failed_event_ids:
+        return ""
+
+    events_arg = ",".join(str(event_id) for event_id in failed_event_ids)
+    command = (
+        "py -3 scripts/rdc_analyzer/export_event_import_bundle_batch.py "
+        f"--root \"{root}\" --out \"{out}\" --events \"{events_arg}\""
+    )
+    if rgba_manifest:
+        command += f" --rgba-manifest \"{rgba_manifest}\""
+    return command
+
+
 def run_batch(
     intermediate_root: Path,
     out_root: Path,
@@ -97,6 +153,11 @@ def run_batch(
             if fail_fast:
                 break
 
+    failed_event_ids = [
+        int(item["event_id"])
+        for item in results
+        if str(item.get("status") or "") != "ok"
+    ]
     success_count = len([item for item in results if item.get("status") == "ok"])
     failed_count = len(results) - success_count
 
@@ -107,6 +168,14 @@ def run_batch(
         "events_total": len(results),
         "success_count": success_count,
         "failed_count": failed_count,
+        "failed_event_ids": failed_event_ids,
+        "retry_events_arg": ",".join(str(event_id) for event_id in failed_event_ids),
+        "retry_command": _build_retry_command(
+            root=intermediate_root,
+            out=out_root,
+            failed_event_ids=failed_event_ids,
+            rgba_manifest=rgba_manifest,
+        ),
         "results": results,
     }
 
@@ -116,16 +185,56 @@ def _write_summary(summary: dict, summary_path: Path):
     summary_path.write_text(json.dumps(summary, indent=2), encoding="utf-8")
 
 
+def _write_retry_artifacts(summary: dict, out_root: Path):
+    failed_ids = list(summary.get("failed_event_ids") or [])
+    if not failed_ids:
+        return {}
+
+    out_root.mkdir(parents=True, exist_ok=True)
+
+    failed_path = out_root / "batch_import_bundle_failed_events.txt"
+    failed_path.write_text("\n".join(str(event_id) for event_id in failed_ids) + "\n", encoding="utf-8")
+
+    command_path = out_root / "batch_import_bundle_retry_command.txt"
+    command_path.write_text(str(summary.get("retry_command") or "") + "\n", encoding="utf-8")
+
+    return {
+        "failed_events": str(failed_path),
+        "retry_command": str(command_path),
+    }
+
+
+def _load_summary(path_value: str):
+    path = Path(path_value)
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(payload, dict):
+        raise ValueError(f"invalid summary format: {path}")
+    return path, payload
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(
         description="Batch export import_bundle for multiple event_<id>/intermediate directories"
     )
-    parser.add_argument("--root", required=True, help="Root directory containing event_<id>/intermediate")
-    parser.add_argument("--out", required=True, help="Output root directory")
+    parser.add_argument(
+        "--root",
+        required=False,
+        help="Root directory containing event_<id>/intermediate; optional with --from-summary",
+    )
+    parser.add_argument(
+        "--out",
+        required=False,
+        help="Output root directory; optional with --from-summary (falls back to summary out)",
+    )
     parser.add_argument(
         "--events",
         required=False,
         help="Optional event ids, comma/space separated (e.g. 100,101,102)",
+    )
+    parser.add_argument(
+        "--from-summary",
+        required=False,
+        help="Retry from an existing batch summary JSON (uses failed_event_ids by default)",
     )
     parser.add_argument(
         "--rgba-manifest",
@@ -144,12 +253,37 @@ def main(argv=None):
     )
     args = parser.parse_args(argv)
 
-    root = Path(args.root)
-    out = Path(args.out)
+    source_summary_path = None
+    source_summary_payload = None
+    if args.from_summary:
+        source_summary_path, source_summary_payload = _load_summary(args.from_summary)
 
-    event_ids = _parse_events_arg(args.events) if args.events else discover_event_ids(root)
+    if args.root:
+        root = Path(args.root)
+    elif source_summary_payload and source_summary_payload.get("root"):
+        root = Path(str(source_summary_payload.get("root")))
+    else:
+        raise ValueError("--root is required unless --from-summary provides root")
+
+    if args.out:
+        out = Path(args.out)
+    elif source_summary_payload and source_summary_payload.get("out"):
+        out = Path(str(source_summary_payload.get("out")))
+    else:
+        raise ValueError("--out is required unless --from-summary provides out")
+
+    if args.events:
+        event_ids = _parse_events_arg(args.events)
+    elif source_summary_payload is not None:
+        event_ids = _failed_event_ids_from_summary(source_summary_payload)
+    else:
+        event_ids = discover_event_ids(root)
+
     if not event_ids:
-        raise ValueError("no event ids found. Provide --events or ensure root has event_<id>/intermediate")
+        raise ValueError(
+            "no event ids found. Provide --events, ensure root has event_<id>/intermediate, "
+            "or provide --from-summary with failed_event_ids/results"
+        )
 
     summary = run_batch(
         intermediate_root=root,
@@ -158,6 +292,13 @@ def main(argv=None):
         rgba_manifest=args.rgba_manifest,
         fail_fast=bool(args.fail_fast),
     )
+
+    if source_summary_path is not None:
+        summary["source_summary"] = str(source_summary_path)
+
+    retry_files = _write_retry_artifacts(summary, out)
+    if retry_files:
+        summary["retry_files"] = retry_files
 
     summary_path = Path(args.summary) if args.summary else out / "batch_import_bundle_summary.json"
     _write_summary(summary, summary_path)

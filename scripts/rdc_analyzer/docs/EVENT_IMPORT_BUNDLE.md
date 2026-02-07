@@ -87,10 +87,20 @@ py -3 scripts/rdc_analyzer/export_event_import_bundle_batch.py   --root "D:\back
 - `--events "22149,22150"`：只导出指定 event。
 - `--rgba-manifest <path>`：给所有 event 使用同一个 RGBA manifest。
 - `--fail-fast`：遇到第一个失败就停止。
+- `--from-summary <summary.json>`：从上一次 summary 里的失败列表自动重跑（可叠加 `--out` 指定新输出目录）。
 
 输出：
 - 每个 event 仍输出 `event_<id>/import_bundle/`。
-- 额外生成 `batch_import_bundle_summary.json`（统计成功/失败和错误原因）。
+- `batch_import_bundle_summary.json`：统计成功/失败、`failed_event_ids`、`retry_command`。
+- 失败时自动生成：
+  - `batch_import_bundle_failed_events.txt`
+  - `batch_import_bundle_retry_command.txt`
+
+重跑示例：
+
+```bash
+py -3 scripts/rdc_analyzer/export_event_import_bundle_batch.py   --from-summary "D:\backup\import_bundle_batch_out\batch_import_bundle_summary.json"   --out "D:\backup\import_bundle_batch_retry"
+```
 
 ### 2.4 一步式（zip.xml + zip -> intermediate -> import bundle）
 
