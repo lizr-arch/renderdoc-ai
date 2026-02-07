@@ -44,23 +44,23 @@
 
 ## 3. 实施拆分（2-5 分钟粒度）
 
-- [ ] Task 1: 新增入口脚本 export_messiah_from_bundle.py
+- [x] Task 1: 新增入口脚本 export_messiah_from_bundle.py
   - 参数：--bundle、--out、--event（可选）。
   - 行为：读取 bundle_manifest.json 与 materials/materials.json，驱动后续转换。
 
-- [ ] Task 2: 增加 Bundle 读取层（解析器）
+- [x] Task 2: 增加 Bundle 读取层（解析器）
   - 新文件：scripts/rdc_analyzer/exporters/messiah_bundle_adapter.py。
   - 输出统一中间对象：MeshSource/MaterialSource/TextureSource。
 
-- [ ] Task 3: Mesh 转换（Phase-1 简化）
+- [x] Task 3: Mesh 转换（Phase-1 简化）
   - 先支持 OBJ（三角面 + position/normal/uv），生成 Messiah resource.data。
   - 缺失法线/切线时按策略补默认值并记录 warning。
 
-- [ ] Task 4: 纹理与材质映射
+- [x] Task 4: 纹理与材质映射
   - 纹理：优先 PNG，回退 bin（标记 unresolved）。
   - 材质：按 materials.json 绑定主纹理到 tBaseMap；后续扩展多槽位映射。
 
-- [ ] Task 5: 结果校验与测试
+- [x] Task 5: 结果校验与测试
   - 新增 test_messiah_bundle_adapter.py（样例输入 -> 资源计数正确）。
   - 新增 test_export_messiah_from_bundle.py（CLI smoke + 缺字段失败）。
 
@@ -89,3 +89,10 @@
 ## 6. Next Step
 
 进入 /do：先完成 Task 1 + Task 2（入口和解析层），用最小样例跑通后再补 Mesh/Material 细节。
+
+
+## 7. /do 执行记录
+
+- 2026-02-07: 新增 scripts/rdc_analyzer/exporters/messiah_bundle_adapter.py，完成 import_bundle 解析、event_id 推断、OBJ -> vertex/index stream 转换。
+- 2026-02-07: 新增 scripts/rdc_analyzer/export_messiah_from_bundle.py，支持从 import_bundle 或 event 根目录直接导出 Messiah Repository。
+- 2026-02-07: 新增单测 test_messiah_bundle_adapter.py 与 test_export_messiah_from_bundle.py，6 项全部通过。

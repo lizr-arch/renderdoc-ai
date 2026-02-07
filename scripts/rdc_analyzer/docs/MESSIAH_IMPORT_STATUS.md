@@ -4,6 +4,8 @@
 
 - 已有导出脚本：scripts/rdc_analyzer/export_messiah_assets.py
 - 已有导出器：scripts/rdc_analyzer/exporters/messiah_exporter.py
+- 新增入口：scripts/rdc_analyzer/export_messiah_from_bundle.py（import_bundle -> messiah）
+- 新增适配层：scripts/rdc_analyzer/exporters/messiah_bundle_adapter.py
 - 当前输入：event_<id>/intermediate
 - 当前输出：<out>/messiah/Package/Repository/rdc_event_<id>.local
 
@@ -25,7 +27,7 @@
 
 ## 3. 当前核心缺口
 
-- 缺少 import_bundle -> messiah 直连入口。
+- import_bundle -> messiah 直连入口已补齐（Phase-1）。
 - 缺少 mesh.obj -> Messiah resource.data 的转换层。
 - 缺少 materials/materials.json 到 Messiah 多纹理材质参数的映射规则。
 
@@ -37,3 +39,8 @@
 
 对应计划文档：
 - plans/2026-02-07-214500-Agent01-Messiah-Import-Phase1.md
+
+## 5. 已补齐验证
+
+- 单测：scripts/rdc_analyzer/tests/test_messiah_bundle_adapter.py
+- 单测：scripts/rdc_analyzer/tests/test_export_messiah_from_bundle.py
