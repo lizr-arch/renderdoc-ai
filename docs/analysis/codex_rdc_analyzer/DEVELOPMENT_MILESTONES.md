@@ -1,5 +1,6 @@
 # RDC Analyzer 开发里程碑 (统一追踪)
 
+> **版本**: 2.0.0 | **更新日期**: 2025-02-05  
 > **创建日期**: 2025-01-24  
 > **目的**: 统一追踪所有待办开发任务，避免会话遗忘  
 > **使用方法**: 完成一个任务后，将 `[ ]` 改为 `[x]` 并提交
@@ -27,10 +28,10 @@
 
 | 阶段 | 状态 | 进度 | 说明 |
 |------|:----:|------|------|
-| Phase 1-4 (A-first) | ✅ 已完成 | 11/11 | 后端分析闭环 |
+| Phase 1-4 (A-first) | ✅ 已完成 | 11/11 | 后端分析闘环 |
 | **M1: ResourceUsageIndex** | ✅ 已完成 | 10/10 | 资源反向索引 |
 | **M2: EvidenceChain** | ✅ 已完成 | 12/12 | 证据链生成 |
-| **M3: UI 跳转/高亮** | ⏳ 待开始 | 0/13 | 阻塞交互功能 |
+| **M3: UI 跳转/高亮** | ✅ 已完成 | 13/13 | 跨页面证据链导航 |
 | M4: 高级可视化 | ⏳ 可选 | 0/6 | 热力图等 |
 | Phase 5: B-mode 对比 | ⏳ 待开始 | 0/4 | 多帧统计 |
 | P0-NEW-3: Schema 规范 | ⏳ 待开始 | 0/1 | 小范围改动 |
@@ -107,15 +108,15 @@ evidence_chain.to_dict() 输出完整 JSON
 
 ---
 
-## 🟡 M3: UI 增强（跳转与证据展示）
+## ✅ M3: UI 增强（跳转与证据展示）— 已完成
 
-> **阻塞功能**: 跨页面导航、高亮动画、证据面板  
-> **预估工时**: 3 天  
-> **源文档**: `EVIDENCE_CHAIN_DEVELOPMENT_PLAN.md` 第 210-330 行
+> **状态**: ✅ 已完成 (2025-02-05)  
+> **实现位置**: `templates/*.html`, `assets/scripts/navigation.js`, `assets/styles/common.css`  
+> **文档**: `scripts/rdc_analyzer/docs/EVIDENCE_CHAIN.md`
 
 ### M3.1 URL 参数解析
 
-- [ ] **M3.1.1** 在各 HTML 页面新增 `parseUrlParams()` 函数
+- [x] **M3.1.1** 在各 HTML 页面新增 `parseUrlParams()` 函数
   ```javascript
   function parseUrlParams() {
       const params = new URLSearchParams(window.location.search);
@@ -127,10 +128,10 @@ evidence_chain.to_dict() 输出完整 JSON
   }
   ```
 
-- [ ] **M3.1.2** 实现 `highlightAndScrollTo(id)` 函数
+- [x] **M3.1.2** 实现 `highlightAndScrollTo(id)` 函数
   - 滚动到目标元素
   - 播放高亮动画 (CSS pulse)
-- [ ] **M3.1.3** 在页面 `DOMContentLoaded` 时调用
+- [x] **M3.1.3** 在页面 `DOMContentLoaded` 时调用
   ```javascript
   document.addEventListener('DOMContentLoaded', () => {
       const params = parseUrlParams();
@@ -142,18 +143,18 @@ evidence_chain.to_dict() 输出完整 JSON
 
 ### M3.2 跳转按钮实现
 
-- [ ] **M3.2.1** 更新 `textures.html` 使用情况列表
-  - 点击 DrawCall → 跳转到 `events.html?id=xxx&highlight=true`
-- [ ] **M3.2.2** 更新 `shaders.html` 使用情况列表
-  - 点击 DrawCall → 跳转到 `events.html?id=xxx&highlight=true`
-- [ ] **M3.2.3** 更新 `index.html` (recommendations) 操作按钮
+- [x] **M3.2.1** 更新 `textures.html` 使用情况列表
+  - 点击 DrawCall → 跳转到 `events.html?eventId=xxx&highlight=true`
+- [x] **M3.2.2** 更新 `shaders.html` 使用情况列表
+  - 点击 DrawCall → 跳转到 `events.html?eventId=xxx&highlight=true`
+- [x] **M3.2.3** 更新 `index.html` (recommendations) 操作按钮
   - 渲染 `issue.actions[]` 为可点击按钮
-- [ ] **M3.2.4** 更新 `index.html` 问题卡片
+- [x] **M3.2.4** 更新 `index.html` 问题卡片
   - 添加 "跳转到资源" / "跳转到事件" 按钮
 
 ### M3.3 证据展示面板
 
-- [ ] **M3.3.1** 在 `index.html` 问题区域新增证据区块
+- [x] **M3.3.1** 在 `index.html` 问题区域新增证据区块
   ```html
   <div class="evidence-panel">
       <div class="evidence-row">
@@ -172,15 +173,15 @@ evidence_chain.to_dict() 输出完整 JSON
   </div>
   ```
 
-- [ ] **M3.3.2** 新增证据面板样式到 `common.css`
+- [x] **M3.3.2** 新增证据面板样式到 `common.css`
   ```css
   .evidence-panel { /* ... */ }
   .evidence-row .actual { color: #ff6b6b; }
   .evidence-row .threshold { color: #4ecdc4; }
-  .highlight-pulse { animation: pulse 0.5s ease-in-out 3; }
+  .pulse-highlight { animation: pulse 0.5s ease-in-out 3; }
   ```
 
-- [ ] **M3.3.3** 新增使用情况摘要区块
+- [x] **M3.3.3** 新增使用情况摘要区块
   ```html
   <div class="usage-summary">
       <h4>使用情况 ({{usageCount}} 次)</h4>
@@ -199,16 +200,26 @@ evidence_chain.to_dict() 输出完整 JSON
 
 ### M3.4 端到端测试
 
-- [ ] **M3.4.1** 端到端测试：从 index.html 跳转到 events.html
-- [ ] **M3.4.2** 验证高亮动画正常播放
-- [ ] **M3.4.3** 验证 textures.html 使用列表可点击
+- [x] **M3.4.1** 端到端测试：从 index.html 跳转到 events.html
+- [x] **M3.4.2** 验证高亮动画正常播放
+- [x] **M3.4.3** 验证 textures.html 使用列表可点击
 
-### M3 验收标准
+### M3 验收标准 ✅
 ```
-1. 点击 Issue 中的 "跳转到事件" → events.html 打开并定位到目标行
-2. 目标行播放 3 次高亮动画
-3. textures.html 右侧面板点击 DrawCall 链接可跳转
+1. ✅ 点击 Issue 中的 "跳转到事件" → events.html 打开并定位到目标行
+2. ✅ 目标行播放 3 次高亮动画 (pulse-highlight CSS)
+3. ✅ textures.html 右侧面板点击 DrawCall 链接可跳转
 ```
+
+### M3 技术实现摘要
+
+| 组件 | 文件 | 说明 |
+|------|------|------|
+| URL 参数解析 | `navigation.js` | `parseUrlParams()` + 自动滚动 |
+| 高亮动画 | `common.css` | `.pulse-highlight` 脉冲动画 |
+| Texture→Event | `textures.html` | 点击纹理卡片跳转到使用事件 |
+| Event→Shader | `events.html` | 点击 Draw Call 跳转到绑定 Shader |
+| Shader→Event | `shaders.html` | 显示反向引用链接 |
 
 ---
 

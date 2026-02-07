@@ -8,13 +8,17 @@
 
 ## 阅读顺序（建议）
 
+> **🆕 AI 会话快速恢复**：新开对话请先阅读 ONBOARDING.md，5 分钟建立上下文。
+
+0. `docs/analysis/codex_rdc_analyzer/ONBOARDING.md`（**AI 会话快速恢复指南** ⭐ 必读）
 1. `docs/analysis/codex_rdc_analyzer/WORK_SUMMARY_2025-01-21.md`（阅读总览）
-2. `docs/analysis/codex_rdc_analyzer/WORK_SUMMARY_ROUTES.md`（A/B/C 路线）
-3. `docs/analysis/codex_rdc_analyzer/WORK_SUMMARY_SCHEMA.md`（Schema/Bridge）
-4. `docs/analysis/codex_rdc_analyzer/2025-01-31-rdc-analyzer-data-richness-baseline.md`（数据丰富度基线）
-5. `docs/analysis/codex_rdc_analyzer/WORK_SUMMARY_VERIFICATION.md`（验证流程）
-6. `docs/analysis/codex_rdc_analyzer/WORK_SUMMARY_ROADMAP.md`（优先级/计划）
-7. `docs/analysis/codex_rdc_analyzer/WORK_SUMMARY_BUILD.md`（环境/编译）
+2. `docs/analysis/codex_rdc_analyzer/DEVELOPMENT_MILESTONES.md`（里程碑追踪 M1/M2/M3）
+3. `docs/analysis/codex_rdc_analyzer/WORK_SUMMARY_ROUTES.md`（A/B/C 路线）
+4. `docs/analysis/codex_rdc_analyzer/WORK_SUMMARY_SCHEMA.md`（Schema/Bridge）
+5. `docs/analysis/codex_rdc_analyzer/2025-01-31-rdc-analyzer-data-richness-baseline.md`（数据丰富度基线）
+6. `docs/analysis/codex_rdc_analyzer/WORK_SUMMARY_VERIFICATION.md`（验证流程）
+7. `docs/analysis/codex_rdc_analyzer/WORK_SUMMARY_ROADMAP.md`（优先级/计划）
+8. `docs/analysis/codex_rdc_analyzer/WORK_SUMMARY_BUILD.md`（环境/编译）
 
 ## 索引条目（简介 + 关键词 + 适用链路）
 
