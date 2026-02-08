@@ -214,6 +214,125 @@ def test_main_events_from_scan_selects_top_textured(tmp_path):
     assert summary["selection"]["selected"][0]["event_id"] == 602
 
 
+def test_run_batch_from_capture_uses_capture_retry_command(tmp_path, monkeypatch):
+    import export_event_import_bundle_batch as batch_mod
+
+    capture_xml = tmp_path / "sample.zip.xml"
+    capture_zip = tmp_path / "sample.zip"
+    capture_xml.write_text("<rdc></rdc>", encoding="utf-8")
+    capture_zip.write_bytes(b"PK")
+
+    def _raise_extract(**kwargs):
+        raise RuntimeError("extract failed")
+
+    monkeypatch.setattr(batch_mod, "_extract_then_export", _raise_extract)
+
+    summary = batch_mod.run_batch_from_capture(
+        capture_xml=capture_xml,
+        capture_zip=capture_zip,
+        out_root=tmp_path / "out",
+        event_ids=[777],
+        vertex_stride=16,
+        texture_mode="raw",
+        raw_source_kinds={"vulkan_device_memory_raw"},
+    )
+
+    assert summary["failed_count"] == 1
+    assert summary["failed_event_ids"] == [777]
+    assert "--xml" in summary["retry_command"]
+    assert "--zip" in summary["retry_command"]
+    assert "--vertex-stride 16" in summary["retry_command"]
+    assert "--texture-mode \"raw\"" in summary["retry_command"]
+
+
+def test_main_capture_mode_from_scan_invokes_capture_runner(tmp_path, monkeypatch):
+    import export_event_import_bundle_batch as batch_mod
+
+    capture_xml = tmp_path / "capture.zip.xml"
+    capture_zip = tmp_path / "capture.zip"
+    capture_xml.write_text("<rdc></rdc>", encoding="utf-8")
+    capture_zip.write_bytes(b"PK")
+
+    scan_path = tmp_path / "scan_capture.json"
+    scan_path.write_text(
+        json.dumps(
+            {
+                "events": [
+                    {"event_id": 700, "texture_count": 1, "index_count": 10, "pipeline": 1},
+                    {"event_id": 701, "texture_count": 4, "index_count": 20, "pipeline": 2},
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    captured = {}
+
+    def _fake_run_batch_from_capture(**kwargs):
+        captured.update(kwargs)
+        return {
+            "schema_version": "1.0",
+            "schema_path": "schema/batch_import_bundle_summary.schema.json",
+            "root": str(kwargs["capture_xml"].parent),
+            "out": str(kwargs["out_root"]),
+            "events_total": len(kwargs["event_ids"]),
+            "success_count": len(kwargs["event_ids"]),
+            "failed_count": 0,
+            "failed_event_ids": [],
+            "retry_events_arg": "",
+            "retry_command": "",
+            "inputs": {
+                "mode": "capture_zip",
+                "xml": str(kwargs["capture_xml"]),
+                "zip": str(kwargs["capture_zip"]),
+                "vertex_stride": int(kwargs.get("vertex_stride", 0)),
+            },
+            "options": {
+                "texture_mode": str(kwargs.get("texture_mode") or "auto"),
+                "raw_source_kinds": sorted(kwargs.get("raw_source_kinds") or set()),
+            },
+            "texture_status_totals": {
+                "decoded_rgba8_png": 0,
+                "rgba_bytes_png": 0,
+                "copied_image": 0,
+                "raw_copy": 0,
+                "missing_source": 0,
+                "other": 0,
+                "total": 0,
+            },
+            "results": [],
+        }
+
+    monkeypatch.setattr(batch_mod, "run_batch_from_capture", _fake_run_batch_from_capture)
+
+    out_dir = tmp_path / "out_capture"
+    rc = batch_mod.main(
+        [
+            "--xml",
+            str(capture_xml),
+            "--zip",
+            str(capture_zip),
+            "--out",
+            str(out_dir),
+            "--events-from-scan",
+            str(scan_path),
+            "--top-textured",
+            "1",
+            "--raw-source-kinds",
+            "vulkan_device_memory_raw",
+        ]
+    )
+    assert rc == 0
+
+    assert captured["event_ids"] == [701]
+    assert captured["capture_xml"] == capture_xml
+    assert captured["capture_zip"] == capture_zip
+
+    summary = json.loads((out_dir / "batch_import_bundle_summary.json").read_text(encoding="utf-8"))
+    assert summary["selection"]["selected"][0]["event_id"] == 701
+    assert summary["inputs"]["mode"] == "capture_zip"
+
+
 def test_main_returns_nonzero_on_failure_and_writes_retry_files(tmp_path):
     from export_event_import_bundle_batch import main
 

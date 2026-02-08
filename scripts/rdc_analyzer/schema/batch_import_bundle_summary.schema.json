@@ -257,6 +257,26 @@
           }
         }
       }
+    },
+    "inputs": {
+      "type": "object",
+      "required": [
+        "mode"
+      ],
+      "properties": {
+        "mode": {
+          "type": "string"
+        },
+        "xml": {
+          "type": "string"
+        },
+        "zip": {
+          "type": "string"
+        },
+        "vertex_stride": {
+          "type": "integer"
+        }
+      }
     }
   }
 }

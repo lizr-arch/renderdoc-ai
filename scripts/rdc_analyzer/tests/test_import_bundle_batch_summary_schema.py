@@ -49,6 +49,12 @@ def test_batch_summary_schema_accepts_extended_fields():
         "failed_event_ids": [],
         "retry_events_arg": "",
         "retry_command": "",
+        "inputs": {
+            "mode": "capture_zip",
+            "xml": "D:/capture.zip.xml",
+            "zip": "D:/capture.zip",
+            "vertex_stride": 0,
+        },
         "options": {
             "texture_mode": "auto",
             "raw_source_kinds": ["vulkan_device_memory_raw"],

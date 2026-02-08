@@ -2,7 +2,7 @@ import argparse
 import json
 from pathlib import Path
 
-from export_event_import_bundle import export_event_import_bundle
+from export_event_import_bundle import _extract_then_export, export_event_import_bundle
 
 
 _SCRIPT_DIR = Path(__file__).resolve().parent
@@ -232,15 +232,27 @@ def _build_retry_command(
     rgba_manifest: str | None = None,
     texture_mode: str = "auto",
     raw_source_kinds: set[str] | None = None,
+    capture_xml: Path | None = None,
+    capture_zip: Path | None = None,
+    vertex_stride: int = 0,
 ):
     if not failed_event_ids:
         return ""
 
     events_arg = ",".join(str(event_id) for event_id in failed_event_ids)
-    command = (
-        "py -3 scripts/rdc_analyzer/export_event_import_bundle_batch.py "
-        f"--root \"{root}\" --out \"{out}\" --events \"{events_arg}\""
-    )
+    if capture_xml is not None and capture_zip is not None:
+        command = (
+            "py -3 scripts/rdc_analyzer/export_event_import_bundle_batch.py "
+            f"--xml \"{capture_xml}\" --zip \"{capture_zip}\" --out \"{out}\" --events \"{events_arg}\""
+        )
+        if int(vertex_stride) > 0:
+            command += f" --vertex-stride {int(vertex_stride)}"
+    else:
+        command = (
+            "py -3 scripts/rdc_analyzer/export_event_import_bundle_batch.py "
+            f"--root \"{root}\" --out \"{out}\" --events \"{events_arg}\""
+        )
+
     if rgba_manifest:
         command += f" --rgba-manifest \"{rgba_manifest}\""
 
@@ -406,6 +418,126 @@ def run_batch(
     }
 
 
+def run_batch_from_capture(
+    capture_xml: Path,
+    capture_zip: Path,
+    out_root: Path,
+    event_ids: list[int],
+    vertex_stride: int = 0,
+    rgba_manifest: str | None = None,
+    fail_fast: bool = False,
+    texture_mode: str = "auto",
+    raw_source_kinds: set[str] | None = None,
+):
+    results = []
+
+    for event_id in event_ids:
+        try:
+            bundle_root = _extract_then_export(
+                xml_path=str(capture_xml),
+                zip_path=str(capture_zip),
+                event_id=int(event_id),
+                out_dir=str(out_root),
+                vertex_stride=int(vertex_stride),
+                rgba_manifest=rgba_manifest,
+                texture_mode=texture_mode,
+                raw_source_kinds=raw_source_kinds,
+            )
+
+            bundle_manifest_path = Path(bundle_root) / "bundle_manifest.json"
+            bundle_manifest = json.loads(bundle_manifest_path.read_text(encoding="utf-8")) if bundle_manifest_path.exists() else {}
+            stats = bundle_manifest.get("statistics") if isinstance(bundle_manifest, dict) else {}
+            texture_status_counts = _load_texture_status_counts(Path(bundle_root))
+
+            results.append(
+                {
+                    "event_id": int(event_id),
+                    "status": "ok",
+                    "bundle_dir": str(bundle_root),
+                    "error": "",
+                    "statistics": {
+                        "vertex_count": _to_int((stats or {}).get("vertex_count"), default=0),
+                        "index_count": _to_int((stats or {}).get("index_count"), default=0),
+                        "triangle_count": _to_int((stats or {}).get("triangle_count"), default=0),
+                        "shader_count": _to_int((stats or {}).get("shader_count"), default=0),
+                        "texture_count": _to_int((stats or {}).get("texture_count"), default=0),
+                        "decoded_texture_count": _to_int((stats or {}).get("decoded_texture_count"), default=0),
+                    },
+                    "texture_status_counts": texture_status_counts,
+                }
+            )
+        except Exception as exc:  # pragma: no cover - exercised in tests
+            results.append(
+                {
+                    "event_id": int(event_id),
+                    "status": "error",
+                    "bundle_dir": "",
+                    "error": str(exc),
+                }
+            )
+            if fail_fast:
+                break
+
+    failed_event_ids = [
+        int(item["event_id"])
+        for item in results
+        if str(item.get("status") or "") != "ok"
+    ]
+    success_count = len([item for item in results if item.get("status") == "ok"])
+    failed_count = len(results) - success_count
+
+    texture_status_totals = {
+        "decoded_rgba8_png": 0,
+        "rgba_bytes_png": 0,
+        "copied_image": 0,
+        "raw_copy": 0,
+        "missing_source": 0,
+        "other": 0,
+        "total": 0,
+    }
+    for item in results:
+        counts = item.get("texture_status_counts") if isinstance(item, dict) else None
+        if not isinstance(counts, dict):
+            continue
+        for key in texture_status_totals.keys():
+            texture_status_totals[key] += _to_int(counts.get(key), default=0)
+
+    return {
+        "schema_version": "1.0",
+        "schema_path": "schema/batch_import_bundle_summary.schema.json",
+        "root": str(capture_xml.parent),
+        "out": str(out_root),
+        "events_total": len(results),
+        "success_count": success_count,
+        "failed_count": failed_count,
+        "failed_event_ids": failed_event_ids,
+        "retry_events_arg": ",".join(str(event_id) for event_id in failed_event_ids),
+        "retry_command": _build_retry_command(
+            root=capture_xml.parent,
+            out=out_root,
+            failed_event_ids=failed_event_ids,
+            rgba_manifest=rgba_manifest,
+            texture_mode=texture_mode,
+            raw_source_kinds=raw_source_kinds,
+            capture_xml=capture_xml,
+            capture_zip=capture_zip,
+            vertex_stride=int(vertex_stride),
+        ),
+        "inputs": {
+            "mode": "capture_zip",
+            "xml": str(capture_xml),
+            "zip": str(capture_zip),
+            "vertex_stride": int(vertex_stride),
+        },
+        "options": {
+            "texture_mode": str(texture_mode or "auto").strip().lower() or "auto",
+            "raw_source_kinds": sorted(raw_source_kinds or set()),
+        },
+        "texture_status_totals": texture_status_totals,
+        "results": results,
+    }
+
+
 def _write_summary(summary: dict, summary_path: Path):
     _validate_summary_payload(summary)
     summary_path.parent.mkdir(parents=True, exist_ok=True)
@@ -441,12 +573,24 @@ def _load_summary(path_value: str):
 
 def main(argv=None):
     parser = argparse.ArgumentParser(
-        description="Batch export import_bundle for multiple event_<id>/intermediate directories"
+        description=(
+            "Batch export import_bundle for event_<id>/intermediate roots "
+            "or directly from capture.zip.xml + capture.zip"
+        )
     )
     parser.add_argument(
         "--root",
         required=False,
         help="Root directory containing event_<id>/intermediate; optional with --from-summary",
+    )
+    parser.add_argument("--xml", required=False, help="Path to capture.zip.xml (direct extract mode)")
+    parser.add_argument("--zip", required=False, help="Path to capture.zip (direct extract mode)")
+    parser.add_argument(
+        "--vertex-stride",
+        required=False,
+        type=int,
+        default=0,
+        help="Optional vertex stride hint for direct extract mode",
     )
     parser.add_argument(
         "--out",
@@ -517,12 +661,27 @@ def main(argv=None):
     if args.from_summary:
         source_summary_path, source_summary_payload = _load_summary(args.from_summary)
 
-    if args.root:
-        root = Path(args.root)
-    elif source_summary_payload and source_summary_payload.get("root"):
-        root = Path(str(source_summary_payload.get("root")))
-    else:
-        raise ValueError("--root is required unless --from-summary provides root")
+    capture_xml = None
+    capture_zip = None
+    capture_vertex_stride = int(args.vertex_stride or 0)
+
+    if args.xml or args.zip:
+        if not args.xml or not args.zip:
+            raise ValueError("--xml and --zip must be provided together")
+        capture_xml = Path(args.xml)
+        capture_zip = Path(args.zip)
+    elif source_summary_payload is not None:
+        inputs = source_summary_payload.get("inputs")
+        if isinstance(inputs, dict) and str(inputs.get("mode") or "") == "capture_zip":
+            xml_value = inputs.get("xml")
+            zip_value = inputs.get("zip")
+            if xml_value and zip_value:
+                capture_xml = Path(str(xml_value))
+                capture_zip = Path(str(zip_value))
+                if capture_vertex_stride <= 0:
+                    capture_vertex_stride = _to_int(inputs.get("vertex_stride"), default=0)
+
+    use_capture = capture_xml is not None and capture_zip is not None
 
     if args.out:
         out = Path(args.out)
@@ -530,6 +689,16 @@ def main(argv=None):
         out = Path(str(source_summary_payload.get("out")))
     else:
         raise ValueError("--out is required unless --from-summary provides out")
+
+    if use_capture:
+        root = capture_xml.parent
+    else:
+        if args.root:
+            root = Path(args.root)
+        elif source_summary_payload and source_summary_payload.get("root"):
+            root = Path(str(source_summary_payload.get("root")))
+        else:
+            raise ValueError("--root is required in intermediate mode unless --from-summary provides root")
 
     raw_source_kinds = _parse_source_kinds_arg(args.raw_source_kinds)
 
@@ -552,6 +721,10 @@ def main(argv=None):
     elif source_summary_payload is not None:
         event_ids = _failed_event_ids_from_summary(source_summary_payload)
     else:
+        if use_capture:
+            raise ValueError(
+                "capture mode requires --events or --events-from-scan (or --from-summary with failed_event_ids)"
+            )
         event_ids = discover_event_ids(root)
 
     if not event_ids:
@@ -560,15 +733,28 @@ def main(argv=None):
             "event_<id>/intermediate, or provide --from-summary with failed_event_ids/results"
         )
 
-    summary = run_batch(
-        intermediate_root=root,
-        out_root=out,
-        event_ids=event_ids,
-        rgba_manifest=args.rgba_manifest,
-        fail_fast=bool(args.fail_fast),
-        texture_mode=args.texture_mode,
-        raw_source_kinds=raw_source_kinds,
-    )
+    if use_capture:
+        summary = run_batch_from_capture(
+            capture_xml=capture_xml,
+            capture_zip=capture_zip,
+            out_root=out,
+            event_ids=event_ids,
+            vertex_stride=int(capture_vertex_stride),
+            rgba_manifest=args.rgba_manifest,
+            fail_fast=bool(args.fail_fast),
+            texture_mode=args.texture_mode,
+            raw_source_kinds=raw_source_kinds,
+        )
+    else:
+        summary = run_batch(
+            intermediate_root=root,
+            out_root=out,
+            event_ids=event_ids,
+            rgba_manifest=args.rgba_manifest,
+            fail_fast=bool(args.fail_fast),
+            texture_mode=args.texture_mode,
+            raw_source_kinds=raw_source_kinds,
+        )
 
     if source_summary_path is not None:
         summary["source_summary"] = str(source_summary_path)
