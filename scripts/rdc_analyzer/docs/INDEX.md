@@ -2,7 +2,7 @@
 
 
 
-> **更新日期**: 2025-02-06 | **版本**: 2.5.0 | **维护**: Codex Agent
+> **更新日期**: 2025-02-07 | **版本**: 2.6.0 | **维护**: Codex Agent
 
 
 
@@ -187,8 +187,31 @@
 | **如何进行多帧统计对比？** | [MULTI_FRAME_GUIDE.md](MULTI_FRAME_GUIDE.md) ⭐ |
 | **如何集成 CI/CD 回归门禁？** | [MULTI_FRAME_GUIDE.md](MULTI_FRAME_GUIDE.md) (JUnit XML 输出) |
 | **API 接口文档在哪？** | [API_REFERENCE.md](API_REFERENCE.md) |
+| **端到端工作流指南？** | [E2E_WORKFLOW_GUIDE.md](E2E_WORKFLOW_GUIDE.md) ⭐ |
+| **数据 Schema 验证？** | [E2E_WORKFLOW_GUIDE.md](E2E_WORKFLOW_GUIDE.md) (JSON Schema 章节) |
 
 
+
+### 🔒 数据完整性与验证 (v2.6.0 新增)
+
+| 文档 | 说明 | 关键词 |
+|------|------|--------|
+| [E2E_WORKFLOW_GUIDE.md](E2E_WORKFLOW_GUIDE.md) | **端到端工作流指南** - RDC→XML→Bundle 完整流程 ⭐ | E2E, 工作流, CI/CD, Schema |
+
+**Phase 6 (P0 报告完善) 功能摘要**:
+- **P0.1** 纹理缩略图：从 ZIP 提取 + 解码 + 生成 PNG
+- **P0.2** Shader 源码：Vulkan SPIR-V → GLSL 转换
+- **P0.3** RT 快照：RenderTarget 可视化 (RDC API 路径)
+- **P0.4** JSON Schema：数据完整性验证 (`--validate` 选项)
+
+**Schema 文件位置**: `scripts/rdc_analyzer/schema/`
+| Schema | 验证目标 |
+|--------|----------|
+| `textures_data.schema.json` | 纹理数据结构 |
+| `events_data.schema.json` | 事件数据结构 |
+| `shaders_data.schema.json` | Shader 数据结构 |
+| `report_bundle.schema.json` | Bundle 报告结构 |
+| `comparison_result.schema.json` | 对比结果结构 |
 
 ---
 

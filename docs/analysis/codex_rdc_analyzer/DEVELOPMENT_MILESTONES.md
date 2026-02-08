@@ -1,6 +1,6 @@
 # RDC Analyzer 开发里程碑 (统一追踪)
 
-> **版本**: 2.0.0 | **更新日期**: 2025-02-05  
+> **版本**: 2.1.0 | **更新日期**: 2025-02-07  
 > **创建日期**: 2025-01-24  
 > **目的**: 统一追踪所有待办开发任务，避免会话遗忘  
 > **使用方法**: 完成一个任务后，将 `[ ]` 改为 `[x]` 并提交
@@ -34,6 +34,7 @@
 | **M3: UI 跳转/高亮** | ✅ 已完成 | 13/13 | 跨页面证据链导航 |
 | M4: 高级可视化 | ⏳ 可选 | 0/6 | 热力图等 |
 | Phase 5: B-mode 对比 | ✅ 完成 | 4/4 | 多帧统计 + CI 集成 |
+| **Phase 6: P0 报告完善** | ✅ 完成 | 4/4 | Schema/缩略图/Shader/RT |
 | P0-NEW-3: Schema 规范 | ⏳ 待开始 | 0/1 | 小范围改动 |
 
 ---
@@ -270,7 +271,52 @@ evidence_chain.to_dict() 输出完整 JSON
 
 - [x] **P5.4.1** 输出 JUnit XML 格式 (`stats/junit_reporter.py`)
 - [x] **P5.4.2** 实现合理的 exit code (回归检测 → exit 1)
-- [ ] **P5.4.3** 编写 GitHub Action 示例
+- [x] **P5.4.3** 编写 GitHub Action 示例 (`docs/E2E_WORKFLOW_GUIDE.md`)
+
+---
+
+## ✅ Phase 6: P0 报告完善 — 已完成
+
+> **状态**: ✅ 已完成 (2025-02-07)  
+> **目标**: 完善报告生成能力，确保数据完整性  
+> **文档**: `scripts/rdc_analyzer/docs/E2E_WORKFLOW_GUIDE.md`
+
+### Phase 6.1 纹理缩略图 (P0.1) ✅ 完成
+
+- [x] **P0.1.1** 在 `xml_to_bundle.py` 添加 `--zip` 参数
+- [x] **P0.1.2** 实现 `generate_thumbnails_from_zip()` 函数
+- [x] **P0.1.3** 自动检测同名 ZIP 文件
+
+### Phase 6.2 Shader 源码提取 (P0.2) ✅ 完成
+
+- [x] **P0.2.1** 在 `xml_to_bundle.py` 添加 `--rdc` 参数
+- [x] **P0.2.2** 实现 `extract_vulkan_shaders_from_rdc()` 函数
+- [x] **P0.2.3** 添加 `--spirv-cross` SPIR-V 转 GLSL 支持
+
+### Phase 6.3 RT 快照功能 (P0.3) ✅ 已有实现
+
+- [x] **P0.3.1** 分析确认 RDC API 路径已支持 RT 导出
+- [x] **P0.3.2** `rdc_to_bundle_standalone.py` 已支持 `--export-rt`
+- [x] **P0.3.3** `events.html` 已支持 rtSnapshot 展示
+
+### Phase 6.4 JSON Schema 验证 (P0.4) ✅ 完成
+
+- [x] **P0.4.1** 分析现有 Schema 体系 (`scripts/rdc_analyzer/schema/`)
+- [x] **P0.4.2** 创建 4 个核心 Schema 文件:
+  - `textures_data.schema.json`
+  - `events_data.schema.json`
+  - `report_bundle.schema.json`
+  - `comparison_result.schema.json`
+- [x] **P0.4.3** 在 `report_bundle_generator.py` 集成 Schema 验证
+- [x] **P0.4.4** 添加 `--validate` CLI 选项
+
+### Phase 6 验收标准 ✅
+```
+1. ✅ xml_to_bundle.py --validate 执行无错误
+2. ✅ 纹理缩略图从 ZIP 正确提取
+3. ✅ Vulkan Shader 源码可转换为 GLSL
+4. ✅ 所有核心 Schema 文件齐全
+```
 
 ---
 
