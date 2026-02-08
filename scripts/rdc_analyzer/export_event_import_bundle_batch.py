@@ -267,6 +267,24 @@ def _build_retry_command(
     return command
 
 
+_MESH_INCOMPATIBLE_ERROR_MARKERS = [
+    "mesh.json missing vertex_layout/vertex_count/index_count",
+    "vertex_layout missing POSITION",
+    "has no vertex buffer binding",
+    "has no index buffer binding",
+]
+
+
+def _is_mesh_incompatible_error(message: str):
+    text = str(message or "")
+    if not text:
+        return False
+    for marker in _MESH_INCOMPATIBLE_ERROR_MARKERS:
+        if marker in text:
+            return True
+    return False
+
+
 def _load_texture_status_counts(bundle_root: Path):
     materials_path = bundle_root / "materials" / "materials.json"
     payload = json.loads(materials_path.read_text(encoding="utf-8")) if materials_path.exists() else {}
@@ -372,8 +390,10 @@ def run_batch(
         for item in results
         if str(item.get("status") or "") != "ok"
     ]
+    skipped_event_ids = []
     success_count = len([item for item in results if item.get("status") == "ok"])
-    failed_count = len(results) - success_count
+    skipped_count = 0
+    failed_count = len(failed_event_ids)
 
     texture_status_totals = {
         "decoded_rgba8_png": 0,
@@ -400,6 +420,8 @@ def run_batch(
         "success_count": success_count,
         "failed_count": failed_count,
         "failed_event_ids": failed_event_ids,
+        "skipped_event_ids": skipped_event_ids,
+        "skipped_count": skipped_count,
         "retry_events_arg": ",".join(str(event_id) for event_id in failed_event_ids),
         "retry_command": _build_retry_command(
             root=intermediate_root,
@@ -412,6 +434,7 @@ def run_batch(
         "options": {
             "texture_mode": str(texture_mode or "auto").strip().lower() or "auto",
             "raw_source_kinds": sorted(raw_source_kinds or set()),
+            "skip_mesh_incompatible": False,
         },
         "texture_status_totals": texture_status_totals,
         "results": results,
@@ -428,6 +451,7 @@ def run_batch_from_capture(
     fail_fast: bool = False,
     texture_mode: str = "auto",
     raw_source_kinds: set[str] | None = None,
+    skip_mesh_incompatible: bool = True,
 ):
     results = []
 
@@ -467,24 +491,35 @@ def run_batch_from_capture(
                 }
             )
         except Exception as exc:  # pragma: no cover - exercised in tests
+            error_text = str(exc)
+            status = "error"
+            if skip_mesh_incompatible and _is_mesh_incompatible_error(error_text):
+                status = "skipped_mesh_incompatible"
+
             results.append(
                 {
                     "event_id": int(event_id),
-                    "status": "error",
+                    "status": status,
                     "bundle_dir": "",
-                    "error": str(exc),
+                    "error": error_text,
                 }
             )
-            if fail_fast:
+            if fail_fast and status == "error":
                 break
 
     failed_event_ids = [
         int(item["event_id"])
         for item in results
-        if str(item.get("status") or "") != "ok"
+        if str(item.get("status") or "") == "error"
+    ]
+    skipped_event_ids = [
+        int(item["event_id"])
+        for item in results
+        if str(item.get("status") or "").startswith("skipped")
     ]
     success_count = len([item for item in results if item.get("status") == "ok"])
-    failed_count = len(results) - success_count
+    skipped_count = len(skipped_event_ids)
+    failed_count = len(failed_event_ids)
 
     texture_status_totals = {
         "decoded_rgba8_png": 0,
@@ -511,6 +546,8 @@ def run_batch_from_capture(
         "success_count": success_count,
         "failed_count": failed_count,
         "failed_event_ids": failed_event_ids,
+        "skipped_event_ids": skipped_event_ids,
+        "skipped_count": skipped_count,
         "retry_events_arg": ",".join(str(event_id) for event_id in failed_event_ids),
         "retry_command": _build_retry_command(
             root=capture_xml.parent,
@@ -532,6 +569,7 @@ def run_batch_from_capture(
         "options": {
             "texture_mode": str(texture_mode or "auto").strip().lower() or "auto",
             "raw_source_kinds": sorted(raw_source_kinds or set()),
+            "skip_mesh_incompatible": bool(skip_mesh_incompatible),
         },
         "texture_status_totals": texture_status_totals,
         "results": results,
@@ -654,6 +692,11 @@ def main(argv=None):
         action="store_true",
         help="Stop at first failure",
     )
+    parser.add_argument(
+        "--strict-mesh",
+        action="store_true",
+        help="Treat mesh-incompatible events as hard errors (default is skip)",
+    )
     args = parser.parse_args(argv)
 
     source_summary_path = None
@@ -744,6 +787,7 @@ def main(argv=None):
             fail_fast=bool(args.fail_fast),
             texture_mode=args.texture_mode,
             raw_source_kinds=raw_source_kinds,
+            skip_mesh_incompatible=not bool(args.strict_mesh),
         )
     else:
         summary = run_batch(
@@ -770,7 +814,7 @@ def main(argv=None):
 
     print(
         f"[OK] batch done: total={summary['events_total']} success={summary['success_count']} "
-        f"failed={summary['failed_count']} summary={summary_path}"
+        f"skipped={summary.get('skipped_count', 0)} failed={summary['failed_count']} summary={summary_path}"
     )
 
     return 0 if summary["failed_count"] == 0 else 2

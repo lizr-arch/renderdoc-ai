@@ -47,6 +47,8 @@ def test_batch_summary_schema_accepts_extended_fields():
         "success_count": 1,
         "failed_count": 0,
         "failed_event_ids": [],
+        "skipped_count": 1,
+        "skipped_event_ids": [100],
         "retry_events_arg": "",
         "retry_command": "",
         "inputs": {
@@ -58,6 +60,7 @@ def test_batch_summary_schema_accepts_extended_fields():
         "options": {
             "texture_mode": "auto",
             "raw_source_kinds": ["vulkan_device_memory_raw"],
+            "skip_mesh_incompatible": True,
         },
         "texture_status_totals": {
             "decoded_rgba8_png": 1,

@@ -123,7 +123,10 @@ def test_run_batch_success_and_missing(tmp_path):
 
     assert summary["options"]["texture_mode"] == "raw"
     assert summary["options"]["raw_source_kinds"] == ["vulkan_device_memory_raw"]
+    assert summary["options"]["skip_mesh_incompatible"] is False
     assert summary["texture_status_totals"]["total"] == 0
+    assert summary["skipped_count"] == 0
+    assert summary["skipped_event_ids"] == []
 
     status_by_event = {item["event_id"]: item["status"] for item in summary["results"]}
     assert status_by_event[100] == "ok"
@@ -239,10 +242,68 @@ def test_run_batch_from_capture_uses_capture_retry_command(tmp_path, monkeypatch
 
     assert summary["failed_count"] == 1
     assert summary["failed_event_ids"] == [777]
+    assert summary["skipped_count"] == 0
+    assert summary["skipped_event_ids"] == []
+    assert summary["inputs"]["mode"] == "capture_zip"
     assert "--xml" in summary["retry_command"]
     assert "--zip" in summary["retry_command"]
     assert "--vertex-stride 16" in summary["retry_command"]
     assert "--texture-mode \"raw\"" in summary["retry_command"]
+
+
+def test_run_batch_from_capture_skips_mesh_incompatible_by_default(tmp_path, monkeypatch):
+    import export_event_import_bundle_batch as batch_mod
+
+    capture_xml = tmp_path / "sample_skip.zip.xml"
+    capture_zip = tmp_path / "sample_skip.zip"
+    capture_xml.write_text("<rdc></rdc>", encoding="utf-8")
+    capture_zip.write_bytes(b"PK")
+
+    def _raise_mesh_incompatible(**kwargs):
+        raise ValueError("mesh.json missing vertex_layout/vertex_count/index_count")
+
+    monkeypatch.setattr(batch_mod, "_extract_then_export", _raise_mesh_incompatible)
+
+    summary = batch_mod.run_batch_from_capture(
+        capture_xml=capture_xml,
+        capture_zip=capture_zip,
+        out_root=tmp_path / "out_skip",
+        event_ids=[888],
+    )
+
+    assert summary["failed_count"] == 0
+    assert summary["failed_event_ids"] == []
+    assert summary["skipped_count"] == 1
+    assert summary["skipped_event_ids"] == [888]
+    assert summary["results"][0]["status"] == "skipped_mesh_incompatible"
+
+
+def test_run_batch_from_capture_strict_mesh_treats_incompatible_as_error(tmp_path, monkeypatch):
+    import export_event_import_bundle_batch as batch_mod
+
+    capture_xml = tmp_path / "sample_strict.zip.xml"
+    capture_zip = tmp_path / "sample_strict.zip"
+    capture_xml.write_text("<rdc></rdc>", encoding="utf-8")
+    capture_zip.write_bytes(b"PK")
+
+    def _raise_mesh_incompatible(**kwargs):
+        raise ValueError("vertex_layout missing POSITION")
+
+    monkeypatch.setattr(batch_mod, "_extract_then_export", _raise_mesh_incompatible)
+
+    summary = batch_mod.run_batch_from_capture(
+        capture_xml=capture_xml,
+        capture_zip=capture_zip,
+        out_root=tmp_path / "out_strict",
+        event_ids=[889],
+        skip_mesh_incompatible=False,
+    )
+
+    assert summary["failed_count"] == 1
+    assert summary["failed_event_ids"] == [889]
+    assert summary["skipped_count"] == 0
+    assert summary["skipped_event_ids"] == []
+    assert summary["results"][0]["status"] == "error"
 
 
 def test_main_capture_mode_from_scan_invokes_capture_runner(tmp_path, monkeypatch):
@@ -279,6 +340,8 @@ def test_main_capture_mode_from_scan_invokes_capture_runner(tmp_path, monkeypatc
             "success_count": len(kwargs["event_ids"]),
             "failed_count": 0,
             "failed_event_ids": [],
+            "skipped_count": 0,
+            "skipped_event_ids": [],
             "retry_events_arg": "",
             "retry_command": "",
             "inputs": {
@@ -290,6 +353,7 @@ def test_main_capture_mode_from_scan_invokes_capture_runner(tmp_path, monkeypatc
             "options": {
                 "texture_mode": str(kwargs.get("texture_mode") or "auto"),
                 "raw_source_kinds": sorted(kwargs.get("raw_source_kinds") or set()),
+                "skip_mesh_incompatible": bool(kwargs.get("skip_mesh_incompatible", True)),
             },
             "texture_status_totals": {
                 "decoded_rgba8_png": 0,
@@ -327,6 +391,7 @@ def test_main_capture_mode_from_scan_invokes_capture_runner(tmp_path, monkeypatc
     assert captured["event_ids"] == [701]
     assert captured["capture_xml"] == capture_xml
     assert captured["capture_zip"] == capture_zip
+    assert captured["skip_mesh_incompatible"] is True
 
     summary = json.loads((out_dir / "batch_import_bundle_summary.json").read_text(encoding="utf-8"))
     assert summary["selection"]["selected"][0]["event_id"] == 701
