@@ -12,7 +12,38 @@
         body {
             overflow: hidden;
         }
-        
+
+        .panel-header {
+            background: linear-gradient(180deg, rgba(19, 27, 44, 0.96) 0%, rgba(14, 21, 34, 0.96) 100%);
+            border-bottom: 1px solid rgba(88, 166, 255, 0.16);
+            box-shadow: inset 0 -1px 0 rgba(255, 255, 255, 0.04);
+        }
+
+        .panel-header:hover {
+            background: linear-gradient(180deg, rgba(25, 36, 58, 0.98) 0%, rgba(18, 27, 44, 0.98) 100%);
+        }
+
+        .panel-title {
+            font-size: 10px;
+            font-weight: 700;
+            letter-spacing: 0.6px;
+            color: #d3dff5;
+        }
+
+        .panel-toggle {
+            color: #9fb2d3;
+            font-size: 11px;
+        }
+
+        .app-menu .menu-item.active {
+            background: linear-gradient(180deg, rgba(61, 143, 255, 0.94) 0%, rgba(41, 111, 215, 0.94) 100%);
+            box-shadow: 0 4px 12px rgba(36, 97, 189, 0.32);
+        }
+
+        .app-meta {
+            color: #96aacb;
+        }
+
         /* 纹理列表滚动区 */
         .texture-list {
             flex: 1;
@@ -24,6 +55,8 @@
 
         #textureList {
             scrollbar-gutter: stable both-edges;
+            padding-bottom: 8px;
+            overscroll-behavior: contain;
         }
 
         #propertiesPanel {
@@ -31,6 +64,137 @@
             overflow-x: hidden;
             min-height: 0;
             scrollbar-gutter: stable;
+            padding-bottom: 8px;
+            overscroll-behavior: contain;
+        }
+
+        #textureList::-webkit-scrollbar,
+        #propertiesPanel::-webkit-scrollbar,
+        .usage-list::-webkit-scrollbar {
+            width: 10px;
+            height: 10px;
+        }
+
+        #textureList::-webkit-scrollbar-track,
+        #propertiesPanel::-webkit-scrollbar-track,
+        .usage-list::-webkit-scrollbar-track {
+            background: rgba(12, 18, 30, 0.92);
+            border-radius: 999px;
+        }
+
+        #textureList::-webkit-scrollbar-thumb,
+        #propertiesPanel::-webkit-scrollbar-thumb,
+        .usage-list::-webkit-scrollbar-thumb {
+            background: rgba(74, 96, 132, 0.9);
+            border-radius: 999px;
+            border: 2px solid rgba(12, 18, 30, 0.92);
+        }
+
+        #textureList::-webkit-scrollbar-thumb:hover,
+        #propertiesPanel::-webkit-scrollbar-thumb:hover,
+        .usage-list::-webkit-scrollbar-thumb:hover {
+            background: rgba(98, 129, 176, 0.95);
+        }
+
+        .texture-item {
+            position: relative;
+            height: 62px;
+            padding: 8px 10px;
+            gap: 10px;
+            border-bottom: 1px solid rgba(47, 61, 85, 0.42);
+            border-left: 2px solid transparent;
+            transition: background 0.15s ease, border-color 0.15s ease;
+        }
+
+        .texture-item:hover {
+            background: rgba(34, 49, 74, 0.46);
+        }
+
+        .texture-item.selected {
+            background: linear-gradient(90deg, rgba(56, 108, 186, 0.3) 0%, rgba(34, 49, 74, 0.52) 100%);
+            border-left-color: var(--accent-blue);
+        }
+
+        .texture-item-thumb {
+            width: 44px;
+            height: 44px;
+            border: 1px solid rgba(84, 104, 138, 0.5);
+            background: repeating-conic-gradient(var(--bg-medium) 0% 25%, var(--bg-dark) 0% 50%) 50% / 12px 12px;
+        }
+
+        .texture-item-name {
+            font-size: 11px;
+            line-height: 1.25;
+        }
+
+        .texture-item-meta {
+            margin-top: 3px;
+            font-size: 10px;
+        }
+
+        .texture-item-submeta {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            margin-top: 3px;
+            flex-wrap: wrap;
+        }
+
+        .texture-id-badge,
+        .texture-vram-badge {
+            border-radius: 999px;
+            border: 1px solid rgba(84, 104, 138, 0.55);
+            background: rgba(20, 29, 45, 0.84);
+            color: var(--text-secondary);
+            font-size: 9px;
+            font-family: var(--font-mono);
+            padding: 1px 6px;
+            line-height: 1.3;
+        }
+
+        .texture-vram-badge {
+            color: #8ec7ff;
+        }
+
+        .canvas-toolbar {
+            gap: 8px;
+            padding: 0 10px;
+            background: linear-gradient(180deg, rgba(20, 29, 45, 0.98) 0%, rgba(15, 22, 36, 0.98) 100%);
+            border-bottom: 1px solid rgba(88, 166, 255, 0.14);
+            box-shadow: inset 0 -1px 0 rgba(255, 255, 255, 0.04);
+        }
+
+        .canvas-toolbar .toolbar-group {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            padding: 3px 6px;
+            border: 1px solid rgba(74, 96, 132, 0.45);
+            border-radius: 10px;
+            background: linear-gradient(180deg, rgba(17, 27, 45, 0.92) 0%, rgba(12, 21, 35, 0.92) 100%);
+            box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+        }
+
+        .canvas-toolbar .toolbar-btn,
+        .canvas-toolbar .channel-btn {
+            min-width: 28px;
+            height: 26px;
+            border-radius: 8px;
+            padding: 0 7px;
+        }
+
+        .canvas-toolbar .zoom-display {
+            min-width: 52px;
+            text-align: center;
+            font-size: 10px;
+        }
+
+        .canvas-viewport {
+            box-shadow: inset 0 0 0 1px rgba(88, 166, 255, 0.14);
+        }
+
+        .preview-img {
+            filter: drop-shadow(0 6px 18px rgba(0, 0, 0, 0.48));
         }
         
         /* 网格视图切换 */
@@ -61,6 +225,10 @@
         }
         
         .view-mode-grid .texture-item-meta {
+            display: none;
+        }
+
+        .view-mode-grid .texture-item-submeta {
             display: none;
         }
         
@@ -189,9 +357,10 @@
         
         /* 筛选工具栏增强 */
         .filter-toolbar {
-            padding: 8px;
-            background: var(--bg-darker);
-            border-bottom: 1px solid var(--border);
+            padding: 10px;
+            background: linear-gradient(180deg, rgba(22, 29, 46, 0.96) 0%, rgba(16, 22, 36, 0.96) 100%);
+            border-bottom: 1px solid rgba(88, 166, 255, 0.16);
+            box-shadow: inset 0 -1px 0 rgba(255, 255, 255, 0.03);
         }
         
         .filter-chips {
@@ -204,8 +373,8 @@
         .filter-chip {
             padding: 3px 8px;
             font-size: 10px;
-            background: var(--bg-dark);
-            border: 1px solid var(--border);
+            background: rgba(17, 24, 38, 0.92);
+            border: 1px solid rgba(88, 166, 255, 0.2);
             border-radius: 12px;
             color: var(--text-muted);
             cursor: pointer;
@@ -221,12 +390,52 @@
             background: var(--accent-blue);
             border-color: var(--accent-blue);
             color: white;
+            box-shadow: 0 2px 8px rgba(61, 132, 232, 0.28);
         }
         
         .filter-chip.warn.active {
             background: var(--accent-yellow);
             border-color: var(--accent-yellow);
             color: #000;
+            box-shadow: 0 2px 8px rgba(249, 197, 19, 0.28);
+        }
+
+        .texture-panel-summary {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            align-items: center;
+            padding: 7px 10px;
+            background: linear-gradient(180deg, rgba(18, 27, 44, 0.96) 0%, rgba(13, 21, 35, 0.96) 100%);
+            border-bottom: 1px solid rgba(88, 166, 255, 0.14);
+            min-height: 38px;
+            position: sticky;
+            top: 0;
+            z-index: 3;
+        }
+
+        .summary-chip {
+            display: inline-flex;
+            align-items: center;
+            padding: 3px 9px;
+            border-radius: 999px;
+            border: 1px solid rgba(84, 104, 138, 0.55);
+            background: rgba(20, 29, 45, 0.84);
+            color: var(--text-secondary);
+            font-size: 10px;
+            font-weight: 600;
+            font-family: var(--font-mono);
+            max-width: 200px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .summary-chip.accent {
+            border-color: rgba(79, 165, 255, 0.72);
+            color: #e7f2ff;
+            background: linear-gradient(180deg, rgba(36, 74, 128, 0.78) 0%, rgba(24, 54, 99, 0.78) 100%);
+            box-shadow: 0 2px 8px rgba(44, 100, 183, 0.24);
         }
         
         /* 详情面板增强 */
@@ -252,16 +461,18 @@
         .detail-actions {
             display: flex;
             gap: 8px;
-            margin-top: 12px;
+            margin-top: 10px;
         }
         
         .detail-action-btn {
             flex: 1;
+            min-height: 32px;
             padding: 8px 12px;
             border: none;
-            border-radius: var(--radius-md);
+            border-radius: 10px;
             font-size: 10px;
-            font-weight: 500;
+            font-weight: 600;
+            letter-spacing: 0.12px;
             cursor: pointer;
             display: flex;
             align-items: center;
@@ -271,21 +482,26 @@
         }
         
         .detail-action-btn.primary {
-            background: var(--accent-blue);
+            background: linear-gradient(180deg, #3c8dff 0%, #2a6fd6 100%);
+            border: 1px solid #2f7de8;
             color: white;
+            box-shadow: 0 4px 10px rgba(38, 114, 218, 0.28);
         }
         
         .detail-action-btn.primary:hover {
-            filter: brightness(1.1);
+            filter: brightness(1.08);
+            box-shadow: 0 6px 14px rgba(38, 114, 218, 0.34);
         }
         
         .detail-action-btn.secondary {
-            background: var(--bg-medium);
+            background: linear-gradient(180deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.03) 100%);
+            border: 1px solid var(--border);
             color: var(--text-primary);
         }
         
         .detail-action-btn.secondary:hover {
-            background: var(--bg-light);
+            border-color: var(--accent-blue);
+            background: rgba(52, 105, 180, 0.18);
         }
         
         /* 使用此纹理的事件链接 */
@@ -439,6 +655,12 @@
                     </div>
                 </div>
                 
+                <div class="texture-panel-summary" id="texturePanelSummary">
+                    <span class="summary-chip" id="visibleTextureCount">可见 0</span>
+                    <span class="summary-chip" id="selectedTextureHint">当前: -</span>
+                    <span class="summary-chip accent" id="filterStateHint">筛选: 全部 · 排序: VRAM</span>
+                </div>
+
                 <!-- 纹理列表 -->
                 <div class="texture-list" id="textureList">
                     {{TEXTURE_LIST_HTML}}
@@ -780,6 +1002,7 @@
             
             // 显示颜色拾取器
             document.getElementById('colorPicker').classList.remove('hidden');
+            updateTexturePanelSummary();
 
         }
 
@@ -906,6 +1129,7 @@
             });
             
             document.getElementById('textureStats').textContent = `${visible} 项`;
+            updateTexturePanelSummary();
         }
         
         function checkFilter(item) {
@@ -954,6 +1178,54 @@
             });
             
             items.forEach(item => list.appendChild(item));
+            updateTexturePanelSummary();
+        }
+
+        function getTextureFilterLabel() {
+            const filterMap = {
+                all: '全部',
+                issues: '问题纹理',
+                large: '大尺寸',
+                nomip: '无 Mip'
+            };
+            return filterMap[currentFilter] || currentFilter || '全部';
+        }
+
+        function getTextureSortLabel() {
+            const sortSelect = document.getElementById('sortSelect');
+            const sortBy = sortSelect ? sortSelect.value : 'vram';
+            const sortMap = {
+                name: '名称',
+                size: '尺寸',
+                vram: 'VRAM',
+                format: '格式'
+            };
+            return sortMap[sortBy] || sortBy;
+        }
+
+        function updateTexturePanelSummary() {
+            const visible = document.querySelectorAll('.texture-item:not(.hidden)').length;
+            const visibleEl = document.getElementById('visibleTextureCount');
+            const selectedEl = document.getElementById('selectedTextureHint');
+            const filterEl = document.getElementById('filterStateHint');
+
+            if (visibleEl) {
+                visibleEl.textContent = `可见 ${visible}`;
+            }
+
+            if (selectedEl) {
+                if (currentTexture) {
+                    const name = currentTexture.display_name || currentTexture.name || ('ID ' + (currentTexture.resource_id || currentTexture.id || '-'));
+                    const compact = name.length > 22 ? `${name.slice(0, 21)}…` : name;
+                    selectedEl.textContent = `当前: ${compact}`;
+                } else {
+                    selectedEl.textContent = '当前: -';
+                }
+            }
+
+            if (filterEl) {
+                filterEl.textContent = `筛选: ${getTextureFilterLabel()} · 排序: ${getTextureSortLabel()}`;
+            }
         }
 
         function selectDefaultTexture() {
@@ -1185,6 +1457,8 @@
             } else {
                 selectDefaultTexture();
             }
+
+            updateTexturePanelSummary();
         });
     </script>
     

@@ -265,3 +265,110 @@ def test_textures_default_vram_sort_and_auto_select_contract(tmp_path):
     assert "sortSelect.value = 'vram'" in html
     assert 'function selectDefaultTexture()' in html
     assert 'selectDefaultTexture();' in html
+
+def test_shader_data_json_escapes_script_end_tag(tmp_path):
+    gen = ReportBundleGenerator(output_dir=tmp_path, capture_name="t.rdc")
+    gen.set_shaders([
+        {
+            "id": "1",
+            "name": "ScriptEdge",
+            "source_hlsl": "float4 main() : SV_Target { return 0; } </script>",
+        }
+    ])
+    outputs = gen.generate_all()
+    html = Path(outputs["shaders"]).read_text(encoding="utf-8")
+    assert "<\\/script>" in html
+
+
+
+def test_shader_mode_badge_contract(tmp_path):
+    gen = ReportBundleGenerator(output_dir=tmp_path, capture_name="t.rdc")
+    gen.set_shaders([
+        {
+            "id": "1",
+            "name": "S",
+            "source_hlsl": "float4 main() : SV_Target { return 0; }",
+        }
+    ])
+    outputs = gen.generate_all()
+    html = Path(outputs["shaders"]).read_text(encoding="utf-8")
+    assert 'id="codeModeBadge"' in html
+    assert 'function updateCodeModeBadge(text, state)' in html
+
+
+
+def test_textures_item_id_vram_badges_contract(tmp_path):
+    gen = ReportBundleGenerator(output_dir=tmp_path, capture_name="t.rdc")
+    gen.set_textures([
+        {
+            "id": "tex_0",
+            "resource_id": "133",
+            "name": "Image_133",
+            "width": 4,
+            "height": 4,
+            "mips": 1,
+            "vram": 16,
+            "format": "VK_FORMAT_R8G8B8A8_UNORM",
+            "thumbnail": "textures/tex_133_4x4.png",
+        }
+    ])
+    outputs = gen.generate_all()
+    html = Path(outputs["textures"]).read_text(encoding="utf-8")
+    assert "texture-item-submeta" in html
+    assert "texture-id-badge" in html
+    assert "texture-vram-badge" in html
+
+
+
+def test_shader_ai_mode_banner_contract(tmp_path):
+    gen = ReportBundleGenerator(output_dir=tmp_path, capture_name="t.rdc")
+    gen.set_shaders([
+        {
+            "id": "1",
+            "name": "S",
+            "source_hlsl": "float4 main() : SV_Target { return 0; }",
+        }
+    ])
+    outputs = gen.generate_all()
+    html = Path(outputs["shaders"]).read_text(encoding="utf-8")
+    assert 'id="analysisModeBanner"' in html
+    assert 'function updateAiModeUI()' in html
+
+
+
+def test_textures_panel_summary_contract(tmp_path):
+    gen = ReportBundleGenerator(output_dir=tmp_path, capture_name="t.rdc")
+    gen.set_textures([
+        {
+            "id": "1",
+            "resource_id": "1",
+            "name": "Tex",
+            "width": 512,
+            "height": 512,
+            "vram": 1024,
+        }
+    ])
+    outputs = gen.generate_all()
+    html = Path(outputs["textures"]).read_text(encoding="utf-8")
+    assert 'id="texturePanelSummary"' in html
+    assert 'id="visibleTextureCount"' in html
+    assert 'id="filterStateHint"' in html
+    assert 'function getTextureFilterLabel()' in html
+    assert 'function updateTexturePanelSummary()' in html
+
+
+def test_shaders_panel_summary_contract(tmp_path):
+    gen = ReportBundleGenerator(output_dir=tmp_path, capture_name="t.rdc")
+    gen.set_shaders([
+        {
+            "id": "1",
+            "name": "S",
+            "source_hlsl": "float4 main() : SV_Target { return 0; }",
+        }
+    ])
+    outputs = gen.generate_all()
+    html = Path(outputs["shaders"]).read_text(encoding="utf-8")
+    assert 'id="shaderPanelSummary"' in html
+    assert 'id="visibleShaderCount"' in html
+    assert 'id="activeShaderFilter"' in html
+    assert 'function updateShaderPanelSummary()' in html
