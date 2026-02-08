@@ -5,6 +5,28 @@
 
 ---
 
+## 0. 30 秒可执行清单
+
+```bash
+# 1) 生成 Bundle（仅 XML）
+py -3 scripts/rdc_analyzer/xml_to_bundle.py capture.xml -o out_dir
+
+# 2) 生成 Bundle + 纹理缩略图（推荐）
+py -3 scripts/rdc_analyzer/xml_to_bundle.py capture.xml --zip capture.zip -o out_dir
+
+# 3) Vulkan：额外提取 Shader（可选）
+py -3 scripts/rdc_analyzer/xml_to_bundle.py capture.xml --zip capture.zip --rdc capture.rdc -o out_dir
+
+# 4) 回归验证（模板契约 + headless smoke）
+py -3 -m pytest scripts/rdc_analyzer/tests/test_bundle_report_assets.py -q
+cmd /c "set RDC_UI_SMOKE=1&&set RDC_UI_SMOKE_REPORT_DIR=D:\\backup\\endfield_report&&py -3 -m pytest scripts/rdc_analyzer/tests/test_ui_headless_smoke.py -q"
+```
+
+**使用建议**
+- 日常优先用第 2 条（XML + ZIP），首屏纹理可读性最好。
+- 只有需要 Shader 深挖时再加 `--rdc`（第 3 条）。
+- 每次改模板后至少跑第 4 条，避免 UI 回归。
+
 ## 1. 本轮目标与结果
 
 ### 1.1 目标
