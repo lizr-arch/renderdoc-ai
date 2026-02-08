@@ -94,6 +94,8 @@ py -3 scripts/rdc_analyzer/export_event_import_bundle_batch.py --root "D:/backup
 - 失败时自动生成：
   - `batch_import_bundle_failed_events.txt`
   - `batch_import_bundle_retry_command.txt`
+- 存在 skip 时自动生成：
+  - `batch_import_bundle_skip_diagnostics.json`（`skip_diagnostics[]` 的独立导出）
 
 重跑示例：
 

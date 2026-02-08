@@ -549,6 +549,13 @@ def test_main_capture_mode_writes_skip_diagnostics(tmp_path, monkeypatch):
     assert summary["skip_diagnostics"][0]["event_id"] == 710
     assert summary["skip_diagnostics"][0]["reason_code"] == "missing_vertex_buffer_binding"
     assert summary["skip_diagnostics"][0]["scan_hints"]["has_vertex_binding"] is False
+    assert summary["skip_files"]["skip_diagnostics"]
+
+    skip_diag_path = Path(summary["skip_files"]["skip_diagnostics"])
+    assert skip_diag_path.exists()
+    skip_payload = json.loads(skip_diag_path.read_text(encoding="utf-8"))
+    assert skip_payload[0]["event_id"] == 710
+
 def test_main_capture_mode_from_scan_invokes_capture_runner(tmp_path, monkeypatch):
     import export_event_import_bundle_batch as batch_mod
 

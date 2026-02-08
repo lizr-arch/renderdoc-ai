@@ -162,6 +162,17 @@
         }
       }
     },
+    "skip_files": {
+      "type": "object",
+      "required": [
+        "skip_diagnostics"
+      ],
+      "properties": {
+        "skip_diagnostics": {
+          "type": "string"
+        }
+      }
+    },
     "options": {
       "type": "object",
       "required": [

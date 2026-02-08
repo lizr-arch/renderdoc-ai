@@ -122,6 +122,9 @@ def test_batch_summary_schema_accepts_extended_fields():
                 "scan_hints": {"has_vertex_binding": False},
             }
         ],
+        "skip_files": {
+            "skip_diagnostics": "D:/out/batch_import_bundle_skip_diagnostics.json"
+        },
     }
 
     _validate_summary_payload(payload)

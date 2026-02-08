@@ -788,6 +788,22 @@ def _write_retry_artifacts(summary: dict, out_root: Path):
     }
 
 
+
+def _write_skip_artifacts(summary: dict, out_root: Path):
+    diagnostics = list(summary.get("skip_diagnostics") or [])
+    if not diagnostics:
+        return {}
+
+    out_root.mkdir(parents=True, exist_ok=True)
+
+    diag_path = out_root / "batch_import_bundle_skip_diagnostics.json"
+    diag_path.write_text(json.dumps(diagnostics, indent=2), encoding="utf-8")
+
+    return {
+        "skip_diagnostics": str(diag_path),
+    }
+
+
 def _load_summary(path_value: str):
     path = Path(path_value)
     payload = json.loads(path.read_text(encoding="utf-8"))
@@ -1011,6 +1027,10 @@ def main(argv=None):
     retry_files = _write_retry_artifacts(summary, out)
     if retry_files:
         summary["retry_files"] = retry_files
+
+    skip_files = _write_skip_artifacts(summary, out)
+    if skip_files:
+        summary["skip_files"] = skip_files
 
     summary_path = Path(args.summary) if args.summary else out / "batch_import_bundle_summary.json"
     _write_summary(summary, summary_path)
