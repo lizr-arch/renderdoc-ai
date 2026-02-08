@@ -20,6 +20,13 @@ import sys
 import os
 from pathlib import Path
 
+# 支持 `python -m rdc_analyzer` 和直接执行
+if __name__ == "__main__" and __package__ is None:
+    # 直接执行时设置包上下文
+    _script_dir = Path(__file__).resolve().parent
+    sys.path.insert(0, str(_script_dir.parent))
+    __package__ = "rdc_analyzer"
+
 from .pipeline import analyze_rdc
 from .rules import RuleRegistry, register_all_rules
 from .parsers.rdc_loader import load_capture_file
@@ -448,6 +455,56 @@ def main():
         help="详细输出"
     )
     
+    # ========== bundle 子命令 (多页报告包) ==========
+    bundle_parser = subparsers.add_parser(
+        'bundle',
+        help='生成多页 HTML 报告包 (index/events/textures/shaders)',
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+示例:
+  %(prog)s capture.json -o ./report_bundle
+  %(prog)s capture.json -o ./report_bundle --external-data
+  %(prog)s capture.json --validate
+
+说明:
+  此命令使用 report_bundle_generator 模块生成多页 HTML 报告包。
+  输入文件为 JSON 格式（通过 analyze 命令或 XML 转换生成）。
+  
+  --external-data 参数会将大型数据数组外置为独立 JSON 文件，
+  显著减少 HTML 文件大小，提升浏览器加载性能。
+        """
+    )
+    
+    bundle_parser.add_argument(
+        "input_file",
+        help="输入文件 (JSON 格式)"
+    )
+    
+    bundle_parser.add_argument(
+        "-o", "--output",
+        default="./report_bundle",
+        help="输出目录 (默认: ./report_bundle)"
+    )
+    
+    bundle_parser.add_argument(
+        "--external-data",
+        action="store_true",
+        dest="external_data",
+        help="将数据外置为独立 JSON 文件，减少 HTML 大小 (推荐用于大型捕获)"
+    )
+    
+    bundle_parser.add_argument(
+        "--validate",
+        action="store_true",
+        help="启用 JSON Schema 验证"
+    )
+    
+    bundle_parser.add_argument(
+        "-v", "--verbose",
+        action="store_true",
+        help="详细输出"
+    )
+    
     # ========== extract-resources 子命令 ==========
     extract_parser = subparsers.add_parser(
         'extract-resources',
@@ -567,6 +624,8 @@ def main():
         return cmd_audit(args)
     elif args.command == 'report':
         return cmd_report(args)
+    elif args.command == 'bundle':
+        return cmd_bundle(args)
     elif args.command == 'extract-resources':
         return cmd_extract_resources(args)
     elif args.command == 'rules':
@@ -1524,6 +1583,106 @@ def cmd_report(args):
         print("=" * 50)
         print(f"  输出文件: {html_path}")
         print(f"  文件大小: {output_path.stat().st_size / 1024:.1f} KB")
+        print()
+        
+        return 0
+        
+    except Exception as e:
+        print(f"[!] 报告生成失败: {e}")
+        if args.verbose:
+            import traceback
+            traceback.print_exc()
+        return 1
+
+
+def cmd_bundle(args):
+    """生成多页 HTML 报告包 (report_bundle_generator)"""
+    import json
+    
+    # 检查文件存在
+    if not os.path.exists(args.input_file):
+        print(f"[!] 错误: 文件不存在: {args.input_file}")
+        return 1
+    
+    input_path = Path(args.input_file)
+    input_ext = input_path.suffix.lower()
+    
+    # 检查文件格式
+    if input_ext != '.json':
+        print(f"[!] 错误: 目前 bundle 命令只支持 JSON 文件")
+        print(f"    输入文件格式: {input_ext}")
+        print("    提示: 使用 analyze 命令或 XML 转换生成 JSON 文件")
+        return 1
+    
+    output_dir = Path(args.output)
+    
+    print("=" * 60)
+    print("RDC Analyzer - 生成报告包")
+    print("=" * 60)
+    print(f"  输入: {args.input_file}")
+    print(f"  输出: {output_dir}")
+    print(f"  外部数据: {'是' if args.external_data else '否'}")
+    print(f"  Schema 验证: {'是' if args.validate else '否'}")
+    print()
+    
+    try:
+        # 导入报告生成器
+        from .report_bundle_generator import generate_report_bundle
+        
+        # 加载 JSON 数据
+        print("[*] 加载 JSON 数据...")
+        with open(input_path, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+        
+        if args.verbose:
+            events = data.get('events', data.get('draw_calls', []))
+            textures = data.get('textures', [])
+            shaders = data.get('shaders', [])
+            print(f"    事件: {len(events)}")
+            print(f"    纹理: {len(textures)}")
+            print(f"    Shader: {len(shaders)}")
+        
+        # 生成报告包
+        print("[*] 生成报告包...")
+        
+        # 从数据中提取各部分
+        events = data.get('events', data.get('draw_calls', []))
+        textures = data.get('textures', [])
+        shaders = data.get('shaders', [])
+        performance_data = data.get('performance', data.get('summary', None))
+        mali_data = data.get('mali_data', None)
+        
+        output_files = generate_report_bundle(
+            output_dir=str(output_dir),
+            capture_name=input_path.stem,
+            textures=textures,
+            events=events,
+            shaders=shaders,
+            performance_data=performance_data,
+            mali_data=mali_data,
+            validate_schema=args.validate,
+            external_data=args.external_data
+        )
+        
+        print()
+        print("=" * 60)
+        print("报告包生成完成")
+        print("=" * 60)
+        print(f"  输出目录: {output_dir}")
+        print(f"  文件数量: {len(output_files)}")
+        
+        if args.external_data:
+            print()
+            print("  📦 外部数据模式已启用:")
+            for key, filename in output_files.items():
+                if key.endswith('_data'):
+                    file_path = output_dir / filename
+                    if file_path.exists():
+                        size_kb = file_path.stat().st_size / 1024
+                        print(f"    - {filename}: {size_kb:.1f} KB")
+        
+        print()
+        print(f"  🌐 打开报告: {output_dir / 'index.html'}")
         print()
         
         return 0
