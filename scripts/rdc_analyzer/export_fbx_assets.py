@@ -1,10 +1,16 @@
 import argparse
 import json
 import os
+import sys
 from pathlib import Path
 
+SCRIPT_DIR = Path(__file__).resolve().parent
+EXPORTERS_DIR = SCRIPT_DIR / "exporters"
+if str(EXPORTERS_DIR) not in sys.path:
+    sys.path.insert(0, str(EXPORTERS_DIR))
+
 try:
-    from exporters.spirv_cross_bridge import resolve_spirv_cross_path, run_spirv_cross
+    from spirv_cross_bridge import resolve_spirv_cross_path, run_spirv_cross
 except Exception:
     resolve_spirv_cross_path = None
     run_spirv_cross = None
@@ -328,3 +334,6 @@ def main(argv=None):
         allow_missing_backend=allow_missing,
         spirv_cross_path=args.spirv_cross,
     )
+
+if __name__ == "__main__":
+    raise SystemExit(main())
