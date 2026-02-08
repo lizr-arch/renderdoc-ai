@@ -840,15 +840,59 @@
         let currentFilter = 'all';
         let compareSlots = [null, null];
         
-        // ========== 纹理数据 (由 Python 生成器填充) ==========
-        const textureData = {{TEXTURE_DATA_JSON}};
-        const textureMap = new Map();
-        textureData.forEach(texture => {
-            const id = String(texture.id || "");
-            const resourceId = String(texture.resource_id || "");
-            if (id) textureMap.set(id, texture);
-            if (resourceId) textureMap.set(resourceId, texture);
-        });
+        // ========== 纹理数据 (P7C.4: 支持异步加载) ==========
+        let textureData = [];
+        let textureMap = new Map();
+        let dataLoaded = false;
+        
+        // 初始化纹理映射
+        function initTextureMap() {
+            textureMap.clear();
+            textureData.forEach(texture => {
+                const id = String(texture.id || "");
+                const resourceId = String(texture.resource_id || "");
+                if (id) textureMap.set(id, texture);
+                if (resourceId) textureMap.set(resourceId, texture);
+            });
+        }
+        
+        // 尝试解析内嵌数据
+        try {
+            const embeddedData = {{TEXTURE_DATA_JSON}};
+            if (embeddedData && embeddedData.length > 0) {
+                textureData = embeddedData;
+                initTextureMap();
+                dataLoaded = true;
+            }
+        } catch (e) {
+            console.log('[P7C.4] 内嵌数据为空，将异步加载外部 JSON');
+        }
+        
+        // 异步加载外部数据
+        async function loadExternalData() {
+            if (dataLoaded) return;
+            
+            try {
+                const loadingEl = document.getElementById('loadingOverlay');
+                if (loadingEl) loadingEl.classList.add('visible');
+                
+                const res = await fetch('textures_data.json');
+                if (res.ok) {
+                    textureData = await res.json();
+                    initTextureMap();
+                    console.log(`[P7C.4] 已加载 ${textureData.length} 个纹理`);
+                }
+                
+                dataLoaded = true;
+                if (loadingEl) loadingEl.classList.remove('visible');
+                
+                // 重新初始化 UI
+                initUI();
+                
+            } catch (e) {
+                console.error('[P7C.4] 数据加载失败:', e);
+            }
+        }
 
         function getTextureById(id) {
             return textureMap.get(String(id || "")) || null;

@@ -1368,10 +1368,51 @@
         let currentPage = 1;
         const shaderPageSize = 100;
         
-        // ========== Shader 数据 (由 Python 生成器填充) ==========
-        const shaderData = {{SHADER_DATA_JSON}};
-        const allShaders = Array.isArray(shaderData) ? shaderData : [];
-        let filteredShaders = allShaders.slice();
+        // ========== Shader 数据 (P7C.4: 支持异步加载) ==========
+        let shaderData = [];
+        let allShaders = [];
+        let filteredShaders = [];
+        let dataLoaded = false;
+        
+        // 尝试解析内嵌数据
+        try {
+            const embeddedData = {{SHADER_DATA_JSON}};
+            if (embeddedData && embeddedData.length > 0) {
+                shaderData = embeddedData;
+                allShaders = Array.isArray(shaderData) ? shaderData : [];
+                filteredShaders = allShaders.slice();
+                dataLoaded = true;
+            }
+        } catch (e) {
+            console.log('[P7C.4] 内嵌数据为空，将异步加载外部 JSON');
+        }
+        
+        // 异步加载外部数据
+        async function loadExternalData() {
+            if (dataLoaded) return;
+            
+            try {
+                const loadingEl = document.getElementById('loadingOverlay');
+                if (loadingEl) loadingEl.classList.add('visible');
+                
+                const res = await fetch('shaders_data.json');
+                if (res.ok) {
+                    shaderData = await res.json();
+                    allShaders = Array.isArray(shaderData) ? shaderData : [];
+                    filteredShaders = allShaders.slice();
+                    console.log(`[P7C.4] 已加载 ${allShaders.length} 个 Shader`);
+                }
+                
+                dataLoaded = true;
+                if (loadingEl) loadingEl.classList.remove('visible');
+                
+                // 重新渲染 UI
+                renderShaderList();
+                
+            } catch (e) {
+                console.error('[P7C.4] 数据加载失败:', e);
+            }
+        }
         
         // ========== M4.3 多维度性能分析 ==========
         
@@ -2236,7 +2277,12 @@
         });
         
         // ========== 初始化 ==========
-        document.addEventListener('DOMContentLoaded', () => {
+        document.addEventListener('DOMContentLoaded', async () => {
+            // P7C.4: 如果没有内嵌数据，异步加载外部 JSON
+            if (!dataLoaded) {
+                await loadExternalData();
+            }
+            
             const params = new URLSearchParams(window.location.search);
             updateCodeModeBadge('HLSL OFF', 'idle');
             updateAiModeUI();

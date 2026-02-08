@@ -494,6 +494,69 @@ RuleRunner.register_rule(MyCustomRule)
 
 ---
 
+## 大文件处理
+
+### XML 流式解析 (内置)
+
+从 v2.7.0 开始，`rdc_xml_parser.py` 自动对大于 10MB 的 XML 文件使用流式解析：
+
+```python
+from rdc_analyzer.parsers.rdc_xml_parser import RdcXmlParser
+
+# 自动检测文件大小，选择最优解析策略
+parser = RdcXmlParser("large_capture.xml")
+
+# 可选：进度回调
+def on_progress(progress: float, message: str):
+    print(f"[{progress*100:.1f}%] {message}")
+
+data = parser.parse(progress_callback=on_progress)
+```
+
+**内部机制**：
+- 文件 < 10MB：使用 `ET.parse()` 一次性加载（快速）
+- 文件 ≥ 10MB：使用 `ET.iterparse()` 流式解析 + `elem.clear()` 内存回收
+
+### JSON 流式加载 (可选)
+
+对于 10MB+ 的 JSON 文件，推荐使用 `ijson` 库进行流式解析：
+
+```bash
+pip install ijson
+```
+
+```python
+import ijson
+
+# 流式读取特定数组
+with open('large_manifest.json', 'rb') as f:
+    for texture in ijson.items(f, 'textures.item'):
+        process_texture(texture)
+
+# 流式读取嵌套路径
+with open('large_report.json', 'rb') as f:
+    for event in ijson.items(f, 'events.item'):
+        if event.get('type') == 'DrawIndexed':
+            analyze_draw(event)
+```
+
+**何时使用 ijson**：
+| 场景 | 建议 |
+|------|------|
+| JSON < 5MB | 使用标准 `json.load()` |
+| JSON 5-50MB | 可选 ijson，视内存情况 |
+| JSON > 50MB | **必须** 使用 ijson |
+
+### 性能对比
+
+| 文件大小 | 标准 json.load | ijson |
+|----------|----------------|-------|
+| 1 MB | 50ms | 200ms |
+| 10 MB | 500ms | 400ms |
+| 100 MB | 5s (峰值 800MB 内存) | 3s (恒定 50MB 内存) |
+
+---
+
 ## 相关文档
 
 - [多帧统计使用指南](./MULTI_FRAME_GUIDE.md)

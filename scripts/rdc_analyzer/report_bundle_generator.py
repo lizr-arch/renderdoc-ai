@@ -126,7 +126,8 @@ class ReportBundleGenerator:
         "bundle": "report_bundle.schema.json",
     }
     
-    def __init__(self, output_dir: Union[str, Path], capture_name: str, validate_schema: bool = False):
+    def __init__(self, output_dir: Union[str, Path], capture_name: str, 
+                 validate_schema: bool = False, external_data: bool = False):
         """
         初始化生成器
         
@@ -134,11 +135,13 @@ class ReportBundleGenerator:
             output_dir: 输出目录路径
             capture_name: 捕获文件名（用于标题和 manifest）
             validate_schema: 是否在生成时验证 JSON Schema
+            external_data: 是否使用外部 JSON 文件替代内嵌数据（P7C.4 性能优化）
         """
         self.output_dir = Path(output_dir)
         self.capture_name = capture_name
         self.timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         self.validate_schema = validate_schema
+        self.external_data = external_data  # P7C.4: 是否启用外部数据模式
         
         # 数据存储
         self.textures: List[Dict] = []
@@ -763,12 +766,15 @@ class ReportBundleGenerator:
                     </div>
                 </div>'''
         
+        # P7C.4: 外部数据模式
+        texture_data_json = "[]" if self.external_data else self._dump_json_for_script(textures_with_usage)
+        
         replacements = {
             "CAPTURE_NAME": self.capture_name,
             "TEXTURE_COUNT": str(len(self.textures)),
             "TOTAL_VRAM": self._format_bytes(self.stats["vram_usage"]),
             "TEXTURE_LIST_HTML": texture_list_html,
-            "TEXTURE_DATA_JSON": self._dump_json_for_script(textures_with_usage),
+            "TEXTURE_DATA_JSON": texture_data_json,
         }
         
         return self._render_template(template, replacements)
@@ -926,16 +932,20 @@ class ReportBundleGenerator:
                     {binding_badge}
                 </div>'''
         
+        # P7C.4: 外部数据模式 - 使用空数组替代内嵌数据
+        event_data_json = "[]" if self.external_data else self._dump_json_for_script(prepared_events)
+        heatmap_data_json = "{}" if self.external_data else self._dump_json_for_script(heatmap_data)
+        
         replacements = {
             "CAPTURE_NAME": self.capture_name,
             "EVENT_COUNT": str(len(self.events)),
             "DRAW_CALL_COUNT": str(self.stats["draw_calls"]),
             "TIMELINE_BARS_HTML": timeline_bars_html,
             "EVENT_LIST_HTML": event_list_html,
-            "EVENT_DATA_JSON": self._dump_json_for_script(prepared_events),
+            "EVENT_DATA_JSON": event_data_json,
             "RT_SERVER_PORT": str(self.rt_server_port),  # RT 预览服务端口
             # M4.1: 热力图数据
-            "HEATMAP_DATA_JSON": self._dump_json_for_script(heatmap_data),
+            "HEATMAP_DATA_JSON": heatmap_data_json,
         }
         
         return self._render_template(template, replacements)
@@ -1070,12 +1080,15 @@ class ReportBundleGenerator:
                     </div>
                 </div>'''
         
+        # P7C.4: 外部数据模式
+        shader_data_json = "[]" if self.external_data else self._dump_json_for_script(shader_with_mali)
+        
         replacements = {
             "CAPTURE_NAME": self.capture_name,
             "SHADER_COUNT": str(len(self.shaders)),
             "MALI_ANALYZED_COUNT": str(mali_analyzed_count),
             "SHADER_LIST_HTML": shader_list_html,
-            "SHADER_DATA_JSON": self._dump_json_for_script(shader_with_mali)
+            "SHADER_DATA_JSON": shader_data_json
         }
         
         return self._render_template(template, replacements)
@@ -1229,6 +1242,138 @@ class ReportBundleGenerator:
         
         return self._render_template(template, replacements)
     
+    def _generate_data_json_files(self, output_files: Dict[str, str]):
+        """
+        P7C.4: 生成独立数据 JSON 文件，供 HTML 异步加载
+        
+        生成以下文件：
+        - events_data.json: 事件数据（含绑定信息）
+        - textures_data.json: 纹理数据（含使用信息）
+        - shaders_data.json: Shader 数据（含 Mali 分析）
+        - heatmap_data.json: 热力图数据
+        
+        Args:
+            output_files: 输出文件字典（将被更新）
+        """
+        # 1. 准备事件数据
+        prepared_events = prepare_events_for_frontend(
+            self.events, self.textures, self.shaders
+        )
+        events_json_path = self.output_dir / "events_data.json"
+        events_json_path.write_text(
+            json.dumps(prepared_events, ensure_ascii=False, indent=None),
+            encoding="utf-8"
+        )
+        output_files["events_data"] = str(events_json_path)
+        print(f"  [OK] Generated: {events_json_path.name} ({len(prepared_events)} events)")
+        
+        # 2. 准备纹理数据
+        textures_with_usage = []
+        for tex in self.textures:
+            tex_copy = dict(tex)
+            tex_id = tex.get("id") or tex.get("resource_id") or tex.get("resourceId")
+            tex_copy["id"] = tex_id
+            raw_name = tex.get("name", "")
+            width = tex.get("width", 0)
+            height = tex.get("height", 0)
+            fmt = tex.get("format", "UNKNOWN")
+            tex_copy["display_name"] = self._format_texture_name(raw_name, tex_id, width, height)
+            tex_copy["simple_format"] = self._simplify_format_name(fmt)
+            raw_usages = self.texture_usage_map.get(str(tex_id), [])
+            tex_copy["usedBy"] = [
+                {
+                    "eid": u.get("event_id", u.get("eid", 0)),
+                    "name": u.get("draw_name", u.get("name", "Draw Call")),
+                    "slot": u.get("slot", 0)
+                }
+                for u in raw_usages
+            ]
+            tex_copy["thumbnail"] = self._normalize_thumbnail(tex.get("thumbnail", ""))
+            textures_with_usage.append(tex_copy)
+        
+        textures_json_path = self.output_dir / "textures_data.json"
+        textures_json_path.write_text(
+            json.dumps(textures_with_usage, ensure_ascii=False, indent=None),
+            encoding="utf-8"
+        )
+        output_files["textures_data"] = str(textures_json_path)
+        print(f"  [OK] Generated: {textures_json_path.name} ({len(textures_with_usage)} textures)")
+        
+        # 3. 准备 Shader 数据
+        shader_with_mali = []
+        for shader in self.shaders:
+            shader_copy = dict(shader)
+            shader_id = shader.get("id") or shader.get("resource_id")
+            raw_usages = self.shader_usage_map.get(str(shader_id), [])
+            used_by_list = [
+                {
+                    "eid": u.get("event_id", u.get("eid", 0)),
+                    "name": u.get("draw_name", u.get("name", "Draw Call")),
+                    "slot": u.get("slot", 0)
+                }
+                for u in raw_usages
+            ]
+            shader_copy["usedBy"] = used_by_list
+            
+            if shader_id and self.mali_data:
+                mali_result = self.mali_data.get(str(shader_id), {})
+                if mali_result:
+                    cycles_data = mali_result.get("cycles", {})
+                    shader_copy["maliAnalysis"] = {
+                        "cycles": cycles_data.get("total", 0) or cycles_data.get("longest_path", 0),
+                        "boundUnit": mali_result.get("bound", ""),
+                        "fmaUtil": mali_result.get("fma_util", 0),
+                        "cvtUtil": mali_result.get("cvt_util", 0),
+                        "sfuUtil": mali_result.get("sfu_util", 0),
+                        "workRegisters": mali_result.get("work_registers", 0),
+                        "uniformRegisters": mali_result.get("uniform_registers", 0),
+                        "stackSpilling": mali_result.get("stack_spilling", False),
+                        "hasLateZS": mali_result.get("has_late_zs", False),
+                        "cycleDetails": {
+                            "arithmetic": cycles_data.get("arithmetic", 0),
+                            "loadStore": cycles_data.get("load_store", 0),
+                            "texture": cycles_data.get("texture", 0),
+                            "varying": cycles_data.get("varying", 0),
+                        }
+                    }
+                    shader_copy["mali"] = mali_result
+            
+            draw_count = len(used_by_list) or 1
+            estimated_coverage = 0.5
+            for usage in used_by_list:
+                pass_name = usage.get("name", "").lower()
+                if any(kw in pass_name for kw in ["post", "bloom", "blur", "fullscreen", "screen", "blit"]):
+                    estimated_coverage = max(estimated_coverage, 1.0)
+                elif "shadow" in pass_name:
+                    estimated_coverage = max(estimated_coverage, 0.5)
+                elif any(kw in pass_name for kw in ["ui", "hud"]):
+                    estimated_coverage = min(estimated_coverage, 0.2)
+            shader_copy["dynamicMetrics"] = {
+                "drawCount": draw_count,
+                "pixelCoverage": round(estimated_coverage, 2),
+                "viewportWidth": 1920,
+                "viewportHeight": 1080,
+            }
+            shader_with_mali.append(shader_copy)
+        
+        shaders_json_path = self.output_dir / "shaders_data.json"
+        shaders_json_path.write_text(
+            json.dumps(shader_with_mali, ensure_ascii=False, indent=None),
+            encoding="utf-8"
+        )
+        output_files["shaders_data"] = str(shaders_json_path)
+        print(f"  [OK] Generated: {shaders_json_path.name} ({len(shader_with_mali)} shaders)")
+        
+        # 4. 生成热力图数据
+        heatmap_data = self._build_binding_heatmaps(prepared_events)
+        heatmap_json_path = self.output_dir / "heatmap_data.json"
+        heatmap_json_path.write_text(
+            json.dumps(heatmap_data, ensure_ascii=False, indent=None),
+            encoding="utf-8"
+        )
+        output_files["heatmap_data"] = str(heatmap_json_path)
+        print(f"  [OK] Generated: {heatmap_json_path.name}")
+    
     def generate_manifest(self) -> Dict:
         """生成 manifest.json"""
         return {
@@ -1315,6 +1460,9 @@ class ReportBundleGenerator:
             output_files["resource_usage"] = str(usage_path)
             print(f"  [OK] Generated: {usage_path.name}")
         
+        # P7C.4: 生成独立数据 JSON 文件（异步加载优化）
+        self._generate_data_json_files(output_files)
+        
         # 6. 复制 CSS 和 JS 文件到输出目录
         import shutil
         static_files = [
@@ -1349,7 +1497,8 @@ def generate_report_bundle(
     mali_data: Dict = None,
     frame_thumbnail: str = None,
     texture_usage_map: Dict = None,
-    validate_schema: bool = False
+    validate_schema: bool = False,
+    external_data: bool = False
 ) -> Dict[str, str]:
     """
     便捷函数：生成完整的 4 页面报告包
@@ -1365,11 +1514,16 @@ def generate_report_bundle(
         frame_thumbnail: 帧缩略图 Base64
         texture_usage_map: 纹理使用映射
         validate_schema: 是否验证 JSON Schema
+        external_data: P7C.4 是否使用外部 JSON 文件替代内嵌数据
         
     Returns:
         生成的文件路径字典
     """
-    generator = ReportBundleGenerator(output_dir, capture_name, validate_schema=validate_schema)
+    generator = ReportBundleGenerator(
+        output_dir, capture_name, 
+        validate_schema=validate_schema,
+        external_data=external_data
+    )
     
     generator.set_textures(textures or [], texture_usage_map)
     generator.set_events(events or [])
@@ -1407,6 +1561,8 @@ Examples:
     parser.add_argument("-n", "--name", help="Capture name (default: input filename)")
     parser.add_argument("--validate", action="store_true", 
                         help="Validate data against JSON Schema before generating")
+    parser.add_argument("--external-data", action="store_true",
+                        help="Use external JSON files instead of embedding data in HTML (reduces HTML size)")
     
     args = parser.parse_args()
     
@@ -1460,7 +1616,8 @@ Examples:
         mali_data=mali_data,
         frame_thumbnail=frame_thumb,
         texture_usage_map=usage_map,
-        validate_schema=args.validate
+        validate_schema=args.validate,
+        external_data=args.external_data
     )
     
     print(f"\n=== Report Bundle Generated ===")

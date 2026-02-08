@@ -342,6 +342,7 @@ def extract_vulkan_bindings_for_event(xml_path: str, event_id: int) -> dict:
     memory_initial_map = {}
     image_view_to_image = {}
 
+    shader_module_map = {}
     pipeline_shader_map = {}
     current_graphics_pipeline = 0
 
@@ -460,6 +461,18 @@ def extract_vulkan_bindings_for_event(xml_path: str, event_id: int) -> dict:
                         "buffer_index": _to_int(contents_elem.text),
                         "contents_size": _to_int(size_elem.text if size_elem is not None else None),
                     }
+
+        elif name == "vkCreateShaderModule":
+            module_elem = chunk.find("./ResourceId[@name='ShaderModule']")
+            module_id = _to_int(module_elem.text if module_elem is not None else None)
+            create_info = chunk.find("./struct[@name='CreateInfo']")
+            if module_id > 0 and create_info is not None:
+                code_size_elem = create_info.find("./uint[@name='codeSize']")
+                code_elem = create_info.find("./buffer[@name='pCode']")
+                shader_module_map[module_id] = {
+                    "buffer_index": _to_int(code_elem.text if code_elem is not None else None),
+                    "code_size": _to_int(code_size_elem.text if code_size_elem is not None else None),
+                }
 
         elif name == "vkCreateGraphicsPipelines":
             pipeline_elem = chunk.find("./ResourceId[@name='Pipeline']")

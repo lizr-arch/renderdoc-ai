@@ -1179,9 +1179,53 @@
         .heatmap-tooltip-detail {
             color: var(--text-muted);
         }
+        
+        /* P7C.4: 异步加载样式 */
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(26, 26, 35, 0.95);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+            gap: 16px;
+            z-index: 10000;
+        }
+        
+        .loading-overlay.visible {
+            display: flex;
+        }
+        
+        .loading-spinner {
+            width: 48px;
+            height: 48px;
+            border: 4px solid var(--accent-blue);
+            border-top-color: transparent;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        .loading-text {
+            color: var(--text-primary);
+            font-size: 14px;
+        }
     </style>
 </head>
 <body>
+    <!-- P7C.4: 异步加载提示 -->
+    <div id="loadingOverlay" class="loading-overlay">
+        <div class="loading-spinner"></div>
+        <div class="loading-text">正在加载事件数据...</div>
+    </div>
+    
     <div class="app-container fixed">
         <!-- 顶部菜单栏 -->
         <header class="app-menubar">
@@ -1509,14 +1553,67 @@
         let currentZoom = 1;
         let eventIndex = 0;
         
-        // ========== 事件数据 (由 Python 生成器填充) ==========
-        const eventData = {{EVENT_DATA_JSON}};
-        const drawEvents = eventData.filter(e => e.type === 'draw' || e.type === 'dispatch');
-        
-        // ========== 热力图数据 (由 Python 生成器填充) ==========
-        const heatmapData = {{HEATMAP_DATA_JSON}};
+        // ========== 事件数据 (P7C.4: 支持异步加载) ==========
+        // 优先使用内嵌数据，若为空则异步加载外部 JSON
+        let eventData = [];
+        let drawEvents = [];
+        let heatmapData = { textures: {}, shaders: {}, summary: {} };
         let heatmapEnabled = false;
         let currentHeatmapResource = null;
+        let dataLoaded = false;
+        
+        // 尝试解析内嵌数据
+        try {
+            const embeddedEvents = {{EVENT_DATA_JSON}};
+            const embeddedHeatmap = {{HEATMAP_DATA_JSON}};
+            if (embeddedEvents && embeddedEvents.length > 0) {
+                eventData = embeddedEvents;
+                drawEvents = eventData.filter(e => e.type === 'draw' || e.type === 'dispatch');
+                heatmapData = embeddedHeatmap || heatmapData;
+                dataLoaded = true;
+            }
+        } catch (e) {
+            console.log('[P7C.4] 内嵌数据为空，将异步加载外部 JSON');
+        }
+        
+        // 异步加载外部数据（如果内嵌数据为空）
+        async function loadExternalData() {
+            if (dataLoaded) return;
+            
+            try {
+                // 显示加载状态
+                const loadingEl = document.getElementById('loadingOverlay');
+                if (loadingEl) loadingEl.classList.add('visible');
+                
+                // 并行加载事件和热力图数据
+                const [eventsRes, heatmapRes] = await Promise.all([
+                    fetch('events_data.json').catch(() => null),
+                    fetch('heatmap_data.json').catch(() => null)
+                ]);
+                
+                if (eventsRes && eventsRes.ok) {
+                    eventData = await eventsRes.json();
+                    drawEvents = eventData.filter(e => e.type === 'draw' || e.type === 'dispatch');
+                    filteredEvents = [...eventData];
+                    console.log(`[P7C.4] 已加载 ${eventData.length} 个事件`);
+                }
+                
+                if (heatmapRes && heatmapRes.ok) {
+                    heatmapData = await heatmapRes.json();
+                }
+                
+                dataLoaded = true;
+                
+                // 隐藏加载状态
+                if (loadingEl) loadingEl.classList.remove('visible');
+                
+                // 重新初始化 UI
+                initVirtualScroll();
+                
+            } catch (e) {
+                console.error('[P7C.4] 数据加载失败:', e);
+            }
+        }
         
         // ========== 虚拟滚动配置 ==========
         const ITEM_HEIGHT = 32;           // 每行高度 (px)
@@ -2866,7 +2963,12 @@
         }
         
         // ========== 初始化 ==========
-        document.addEventListener('DOMContentLoaded', () => {
+        document.addEventListener('DOMContentLoaded', async () => {
+            // P7C.4: 如果没有内嵌数据，异步加载外部 JSON
+            if (!dataLoaded) {
+                await loadExternalData();
+            }
+            
             // 初始化虚拟滚动
             initVirtualScroll();
             

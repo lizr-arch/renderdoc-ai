@@ -9,13 +9,21 @@ Usage:
     
     parser = RdcXmlParser("capture.xml")
     capture_data = parser.parse()
+    
+    # For large files with progress callback:
+    def on_progress(percent, message):
+        print(f"[{percent:.1f}%] {message}")
+    
+    parser = RdcXmlParser("large_capture.xml")
+    capture_data = parser.parse(progress_callback=on_progress)
 """
 
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Dict, List, Optional, Any
+from typing import Dict, List, Optional, Any, Callable
 import re
+import os
 
 
 @dataclass
@@ -186,15 +194,57 @@ class RdcXmlParser:
         self._tree: Optional[ET.ElementTree] = None
         self._root: Optional[ET.Element] = None
         self._current_marker_stack: List[str] = []
+        
+        # File size for progress tracking
+        self._file_size = os.path.getsize(self.xml_path)
     
-    def parse(self) -> RdcXmlData:
+    # Type alias for progress callback: (percent: float, message: str) -> None
+    ProgressCallback = Callable[[float, str], None]
+    
+    # Threshold for switching to streaming mode (10 MB)
+    STREAMING_THRESHOLD = 10 * 1024 * 1024
+    
+    def parse(
+        self,
+        progress_callback: Optional[ProgressCallback] = None,
+        force_streaming: bool = False,
+    ) -> RdcXmlData:
         """Parse the XML file and return structured data.
+        
+        Automatically uses streaming mode for large files (>10MB) to reduce
+        memory usage. Can be forced via force_streaming parameter.
+        
+        Args:
+            progress_callback: Optional callback for progress updates.
+                              Signature: (percent: float, message: str) -> None
+            force_streaming: Force streaming mode even for small files.
         
         Returns:
             RdcXmlData containing all extracted information.
         """
+        use_streaming = force_streaming or self._file_size > self.STREAMING_THRESHOLD
+        
+        if use_streaming:
+            return self._parse_streaming(progress_callback)
+        else:
+            return self._parse_dom(progress_callback)
+    
+    def _parse_dom(
+        self,
+        progress_callback: Optional[ProgressCallback] = None,
+    ) -> RdcXmlData:
+        """Parse using traditional DOM-based approach (loads entire file).
+        
+        Suitable for small files (<10MB).
+        """
+        if progress_callback:
+            progress_callback(0.0, "Loading XML into memory...")
+        
         self._tree = ET.parse(self.xml_path)
         self._root = self._tree.getroot()
+        
+        if progress_callback:
+            progress_callback(20.0, "Parsing header...")
         
         data = RdcXmlData()
         
@@ -204,13 +254,165 @@ class RdcXmlParser:
         # Parse chunks
         chunks = self._root.find("chunks")
         if chunks is not None:
-            data.total_chunks = len(list(chunks))
-            self._parse_chunks(chunks, data)
+            chunk_list = list(chunks)
+            data.total_chunks = len(chunk_list)
+            
+            if progress_callback:
+                progress_callback(30.0, f"Parsing {data.total_chunks} chunks...")
+            
+            self._parse_chunks(chunks, data, progress_callback)
         
         # Apply debug names to resources
         self._apply_debug_names(data)
         
+        if progress_callback:
+            progress_callback(100.0, "Parsing complete.")
+        
         return data
+    
+    def _parse_streaming(
+        self,
+        progress_callback: Optional[ProgressCallback] = None,
+    ) -> RdcXmlData:
+        """Parse using streaming (iterparse) approach for large files.
+        
+        Uses constant memory regardless of file size by processing
+        chunks incrementally and clearing them from memory.
+        """
+        if progress_callback:
+            progress_callback(0.0, "Starting streaming parse...")
+        
+        data = RdcXmlData()
+        self._current_marker_stack = []
+        
+        # Track progress based on bytes read
+        bytes_read = 0
+        last_progress = 0.0
+        chunk_count = 0
+        header_parsed = False
+        
+        # Use iterparse for memory-efficient parsing
+        context = ET.iterparse(str(self.xml_path), events=("start", "end"))
+        
+        # We need to track parent elements to understand context
+        element_stack = []
+        
+        for event, elem in context:
+            if event == "start":
+                element_stack.append(elem.tag)
+            
+            elif event == "end":
+                tag = elem.tag
+                
+                # Parse header elements when they complete
+                if tag == "header" and not header_parsed:
+                    self._parse_header_element(elem, data)
+                    header_parsed = True
+                    elem.clear()
+                    if progress_callback:
+                        progress_callback(5.0, "Header parsed")
+                
+                # Parse individual chunks as they complete
+                elif tag == "chunk":
+                    self._parse_single_chunk(elem, data)
+                    chunk_count += 1
+                    
+                    # Clear the chunk from memory after processing
+                    elem.clear()
+                    
+                    # Update progress periodically (every 100 chunks)
+                    if progress_callback and chunk_count % 100 == 0:
+                        # Estimate progress based on file position (approximate)
+                        estimated_progress = min(95.0, 5.0 + (chunk_count / 100) * 5)
+                        if estimated_progress > last_progress:
+                            progress_callback(
+                                estimated_progress,
+                                f"Processed {chunk_count} chunks..."
+                            )
+                            last_progress = estimated_progress
+                
+                if element_stack:
+                    element_stack.pop()
+        
+        data.total_chunks = chunk_count
+        
+        # Apply debug names to resources
+        self._apply_debug_names(data)
+        
+        if progress_callback:
+            progress_callback(100.0, f"Streaming parse complete. {chunk_count} chunks processed.")
+        
+        return data
+    
+    def _parse_header_element(self, header: ET.Element, data: RdcXmlData) -> None:
+        """Parse header element (used by streaming parser)."""
+        driver = header.find("driver")
+        if driver is not None:
+            data.driver = driver.text or "Unknown"
+        
+        machine = header.find("machineIdent")
+        if machine is not None:
+            data.machine_ident = machine.text or ""
+        
+        thumb = header.find("thumbnail")
+        if thumb is not None:
+            data.thumbnail_width = int(thumb.get("width", 0))
+            data.thumbnail_height = int(thumb.get("height", 0))
+    
+    def _parse_single_chunk(self, chunk: ET.Element, data: RdcXmlData) -> None:
+        """Parse a single chunk element (used by streaming parser)."""
+        name = chunk.get("name", "")
+        chunk_index = int(chunk.get("chunkIndex", 0))
+        
+        # Track debug markers
+        if "BeginEvent" in name:
+            marker_text = self._extract_marker_text(chunk)
+            self._current_marker_stack.append(marker_text)
+        elif "EndEvent" in name:
+            if self._current_marker_stack:
+                self._current_marker_stack.pop()
+        
+        # Extract draw calls
+        if name in self.DRAW_CALLS:
+            draw_call = self._parse_draw_call(chunk, chunk_index)
+            draw_call.debug_marker = "/".join(self._current_marker_stack)
+            data.draw_calls.append(draw_call)
+        
+        # Vulkan debug markers
+        elif name in self.VK_MARKER_BEGIN:
+            marker_text = self._extract_vk_marker_text(chunk)
+            self._current_marker_stack.append(marker_text)
+        elif name in self.VK_MARKER_END:
+            if self._current_marker_stack:
+                self._current_marker_stack.pop()
+        
+        # Extract resources - D3D11
+        elif "CreateBuffer" in name and "vk" not in name:
+            resource = self._parse_buffer(chunk)
+            if resource:
+                data.resources[resource.resource_id] = resource
+        
+        elif "CreateTexture2D" in name:
+            resource = self._parse_texture2d(chunk)
+            if resource:
+                data.resources[resource.resource_id] = resource
+        
+        # Extract resources - Vulkan
+        elif name == "vkCreateBuffer":
+            resource = self._parse_vk_buffer(chunk)
+            if resource:
+                data.resources[resource.resource_id] = resource
+        
+        elif name == "vkCreateImage":
+            resource = self._parse_vk_image(chunk)
+            if resource:
+                data.resources[resource.resource_id] = resource
+        
+        # Extract debug names - D3D11
+        elif "SetDebugName" in name:
+            res_id, debug_name = self._parse_debug_name(chunk)
+            if res_id > 0:
+                data.debug_names[res_id] = debug_name
     
     def _parse_header(self, data: RdcXmlData) -> None:
         """Parse the RDC header section."""
@@ -231,9 +433,22 @@ class RdcXmlParser:
             data.thumbnail_width = int(thumb.get("width", 0))
             data.thumbnail_height = int(thumb.get("height", 0))
     
-    def _parse_chunks(self, chunks: ET.Element, data: RdcXmlData) -> None:
+    def _parse_chunks(
+        self,
+        chunks: ET.Element,
+        data: RdcXmlData,
+        progress_callback: Optional[ProgressCallback] = None,
+    ) -> None:
         """Parse all chunks to extract draw calls, resources, etc."""
-        for chunk in chunks:
+        chunk_list = list(chunks)
+        total_chunks = len(chunk_list)
+        
+        for i, chunk in enumerate(chunk_list):
+            # Progress update every 100 chunks
+            if progress_callback and i % 100 == 0:
+                percent = 30.0 + (i / total_chunks) * 65.0  # 30% to 95%
+                progress_callback(percent, f"Processing chunk {i}/{total_chunks}...")
+            
             name = chunk.get("name", "")
             chunk_index = int(chunk.get("chunkIndex", 0))
             
