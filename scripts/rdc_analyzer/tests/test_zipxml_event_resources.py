@@ -148,6 +148,124 @@ def test_extract_vulkan_bindings_includes_shader_module_metadata(tmp_path):
     assert shader_by_stage["ps"]["byte_length"] == 8
     assert shader_by_stage["ps"]["entry"] == "main_ps"
 
+
+
+def test_extract_vulkan_bindings_prefers_shader_objects_over_pipeline_modules(tmp_path):
+    from parsers.zipxml_event_parser import extract_vulkan_bindings_for_event
+
+    xml_path = tmp_path / "sample_shader_objects.zip.xml"
+    xml_path.write_text(
+        """<rdc>
+  <header><driver id="8">Vulkan</driver></header>
+  <chunks>
+    <chunk id="1019" chunkIndex="90" name="vkCreateShaderModule">
+      <struct name="CreateInfo" typename="VkShaderModuleCreateInfo">
+        <uint name="codeSize" typename="uint64_t">4</uint>
+        <buffer name="pCode" typename="Byte Buffer" byteLength="4">1</buffer>
+      </struct>
+      <ResourceId name="ShaderModule" typename="VkShaderModule">7001</ResourceId>
+    </chunk>
+    <chunk id="1019" chunkIndex="91" name="vkCreateShaderModule">
+      <struct name="CreateInfo" typename="VkShaderModuleCreateInfo">
+        <uint name="codeSize" typename="uint64_t">8</uint>
+        <buffer name="pCode" typename="Byte Buffer" byteLength="8">2</buffer>
+      </struct>
+      <ResourceId name="ShaderModule" typename="VkShaderModule">7002</ResourceId>
+    </chunk>
+    <chunk id="1022" chunkIndex="92" name="vkCreateGraphicsPipelines">
+      <ResourceId name="Pipeline" typename="VkPipeline">500</ResourceId>
+      <struct name="CreateInfo" typename="VkGraphicsPipelineCreateInfo">
+        <array name="pStages">
+          <struct typename="VkPipelineShaderStageCreateInfo">
+            <enum name="stage" typename="VkShaderStageFlagBits" string="VK_SHADER_STAGE_VERTEX_BIT">1</enum>
+            <ResourceId name="module" typename="VkShaderModule">7001</ResourceId>
+            <string name="pName">main_vs</string>
+          </struct>
+          <struct typename="VkPipelineShaderStageCreateInfo">
+            <enum name="stage" typename="VkShaderStageFlagBits" string="VK_SHADER_STAGE_FRAGMENT_BIT">16</enum>
+            <ResourceId name="module" typename="VkShaderModule">7002</ResourceId>
+            <string name="pName">main_ps</string>
+          </struct>
+        </array>
+      </struct>
+    </chunk>
+    <chunk id="1030" chunkIndex="93" name="vkCreateShadersEXT">
+      <array name="pCreateInfos">
+        <struct typename="VkShaderCreateInfoEXT">
+          <enum name="stage" typename="VkShaderStageFlagBits" string="VK_SHADER_STAGE_VERTEX_BIT">1</enum>
+          <enum name="codeType" typename="VkShaderCodeTypeEXT" string="VK_SHADER_CODE_TYPE_SPIRV_EXT">0</enum>
+          <uint name="codeSize" typename="uint64_t">12</uint>
+          <buffer name="pCode" typename="Byte Buffer" byteLength="12">11</buffer>
+          <string name="pName">main_vs_obj</string>
+        </struct>
+        <struct typename="VkShaderCreateInfoEXT">
+          <enum name="stage" typename="VkShaderStageFlagBits">16</enum>
+          <enum name="codeType" typename="VkShaderCodeTypeEXT" string="VK_SHADER_CODE_TYPE_SPIRV_EXT">0</enum>
+          <uint name="codeSize" typename="uint64_t">20</uint>
+          <buffer name="pCode" typename="Byte Buffer" byteLength="20">12</buffer>
+          <string name="pName">main_ps_obj</string>
+        </struct>
+      </array>
+      <array name="pShaders">
+        <ResourceId typename="VkShaderEXT">9001</ResourceId>
+        <ResourceId typename="VkShaderEXT">9002</ResourceId>
+      </array>
+    </chunk>
+    <chunk id="1063" chunkIndex="94" name="vkCmdBindPipeline">
+      <enum name="pipelineBindPoint" typename="VkPipelineBindPoint" string="VK_PIPELINE_BIND_POINT_GRAPHICS">0</enum>
+      <ResourceId name="pipeline" typename="VkPipeline">500</ResourceId>
+    </chunk>
+    <chunk id="1064" chunkIndex="95" name="vkCmdBindShadersEXT">
+      <array name="pStages">
+        <enum typename="VkShaderStageFlagBits" string="VK_SHADER_STAGE_VERTEX_BIT">1</enum>
+        <enum typename="VkShaderStageFlagBits">16</enum>
+      </array>
+      <array name="pShaders">
+        <ResourceId typename="VkShaderEXT">9001</ResourceId>
+        <ResourceId typename="VkShaderEXT">9002</ResourceId>
+      </array>
+    </chunk>
+    <chunk id="1061" chunkIndex="96" name="vkCmdBindIndexBuffer">
+      <ResourceId name="buffer" typename="VkBuffer">343</ResourceId>
+      <uint name="offset" typename="uint64_t">0</uint>
+      <enum name="indexType" typename="VkIndexType" string="VK_INDEX_TYPE_UINT16">0</enum>
+    </chunk>
+    <chunk id="1060" chunkIndex="97" name="vkCmdBindVertexBuffers">
+      <uint name="firstBinding" typename="uint32_t">0</uint>
+      <uint name="bindingCount" typename="uint32_t">1</uint>
+      <array name="pBuffers"><ResourceId typename="VkBuffer">339</ResourceId></array>
+      <array name="pOffsets"><uint typename="uint64_t">0</uint></array>
+    </chunk>
+    <chunk id="1085" chunkIndex="100" name="vkCmdDrawIndexed">
+      <uint name="indexCount" typename="uint32_t">3</uint>
+      <uint name="instanceCount" typename="uint32_t">1</uint>
+      <uint name="firstIndex" typename="uint32_t">0</uint>
+      <int name="vertexOffset" typename="int32_t">0</int>
+      <uint name="firstInstance" typename="uint32_t">0</uint>
+    </chunk>
+  </chunks>
+</rdc>
+""",
+        encoding="utf-8",
+    )
+
+    bindings = extract_vulkan_bindings_for_event(str(xml_path), event_id=100)
+    shaders = bindings.get("shaders") or []
+    assert [item["stage"] for item in shaders] == ["vs", "ps"]
+
+    shader_by_stage = {item["stage"]: item for item in shaders}
+    assert shader_by_stage["vs"]["resource_id"] == 9001
+    assert shader_by_stage["vs"]["buffer_index"] == 11
+    assert shader_by_stage["vs"]["byte_length"] == 12
+    assert shader_by_stage["vs"]["entry"] == "main_vs_obj"
+
+    assert shader_by_stage["ps"]["resource_id"] == 9002
+    assert shader_by_stage["ps"]["buffer_index"] == 12
+    assert shader_by_stage["ps"]["byte_length"] == 20
+    assert shader_by_stage["ps"]["entry"] == "main_ps_obj"
+
+    assert bindings["pipeline_id"] == 0
+
 def test_build_vulkan_buffer_memory_maps(tmp_path):
     try:
         from parsers.zipxml_event_parser import build_vulkan_buffer_memory_maps
@@ -465,6 +583,95 @@ def test_scan_vulkan_draw_texture_events_emits_mesh_flags(tmp_path):
     assert second["texture_count"] == 1
     assert second["bound_descriptor_sets"]["3"] == 300
     assert second["textures_preview"][0]["texture_id"] == 50
+
+
+
+def test_scan_vulkan_draw_texture_events_prefers_shader_object_stages(tmp_path):
+    from parsers.zipxml_event_parser import scan_vulkan_draw_texture_events
+
+    xml_path = tmp_path / "scan_shader_objects.zip.xml"
+    xml_path.write_text(
+        """<rdc>
+  <header><driver id="8">Vulkan</driver></header>
+  <chunks>
+    <chunk id="1019" chunkIndex="10" name="vkCreateShaderModule">
+      <struct name="CreateInfo" typename="VkShaderModuleCreateInfo">
+        <uint name="codeSize" typename="uint64_t">4</uint>
+        <buffer name="pCode" typename="Byte Buffer" byteLength="4">1</buffer>
+      </struct>
+      <ResourceId name="ShaderModule" typename="VkShaderModule">7001</ResourceId>
+    </chunk>
+    <chunk id="1019" chunkIndex="11" name="vkCreateShaderModule">
+      <struct name="CreateInfo" typename="VkShaderModuleCreateInfo">
+        <uint name="codeSize" typename="uint64_t">8</uint>
+        <buffer name="pCode" typename="Byte Buffer" byteLength="8">2</buffer>
+      </struct>
+      <ResourceId name="ShaderModule" typename="VkShaderModule">7002</ResourceId>
+    </chunk>
+    <chunk id="1022" chunkIndex="12" name="vkCreateGraphicsPipelines">
+      <ResourceId name="Pipeline" typename="VkPipeline">500</ResourceId>
+      <struct name="CreateInfo" typename="VkGraphicsPipelineCreateInfo">
+        <array name="pStages">
+          <struct typename="VkPipelineShaderStageCreateInfo">
+            <enum name="stage" typename="VkShaderStageFlagBits" string="VK_SHADER_STAGE_VERTEX_BIT">1</enum>
+            <ResourceId name="module" typename="VkShaderModule">7001</ResourceId>
+            <string name="pName">main_vs</string>
+          </struct>
+          <struct typename="VkPipelineShaderStageCreateInfo">
+            <enum name="stage" typename="VkShaderStageFlagBits" string="VK_SHADER_STAGE_FRAGMENT_BIT">16</enum>
+            <ResourceId name="module" typename="VkShaderModule">7002</ResourceId>
+            <string name="pName">main_ps</string>
+          </struct>
+        </array>
+      </struct>
+    </chunk>
+    <chunk id="1063" chunkIndex="13" name="vkCmdBindPipeline">
+      <enum name="pipelineBindPoint" typename="VkPipelineBindPoint" string="VK_PIPELINE_BIND_POINT_GRAPHICS">0</enum>
+      <ResourceId name="pipeline" typename="VkPipeline">500</ResourceId>
+    </chunk>
+    <chunk id="1085" chunkIndex="14" name="vkCmdDrawIndexed">
+      <uint name="indexCount" typename="uint32_t">3</uint>
+      <uint name="instanceCount" typename="uint32_t">1</uint>
+      <uint name="firstIndex" typename="uint32_t">0</uint>
+      <int name="vertexOffset" typename="int32_t">0</int>
+      <uint name="firstInstance" typename="uint32_t">0</uint>
+    </chunk>
+    <chunk id="1030" chunkIndex="15" name="vkCreateShadersEXT">
+      <struct name="CreateInfo" typename="VkShaderCreateInfoEXT">
+        <enum name="stage" typename="VkShaderStageFlagBits">16</enum>
+        <enum name="codeType" typename="VkShaderCodeTypeEXT" string="VK_SHADER_CODE_TYPE_SPIRV_EXT">0</enum>
+        <uint name="codeSize" typename="uint64_t">20</uint>
+        <buffer name="pCode" typename="Byte Buffer" byteLength="20">12</buffer>
+        <string name="pName">main_ps_obj</string>
+      </struct>
+      <ResourceId name="Shader" typename="VkShaderEXT">9002</ResourceId>
+    </chunk>
+    <chunk id="1064" chunkIndex="16" name="vkCmdBindShadersEXT">
+      <array name="pStages"><enum typename="VkShaderStageFlagBits">16</enum></array>
+      <array name="pShaders"><ResourceId typename="VkShaderEXT">9002</ResourceId></array>
+    </chunk>
+    <chunk id="1085" chunkIndex="20" name="vkCmdDrawIndexed">
+      <uint name="indexCount" typename="uint32_t">6</uint>
+      <uint name="instanceCount" typename="uint32_t">1</uint>
+      <uint name="firstIndex" typename="uint32_t">0</uint>
+      <int name="vertexOffset" typename="int32_t">0</int>
+      <uint name="firstInstance" typename="uint32_t">0</uint>
+    </chunk>
+  </chunks>
+</rdc>
+""",
+        encoding="utf-8",
+    )
+
+    payload = scan_vulkan_draw_texture_events(str(xml_path), preview_limit=0, min_textures=0)
+
+    assert payload["summary"]["total_draw_events"] == 2
+    assert payload["events"][0]["event_id"] == 14
+    assert payload["events"][0]["shader_stages"] == ["vs", "ps"]
+
+    assert payload["events"][1]["event_id"] == 20
+    assert payload["events"][1]["shader_stages"] == ["ps"]
+    assert payload["events"][1]["pipeline"] == 0
 
 
 

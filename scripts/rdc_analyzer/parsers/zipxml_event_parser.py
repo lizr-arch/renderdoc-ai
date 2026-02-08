@@ -158,19 +158,74 @@ def _parse_d3d11_draw_indexed_chunk(chunk: ET.Element, event_id: int) -> D3D11Dr
 
 
 def _vulkan_stage_from_flag(stage_flag: str) -> str:
-    if "VERTEX" in stage_flag:
+    flag = str(stage_flag or "").upper()
+    if "VERTEX" in flag:
         return "vs"
-    if "FRAGMENT" in stage_flag:
+    if "FRAGMENT" in flag:
         return "ps"
-    if "GEOMETRY" in stage_flag:
+    if "GEOMETRY" in flag:
         return "gs"
-    if "TESSELLATION_CONTROL" in stage_flag:
+    if "TESSELLATION_CONTROL" in flag:
         return "hs"
-    if "TESSELLATION_EVALUATION" in stage_flag:
+    if "TESSELLATION_EVALUATION" in flag:
         return "ds"
-    if "COMPUTE" in stage_flag:
+    if "COMPUTE" in flag:
         return "cs"
+    if "TASK" in flag:
+        return "task"
+    if "MESH" in flag:
+        return "mesh"
     return "unknown"
+
+
+_VULKAN_STAGE_BY_BITS = {
+    0x00000001: "vs",
+    0x00000002: "hs",
+    0x00000004: "ds",
+    0x00000008: "gs",
+    0x00000010: "ps",
+    0x00000020: "cs",
+    0x00000040: "task",
+    0x00000080: "mesh",
+}
+
+
+_VULKAN_STAGE_ORDER = {
+    "vs": 0,
+    "hs": 1,
+    "ds": 2,
+    "gs": 3,
+    "task": 4,
+    "mesh": 5,
+    "ps": 6,
+    "cs": 7,
+}
+
+
+def _vulkan_stage_from_enum_elem(stage_elem: ET.Element | None) -> str:
+    if stage_elem is None:
+        return "unknown"
+
+    stage = _vulkan_stage_from_flag(stage_elem.get("string", ""))
+    if stage != "unknown":
+        return stage
+
+    stage_bits = _to_int(stage_elem.text, default=0)
+    return _VULKAN_STAGE_BY_BITS.get(stage_bits, "unknown")
+
+
+def _sorted_vulkan_stages(stages: list[str]) -> list[str]:
+    unique = []
+    seen = set()
+    for stage in stages:
+        token = str(stage or "").strip().lower()
+        if not token or token == "unknown" or token in seen:
+            continue
+        seen.add(token)
+        unique.append(token)
+
+    unique.sort(key=lambda item: (_VULKAN_STAGE_ORDER.get(item, 999), item))
+    return unique
 
 
 def _parse_vulkan_shader_module_chunk(chunk: ET.Element) -> tuple[int, dict]:
@@ -205,6 +260,147 @@ def _parse_vulkan_shader_module_chunk(chunk: ET.Element) -> tuple[int, dict]:
         "buffer_index": _to_int(code_elem.text if code_elem is not None else None, default=0),
         "code_size": int(code_size),
     }
+
+
+def _parse_vulkan_shader_object_meta(search_root: ET.Element) -> dict:
+    stage_elem = search_root.find("./enum[@name='stage']")
+    if stage_elem is None:
+        stage_elem = search_root.find("./enum[@name='Stage']")
+    stage = _vulkan_stage_from_enum_elem(stage_elem)
+
+    code_type_elem = search_root.find("./enum[@name='codeType']")
+    if code_type_elem is None:
+        code_type_elem = search_root.find("./enum[@name='CodeType']")
+    code_type = code_type_elem.get("string", "") if code_type_elem is not None else ""
+
+    code_size_elem = search_root.find("./uint[@name='codeSize']")
+    if code_size_elem is None:
+        code_size_elem = search_root.find("./uint[@name='CodeSize']")
+
+    code_elem = search_root.find("./buffer[@name='pCode']")
+    if code_elem is None:
+        code_elem = search_root.find("./buffer[@name='code']")
+    if code_elem is None:
+        code_elem = search_root.find("./buffer[@name='Code']")
+    if code_elem is None:
+        code_elem = search_root.find("./buffer[@name='pBinary']")
+
+    entry_elem = search_root.find("./string[@name='pName']")
+    if entry_elem is None:
+        entry_elem = search_root.find("./string[@name='entryPoint']")
+
+    code_size = _to_int(code_size_elem.text if code_size_elem is not None else None, default=0)
+    if code_size <= 0 and code_elem is not None:
+        code_size = _to_int(code_elem.get("byteLength"), default=0)
+
+    bytecode_format = "spirv"
+    if code_type and "SPIRV" not in code_type.upper():
+        bytecode_format = code_type.lower()
+
+    return {
+        "stage": stage,
+        "entry": entry_elem.text.strip() if entry_elem is not None and entry_elem.text else "main",
+        "bytecode_format": bytecode_format,
+        "buffer_index": _to_int(code_elem.text if code_elem is not None else None, default=0),
+        "code_size": int(code_size),
+    }
+
+
+def _parse_vulkan_shader_object_chunk(chunk: ET.Element) -> list[tuple[int, dict]]:
+    shader_ids = []
+    shader_array = chunk.find("./array[@name='pShaders']")
+    if shader_array is None:
+        shader_array = chunk.find("./array[@name='Shaders']")
+
+    if shader_array is not None:
+        for shader_elem in shader_array.findall("ResourceId"):
+            shader_id = _to_int(shader_elem.text, default=0)
+            if shader_id > 0:
+                shader_ids.append(shader_id)
+
+    if not shader_ids:
+        for shader_name in ("Shader", "shader"):
+            shader_elem = chunk.find(f"./ResourceId[@name='{shader_name}']")
+            shader_id = _to_int(shader_elem.text if shader_elem is not None else None, default=0)
+            if shader_id > 0:
+                shader_ids.append(shader_id)
+                break
+
+    if not shader_ids:
+        return []
+
+    create_infos = []
+    create_array = chunk.find("./array[@name='pCreateInfos']")
+    if create_array is None:
+        create_array = chunk.find("./array[@name='CreateInfos']")
+    if create_array is not None:
+        create_infos = create_array.findall("struct")
+
+    if not create_infos:
+        create_info = chunk.find("./struct[@name='CreateInfo']")
+        if create_info is None:
+            create_info = chunk.find("./struct[@name='createInfo']")
+        if create_info is not None:
+            create_infos = [create_info]
+
+    if not create_infos:
+        create_infos = [chunk]
+
+    if len(create_infos) == 1 and len(shader_ids) > 1:
+        create_infos = create_infos * len(shader_ids)
+    elif len(shader_ids) == 1 and len(create_infos) > 1:
+        shader_ids = shader_ids * len(create_infos)
+
+    count = min(len(shader_ids), len(create_infos))
+    shader_objects = []
+    for index in range(count):
+        shader_id = _to_int(shader_ids[index], default=0)
+        if shader_id <= 0:
+            continue
+        shader_objects.append((shader_id, _parse_vulkan_shader_object_meta(create_infos[index])))
+
+    return shader_objects
+
+
+def _parse_vulkan_bound_shader_pairs(chunk: ET.Element) -> list[tuple[str, int]]:
+    stage_array = chunk.find("./array[@name='pStages']")
+    shader_array = chunk.find("./array[@name='pShaders']")
+    if stage_array is None or shader_array is None:
+        return []
+
+    stage_elems = stage_array.findall("enum")
+    shader_elems = shader_array.findall("ResourceId")
+    count = min(len(stage_elems), len(shader_elems))
+
+    pairs = []
+    for index in range(count):
+        stage = _vulkan_stage_from_enum_elem(stage_elems[index])
+        if stage == "unknown":
+            continue
+        shader_id = _to_int(shader_elems[index].text, default=0)
+        pairs.append((stage, shader_id))
+
+    return pairs
+
+
+def _apply_vulkan_bound_shader_pairs(
+    pairs: list[tuple[str, int]],
+    graphics_shader_objects: dict,
+    compute_shader_objects: dict,
+) -> bool:
+    graphics_disturbed = False
+
+    for stage, shader_id in pairs:
+        target = compute_shader_objects if stage == "cs" else graphics_shader_objects
+        if stage != "cs":
+            graphics_disturbed = True
+
+        if shader_id > 0:
+            target[stage] = shader_id
+        elif stage in target:
+            target.pop(stage)
+
+    return graphics_disturbed
 
 
 def _parse_vulkan_descriptor_write_struct(write_struct: ET.Element, fallback_set_id: int = 0) -> dict | None:
@@ -377,8 +573,11 @@ def extract_vulkan_bindings_for_event(xml_path: str, event_id: int) -> dict:
     image_view_to_image = {}
 
     shader_module_map = {}
+    shader_object_map = {}
     pipeline_shader_map = {}
     current_graphics_pipeline = 0
+    current_graphics_shader_objects = {}
+    current_compute_shader_objects = {}
 
     for _, chunk in ET.iterparse(xml_path, events=("end",)):
         if chunk.tag != "chunk":
@@ -501,6 +700,10 @@ def extract_vulkan_bindings_for_event(xml_path: str, event_id: int) -> dict:
             if module_id > 0:
                 shader_module_map[module_id] = module_meta
 
+        elif name == "vkCreateShadersEXT":
+            for shader_id, shader_meta in _parse_vulkan_shader_object_chunk(chunk):
+                shader_object_map[shader_id] = shader_meta
+
         elif name == "vkCreateGraphicsPipelines":
             pipeline_elem = chunk.find("./ResourceId[@name='Pipeline']")
             pipeline_id = _to_int(pipeline_elem.text if pipeline_elem is not None else None)
@@ -528,6 +731,19 @@ def extract_vulkan_bindings_for_event(xml_path: str, event_id: int) -> dict:
             if "GRAPHICS" in bind_point:
                 pipeline_elem = chunk.find("./ResourceId[@name='pipeline']")
                 current_graphics_pipeline = _to_int(pipeline_elem.text if pipeline_elem is not None else None)
+                # Binding graphics pipeline disturbs graphics shader object state.
+                current_graphics_shader_objects = {}
+
+        elif name == "vkCmdBindShadersEXT":
+            pairs = _parse_vulkan_bound_shader_pairs(chunk)
+            graphics_disturbed = _apply_vulkan_bound_shader_pairs(
+                pairs,
+                graphics_shader_objects=current_graphics_shader_objects,
+                compute_shader_objects=current_compute_shader_objects,
+            )
+            if graphics_disturbed:
+                # Binding graphics shader objects disturbs graphics pipeline binding.
+                current_graphics_pipeline = 0
 
         if chunk_index == event_id:
             found = True
@@ -564,28 +780,13 @@ def extract_vulkan_bindings_for_event(xml_path: str, event_id: int) -> dict:
         image_info_map=image_info_map,
     )
 
-    shaders = []
-    seen_stage = set()
-    for stage_info in pipeline_shader_map.get(current_graphics_pipeline, []):
-        stage = str(stage_info.get("stage", "unknown"))
-        module_id = _to_int(stage_info.get("module_id", 0), default=0)
-        if stage in seen_stage or module_id <= 0:
-            continue
-        seen_stage.add(stage)
-
-        module_meta = shader_module_map.get(module_id, {})
-        shaders.append(
-            {
-                "stage": stage,
-                "resource_id": module_id,
-                "bytecode_format": "spirv",
-                "entry": str(stage_info.get("entry", "main") or "main"),
-                "disassembly": f"SPIR-V module {module_id}",
-                "path": f"{stage}.bin",
-                "buffer_index": _to_int(module_meta.get("buffer_index", 0), default=0),
-                "byte_length": _to_int(module_meta.get("code_size", 0), default=0),
-            }
-        )
+    shaders = _build_vulkan_shader_bindings(
+        pipeline_shader_map=pipeline_shader_map,
+        pipeline_id=current_graphics_pipeline,
+        shader_module_map=shader_module_map,
+        graphics_shader_objects=current_graphics_shader_objects,
+        shader_object_map=shader_object_map,
+    )
 
     return {
         "index_buffer": index_binding,
@@ -1026,19 +1227,83 @@ def _hydrate_vulkan_image_memory_info(image_info_map: dict, image_memory_map: di
 
 
 
-def _collect_vulkan_shader_stages(pipeline_shader_map: dict, pipeline_id: int) -> list[str]:
+def _collect_vulkan_shader_stages(
+    pipeline_shader_map: dict,
+    pipeline_id: int,
+    graphics_shader_objects: dict | None = None,
+) -> list[str]:
+    object_stages = _sorted_vulkan_stages(list((graphics_shader_objects or {}).keys()))
+    if object_stages:
+        return object_stages
+
     stages = []
-    seen = set()
     for stage_info in pipeline_shader_map.get(int(pipeline_id), []):
         stage = str(stage_info.get("stage", "")).strip().lower()
         module_id = _to_int(stage_info.get("module_id", 0), default=0)
         if not stage or stage == "unknown" or module_id <= 0:
             continue
-        if stage in seen:
-            continue
-        seen.add(stage)
         stages.append(stage)
-    return stages
+
+    return _sorted_vulkan_stages(stages)
+
+
+
+def _build_vulkan_shader_bindings(
+    pipeline_shader_map: dict,
+    pipeline_id: int,
+    shader_module_map: dict,
+    graphics_shader_objects: dict,
+    shader_object_map: dict,
+) -> list[dict]:
+    shaders = []
+
+    object_stages = _sorted_vulkan_stages(list((graphics_shader_objects or {}).keys()))
+    if object_stages:
+        for stage in object_stages:
+            shader_id = _to_int((graphics_shader_objects or {}).get(stage), default=0)
+            if shader_id <= 0:
+                continue
+
+            meta = shader_object_map.get(shader_id, {})
+            bytecode_format = str(meta.get("bytecode_format") or "spirv")
+            shaders.append(
+                {
+                    "stage": stage,
+                    "resource_id": shader_id,
+                    "bytecode_format": bytecode_format,
+                    "entry": str(meta.get("entry") or "main"),
+                    "disassembly": f"{bytecode_format.upper()} shader object {shader_id}",
+                    "path": f"{stage}.bin",
+                    "buffer_index": _to_int(meta.get("buffer_index", 0), default=0),
+                    "byte_length": _to_int(meta.get("code_size", 0), default=0),
+                }
+            )
+
+        return shaders
+
+    seen_stage = set()
+    for stage_info in pipeline_shader_map.get(int(pipeline_id), []):
+        stage = str(stage_info.get("stage", "unknown"))
+        module_id = _to_int(stage_info.get("module_id", 0), default=0)
+        if stage in seen_stage or module_id <= 0:
+            continue
+        seen_stage.add(stage)
+
+        module_meta = shader_module_map.get(module_id, {})
+        shaders.append(
+            {
+                "stage": stage,
+                "resource_id": module_id,
+                "bytecode_format": "spirv",
+                "entry": str(stage_info.get("entry", "main") or "main"),
+                "disassembly": f"SPIR-V module {module_id}",
+                "path": f"{stage}.bin",
+                "buffer_index": _to_int(module_meta.get("buffer_index", 0), default=0),
+                "byte_length": _to_int(module_meta.get("code_size", 0), default=0),
+            }
+        )
+
+    return shaders
 
 
 
@@ -1090,8 +1355,11 @@ def scan_vulkan_draw_texture_events(xml_path: str, preview_limit: int = 8, min_t
     image_view_to_image = {}
 
     shader_module_map = {}
+    shader_object_map = {}
     pipeline_shader_map = {}
     current_graphics_pipeline = 0
+    current_graphics_shader_objects = {}
+    current_compute_shader_objects = {}
 
     index_binding = None
     vertex_bindings = []
@@ -1218,6 +1486,10 @@ def scan_vulkan_draw_texture_events(xml_path: str, preview_limit: int = 8, min_t
             if module_id > 0:
                 shader_module_map[module_id] = module_meta
 
+        elif name == "vkCreateShadersEXT":
+            for shader_id, shader_meta in _parse_vulkan_shader_object_chunk(chunk):
+                shader_object_map[shader_id] = shader_meta
+
         elif name == "vkCreateGraphicsPipelines":
             pipeline_elem = chunk.find("./ResourceId[@name='Pipeline']")
             pipeline_id = _to_int(pipeline_elem.text if pipeline_elem is not None else None)
@@ -1245,6 +1517,17 @@ def scan_vulkan_draw_texture_events(xml_path: str, preview_limit: int = 8, min_t
             if "GRAPHICS" in bind_point:
                 pipeline_elem = chunk.find("./ResourceId[@name='pipeline']")
                 current_graphics_pipeline = _to_int(pipeline_elem.text if pipeline_elem is not None else None)
+                current_graphics_shader_objects = {}
+
+        elif name == "vkCmdBindShadersEXT":
+            pairs = _parse_vulkan_bound_shader_pairs(chunk)
+            graphics_disturbed = _apply_vulkan_bound_shader_pairs(
+                pairs,
+                graphics_shader_objects=current_graphics_shader_objects,
+                compute_shader_objects=current_compute_shader_objects,
+            )
+            if graphics_disturbed:
+                current_graphics_pipeline = 0
 
         elif name == "vkCmdDrawIndexed":
             draw_info = {
@@ -1279,7 +1562,11 @@ def scan_vulkan_draw_texture_events(xml_path: str, preview_limit: int = 8, min_t
                 "first_index": int(draw_info.get("first_index", 0)),
                 "vertex_offset": int(draw_info.get("vertex_offset", 0)),
                 "pipeline": int(current_graphics_pipeline),
-                "shader_stages": _collect_vulkan_shader_stages(pipeline_shader_map, current_graphics_pipeline),
+                "shader_stages": _collect_vulkan_shader_stages(
+                    pipeline_shader_map,
+                    current_graphics_pipeline,
+                    graphics_shader_objects=current_graphics_shader_objects,
+                ),
                 "bound_descriptor_sets": {
                     str(int(set_index)): int(set_id)
                     for set_index, set_id in sorted(graphics_descriptor_sets.items())
