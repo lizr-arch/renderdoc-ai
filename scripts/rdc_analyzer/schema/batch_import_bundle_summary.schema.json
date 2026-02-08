@@ -177,6 +177,9 @@
         },
         "skip_mesh_incompatible": {
           "type": "boolean"
+        },
+        "scan_rank": {
+          "type": "string"
         }
       }
     },
@@ -258,6 +261,9 @@
               }
             }
           }
+        },
+        "scan_rank": {
+          "type": "string"
         }
       }
     },

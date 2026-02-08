@@ -120,6 +120,26 @@ output_dir/
 
 ---
 
+### Step 2.5: 单 Event 资产包（Import Bundle）批处理（可选）
+
+当目标是后续引擎导入（Unity/Unreal/Messiah）时，建议从 capture 直接一键导出 Import Bundle：
+
+```bash
+py -3 scripts/rdc_analyzer/export_event_import_bundle_batch.py --xml "D:/backup/rdc_test_agent/大远景_auto.zip.xml" --zip "D:/backup/rdc_test_agent/大远景_auto.zip" --out "D:/backup/rdc_test_agent/batch_one_click_top3" --events-from-scan "D:/backup/rdc_test_agent/vulkan_draw_texture_scan.json" --top-textured 3 --min-textures 1 --scan-rank mesh_likely
+```
+
+关键参数：
+- `--scan-rank mesh_likely|texture_count`：
+  - `mesh_likely`（默认）优先选择更可能 mesh 导出的 draw，可显著降低 skip。
+  - `texture_count` 维持旧行为，按纹理数量优先。
+- `--strict-mesh`：把 mesh 不兼容从 skip 提升为 hard error。
+- `--texture-mode auto|decoded|raw` + `--raw-source-kinds`：控制纹理落盘策略。
+
+输出中可重点检查：
+- `batch_import_bundle_summary.json`
+- `selection.scan_rank` / `options.scan_rank`
+- `skipped_count` / `skipped_event_ids`
+
 ### Step 3: 多帧统计对比 (可选)
 
 对比多个捕获样本，检测性能回归：

@@ -17,10 +17,7 @@
 ### 2.1 从已有 intermediate 导出
 
 ```bash
-py -3 scripts/rdc_analyzer/export_event_import_bundle.py \
-  --intermediate "D:\\backup\\out\\event_100\\intermediate" \
-  --event 100 \
-  --out "D:\\backup\\import_bundle_out"
+py -3 scripts/rdc_analyzer/export_event_import_bundle.py --intermediate "D:/backup/out/event_100/intermediate" --event 100 --out "D:/backup/import_bundle_out"
 ```
 
 ### 2.2 外部 RGBA bytes 覆盖（可选）
@@ -29,11 +26,7 @@ py -3 scripts/rdc_analyzer/export_event_import_bundle.py \
 可以通过 `--rgba-manifest` 注入，直接导出 PNG：
 
 ```bash
-py -3 scripts/rdc_analyzer/export_event_import_bundle.py \
-  --intermediate "D:\\backup\\out\\event_100\\intermediate" \
-  --event 100 \
-  --out "D:\\backup\\import_bundle_out" \
-  --rgba-manifest "D:\\backup\\rgba_manifest.json"
+py -3 scripts/rdc_analyzer/export_event_import_bundle.py --intermediate "D:/backup/out/event_100/intermediate" --event 100 --out "D:/backup/import_bundle_out" --rgba-manifest "D:/backup/rgba_manifest.json"
 ```
 
 `rgba_manifest.json` 示例：
@@ -73,25 +66,31 @@ py -3 scripts/rdc_analyzer/export_event_import_bundle.py \
 
 > 直接文件模式下，宽高来自 `material.textures[]` 的 `width/height` 字段。
 
+### 2.4 一步式（zip.xml + zip -> intermediate -> import bundle）
 
+```bash
+py -3 scripts/rdc_analyzer/export_event_import_bundle.py --xml "D:/backup/capture_export.zip.xml" --zip "D:/backup/capture_export.zip" --event 100 --out "D:/backup/import_bundle_out"
+```
 
-### 2.5 批处理导出（多个 event）
+### 2.5 批处理导出（多个 event，输入为已有 intermediate）
 
 当你已经有一批 `event_<id>/intermediate/` 时，可一次性批量导出：
 
 ```bash
-py -3 scripts/rdc_analyzer/export_event_import_bundle_batch.py   --root "D:\backup\out_new4"   --out "D:\backup\import_bundle_batch_out"
+py -3 scripts/rdc_analyzer/export_event_import_bundle_batch.py --root "D:/backup/out_new4" --out "D:/backup/import_bundle_batch_out"
 ```
 
 可选参数：
 - `--events "22149,22150"`：只导出指定 event。
 - `--rgba-manifest <path>`：给所有 event 使用同一个 RGBA manifest。
+- `--texture-mode auto|decoded|raw`：纹理导出策略（默认 `auto`）。
+- `--raw-source-kinds "vulkan_device_memory_raw"`：`auto` 模式下强制 raw 导出的来源类型。
 - `--fail-fast`：遇到第一个失败就停止。
-- `--from-summary <summary.json>`：从上一次 summary 里的失败列表自动重跑（可叠加 `--out` 指定新输出目录）。
+- `--from-summary <summary.json>`：从上一次 summary 的失败列表自动重跑（可叠加 `--out` 指定新输出目录）。
 
 输出：
-- 每个 event 仍输出 `event_<id>/import_bundle/`。
-- `batch_import_bundle_summary.json`：统计成功/失败、`failed_event_ids`、`retry_command`。
+- 每个 event 输出 `event_<id>/import_bundle/`。
+- `batch_import_bundle_summary.json`：统计成功/失败/跳过（skip）和重试命令。
 - 失败时自动生成：
   - `batch_import_bundle_failed_events.txt`
   - `batch_import_bundle_retry_command.txt`
@@ -99,18 +98,33 @@ py -3 scripts/rdc_analyzer/export_event_import_bundle_batch.py   --root "D:\back
 重跑示例：
 
 ```bash
-py -3 scripts/rdc_analyzer/export_event_import_bundle_batch.py   --from-summary "D:\backup\import_bundle_batch_out\batch_import_bundle_summary.json"   --out "D:\backup\import_bundle_batch_retry"
+py -3 scripts/rdc_analyzer/export_event_import_bundle_batch.py --from-summary "D:/backup/import_bundle_batch_out/batch_import_bundle_summary.json" --out "D:/backup/import_bundle_batch_retry"
 ```
 
-### 2.4 一步式（zip.xml + zip -> intermediate -> import bundle）
+### 2.6 一步式批处理（直接从 zip.xml + zip + scan 选点）
+
+当你还没有 `event_<id>/intermediate/`，可直接从 capture 文件批处理：
 
 ```bash
-py -3 scripts/rdc_analyzer/export_event_import_bundle.py \
-  --xml "D:\\backup\\capture_export.zip.xml" \
-  --zip "D:\\backup\\capture_export.zip" \
-  --event 100 \
-  --out "D:\\backup\\import_bundle_out"
+py -3 scripts/rdc_analyzer/export_event_import_bundle_batch.py --xml "D:/backup/rdc_test_agent/大远景_auto.zip.xml" --zip "D:/backup/rdc_test_agent/大远景_auto.zip" --out "D:/backup/rdc_test_agent/batch_one_click_top3" --events-from-scan "D:/backup/rdc_test_agent/vulkan_draw_texture_scan.json" --top-textured 3 --min-textures 1
 ```
+
+scan 选点参数：
+- `--events-from-scan <scan.json>`：读取 `events[]`（含 `event_id/texture_count/...`）
+- `--top-textured N`：保留前 N 个（0 表示全量）
+- `--min-textures N`：过滤 `texture_count < N` 的 event
+- `--scan-rank mesh_likely|texture_count`：
+  - `mesh_likely`（默认）：优先“更可能成功导出 mesh”的 draw，降低 skip 比例
+  - `texture_count`：按纹理数量优先（历史行为）
+
+mesh 失败处理：
+- 默认会将 mesh 不兼容事件标记为 `skipped_mesh_incompatible`，并继续处理后续事件。
+- 传 `--strict-mesh` 可改为“硬失败”。
+
+summary 关键字段：
+- `selection.scan_rank`
+- `options.scan_rank`
+- `skipped_count` / `skipped_event_ids`
 
 ---
 

@@ -61,6 +61,7 @@ def test_batch_summary_schema_accepts_extended_fields():
             "texture_mode": "auto",
             "raw_source_kinds": ["vulkan_device_memory_raw"],
             "skip_mesh_incompatible": True,
+            "scan_rank": "mesh_likely",
         },
         "texture_status_totals": {
             "decoded_rgba8_png": 1,
@@ -75,6 +76,7 @@ def test_batch_summary_schema_accepts_extended_fields():
             "source": "D:/scan.json",
             "top_textured": 1,
             "min_textures": 1,
+            "scan_rank": "mesh_likely",
             "selected": [
                 {"event_id": 100, "texture_count": 3, "index_count": 123, "pipeline": 456},
             ],

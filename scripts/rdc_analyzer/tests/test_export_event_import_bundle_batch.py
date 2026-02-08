@@ -214,7 +214,59 @@ def test_main_events_from_scan_selects_top_textured(tmp_path):
 
     summary = json.loads((out_dir / "batch_import_bundle_summary.json").read_text(encoding="utf-8"))
     assert summary["selection"]["top_textured"] == 1
+    assert summary["selection"]["scan_rank"] == "mesh_likely"
     assert summary["selection"]["selected"][0]["event_id"] == 602
+    assert summary["options"]["scan_rank"] == "mesh_likely"
+
+
+def test_select_events_from_scan_ranking_modes(tmp_path):
+    from export_event_import_bundle_batch import _select_events_from_scan
+
+    scan_path = tmp_path / "scan_rank.json"
+    scan_path.write_text(
+        json.dumps(
+            {
+                "events": [
+                    {
+                        "event_id": 900,
+                        "texture_count": 9,
+                        "index_count": 12,
+                        "vertex_offset": 9,
+                        "first_index": 12000,
+                        "pipeline": 1,
+                        "shader_stages": ["vs", "ps"],
+                    },
+                    {
+                        "event_id": 901,
+                        "texture_count": 6,
+                        "index_count": 12,
+                        "vertex_offset": 0,
+                        "first_index": 0,
+                        "pipeline": 1,
+                        "shader_stages": ["vs", "ps"],
+                    },
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    mesh_ids, mesh_rows = _select_events_from_scan(
+        scan_path=scan_path,
+        top_textured=0,
+        min_textures=1,
+        scan_rank="mesh_likely",
+    )
+    assert mesh_ids[:2] == [901, 900]
+    assert mesh_rows[0]["mesh_likely_score"] > mesh_rows[1]["mesh_likely_score"]
+
+    texture_ids, _ = _select_events_from_scan(
+        scan_path=scan_path,
+        top_textured=0,
+        min_textures=1,
+        scan_rank="texture_count",
+    )
+    assert texture_ids[:2] == [900, 901]
 
 
 def test_run_batch_from_capture_uses_capture_retry_command(tmp_path, monkeypatch):
@@ -394,7 +446,9 @@ def test_main_capture_mode_from_scan_invokes_capture_runner(tmp_path, monkeypatc
     assert captured["skip_mesh_incompatible"] is True
 
     summary = json.loads((out_dir / "batch_import_bundle_summary.json").read_text(encoding="utf-8"))
+    assert summary["selection"]["scan_rank"] == "mesh_likely"
     assert summary["selection"]["selected"][0]["event_id"] == 701
+    assert summary["options"]["scan_rank"] == "mesh_likely"
     assert summary["inputs"]["mode"] == "capture_zip"
 
 

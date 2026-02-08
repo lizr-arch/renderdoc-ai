@@ -128,7 +128,86 @@ def _parse_source_kinds_arg(value: str | None):
     return set(out)
 
 
-def _select_events_from_scan(scan_path: Path, top_textured: int, min_textures: int):
+def _to_optional_bool(value):
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, (int, float)) and not isinstance(value, bool):
+        if value == 0:
+            return False
+        if value == 1:
+            return True
+    if isinstance(value, str):
+        token = value.strip().lower()
+        if token in {"1", "true", "yes", "y", "on"}:
+            return True
+        if token in {"0", "false", "no", "n", "off"}:
+            return False
+    return None
+
+
+_MESH_HINT_KEYS = [
+    "mesh_exportable",
+    "mesh_compatible",
+    "has_vertex_binding",
+    "has_index_binding",
+    "vertex_layout_has_position",
+    "has_position_semantic",
+    "has_position",
+]
+
+
+def _mesh_hint(scan_item: dict):
+    flags = []
+    for key in _MESH_HINT_KEYS:
+        if key not in scan_item:
+            continue
+        value = _to_optional_bool(scan_item.get(key))
+        if value is not None:
+            flags.append(value)
+
+    if not flags:
+        return "unknown"
+    if all(flags):
+        return "compatible"
+    return "incompatible"
+
+
+def _mesh_likely_score(scan_item: dict):
+    score = 0
+
+    index_count = _to_int(scan_item.get("index_count"), default=0)
+    if index_count > 0:
+        score += 2
+
+    vertex_offset = _to_int(scan_item.get("vertex_offset"), default=0)
+    if vertex_offset == 0:
+        score += 3
+
+    first_index = _to_int(scan_item.get("first_index"), default=0)
+    if first_index <= 2048:
+        score += 2
+    elif first_index <= 8192:
+        score += 1
+
+    pipeline = _to_int(scan_item.get("pipeline"), default=0)
+    if pipeline > 0:
+        score += 1
+
+    shader_stages = [str(stage).strip().lower() for stage in (scan_item.get("shader_stages") or [])]
+    if "vs" in shader_stages:
+        score += 1
+    if "ps" in shader_stages:
+        score += 1
+
+    return score
+
+
+def _select_events_from_scan(
+    scan_path: Path,
+    top_textured: int,
+    min_textures: int,
+    scan_rank: str = "mesh_likely",
+):
     payload = json.loads(scan_path.read_text(encoding="utf-8"))
     events = payload.get("events") if isinstance(payload, dict) else None
     if not isinstance(events, list):
@@ -147,16 +226,43 @@ def _select_events_from_scan(scan_path: Path, top_textured: int, min_textures: i
         if texture_count < int(min_textures):
             continue
 
+        mesh_hint = _mesh_hint(item)
+        mesh_likely_score = _mesh_likely_score(item)
+        mesh_hint_rank = {"compatible": 2, "unknown": 1, "incompatible": 0}.get(mesh_hint, 1)
+
         selected.append(
             {
                 "event_id": event_id,
                 "texture_count": texture_count,
                 "index_count": _to_int(item.get("index_count"), default=0),
                 "pipeline": _to_int(item.get("pipeline"), default=0),
+                "first_index": _to_int(item.get("first_index"), default=0),
+                "vertex_offset": _to_int(item.get("vertex_offset"), default=0),
+                "mesh_hint": mesh_hint,
+                "mesh_likely_score": mesh_likely_score,
+                "_mesh_hint_rank": mesh_hint_rank,
             }
         )
 
-    selected.sort(key=lambda row: (-int(row.get("texture_count", 0)), int(row.get("event_id", 0))))
+    ranking = str(scan_rank or "mesh_likely").strip().lower()
+    if ranking == "mesh_likely":
+        selected.sort(
+            key=lambda row: (
+                -int(row.get("_mesh_hint_rank", 1)),
+                -int(row.get("mesh_likely_score", 0)),
+                -int(row.get("texture_count", 0)),
+                -int(row.get("index_count", 0)),
+                abs(int(row.get("vertex_offset", 0))),
+                int(row.get("first_index", 0)),
+                int(row.get("event_id", 0)),
+            )
+        )
+    else:
+        selected.sort(key=lambda row: (-int(row.get("texture_count", 0)), int(row.get("event_id", 0))))
+
+    for row in selected:
+        row.pop("_mesh_hint_rank", None)
+
     if int(top_textured) > 0:
         selected = selected[: int(top_textured)]
 
@@ -660,6 +766,13 @@ def main(argv=None):
         help="When used with --events-from-scan, keep events with texture_count >= this value",
     )
     parser.add_argument(
+        "--scan-rank",
+        required=False,
+        choices=["mesh_likely", "texture_count"],
+        default="mesh_likely",
+        help="Ranking policy for --events-from-scan (default: mesh_likely)",
+    )
+    parser.add_argument(
         "--from-summary",
         required=False,
         help="Retry from an existing batch summary JSON (uses failed_event_ids by default)",
@@ -754,11 +867,13 @@ def main(argv=None):
             scan_path=scan_path,
             top_textured=int(args.top_textured),
             min_textures=max(0, int(args.min_textures)),
+            scan_rank=args.scan_rank,
         )
         selection = {
             "source": str(scan_path),
             "top_textured": int(args.top_textured),
             "min_textures": max(0, int(args.min_textures)),
+            "scan_rank": str(args.scan_rank),
             "selected": selected_rows,
         }
     elif source_summary_payload is not None:
@@ -799,6 +914,9 @@ def main(argv=None):
             texture_mode=args.texture_mode,
             raw_source_kinds=raw_source_kinds,
         )
+
+    summary_options = summary.setdefault("options", {})
+    summary_options["scan_rank"] = str(args.scan_rank or "mesh_likely").strip().lower() or "mesh_likely"
 
     if source_summary_path is not None:
         summary["source_summary"] = str(source_summary_path)
