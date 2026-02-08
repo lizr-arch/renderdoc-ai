@@ -132,6 +132,12 @@
           },
           "entry": {
             "type": "string"
+          },
+          "source_kind": {
+            "type": "string"
+          },
+          "source_resource_id": {
+            "type": "integer"
           }
         }
       }

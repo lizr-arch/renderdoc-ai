@@ -142,11 +142,13 @@ def test_extract_vulkan_bindings_includes_shader_module_metadata(tmp_path):
     assert shader_by_stage["vs"]["buffer_index"] == 1
     assert shader_by_stage["vs"]["byte_length"] == 4
     assert shader_by_stage["vs"]["entry"] == "main_vs"
+    assert shader_by_stage["vs"]["source_kind"] == "vulkan_shader_module"
 
     assert shader_by_stage["ps"]["resource_id"] == 7002
     assert shader_by_stage["ps"]["buffer_index"] == 2
     assert shader_by_stage["ps"]["byte_length"] == 8
     assert shader_by_stage["ps"]["entry"] == "main_ps"
+    assert shader_by_stage["ps"]["source_kind"] == "vulkan_shader_module"
 
 
 
@@ -258,11 +260,13 @@ def test_extract_vulkan_bindings_prefers_shader_objects_over_pipeline_modules(tm
     assert shader_by_stage["vs"]["buffer_index"] == 11
     assert shader_by_stage["vs"]["byte_length"] == 12
     assert shader_by_stage["vs"]["entry"] == "main_vs_obj"
+    assert shader_by_stage["vs"]["source_kind"] == "vulkan_shader_object"
 
     assert shader_by_stage["ps"]["resource_id"] == 9002
     assert shader_by_stage["ps"]["buffer_index"] == 12
     assert shader_by_stage["ps"]["byte_length"] == 20
     assert shader_by_stage["ps"]["entry"] == "main_ps_obj"
+    assert shader_by_stage["ps"]["source_kind"] == "vulkan_shader_object"
 
     assert bindings["pipeline_id"] == 0
 

@@ -98,6 +98,8 @@ def _write_sample_intermediate(
                     "bytecode_format": "dxbc",
                     "entry": "main",
                     "disassembly": "dcl_input v0.xyz",
+                    "source_kind": "d3d11_shader_bytecode",
+                    "source_resource_id": 77,
                 }
             }
         ),
@@ -164,6 +166,8 @@ def test_export_event_import_bundle(tmp_path, texture_format, expected_status, e
     assert bundle_manifest["statistics"]["vertex_count"] == 3
     assert bundle_manifest["statistics"]["index_count"] == 3
     assert bundle_manifest["statistics"]["texture_count"] == 1
+    assert bundle_manifest["shaders"][0]["source_kind"] == "d3d11_shader_bytecode"
+    assert bundle_manifest["shaders"][0]["source_resource_id"] == 77
 
 
 

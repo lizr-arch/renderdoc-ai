@@ -27,6 +27,24 @@
         },
         "disassembly": {
           "type": "string"
+        },
+        "source_kind": {
+          "type": "string"
+        },
+        "source_resource_id": {
+          "type": "integer"
+        },
+        "buffer_index": {
+          "type": "integer"
+        },
+        "byte_length": {
+          "type": "integer"
+        },
+        "zip_entry": {
+          "type": "string"
+        },
+        "path": {
+          "type": "string"
         }
       }
     }

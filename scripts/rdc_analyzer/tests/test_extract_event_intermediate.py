@@ -316,6 +316,12 @@ def test_extract_vulkan_event_intermediate_exports_shader_blobs(tmp_path):
     assert ps_info["entry"] == "main_ps"
     assert vs_info["bytecode_format"] == "spirv"
     assert ps_info["bytecode_format"] == "spirv"
+    assert vs_info["source_kind"] == "vulkan_shader_module"
+    assert ps_info["source_kind"] == "vulkan_shader_module"
+
+    manifest = json.loads((Path(intermediate_path).parent / "manifest.json").read_text(encoding="utf-8"))
+    shader_sources = manifest["resource_bindings"]["shader_sources"]
+    assert [entry["source_kind"] for entry in shader_sources] == ["vulkan_shader_module", "vulkan_shader_module"]
 
 def test_extract_vulkan_event_intermediate_exports_vulkan_texture_blob(tmp_path, monkeypatch):
     import extract_event_intermediate as extractor
@@ -540,6 +546,11 @@ def test_write_intermediate_preserves_shader_metadata(tmp_path):
                 "entry": "main_vs",
                 "disassembly": "OpEntryPoint Vertex %main_vs",
                 "path": "vs.bin",
+                "source_kind": "vulkan_shader_object",
+                "resource_id": 1234,
+                "zip_entry": "000123",
+                "buffer_index": 123,
+                "byte_length": 4,
             }
         ],
     )
@@ -566,4 +577,10 @@ def test_write_intermediate_preserves_shader_metadata(tmp_path):
     assert shader["bytecode_format"] == "spirv"
     assert shader["entry"] == "main_vs"
     assert "OpEntryPoint" in shader["disassembly"]
+    assert shader["source_kind"] == "vulkan_shader_object"
+    assert shader["source_resource_id"] == 1234
+    assert shader["zip_entry"] == "000123"
+    assert shader["buffer_index"] == 123
+    assert shader["byte_length"] == 4
+    assert shader["path"] == "vs.bin"
     assert shader_bin.read_bytes() == b"\x03\x02\x23\x07"

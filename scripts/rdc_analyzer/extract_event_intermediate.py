@@ -45,6 +45,23 @@ def build_event_state_from_bindings(bindings):
     )
 
 
+def _build_shader_source_entries(shaders: list[dict] | None) -> list[dict]:
+    entries = []
+    for shader in shaders or []:
+        entries.append(
+            {
+                "stage": str(shader.get("stage") or "unknown"),
+                "resource_id": int(shader.get("resource_id") or 0),
+                "source_kind": str(shader.get("source_kind") or ""),
+                "entry": str(shader.get("entry") or ""),
+                "bytecode_format": str(shader.get("bytecode_format") or ""),
+                "path": str(shader.get("path") or ""),
+                "zip_entry": str(shader.get("zip_entry") or ""),
+            }
+        )
+    return entries
+
+
 def _index_stride(index_format: str) -> int:
     if index_format == "uint32":
         return 4
@@ -428,6 +445,7 @@ def extract_vulkan_event_intermediate(xml_path, zip_path, event_id, out_dir, ver
             "resource_bindings": {
                 "texture_count": len(state.textures or []),
                 "shader_count": len(state.shaders or []),
+                "shader_sources": _build_shader_source_entries(state.shaders),
             },
         }
     )
@@ -682,6 +700,7 @@ def extract_d3d11_event_intermediate(xml_path, zip_path, event_id, out_dir, vert
             "resource_bindings": {
                 "texture_count": len(state.textures or []),
                 "shader_count": len(state.shaders or []),
+                "shader_sources": _build_shader_source_entries(state.shaders),
             },
         }
     )

@@ -454,6 +454,8 @@ def _export_shader_bundle(intermediate_path: Path, bundle_root: Path):
                 "json": f"shaders/{name}",
                 "bytecode_format": str(shader.get("bytecode_format") or "unknown"),
                 "entry": str(shader.get("entry") or ""),
+                "source_kind": str(shader.get("source_kind") or ""),
+                "source_resource_id": int(shader.get("source_resource_id") or shader.get("resource_id") or 0),
             }
         )
 

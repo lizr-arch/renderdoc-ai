@@ -25,6 +25,12 @@ def build_shader_schema():
         "bytecode_format": "",
         "entry": "main",
         "disassembly": "",
+        "source_kind": "",
+        "source_resource_id": 0,
+        "buffer_index": 0,
+        "byte_length": 0,
+        "zip_entry": "",
+        "path": "",
     }
 
 

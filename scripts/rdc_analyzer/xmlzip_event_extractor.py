@@ -147,6 +147,16 @@ def write_intermediate(out_dir, state, buffers, shaders, textures):
             shader_schema["entry"] = str(shader.get("entry") or shader_schema.get("entry") or "main")
             if shader.get("disassembly") is not None:
                 shader_schema["disassembly"] = str(shader.get("disassembly") or "")
+
+            shader_schema["source_kind"] = str(shader.get("source_kind") or shader_schema.get("source_kind") or "")
+            shader_schema["source_resource_id"] = _to_int(
+                shader.get("resource_id", shader_schema.get("source_resource_id", 0)),
+                default=0,
+            )
+            shader_schema["buffer_index"] = _to_int(shader.get("buffer_index", shader_schema.get("buffer_index", 0)), default=0)
+            shader_schema["byte_length"] = _to_int(shader.get("byte_length", shader_schema.get("byte_length", 0)), default=0)
+            shader_schema["zip_entry"] = str(shader.get("zip_entry") or shader_schema.get("zip_entry") or "")
+            shader_schema["path"] = str(shader.get("path") or shader_schema.get("path") or f"{stage}.bin")
         shader_json = shader_dir / f"{stage}.json"
         shader_json.write_text(
             json.dumps({"shader": shader_schema}, indent=2), encoding="utf-8"

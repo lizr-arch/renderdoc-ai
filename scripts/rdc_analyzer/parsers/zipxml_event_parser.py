@@ -1024,6 +1024,7 @@ def extract_d3d11_bindings_for_event(xml_path: str, event_id: int) -> dict:
                         "path": f"{stage_short}.bin",
                         "buffer_index": _to_int(shader_meta.get("buffer_index", 0), default=0),
                         "byte_length": _to_int(shader_meta.get("byte_length", 0), default=0),
+                        "source_kind": "d3d11_shader_bytecode",
                     }
                 )
 
@@ -1276,6 +1277,7 @@ def _build_vulkan_shader_bindings(
                     "path": f"{stage}.bin",
                     "buffer_index": _to_int(meta.get("buffer_index", 0), default=0),
                     "byte_length": _to_int(meta.get("code_size", 0), default=0),
+                    "source_kind": "vulkan_shader_object",
                 }
             )
 
@@ -1300,6 +1302,7 @@ def _build_vulkan_shader_bindings(
                 "path": f"{stage}.bin",
                 "buffer_index": _to_int(module_meta.get("buffer_index", 0), default=0),
                 "byte_length": _to_int(module_meta.get("code_size", 0), default=0),
+                "source_kind": "vulkan_shader_module",
             }
         )
 
