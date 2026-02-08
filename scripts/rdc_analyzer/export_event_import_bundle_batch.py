@@ -150,6 +150,8 @@ _MESH_HINT_KEYS = [
     "mesh_compatible",
     "has_vertex_binding",
     "has_index_binding",
+    "vertex_offset_zero",
+    "first_index_within_hint",
     "vertex_layout_has_position",
     "has_position_semantic",
     "has_position",
@@ -230,19 +232,24 @@ def _select_events_from_scan(
         mesh_likely_score = _mesh_likely_score(item)
         mesh_hint_rank = {"compatible": 2, "unknown": 1, "incompatible": 0}.get(mesh_hint, 1)
 
-        selected.append(
-            {
-                "event_id": event_id,
-                "texture_count": texture_count,
-                "index_count": _to_int(item.get("index_count"), default=0),
-                "pipeline": _to_int(item.get("pipeline"), default=0),
-                "first_index": _to_int(item.get("first_index"), default=0),
-                "vertex_offset": _to_int(item.get("vertex_offset"), default=0),
-                "mesh_hint": mesh_hint,
-                "mesh_likely_score": mesh_likely_score,
-                "_mesh_hint_rank": mesh_hint_rank,
-            }
-        )
+        selected_row = {
+            "event_id": event_id,
+            "texture_count": texture_count,
+            "index_count": _to_int(item.get("index_count"), default=0),
+            "pipeline": _to_int(item.get("pipeline"), default=0),
+            "first_index": _to_int(item.get("first_index"), default=0),
+            "vertex_offset": _to_int(item.get("vertex_offset"), default=0),
+            "mesh_hint": mesh_hint,
+            "mesh_likely_score": mesh_likely_score,
+            "_mesh_hint_rank": mesh_hint_rank,
+        }
+
+        for mesh_key in _MESH_HINT_KEYS:
+            mesh_value = _to_optional_bool(item.get(mesh_key))
+            if mesh_value is not None:
+                selected_row[mesh_key] = mesh_value
+
+        selected.append(selected_row)
 
     ranking = str(scan_rank or "mesh_likely").strip().lower()
     if ranking == "mesh_likely":

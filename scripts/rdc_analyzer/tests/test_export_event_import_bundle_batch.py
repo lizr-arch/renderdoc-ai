@@ -269,6 +269,56 @@ def test_select_events_from_scan_ranking_modes(tmp_path):
     assert texture_ids[:2] == [900, 901]
 
 
+
+
+def test_select_events_from_scan_preserves_mesh_flags(tmp_path):
+    from export_event_import_bundle_batch import _select_events_from_scan
+
+    scan_path = tmp_path / "scan_mesh_flags.json"
+    scan_path.write_text(
+        json.dumps(
+            {
+                "events": [
+                    {
+                        "event_id": 910,
+                        "texture_count": 3,
+                        "index_count": 8,
+                        "pipeline": 11,
+                        "has_vertex_binding": True,
+                        "has_index_binding": True,
+                        "mesh_compatible": True,
+                    },
+                    {
+                        "event_id": 911,
+                        "texture_count": 2,
+                        "index_count": 6,
+                        "pipeline": 12,
+                        "has_vertex_binding": False,
+                        "has_index_binding": True,
+                        "mesh_compatible": False,
+                    },
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    _, rows = _select_events_from_scan(
+        scan_path=scan_path,
+        top_textured=0,
+        min_textures=1,
+        scan_rank="mesh_likely",
+    )
+
+    assert rows[0]["event_id"] == 910
+    assert rows[0]["has_vertex_binding"] is True
+    assert rows[0]["has_index_binding"] is True
+    assert rows[0]["mesh_compatible"] is True
+
+    assert rows[1]["event_id"] == 911
+    assert rows[1]["has_vertex_binding"] is False
+    assert rows[1]["has_index_binding"] is True
+    assert rows[1]["mesh_compatible"] is False
 def test_run_batch_from_capture_uses_capture_retry_command(tmp_path, monkeypatch):
     import export_event_import_bundle_batch as batch_mod
 

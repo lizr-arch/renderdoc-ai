@@ -103,7 +103,20 @@ py -3 scripts/rdc_analyzer/export_event_import_bundle_batch.py --from-summary "D
 
 ### 2.6 一步式批处理（直接从 zip.xml + zip + scan 选点）
 
-当你还没有 `event_<id>/intermediate/`，可直接从 capture 文件批处理：
+先生成 scan（包含显式 mesh 兼容标记）：
+
+```bash
+py -3 scripts/rdc_analyzer/generate_vulkan_draw_texture_scan.py --xml "D:/backup/rdc_test_agent/大远景_auto.zip.xml" --out "D:/backup/rdc_test_agent/vulkan_draw_texture_scan.json"
+```
+
+该 scan 的每个 event 至少包含以下字段：
+- `has_vertex_binding`
+- `has_index_binding`
+- `mesh_compatible` / `mesh_exportable`
+- `vertex_offset_zero` / `first_index_within_hint`
+- `mesh_incompatible_reasons`
+
+然后直接做 one-click 批处理（无需先生成 intermediate）：
 
 ```bash
 py -3 scripts/rdc_analyzer/export_event_import_bundle_batch.py --xml "D:/backup/rdc_test_agent/大远景_auto.zip.xml" --zip "D:/backup/rdc_test_agent/大远景_auto.zip" --out "D:/backup/rdc_test_agent/batch_one_click_top3" --events-from-scan "D:/backup/rdc_test_agent/vulkan_draw_texture_scan.json" --top-textured 3 --min-textures 1

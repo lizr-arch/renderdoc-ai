@@ -342,7 +342,6 @@ def extract_vulkan_bindings_for_event(xml_path: str, event_id: int) -> dict:
     memory_initial_map = {}
     image_view_to_image = {}
 
-    shader_module_map = {}
     pipeline_shader_map = {}
     current_graphics_pipeline = 0
 
@@ -461,18 +460,6 @@ def extract_vulkan_bindings_for_event(xml_path: str, event_id: int) -> dict:
                         "buffer_index": _to_int(contents_elem.text),
                         "contents_size": _to_int(size_elem.text if size_elem is not None else None),
                     }
-
-        elif name == "vkCreateShaderModule":
-            module_elem = chunk.find("./ResourceId[@name='ShaderModule']")
-            module_id = _to_int(module_elem.text if module_elem is not None else None)
-            create_info = chunk.find("./struct[@name='CreateInfo']")
-            if module_id > 0 and create_info is not None:
-                code_size_elem = create_info.find("./uint[@name='codeSize']")
-                code_elem = create_info.find("./buffer[@name='pCode']")
-                shader_module_map[module_id] = {
-                    "buffer_index": _to_int(code_elem.text if code_elem is not None else None),
-                    "code_size": _to_int(code_size_elem.text if code_size_elem is not None else None),
-                }
 
         elif name == "vkCreateGraphicsPipelines":
             pipeline_elem = chunk.find("./ResourceId[@name='Pipeline']")
@@ -982,3 +969,310 @@ def build_d3d11_buffer_data_map(xml_path: str, upto_event_id: int | None = None)
         chunk.clear()
 
     return resource_map
+
+
+
+def _hydrate_vulkan_image_memory_info(image_info_map: dict, image_memory_map: dict, memory_initial_map: dict):
+    for image_id, mem_info in image_memory_map.items():
+        image_info = image_info_map.setdefault(image_id, {})
+        memory_id = _to_int(mem_info.get("memory_id", 0), default=0)
+        image_info["memory_id"] = memory_id
+        image_info["memory_offset"] = _to_int(mem_info.get("memory_offset", 0), default=0)
+
+        initial = memory_initial_map.get(memory_id)
+        if initial:
+            image_info["memory_buffer_index"] = _to_int(initial.get("buffer_index", 0), default=0)
+            image_info["memory_contents_size"] = _to_int(initial.get("contents_size", 0), default=0)
+
+
+
+def _collect_vulkan_shader_stages(pipeline_shader_map: dict, pipeline_id: int) -> list[str]:
+    stages = []
+    seen = set()
+    for stage_info in pipeline_shader_map.get(int(pipeline_id), []):
+        stage = str(stage_info.get("stage", "")).strip().lower()
+        module_id = _to_int(stage_info.get("module_id", 0), default=0)
+        if not stage or stage == "unknown" or module_id <= 0:
+            continue
+        if stage in seen:
+            continue
+        seen.add(stage)
+        stages.append(stage)
+    return stages
+
+
+
+def _build_vulkan_mesh_compatibility_flags(index_binding: dict | None, vertex_bindings: list[dict], draw_info: dict) -> dict:
+    has_index_binding = bool(index_binding and _to_int(index_binding.get("resource_id", 0), default=0) > 0)
+    has_vertex_binding = any(_to_int(vb.get("resource_id", 0), default=0) > 0 for vb in (vertex_bindings or []))
+
+    index_count = _to_int(draw_info.get("index_count", 0), default=0)
+    first_index = _to_int(draw_info.get("first_index", 0), default=0)
+    vertex_offset = _to_int(draw_info.get("vertex_offset", 0), default=0)
+
+    vertex_offset_zero = vertex_offset == 0
+    first_index_within_hint = first_index <= 8192
+
+    reasons = []
+    if not has_vertex_binding:
+        reasons.append("missing_vertex_binding")
+    if not has_index_binding:
+        reasons.append("missing_index_binding")
+    if index_count <= 0:
+        reasons.append("index_count_zero")
+    if not vertex_offset_zero:
+        reasons.append("vertex_offset_non_zero")
+    if not first_index_within_hint:
+        reasons.append("first_index_out_of_hint_range")
+
+    mesh_compatible = len(reasons) == 0
+
+    return {
+        "has_vertex_binding": has_vertex_binding,
+        "has_index_binding": has_index_binding,
+        "vertex_offset_zero": vertex_offset_zero,
+        "first_index_within_hint": first_index_within_hint,
+        "mesh_compatible": mesh_compatible,
+        "mesh_exportable": mesh_compatible,
+        "mesh_incompatible_reasons": reasons,
+    }
+
+
+
+def scan_vulkan_draw_texture_events(xml_path: str, preview_limit: int = 8, min_textures: int = 0) -> dict:
+    descriptor_set_contents = {}
+    graphics_descriptor_sets = {}
+    compute_descriptor_sets = {}
+
+    image_info_map = {}
+    image_memory_map = {}
+    memory_initial_map = {}
+    image_view_to_image = {}
+
+    shader_module_map = {}
+    pipeline_shader_map = {}
+    current_graphics_pipeline = 0
+
+    index_binding = None
+    vertex_bindings = []
+
+    rows = []
+
+    for _, chunk in ET.iterparse(xml_path, events=("end",)):
+        if chunk.tag != "chunk":
+            continue
+
+        name = chunk.get("name", "")
+        chunk_index = _to_int(chunk.get("chunkIndex"), default=-1)
+
+        if name == "vkCmdBindIndexBuffer":
+            index_binding = _parse_bind_index_buffer(chunk)
+
+        elif name == "vkCmdBindVertexBuffers":
+            vertex_bindings = _parse_bind_vertex_buffers(chunk)
+
+        elif name == "vkUpdateDescriptorSetWithTemplate":
+            descriptor_set_elem = chunk.find("./ResourceId[@name='descriptorSet']")
+            descriptor_set_id = _to_int(descriptor_set_elem.text if descriptor_set_elem is not None else None)
+            writes = chunk.find("./array[@name='Decoded Writes']")
+            if writes is not None and descriptor_set_id > 0:
+                set_bindings = descriptor_set_contents.setdefault(descriptor_set_id, {})
+                for write_struct in writes.findall("struct"):
+                    parsed = _parse_vulkan_descriptor_write_struct(write_struct, fallback_set_id=descriptor_set_id)
+                    if not parsed:
+                        continue
+                    set_bindings[int(parsed["binding"])] = parsed
+
+        elif name == "vkUpdateDescriptorSets":
+            writes = chunk.find("./array[@name='pDescriptorWrites']")
+            if writes is not None:
+                for write_struct in writes.findall("struct"):
+                    parsed = _parse_vulkan_descriptor_write_struct(write_struct, fallback_set_id=0)
+                    if not parsed:
+                        continue
+                    set_id = int(parsed["set_id"])
+                    descriptor_set_contents.setdefault(set_id, {})[int(parsed["binding"])] = parsed
+
+        elif name == "vkCmdBindDescriptorSets":
+            bind_point_elem = chunk.find("./enum[@name='pipelineBindPoint']")
+            bind_point = bind_point_elem.get("string", "") if bind_point_elem is not None else ""
+            first_set = _read_numeric_text(chunk, "./uint[@name='firstSet']", default=0)
+            descriptor_sets = chunk.find("./array[@name='pDescriptorSets']")
+
+            target_sets = compute_descriptor_sets if "COMPUTE" in bind_point else graphics_descriptor_sets
+
+            if descriptor_sets is not None:
+                for index, set_elem in enumerate(descriptor_sets.findall("ResourceId")):
+                    set_id = _to_int(set_elem.text)
+                    slot = first_set + index
+                    if set_id > 0:
+                        target_sets[slot] = set_id
+                    elif slot in target_sets:
+                        target_sets.pop(slot)
+
+        elif name == "vkCreateImage":
+            image_elem = chunk.find("./ResourceId[@name='Image']")
+            if image_elem is None:
+                image_elem = chunk.find("./ResourceId[@name='image']")
+
+            image_id = _to_int(image_elem.text if image_elem is not None else None)
+            if image_id > 0:
+                info = image_info_map.setdefault(image_id, {})
+                create_info = chunk.find("./struct[@name='CreateInfo']")
+                if create_info is not None:
+                    format_elem = create_info.find("./enum[@name='format']")
+                    extent_elem = create_info.find("./struct[@name='extent']")
+                    mip_elem = create_info.find("./uint[@name='mipLevels']")
+                    layers_elem = create_info.find("./uint[@name='arrayLayers']")
+
+                    info["format"] = format_elem.get("string", "") if format_elem is not None else ""
+                    if extent_elem is not None:
+                        info["width"] = _read_numeric_text(extent_elem, "./uint[@name='width']", default=0)
+                        info["height"] = _read_numeric_text(extent_elem, "./uint[@name='height']", default=0)
+                    info["mip_levels"] = _to_int(mip_elem.text if mip_elem is not None else None, default=1)
+                    info["array_layers"] = _to_int(layers_elem.text if layers_elem is not None else None, default=1)
+
+        elif name == "vkBindImageMemory":
+            image_elem = chunk.find("./ResourceId[@name='image']")
+            memory_elem = chunk.find("./ResourceId[@name='memory']")
+            offset_elem = chunk.find("./uint[@name='memoryOffset']")
+            image_id = _to_int(image_elem.text if image_elem is not None else None)
+            memory_id = _to_int(memory_elem.text if memory_elem is not None else None)
+            if image_id > 0 and memory_id > 0:
+                image_memory_map[image_id] = {
+                    "memory_id": memory_id,
+                    "memory_offset": _to_int(offset_elem.text if offset_elem is not None else None),
+                }
+
+        elif name == "vkCreateImageView":
+            view_elem = chunk.find("./ResourceId[@name='ImageView']")
+            if view_elem is None:
+                view_elem = chunk.find("./ResourceId[@name='imageView']")
+            if view_elem is None:
+                view_elem = chunk.find("./ResourceId[@name='View']")
+            view_id = _to_int(view_elem.text if view_elem is not None else None)
+
+            create_info = chunk.find("./struct[@name='CreateInfo']")
+            image_elem = create_info.find("./ResourceId[@name='image']") if create_info is not None else None
+            image_id = _to_int(image_elem.text if image_elem is not None else None)
+
+            if view_id > 0 and image_id > 0:
+                image_view_to_image[view_id] = image_id
+
+        elif name == "Internal::Initial Contents":
+            type_elem = chunk.find("./enum[@name='type']")
+            type_name = type_elem.get("string", "") if type_elem is not None else ""
+            if type_name == "eResDeviceMemory":
+                memory_id_elem = chunk.find("./ResourceId[@name='id']")
+                contents_elem = chunk.find("./buffer[@name='Contents']")
+                size_elem = chunk.find("./uint[@name='ContentsSize']")
+                memory_id = _to_int(memory_id_elem.text if memory_id_elem is not None else None)
+                if memory_id > 0 and contents_elem is not None:
+                    memory_initial_map[memory_id] = {
+                        "buffer_index": _to_int(contents_elem.text),
+                        "contents_size": _to_int(size_elem.text if size_elem is not None else None),
+                    }
+
+        elif name == "vkCreateShaderModule":
+            module_elem = chunk.find("./ResourceId[@name='ShaderModule']")
+            module_id = _to_int(module_elem.text if module_elem is not None else None)
+            create_info = chunk.find("./struct[@name='CreateInfo']")
+            if module_id > 0 and create_info is not None:
+                code_size_elem = create_info.find("./uint[@name='codeSize']")
+                code_elem = create_info.find("./buffer[@name='pCode']")
+                shader_module_map[module_id] = {
+                    "buffer_index": _to_int(code_elem.text if code_elem is not None else None),
+                    "code_size": _to_int(code_size_elem.text if code_size_elem is not None else None),
+                }
+
+        elif name == "vkCreateGraphicsPipelines":
+            pipeline_elem = chunk.find("./ResourceId[@name='Pipeline']")
+            pipeline_id = _to_int(pipeline_elem.text if pipeline_elem is not None else None)
+            create_info = chunk.find("./struct[@name='CreateInfo']")
+            stages_array = create_info.find("./array[@name='pStages']") if create_info is not None else None
+            stages = []
+            if stages_array is not None:
+                for stage_struct in stages_array.findall("struct"):
+                    stage_elem = stage_struct.find("./enum[@name='stage']")
+                    module_elem = stage_struct.find("./ResourceId[@name='module']")
+                    entry_elem = stage_struct.find("./string[@name='pName']")
+                    stage_flag = stage_elem.get("string", "") if stage_elem is not None else ""
+                    stage = _vulkan_stage_from_flag(stage_flag)
+                    module_id = _to_int(module_elem.text if module_elem is not None else None)
+                    entry = entry_elem.text.strip() if entry_elem is not None and entry_elem.text else "main"
+                    if stage != "unknown" and module_id > 0:
+                        stages.append({"stage": stage, "module_id": module_id, "entry": entry})
+
+            if pipeline_id > 0 and stages:
+                pipeline_shader_map[pipeline_id] = stages
+
+        elif name == "vkCmdBindPipeline":
+            bind_point_elem = chunk.find("./enum[@name='pipelineBindPoint']")
+            bind_point = bind_point_elem.get("string", "") if bind_point_elem is not None else ""
+            if "GRAPHICS" in bind_point:
+                pipeline_elem = chunk.find("./ResourceId[@name='pipeline']")
+                current_graphics_pipeline = _to_int(pipeline_elem.text if pipeline_elem is not None else None)
+
+        elif name == "vkCmdDrawIndexed":
+            draw_info = {
+                "index_count": _read_numeric_text(chunk, "./uint[@name='indexCount']"),
+                "instance_count": _read_numeric_text(chunk, "./uint[@name='instanceCount']"),
+                "first_index": _read_numeric_text(chunk, "./uint[@name='firstIndex']"),
+                "vertex_offset": _read_numeric_text(chunk, "./int[@name='vertexOffset']"),
+                "first_instance": _read_numeric_text(chunk, "./uint[@name='firstInstance']"),
+            }
+
+            _hydrate_vulkan_image_memory_info(
+                image_info_map=image_info_map,
+                image_memory_map=image_memory_map,
+                memory_initial_map=memory_initial_map,
+            )
+
+            textures = _build_vulkan_texture_bindings(
+                graphics_descriptor_sets=graphics_descriptor_sets,
+                descriptor_set_contents=descriptor_set_contents,
+                image_view_to_image=image_view_to_image,
+                image_info_map=image_info_map,
+            )
+
+            if int(min_textures) > 0 and len(textures) < int(min_textures):
+                chunk.clear()
+                continue
+
+            row = {
+                "event_id": int(chunk_index),
+                "index_count": int(draw_info.get("index_count", 0)),
+                "instance_count": int(draw_info.get("instance_count", 0)),
+                "first_index": int(draw_info.get("first_index", 0)),
+                "vertex_offset": int(draw_info.get("vertex_offset", 0)),
+                "pipeline": int(current_graphics_pipeline),
+                "shader_stages": _collect_vulkan_shader_stages(pipeline_shader_map, current_graphics_pipeline),
+                "bound_descriptor_sets": {
+                    str(int(set_index)): int(set_id)
+                    for set_index, set_id in sorted(graphics_descriptor_sets.items())
+                    if int(set_id) > 0
+                },
+                "texture_count": len(textures),
+            }
+
+            row.update(_build_vulkan_mesh_compatibility_flags(index_binding, vertex_bindings, draw_info))
+
+            if int(preview_limit) > 0:
+                row["textures_preview"] = textures[: int(preview_limit)]
+
+            rows.append(row)
+
+        chunk.clear()
+
+    payload = {
+        "summary": {
+            "api": "Vulkan",
+            "source_xml": str(xml_path),
+            "total_draw_events": len(rows),
+            "textured_draw_events": len([item for item in rows if int(item.get("texture_count", 0)) > 0]),
+            "mesh_compatible_events": len([item for item in rows if bool(item.get("mesh_compatible"))]),
+            "mesh_incompatible_events": len([item for item in rows if not bool(item.get("mesh_compatible"))]),
+        },
+        "events": rows,
+    }
+    return payload
