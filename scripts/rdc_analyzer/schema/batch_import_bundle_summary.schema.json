@@ -137,6 +137,9 @@
                 "type": "integer"
               }
             }
+          },
+          "skip_reason": {
+            "type": "string"
           }
         }
       }
@@ -294,6 +297,35 @@
       "type": "array",
       "items": {
         "type": "integer"
+      }
+    },
+    "skip_diagnostics": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "event_id",
+          "status",
+          "reason_code",
+          "error"
+        ],
+        "properties": {
+          "event_id": {
+            "type": "integer"
+          },
+          "status": {
+            "type": "string"
+          },
+          "reason_code": {
+            "type": "string"
+          },
+          "error": {
+            "type": "string"
+          },
+          "scan_hints": {
+            "type": "object"
+          }
+        }
       }
     }
   }

@@ -398,6 +398,76 @@ def _is_mesh_incompatible_error(message: str):
     return False
 
 
+def _mesh_skip_reason_code(message: str):
+    text = str(message or "")
+    if "mesh.json missing vertex_layout/vertex_count/index_count" in text:
+        return "mesh_layout_incomplete"
+    if "vertex_layout missing POSITION" in text:
+        return "missing_position_semantic"
+    if "has no vertex buffer binding" in text:
+        return "missing_vertex_buffer_binding"
+    if "has no index buffer binding" in text:
+        return "missing_index_buffer_binding"
+    return "mesh_incompatible_unknown"
+
+
+def _build_skip_diagnostics(summary: dict, selection: dict | None = None):
+    selection_map = {}
+    if isinstance(selection, dict):
+        for row in selection.get("selected") or []:
+            if not isinstance(row, dict):
+                continue
+            try:
+                event_id = int(row.get("event_id"))
+            except (TypeError, ValueError):
+                continue
+            selection_map[event_id] = row
+
+    diagnostics = []
+    for item in summary.get("results") or []:
+        if not isinstance(item, dict):
+            continue
+        status = str(item.get("status") or "")
+        if not status.startswith("skipped"):
+            continue
+
+        try:
+            event_id = int(item.get("event_id"))
+        except (TypeError, ValueError):
+            continue
+
+        error_text = str(item.get("error") or "")
+        reason_code = str(item.get("skip_reason") or "").strip() or _mesh_skip_reason_code(error_text)
+
+        row = selection_map.get(event_id, {})
+        scan_hints = {}
+        hint_keys = [
+            "mesh_hint",
+            "mesh_likely_score",
+            "texture_count",
+            "index_count",
+            "first_index",
+            "vertex_offset",
+            "mesh_incompatible_reasons",
+        ] + list(_MESH_HINT_KEYS)
+        for key in hint_keys:
+            if key in row:
+                scan_hints[key] = row.get(key)
+
+        diagnostic = {
+            "event_id": event_id,
+            "status": status,
+            "reason_code": reason_code,
+            "error": error_text,
+        }
+        if scan_hints:
+            diagnostic["scan_hints"] = scan_hints
+
+        diagnostics.append(diagnostic)
+
+    return diagnostics
+
+
 def _load_texture_status_counts(bundle_root: Path):
     materials_path = bundle_root / "materials" / "materials.json"
     payload = json.loads(materials_path.read_text(encoding="utf-8")) if materials_path.exists() else {}
@@ -606,17 +676,21 @@ def run_batch_from_capture(
         except Exception as exc:  # pragma: no cover - exercised in tests
             error_text = str(exc)
             status = "error"
+            skip_reason = ""
             if skip_mesh_incompatible and _is_mesh_incompatible_error(error_text):
                 status = "skipped_mesh_incompatible"
+                skip_reason = _mesh_skip_reason_code(error_text)
 
-            results.append(
-                {
-                    "event_id": int(event_id),
-                    "status": status,
-                    "bundle_dir": "",
-                    "error": error_text,
-                }
-            )
+            row = {
+                "event_id": int(event_id),
+                "status": status,
+                "bundle_dir": "",
+                "error": error_text,
+            }
+            if skip_reason:
+                row["skip_reason"] = skip_reason
+
+            results.append(row)
             if fail_fast and status == "error":
                 break
 
@@ -929,6 +1003,10 @@ def main(argv=None):
         summary["source_summary"] = str(source_summary_path)
     if selection is not None:
         summary["selection"] = selection
+
+    skip_diagnostics = _build_skip_diagnostics(summary, selection=selection)
+    if skip_diagnostics:
+        summary["skip_diagnostics"] = skip_diagnostics
 
     retry_files = _write_retry_artifacts(summary, out)
     if retry_files:

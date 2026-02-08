@@ -138,6 +138,7 @@ summary 关键字段：
 - `selection.scan_rank`
 - `options.scan_rank`
 - `skipped_count` / `skipped_event_ids`
+- `skip_diagnostics[]`（包含 `reason_code` + `scan_hints`）
 
 ---
 

@@ -319,6 +319,8 @@ def test_select_events_from_scan_preserves_mesh_flags(tmp_path):
     assert rows[1]["has_vertex_binding"] is False
     assert rows[1]["has_index_binding"] is True
     assert rows[1]["mesh_compatible"] is False
+
+
 def test_run_batch_from_capture_uses_capture_retry_command(tmp_path, monkeypatch):
     import export_event_import_bundle_batch as batch_mod
 
@@ -378,6 +380,7 @@ def test_run_batch_from_capture_skips_mesh_incompatible_by_default(tmp_path, mon
     assert summary["skipped_count"] == 1
     assert summary["skipped_event_ids"] == [888]
     assert summary["results"][0]["status"] == "skipped_mesh_incompatible"
+    assert summary["results"][0]["skip_reason"] == "mesh_layout_incomplete"
 
 
 def test_run_batch_from_capture_strict_mesh_treats_incompatible_as_error(tmp_path, monkeypatch):
@@ -408,6 +411,144 @@ def test_run_batch_from_capture_strict_mesh_treats_incompatible_as_error(tmp_pat
     assert summary["results"][0]["status"] == "error"
 
 
+
+
+def test_build_skip_diagnostics_includes_scan_hints():
+    import export_event_import_bundle_batch as batch_mod
+
+    summary = {
+        "results": [
+            {
+                "event_id": 911,
+                "status": "skipped_mesh_incompatible",
+                "error": "event 911 has no vertex buffer binding",
+                "skip_reason": "missing_vertex_buffer_binding",
+            }
+        ]
+    }
+    selection = {
+        "selected": [
+            {
+                "event_id": 911,
+                "texture_count": 4,
+                "index_count": 20,
+                "mesh_hint": "incompatible",
+                "mesh_likely_score": 3,
+                "has_vertex_binding": False,
+                "has_index_binding": True,
+                "mesh_compatible": False,
+                "mesh_incompatible_reasons": ["missing_vertex_binding"],
+            }
+        ]
+    }
+
+    diagnostics = batch_mod._build_skip_diagnostics(summary, selection=selection)
+    assert len(diagnostics) == 1
+    diag = diagnostics[0]
+    assert diag["event_id"] == 911
+    assert diag["reason_code"] == "missing_vertex_buffer_binding"
+    assert diag["scan_hints"]["has_vertex_binding"] is False
+    assert diag["scan_hints"]["mesh_incompatible_reasons"] == ["missing_vertex_binding"]
+
+
+def test_main_capture_mode_writes_skip_diagnostics(tmp_path, monkeypatch):
+    import export_event_import_bundle_batch as batch_mod
+
+    capture_xml = tmp_path / "capture_skip.zip.xml"
+    capture_zip = tmp_path / "capture_skip.zip"
+    capture_xml.write_text("<rdc></rdc>", encoding="utf-8")
+    capture_zip.write_bytes(b"PK")
+
+    scan_path = tmp_path / "scan_capture_skip.json"
+    scan_path.write_text(
+        json.dumps(
+            {
+                "events": [
+                    {
+                        "event_id": 710,
+                        "texture_count": 3,
+                        "index_count": 10,
+                        "pipeline": 1,
+                        "has_vertex_binding": False,
+                        "has_index_binding": True,
+                        "mesh_compatible": False,
+                        "mesh_exportable": False,
+                        "mesh_incompatible_reasons": ["missing_vertex_binding"],
+                    }
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    def _fake_run_batch_from_capture(**kwargs):
+        return {
+            "schema_version": "1.0",
+            "schema_path": "schema/batch_import_bundle_summary.schema.json",
+            "root": str(kwargs["capture_xml"].parent),
+            "out": str(kwargs["out_root"]),
+            "events_total": 1,
+            "success_count": 0,
+            "failed_count": 0,
+            "failed_event_ids": [],
+            "skipped_count": 1,
+            "skipped_event_ids": [710],
+            "retry_events_arg": "",
+            "retry_command": "",
+            "inputs": {
+                "mode": "capture_zip",
+                "xml": str(kwargs["capture_xml"]),
+                "zip": str(kwargs["capture_zip"]),
+                "vertex_stride": int(kwargs.get("vertex_stride", 0)),
+            },
+            "options": {
+                "texture_mode": str(kwargs.get("texture_mode") or "auto"),
+                "raw_source_kinds": sorted(kwargs.get("raw_source_kinds") or set()),
+                "skip_mesh_incompatible": bool(kwargs.get("skip_mesh_incompatible", True)),
+            },
+            "texture_status_totals": {
+                "decoded_rgba8_png": 0,
+                "rgba_bytes_png": 0,
+                "copied_image": 0,
+                "raw_copy": 0,
+                "missing_source": 0,
+                "other": 0,
+                "total": 0,
+            },
+            "results": [
+                {
+                    "event_id": 710,
+                    "status": "skipped_mesh_incompatible",
+                    "bundle_dir": "",
+                    "error": "event 710 has no vertex buffer binding",
+                    "skip_reason": "missing_vertex_buffer_binding",
+                }
+            ],
+        }
+
+    monkeypatch.setattr(batch_mod, "run_batch_from_capture", _fake_run_batch_from_capture)
+
+    out_dir = tmp_path / "out_capture_skip"
+    rc = batch_mod.main(
+        [
+            "--xml",
+            str(capture_xml),
+            "--zip",
+            str(capture_zip),
+            "--out",
+            str(out_dir),
+            "--events-from-scan",
+            str(scan_path),
+            "--top-textured",
+            "1",
+        ]
+    )
+    assert rc == 0
+
+    summary = json.loads((out_dir / "batch_import_bundle_summary.json").read_text(encoding="utf-8"))
+    assert summary["skip_diagnostics"][0]["event_id"] == 710
+    assert summary["skip_diagnostics"][0]["reason_code"] == "missing_vertex_buffer_binding"
+    assert summary["skip_diagnostics"][0]["scan_hints"]["has_vertex_binding"] is False
 def test_main_capture_mode_from_scan_invokes_capture_runner(tmp_path, monkeypatch):
     import export_event_import_bundle_batch as batch_mod
 

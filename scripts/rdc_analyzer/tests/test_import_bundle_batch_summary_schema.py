@@ -105,6 +105,22 @@ def test_batch_summary_schema_accepts_extended_fields():
                     "total": 1,
                 },
             },
+            {
+                "event_id": 101,
+                "status": "skipped_mesh_incompatible",
+                "bundle_dir": "",
+                "error": "event 101 has no vertex buffer binding",
+                "skip_reason": "missing_vertex_buffer_binding",
+            },
+        ],
+        "skip_diagnostics": [
+            {
+                "event_id": 101,
+                "status": "skipped_mesh_incompatible",
+                "reason_code": "missing_vertex_buffer_binding",
+                "error": "event 101 has no vertex buffer binding",
+                "scan_hints": {"has_vertex_binding": False},
+            }
         ],
     }
 
