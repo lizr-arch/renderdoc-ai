@@ -173,6 +173,40 @@ def _vulkan_stage_from_flag(stage_flag: str) -> str:
     return "unknown"
 
 
+def _parse_vulkan_shader_module_chunk(chunk: ET.Element) -> tuple[int, dict]:
+    module_elem = chunk.find("./ResourceId[@name='ShaderModule']")
+    if module_elem is None:
+        module_elem = chunk.find("./ResourceId[@name='shaderModule']")
+    if module_elem is None:
+        module_elem = chunk.find("./ResourceId[@name='module']")
+
+    module_id = _to_int(module_elem.text if module_elem is not None else None)
+    if module_id <= 0:
+        return 0, {}
+
+    create_info = chunk.find("./struct[@name='CreateInfo']")
+    search_root = create_info if create_info is not None else chunk
+
+    code_size_elem = search_root.find("./uint[@name='codeSize']")
+    if code_size_elem is None:
+        code_size_elem = search_root.find("./uint[@name='CodeSize']")
+
+    code_elem = search_root.find("./buffer[@name='pCode']")
+    if code_elem is None:
+        code_elem = search_root.find("./buffer[@name='code']")
+    if code_elem is None:
+        code_elem = search_root.find("./buffer[@name='Code']")
+
+    code_size = _to_int(code_size_elem.text if code_size_elem is not None else None, default=0)
+    if code_size <= 0 and code_elem is not None:
+        code_size = _to_int(code_elem.get("byteLength"), default=0)
+
+    return module_id, {
+        "buffer_index": _to_int(code_elem.text if code_elem is not None else None, default=0),
+        "code_size": int(code_size),
+    }
+
+
 def _parse_vulkan_descriptor_write_struct(write_struct: ET.Element, fallback_set_id: int = 0) -> dict | None:
     set_elem = write_struct.find("./ResourceId[@name='dstSet']")
     set_id = _to_int(set_elem.text if set_elem is not None else None, default=fallback_set_id)
@@ -463,16 +497,9 @@ def extract_vulkan_bindings_for_event(xml_path: str, event_id: int) -> dict:
                     }
 
         elif name == "vkCreateShaderModule":
-            module_elem = chunk.find("./ResourceId[@name='ShaderModule']")
-            module_id = _to_int(module_elem.text if module_elem is not None else None)
-            create_info = chunk.find("./struct[@name='CreateInfo']")
-            if module_id > 0 and create_info is not None:
-                code_size_elem = create_info.find("./uint[@name='codeSize']")
-                code_elem = create_info.find("./buffer[@name='pCode']")
-                shader_module_map[module_id] = {
-                    "buffer_index": _to_int(code_elem.text if code_elem is not None else None),
-                    "code_size": _to_int(code_size_elem.text if code_size_elem is not None else None),
-                }
+            module_id, module_meta = _parse_vulkan_shader_module_chunk(chunk)
+            if module_id > 0:
+                shader_module_map[module_id] = module_meta
 
         elif name == "vkCreateGraphicsPipelines":
             pipeline_elem = chunk.find("./ResourceId[@name='Pipeline']")
@@ -1187,16 +1214,9 @@ def scan_vulkan_draw_texture_events(xml_path: str, preview_limit: int = 8, min_t
                     }
 
         elif name == "vkCreateShaderModule":
-            module_elem = chunk.find("./ResourceId[@name='ShaderModule']")
-            module_id = _to_int(module_elem.text if module_elem is not None else None)
-            create_info = chunk.find("./struct[@name='CreateInfo']")
-            if module_id > 0 and create_info is not None:
-                code_size_elem = create_info.find("./uint[@name='codeSize']")
-                code_elem = create_info.find("./buffer[@name='pCode']")
-                shader_module_map[module_id] = {
-                    "buffer_index": _to_int(code_elem.text if code_elem is not None else None),
-                    "code_size": _to_int(code_size_elem.text if code_size_elem is not None else None),
-                }
+            module_id, module_meta = _parse_vulkan_shader_module_chunk(chunk)
+            if module_id > 0:
+                shader_module_map[module_id] = module_meta
 
         elif name == "vkCreateGraphicsPipelines":
             pipeline_elem = chunk.find("./ResourceId[@name='Pipeline']")

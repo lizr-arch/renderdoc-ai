@@ -63,13 +63,104 @@ def _write_sample_vulkan_xml(xml_path: Path, *, with_initial=True, contents_inde
     )
 
 
-def _write_sample_zip(zip_path: Path, *, entry_name="000007"):
+def _write_sample_zip(zip_path: Path, *, entry_name="000007", extra_entries: dict[str, bytes] | None = None):
     blob = bytearray(80)
     blob[8:40] = bytes(range(32))
     blob[40:46] = b"\x00\x00\x01\x00\x02\x00"
 
     with zipfile.ZipFile(zip_path, "w") as handle:
         handle.writestr(entry_name, bytes(blob))
+        for name, data in (extra_entries or {}).items():
+            handle.writestr(str(name), bytes(data))
+
+def _write_sample_vulkan_shader_xml(xml_path: Path, *, with_initial=True, contents_index=7):
+    initial_chunk = ""
+    if with_initial:
+        initial_chunk = f"""
+    <chunk id=\"3\" chunkIndex=\"200\" name=\"Internal::Initial Contents\">
+      <enum name=\"type\" typename=\"VkResourceType\" string=\"eResDeviceMemory\">5</enum>
+      <ResourceId name=\"id\" typename=\"VkDeviceMemory\">210</ResourceId>
+      <uint name=\"ContentsSize\" typename=\"uint64_t\">72</uint>
+      <buffer name=\"Contents\" typename=\"Byte Buffer\">{contents_index}</buffer>
+    </chunk>
+"""
+
+    xml_path.write_text(
+        f"""<rdc>
+  <header><driver id=\"8\">Vulkan</driver></header>
+  <chunks>
+    <chunk id=\"1013\" chunkIndex=\"10\" name=\"vkCreateBuffer\">
+      <struct name=\"CreateInfo\" typename=\"VkBufferCreateInfo\">
+        <uint name=\"size\" typename=\"uint64_t\">64</uint>
+      </struct>
+      <ResourceId name=\"Buffer\" typename=\"VkBuffer\">901</ResourceId>
+    </chunk>
+    <chunk id=\"1042\" chunkIndex=\"11\" name=\"vkBindBufferMemory\">
+      <ResourceId name=\"buffer\" typename=\"VkBuffer\">901</ResourceId>
+      <ResourceId name=\"memory\" typename=\"VkDeviceMemory\">210</ResourceId>
+      <uint name=\"memoryOffset\" typename=\"uint64_t\">8</uint>
+    </chunk>
+    <chunk id=\"1019\" chunkIndex=\"80\" name=\"vkCreateShaderModule\">
+      <struct name=\"CreateInfo\" typename=\"VkShaderModuleCreateInfo\">
+        <uint name=\"codeSize\" typename=\"uint64_t\">4</uint>
+        <buffer name=\"pCode\" typename=\"Byte Buffer\" byteLength=\"4\">1</buffer>
+      </struct>
+      <ResourceId name=\"ShaderModule\" typename=\"VkShaderModule\">17001</ResourceId>
+    </chunk>
+    <chunk id=\"1019\" chunkIndex=\"81\" name=\"vkCreateShaderModule\">
+      <struct name=\"CreateInfo\" typename=\"VkShaderModuleCreateInfo\">
+        <uint name=\"codeSize\" typename=\"uint64_t\">8</uint>
+        <buffer name=\"pCode\" typename=\"Byte Buffer\" byteLength=\"8\">2</buffer>
+      </struct>
+      <ResourceId name=\"ShaderModule\" typename=\"VkShaderModule\">17002</ResourceId>
+    </chunk>
+    <chunk id=\"1022\" chunkIndex=\"82\" name=\"vkCreateGraphicsPipelines\">
+      <ResourceId name=\"Pipeline\" typename=\"VkPipeline\">2500</ResourceId>
+      <struct name=\"CreateInfo\" typename=\"VkGraphicsPipelineCreateInfo\">
+        <array name=\"pStages\">
+          <struct typename=\"VkPipelineShaderStageCreateInfo\">
+            <enum name=\"stage\" typename=\"VkShaderStageFlagBits\" string=\"VK_SHADER_STAGE_VERTEX_BIT\">1</enum>
+            <ResourceId name=\"module\" typename=\"VkShaderModule\">17001</ResourceId>
+            <string name=\"pName\">main_vs</string>
+          </struct>
+          <struct typename=\"VkPipelineShaderStageCreateInfo\">
+            <enum name=\"stage\" typename=\"VkShaderStageFlagBits\" string=\"VK_SHADER_STAGE_FRAGMENT_BIT\">16</enum>
+            <ResourceId name=\"module\" typename=\"VkShaderModule\">17002</ResourceId>
+            <string name=\"pName\">main_ps</string>
+          </struct>
+        </array>
+      </struct>
+    </chunk>
+    <chunk id=\"1063\" chunkIndex=\"83\" name=\"vkCmdBindPipeline\">
+      <enum name=\"pipelineBindPoint\" typename=\"VkPipelineBindPoint\" string=\"VK_PIPELINE_BIND_POINT_GRAPHICS\">0</enum>
+      <ResourceId name=\"pipeline\" typename=\"VkPipeline\">2500</ResourceId>
+    </chunk>
+    <chunk id=\"1060\" chunkIndex=\"97\" name=\"vkCmdBindVertexBuffers\">
+      <uint name=\"firstBinding\" typename=\"uint32_t\">0</uint>
+      <uint name=\"bindingCount\" typename=\"uint32_t\">1</uint>
+      <array name=\"pBuffers\"><ResourceId typename=\"VkBuffer\">901</ResourceId></array>
+      <array name=\"pOffsets\"><uint typename=\"uint64_t\">0</uint></array>
+    </chunk>
+    <chunk id=\"1061\" chunkIndex=\"98\" name=\"vkCmdBindIndexBuffer\">
+      <ResourceId name=\"buffer\" typename=\"VkBuffer\">901</ResourceId>
+      <uint name=\"offset\" typename=\"uint64_t\">32</uint>
+      <enum name=\"indexType\" typename=\"VkIndexType\" string=\"VK_INDEX_TYPE_UINT16\">0</enum>
+    </chunk>
+    <chunk id=\"1085\" chunkIndex=\"100\" name=\"vkCmdDrawIndexed\">
+      <uint name=\"indexCount\" typename=\"uint32_t\">3</uint>
+      <uint name=\"instanceCount\" typename=\"uint32_t\">1</uint>
+      <uint name=\"firstIndex\" typename=\"uint32_t\">0</uint>
+      <int name=\"vertexOffset\" typename=\"int32_t\">0</int>
+      <uint name=\"firstInstance\" typename=\"uint32_t\">0</uint>
+    </chunk>
+{initial_chunk}
+  </chunks>
+</rdc>
+""",
+        encoding="utf-8",
+    )
+
+
 
 
 def test_build_event_state_from_bindings_for_writer_contract():
@@ -179,6 +270,52 @@ def test_extract_vulkan_event_intermediate_end_to_end(tmp_path):
     assert manifest["api"] == "Vulkan"
     assert manifest["buffers"]["index"]["zip_entry"] == "000007"
 
+
+
+
+def test_extract_vulkan_event_intermediate_exports_shader_blobs(tmp_path):
+    from extract_event_intermediate import extract_vulkan_event_intermediate
+
+    xml_path = tmp_path / "sample_shader.zip.xml"
+    zip_path = tmp_path / "sample_shader.zip"
+    out_dir = tmp_path / "out_shader"
+
+    _write_sample_vulkan_shader_xml(xml_path)
+    _write_sample_zip(
+        zip_path,
+        extra_entries={
+            "000001": b"ABCD",
+            "000002": b"12345678TAIL",
+        },
+    )
+
+    intermediate_path = extract_vulkan_event_intermediate(
+        xml_path=str(xml_path),
+        zip_path=str(zip_path),
+        event_id=100,
+        out_dir=str(out_dir),
+    )
+
+    shaders_dir = Path(intermediate_path) / "shaders"
+    vs_bin = shaders_dir / "vs.bin"
+    ps_bin = shaders_dir / "ps.bin"
+    vs_json = shaders_dir / "vs.json"
+    ps_json = shaders_dir / "ps.json"
+
+    assert vs_bin.exists()
+    assert ps_bin.exists()
+    assert vs_json.exists()
+    assert ps_json.exists()
+
+    assert vs_bin.read_bytes() == b"ABCD"
+    assert ps_bin.read_bytes() == b"12345678"
+
+    vs_info = json.loads(vs_json.read_text(encoding="utf-8"))["shader"]
+    ps_info = json.loads(ps_json.read_text(encoding="utf-8"))["shader"]
+    assert vs_info["entry"] == "main_vs"
+    assert ps_info["entry"] == "main_ps"
+    assert vs_info["bytecode_format"] == "spirv"
+    assert ps_info["bytecode_format"] == "spirv"
 
 def test_extract_vulkan_event_intermediate_exports_vulkan_texture_blob(tmp_path, monkeypatch):
     import extract_event_intermediate as extractor

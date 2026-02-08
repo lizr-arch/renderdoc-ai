@@ -208,5 +208,9 @@ summary 关键字段：
 3. **Shader 为什么只有 json/bin 没有 hlsl？**
    - 当前保留“中间态”原始信息，HLSL 反编译属于下一阶段（可接现有 shader 转换链路）。
 
-4. **没有 `--event` 可以吗？**
+4. **Vulkan 的 `vs.bin/ps.bin` 从哪里来？**
+   - 来源：`zip.xml` 的 `vkCreateShaderModule(CreateInfo.pCode + codeSize)`，按 `vkCreateGraphicsPipelines.pStages` 与 `vkCmdBindPipeline` 关联到目标 draw。
+   - 要求：zip 里存在对应 `buffer_index` 条目（如 `000001`），否则会生成 sidecar json 但 `.bin` 可能为空。
+
+5. **没有 `--event` 可以吗？**
    - 传 `--intermediate` 时可省略，工具会尝试从 `event_<id>` 路径自动推断。
