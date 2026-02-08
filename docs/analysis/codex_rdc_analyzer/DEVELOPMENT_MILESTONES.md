@@ -1,6 +1,6 @@
 # RDC Analyzer 开发里程碑 (统一追踪)
 
-> **版本**: 2.1.0 | **更新日期**: 2025-02-07  
+> **版本**: 2.2.0 | **更新日期**: 2025-02-08  
 > **创建日期**: 2025-01-24  
 > **目的**: 统一追踪所有待办开发任务，避免会话遗忘  
 > **使用方法**: 完成一个任务后，将 `[ ]` 改为 `[x]` 并提交
@@ -35,6 +35,7 @@
 | M4: 高级可视化 | ⏳ 可选 | 0/6 | 热力图等 |
 | Phase 5: B-mode 对比 | ✅ 完成 | 4/4 | 多帧统计 + CI 集成 |
 | **Phase 6: P0 报告完善** | ✅ 完成 | 4/4 | Schema/缩略图/Shader/RT |
+| **Phase 7: 端到端验证** | ✅ 完成 | 3/3 | E2E测试/文档/性能优化 |
 | P0-NEW-3: Schema 规范 | ⏳ 待开始 | 0/1 | 小范围改动 |
 
 ---
@@ -316,6 +317,51 @@ evidence_chain.to_dict() 输出完整 JSON
 2. ✅ 纹理缩略图从 ZIP 正确提取
 3. ✅ Vulkan Shader 源码可转换为 GLSL
 4. ✅ 所有核心 Schema 文件齐全
+```
+
+---
+
+## ✅ Phase 7: 端到端验证与性能优化 — 已完成
+
+> **状态**: ✅ 已完成 (2025-02-08)  
+> **目标**: 真实数据验证 + 文档完善 + 性能优化  
+> **文档**: `scripts/rdc_analyzer/docs/E2E_WORKFLOW_GUIDE.md`
+
+### Phase 7A: 真实 RDC 端到端测试 ✅ 完成
+
+- [x] **P7A.1** RDC → XML 转换测试 (renderdoccmd)
+- [x] **P7A.2** XML → Bundle 报告生成测试
+- [x] **P7A.3** 数据完整性验证 (manifest.json)
+- [x] **P7A.4** 多帧对比 + JUnit XML 输出测试
+
+### Phase 7B: 文档完善 ✅ 完成
+
+- [x] **P7B.1** 创建 `E2E_WORKFLOW_GUIDE.md` 工作流指南
+- [x] **P7B.2** 更新 `INDEX.md` 至 v2.6.0
+- [x] **P7B.3** 创建 `MULTI_FRAME_GUIDE.md` 多帧统计指南
+- [x] **P7B.4** 创建 `API_REFERENCE.md` API 参考手册
+
+### Phase 7C: 性能优化 ✅ 完成
+
+- [x] **P7C.1** 流式 XML 解析 (iterparse) - `rdc_xml_parser.py`
+- [x] **P7C.2** 进度回调机制 - `zipxml_event_parser.py`
+- [x] **P7C.3** JSON 流式加载文档标注 - `API_REFERENCE.md` (ijson)
+- [x] **P7C.4** HTML 数据外置 + 异步加载 - `--external-data` 参数
+
+### Phase 7C.4 优化效果
+
+| 文件 | 优化前 | 优化后 | 减少 |
+|------|--------|--------|------|
+| `events.html` | 724 KB | 116 KB | **-84%** |
+| `textures.html` | 219 KB | 184 KB | -16% |
+| `shaders.html` | 139 KB | 125 KB | -10% |
+
+### Phase 7 验收标准 ✅
+```
+1. ✅ 真实 RDC (game_frame3996.rdc) 完整分析流程通过
+2. ✅ 文档索引更新至 v2.6.0
+3. ✅ --external-data 参数正常工作，HTML 大小显著减少
+4. ✅ 异步加载机制测试通过
 ```
 
 ---
