@@ -1371,15 +1371,20 @@
         // ========== Shader 数据 (P7C.4: 支持异步加载) ==========
         let shaderData = [];
         let allShaders = [];
-        let filteredShaders = [];
+        let filteredShaders = allShaders.slice();
         let dataLoaded = false;
+        
+        function normalizeAllShadersFromData() {
+            const allShaders = Array.isArray(shaderData) ? shaderData : [];
+            return allShaders;
+        }
         
         // 尝试解析内嵌数据
         try {
             const embeddedData = {{SHADER_DATA_JSON}};
             if (embeddedData && embeddedData.length > 0) {
                 shaderData = embeddedData;
-                allShaders = Array.isArray(shaderData) ? shaderData : [];
+                allShaders = normalizeAllShadersFromData();
                 filteredShaders = allShaders.slice();
                 dataLoaded = true;
             }
@@ -1398,7 +1403,7 @@
                 const res = await fetch('shaders_data.json');
                 if (res.ok) {
                     shaderData = await res.json();
-                    allShaders = Array.isArray(shaderData) ? shaderData : [];
+                    allShaders = normalizeAllShadersFromData();
                     filteredShaders = allShaders.slice();
                     console.log(`[P7C.4] 已加载 ${allShaders.length} 个 Shader`);
                 }
