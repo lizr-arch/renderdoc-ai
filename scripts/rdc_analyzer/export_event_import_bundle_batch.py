@@ -9,6 +9,15 @@ _SCRIPT_DIR = Path(__file__).resolve().parent
 _SCHEMA_DIR = _SCRIPT_DIR / "schema"
 
 
+def _to_int(value, default=0):
+    if value is None:
+        return default
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return default
+
+
 def _assert_type(value, expected, path="root"):
     if expected == "object":
         if not isinstance(value, dict):
@@ -107,6 +116,54 @@ def _parse_events_arg(events_arg: str):
     return deduped
 
 
+def _parse_source_kinds_arg(value: str | None):
+    if not value:
+        return set()
+
+    out = []
+    for token in str(value).replace(";", ",").split(","):
+        item = token.strip()
+        if item:
+            out.append(item)
+    return set(out)
+
+
+def _select_events_from_scan(scan_path: Path, top_textured: int, min_textures: int):
+    payload = json.loads(scan_path.read_text(encoding="utf-8"))
+    events = payload.get("events") if isinstance(payload, dict) else None
+    if not isinstance(events, list):
+        raise ValueError(f"invalid scan payload: {scan_path}")
+
+    selected = []
+    for item in events:
+        if not isinstance(item, dict):
+            continue
+        try:
+            event_id = int(item.get("event_id"))
+        except (TypeError, ValueError):
+            continue
+
+        texture_count = _to_int(item.get("texture_count"), default=0)
+        if texture_count < int(min_textures):
+            continue
+
+        selected.append(
+            {
+                "event_id": event_id,
+                "texture_count": texture_count,
+                "index_count": _to_int(item.get("index_count"), default=0),
+                "pipeline": _to_int(item.get("pipeline"), default=0),
+            }
+        )
+
+    selected.sort(key=lambda row: (-int(row.get("texture_count", 0)), int(row.get("event_id", 0))))
+    if int(top_textured) > 0:
+        selected = selected[: int(top_textured)]
+
+    event_ids = [int(row["event_id"]) for row in selected]
+    return event_ids, selected
+
+
 def discover_event_ids(intermediate_root: Path):
     if not intermediate_root.exists():
         return []
@@ -168,7 +225,14 @@ def _failed_event_ids_from_summary(summary_payload: dict):
     return derived
 
 
-def _build_retry_command(root: Path, out: Path, failed_event_ids: list[int], rgba_manifest: str | None = None):
+def _build_retry_command(
+    root: Path,
+    out: Path,
+    failed_event_ids: list[int],
+    rgba_manifest: str | None = None,
+    texture_mode: str = "auto",
+    raw_source_kinds: set[str] | None = None,
+):
     if not failed_event_ids:
         return ""
 
@@ -179,7 +243,46 @@ def _build_retry_command(root: Path, out: Path, failed_event_ids: list[int], rgb
     )
     if rgba_manifest:
         command += f" --rgba-manifest \"{rgba_manifest}\""
+
+    mode = str(texture_mode or "auto").strip().lower()
+    if mode and mode != "auto":
+        command += f" --texture-mode \"{mode}\""
+
+    kinds = sorted(raw_source_kinds or set())
+    if kinds:
+        command += f" --raw-source-kinds \"{','.join(kinds)}\""
+
     return command
+
+
+def _load_texture_status_counts(bundle_root: Path):
+    materials_path = bundle_root / "materials" / "materials.json"
+    payload = json.loads(materials_path.read_text(encoding="utf-8")) if materials_path.exists() else {}
+
+    counts = {
+        "decoded_rgba8_png": 0,
+        "rgba_bytes_png": 0,
+        "copied_image": 0,
+        "raw_copy": 0,
+        "missing_source": 0,
+        "other": 0,
+    }
+
+    materials = payload.get("materials") if isinstance(payload, dict) else []
+    for material in materials or []:
+        if not isinstance(material, dict):
+            continue
+        for texture in material.get("textures") or []:
+            if not isinstance(texture, dict):
+                continue
+            status = str(texture.get("status") or "")
+            if status in counts:
+                counts[status] += 1
+            else:
+                counts["other"] += 1
+
+    counts["total"] = sum(value for key, value in counts.items() if key != "total")
+    return counts
 
 
 def run_batch(
@@ -188,6 +291,8 @@ def run_batch(
     event_ids: list[int],
     rgba_manifest: str | None = None,
     fail_fast: bool = False,
+    texture_mode: str = "auto",
+    raw_source_kinds: set[str] | None = None,
 ):
     results = []
 
@@ -212,13 +317,30 @@ def run_batch(
                 out_dir=str(out_root),
                 event_id=int(event_id),
                 rgba_manifest=rgba_manifest,
+                texture_mode=texture_mode,
+                raw_source_kinds=raw_source_kinds,
             )
+
+            bundle_manifest_path = Path(bundle_root) / "bundle_manifest.json"
+            bundle_manifest = json.loads(bundle_manifest_path.read_text(encoding="utf-8")) if bundle_manifest_path.exists() else {}
+            stats = bundle_manifest.get("statistics") if isinstance(bundle_manifest, dict) else {}
+            texture_status_counts = _load_texture_status_counts(Path(bundle_root))
+
             results.append(
                 {
                     "event_id": int(event_id),
                     "status": "ok",
                     "bundle_dir": str(bundle_root),
                     "error": "",
+                    "statistics": {
+                        "vertex_count": _to_int((stats or {}).get("vertex_count"), default=0),
+                        "index_count": _to_int((stats or {}).get("index_count"), default=0),
+                        "triangle_count": _to_int((stats or {}).get("triangle_count"), default=0),
+                        "shader_count": _to_int((stats or {}).get("shader_count"), default=0),
+                        "texture_count": _to_int((stats or {}).get("texture_count"), default=0),
+                        "decoded_texture_count": _to_int((stats or {}).get("decoded_texture_count"), default=0),
+                    },
+                    "texture_status_counts": texture_status_counts,
                 }
             )
         except Exception as exc:  # pragma: no cover - exercised in tests
@@ -241,6 +363,22 @@ def run_batch(
     success_count = len([item for item in results if item.get("status") == "ok"])
     failed_count = len(results) - success_count
 
+    texture_status_totals = {
+        "decoded_rgba8_png": 0,
+        "rgba_bytes_png": 0,
+        "copied_image": 0,
+        "raw_copy": 0,
+        "missing_source": 0,
+        "other": 0,
+        "total": 0,
+    }
+    for item in results:
+        counts = item.get("texture_status_counts") if isinstance(item, dict) else None
+        if not isinstance(counts, dict):
+            continue
+        for key in texture_status_totals.keys():
+            texture_status_totals[key] += _to_int(counts.get(key), default=0)
+
     return {
         "schema_version": "1.0",
         "schema_path": "schema/batch_import_bundle_summary.schema.json",
@@ -256,7 +394,14 @@ def run_batch(
             out=out_root,
             failed_event_ids=failed_event_ids,
             rgba_manifest=rgba_manifest,
+            texture_mode=texture_mode,
+            raw_source_kinds=raw_source_kinds,
         ),
+        "options": {
+            "texture_mode": str(texture_mode or "auto").strip().lower() or "auto",
+            "raw_source_kinds": sorted(raw_source_kinds or set()),
+        },
+        "texture_status_totals": texture_status_totals,
         "results": results,
     }
 
@@ -314,6 +459,25 @@ def main(argv=None):
         help="Optional event ids, comma/space separated (e.g. 100,101,102)",
     )
     parser.add_argument(
+        "--events-from-scan",
+        required=False,
+        help="Optional scan JSON containing events[] with event_id/texture_count",
+    )
+    parser.add_argument(
+        "--top-textured",
+        required=False,
+        type=int,
+        default=0,
+        help="When used with --events-from-scan, keep top-N by texture_count (0 means all)",
+    )
+    parser.add_argument(
+        "--min-textures",
+        required=False,
+        type=int,
+        default=1,
+        help="When used with --events-from-scan, keep events with texture_count >= this value",
+    )
+    parser.add_argument(
         "--from-summary",
         required=False,
         help="Retry from an existing batch summary JSON (uses failed_event_ids by default)",
@@ -322,6 +486,19 @@ def main(argv=None):
         "--rgba-manifest",
         required=False,
         help="Optional shared rgba manifest path (single file for all events)",
+    )
+    parser.add_argument(
+        "--texture-mode",
+        required=False,
+        choices=["auto", "decoded", "raw"],
+        default="auto",
+        help="Texture export mode for each event",
+    )
+    parser.add_argument(
+        "--raw-source-kinds",
+        required=False,
+        default="",
+        help="Comma-separated source_kind values that force raw export when --texture-mode=auto",
     )
     parser.add_argument(
         "--summary",
@@ -354,8 +531,24 @@ def main(argv=None):
     else:
         raise ValueError("--out is required unless --from-summary provides out")
 
+    raw_source_kinds = _parse_source_kinds_arg(args.raw_source_kinds)
+
+    selection = None
     if args.events:
         event_ids = _parse_events_arg(args.events)
+    elif args.events_from_scan:
+        scan_path = Path(args.events_from_scan)
+        event_ids, selected_rows = _select_events_from_scan(
+            scan_path=scan_path,
+            top_textured=int(args.top_textured),
+            min_textures=max(0, int(args.min_textures)),
+        )
+        selection = {
+            "source": str(scan_path),
+            "top_textured": int(args.top_textured),
+            "min_textures": max(0, int(args.min_textures)),
+            "selected": selected_rows,
+        }
     elif source_summary_payload is not None:
         event_ids = _failed_event_ids_from_summary(source_summary_payload)
     else:
@@ -363,8 +556,8 @@ def main(argv=None):
 
     if not event_ids:
         raise ValueError(
-            "no event ids found. Provide --events, ensure root has event_<id>/intermediate, "
-            "or provide --from-summary with failed_event_ids/results"
+            "no event ids found. Provide --events, --events-from-scan, ensure root has "
+            "event_<id>/intermediate, or provide --from-summary with failed_event_ids/results"
         )
 
     summary = run_batch(
@@ -373,10 +566,14 @@ def main(argv=None):
         event_ids=event_ids,
         rgba_manifest=args.rgba_manifest,
         fail_fast=bool(args.fail_fast),
+        texture_mode=args.texture_mode,
+        raw_source_kinds=raw_source_kinds,
     )
 
     if source_summary_path is not None:
         summary["source_summary"] = str(source_summary_path)
+    if selection is not None:
+        summary["selection"] = selection
 
     retry_files = _write_retry_artifacts(summary, out)
     if retry_files:

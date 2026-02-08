@@ -107,6 +107,8 @@ def test_run_batch_success_and_missing(tmp_path):
         out_root=out_dir,
         event_ids=[100, 101],
         fail_fast=False,
+        texture_mode="raw",
+        raw_source_kinds={"vulkan_device_memory_raw"},
     )
 
     assert summary["events_total"] == 2
@@ -116,10 +118,20 @@ def test_run_batch_success_and_missing(tmp_path):
     assert summary["failed_event_ids"] == [101]
     assert summary["retry_events_arg"] == "101"
     assert "--events \"101\"" in summary["retry_command"]
+    assert "--texture-mode \"raw\"" in summary["retry_command"]
+    assert "--raw-source-kinds \"vulkan_device_memory_raw\"" in summary["retry_command"]
+
+    assert summary["options"]["texture_mode"] == "raw"
+    assert summary["options"]["raw_source_kinds"] == ["vulkan_device_memory_raw"]
+    assert summary["texture_status_totals"]["total"] == 0
 
     status_by_event = {item["event_id"]: item["status"] for item in summary["results"]}
     assert status_by_event[100] == "ok"
     assert status_by_event[101] == "missing_intermediate"
+
+    ok_result = [item for item in summary["results"] if item["event_id"] == 100][0]
+    assert ok_result["statistics"]["vertex_count"] == 3
+    assert ok_result["texture_status_counts"]["total"] == 0
 
     assert (out_dir / "event_100" / "import_bundle" / "bundle_manifest.json").exists()
 
@@ -156,6 +168,50 @@ def test_main_with_explicit_events(tmp_path):
     assert rc == 0
     assert (out_dir / "event_202" / "import_bundle" / "bundle_manifest.json").exists()
     assert not (out_dir / "event_201" / "import_bundle" / "bundle_manifest.json").exists()
+
+
+def test_main_events_from_scan_selects_top_textured(tmp_path):
+    from export_event_import_bundle_batch import main
+
+    _write_sample_intermediate_event(tmp_path, 601)
+    _write_sample_intermediate_event(tmp_path, 602)
+
+    scan_path = tmp_path / "scan.json"
+    scan_path.write_text(
+        json.dumps(
+            {
+                "events": [
+                    {"event_id": 601, "texture_count": 2, "index_count": 100, "pipeline": 10},
+                    {"event_id": 602, "texture_count": 5, "index_count": 200, "pipeline": 20},
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    out_dir = tmp_path / "out_scan"
+    rc = main(
+        [
+            "--root",
+            str(tmp_path),
+            "--out",
+            str(out_dir),
+            "--events-from-scan",
+            str(scan_path),
+            "--top-textured",
+            "1",
+            "--min-textures",
+            "1",
+        ]
+    )
+    assert rc == 0
+
+    assert (out_dir / "event_602" / "import_bundle" / "bundle_manifest.json").exists()
+    assert not (out_dir / "event_601" / "import_bundle" / "bundle_manifest.json").exists()
+
+    summary = json.loads((out_dir / "batch_import_bundle_summary.json").read_text(encoding="utf-8"))
+    assert summary["selection"]["top_textured"] == 1
+    assert summary["selection"]["selected"][0]["event_id"] == 602
 
 
 def test_main_returns_nonzero_on_failure_and_writes_retry_files(tmp_path):

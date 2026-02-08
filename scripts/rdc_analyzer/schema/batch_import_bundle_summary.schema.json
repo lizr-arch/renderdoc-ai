@@ -1,5 +1,4 @@
 {
-  "": "https://json-schema.org/draft/2020-12/schema",
   "": "https://renderdoc.org/schemas/batch_import_bundle_summary.schema.json",
   "title": "RDC Import Bundle Batch Summary",
   "type": "object",
@@ -72,6 +71,72 @@
           },
           "error": {
             "type": "string"
+          },
+          "statistics": {
+            "type": "object",
+            "required": [
+              "vertex_count",
+              "index_count",
+              "triangle_count",
+              "shader_count",
+              "texture_count",
+              "decoded_texture_count"
+            ],
+            "properties": {
+              "vertex_count": {
+                "type": "integer"
+              },
+              "index_count": {
+                "type": "integer"
+              },
+              "triangle_count": {
+                "type": "integer"
+              },
+              "shader_count": {
+                "type": "integer"
+              },
+              "texture_count": {
+                "type": "integer"
+              },
+              "decoded_texture_count": {
+                "type": "integer"
+              }
+            }
+          },
+          "texture_status_counts": {
+            "type": "object",
+            "required": [
+              "decoded_rgba8_png",
+              "rgba_bytes_png",
+              "copied_image",
+              "raw_copy",
+              "missing_source",
+              "other",
+              "total"
+            ],
+            "properties": {
+              "decoded_rgba8_png": {
+                "type": "integer"
+              },
+              "rgba_bytes_png": {
+                "type": "integer"
+              },
+              "copied_image": {
+                "type": "integer"
+              },
+              "raw_copy": {
+                "type": "integer"
+              },
+              "missing_source": {
+                "type": "integer"
+              },
+              "other": {
+                "type": "integer"
+              },
+              "total": {
+                "type": "integer"
+              }
+            }
           }
         }
       }
@@ -91,6 +156,105 @@
         },
         "retry_command": {
           "type": "string"
+        }
+      }
+    },
+    "options": {
+      "type": "object",
+      "required": [
+        "texture_mode",
+        "raw_source_kinds"
+      ],
+      "properties": {
+        "texture_mode": {
+          "type": "string"
+        },
+        "raw_source_kinds": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "texture_status_totals": {
+      "type": "object",
+      "required": [
+        "decoded_rgba8_png",
+        "rgba_bytes_png",
+        "copied_image",
+        "raw_copy",
+        "missing_source",
+        "other",
+        "total"
+      ],
+      "properties": {
+        "decoded_rgba8_png": {
+          "type": "integer"
+        },
+        "rgba_bytes_png": {
+          "type": "integer"
+        },
+        "copied_image": {
+          "type": "integer"
+        },
+        "raw_copy": {
+          "type": "integer"
+        },
+        "missing_source": {
+          "type": "integer"
+        },
+        "other": {
+          "type": "integer"
+        },
+        "total": {
+          "type": "integer"
+        }
+      }
+    },
+    "selection": {
+      "type": "object",
+      "required": [
+        "source",
+        "top_textured",
+        "min_textures",
+        "selected"
+      ],
+      "properties": {
+        "source": {
+          "type": "string"
+        },
+        "top_textured": {
+          "type": "integer"
+        },
+        "min_textures": {
+          "type": "integer"
+        },
+        "selected": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "event_id",
+              "texture_count",
+              "index_count",
+              "pipeline"
+            ],
+            "properties": {
+              "event_id": {
+                "type": "integer"
+              },
+              "texture_count": {
+                "type": "integer"
+              },
+              "index_count": {
+                "type": "integer"
+              },
+              "pipeline": {
+                "type": "integer"
+              }
+            }
+          }
         }
       }
     }

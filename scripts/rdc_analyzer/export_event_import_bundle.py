@@ -88,6 +88,18 @@ def _to_int(value, default=0):
         return default
 
 
+def _parse_source_kind_list(value: str | None):
+    if not value:
+        return set()
+
+    tokens = []
+    for chunk in str(value).replace(";", ",").split(","):
+        token = chunk.strip()
+        if token:
+            tokens.append(token)
+    return set(tokens)
+
+
 def _resolve_optional_path(base_dir: Path, path_value: str, extra_roots: list[Path] | None = None):
     if not path_value:
         return None
@@ -251,6 +263,8 @@ def _export_texture_entry(
     entry: dict,
     index: int,
     rgba_overrides: list[dict] | None = None,
+    texture_mode: str = "auto",
+    raw_source_kinds: set[str] | None = None,
 ):
     texture_id = int(entry.get("texture_id", index))
     source_path = str(entry.get("path") or f"tex_{texture_id}.bin")
@@ -263,6 +277,15 @@ def _export_texture_entry(
     zip_entry = str(entry.get("zip_entry") or "")
     width = int(entry.get("width") or 0)
     height = int(entry.get("height") or 0)
+
+    mode = str(texture_mode or "auto").strip().lower()
+    if mode not in {"auto", "decoded", "raw"}:
+        raise ValueError(f"unsupported texture_mode: {texture_mode}")
+
+    raw_kinds = raw_source_kinds or set()
+    force_raw = mode == "raw"
+    if mode == "auto" and source_kind and source_kind in raw_kinds:
+        force_raw = True
 
     result = {
         "slot": slot,
@@ -327,7 +350,7 @@ def _export_texture_entry(
         result["status"] = "copied_image"
         return result
 
-    if width > 0 and height > 0 and format_name:
+    if not force_raw and width > 0 and height > 0 and format_name:
         try:
             rgba = decode_texture(src_data, width, height, format_name)
             out_name = f"{base_name}.png"
@@ -352,6 +375,8 @@ def _export_materials_bundle(
     bundle_root: Path,
     event_id: int,
     rgba_overrides: list[dict] | None = None,
+    texture_mode: str = "auto",
+    raw_source_kinds: set[str] | None = None,
 ):
     material_blob = _load_json(intermediate_path / "materials" / "material.json", {})
     material = material_blob.get("material", {}) if isinstance(material_blob, dict) else {}
@@ -373,6 +398,8 @@ def _export_materials_bundle(
                 texture_entry,
                 index,
                 rgba_overrides=rgba_overrides,
+                texture_mode=texture_mode,
+                raw_source_kinds=raw_source_kinds,
             )
         )
 
@@ -445,7 +472,14 @@ def _load_mesh_stats(intermediate_path: Path):
     }
 
 
-def export_event_import_bundle(intermediate_dir, out_dir, event_id=None, rgba_manifest=None):
+def export_event_import_bundle(
+    intermediate_dir,
+    out_dir,
+    event_id=None,
+    rgba_manifest=None,
+    texture_mode: str = "auto",
+    raw_source_kinds: set[str] | None = None,
+):
     base_path = Path(intermediate_dir)
     if event_id is None:
         event_id = _pick_event_id(base_path)
@@ -476,11 +510,19 @@ def export_event_import_bundle(intermediate_dir, out_dir, event_id=None, rgba_ma
             effective_rgba_manifest = str(discovered_manifest)
 
     rgba_overrides = _load_rgba_overrides(effective_rgba_manifest, intermediate_path)
+
+    mode = str(texture_mode or "auto").strip().lower()
+    if mode not in {"auto", "decoded", "raw"}:
+        raise ValueError(f"unsupported texture_mode: {texture_mode}")
+
+    source_kind_set = set(raw_source_kinds or set())
     materials_payload, exported_textures = _export_materials_bundle(
         intermediate_path,
         bundle_root,
         event_id,
         rgba_overrides=rgba_overrides,
+        texture_mode=mode,
+        raw_source_kinds=source_kind_set,
     )
     shader_entries = _export_shader_bundle(intermediate_path, bundle_root)
 
@@ -497,6 +539,10 @@ def export_event_import_bundle(intermediate_dir, out_dir, event_id=None, rgba_ma
             "zip_xml": str((source_manifest.get("sources") or {}).get("zip_xml") or ""),
             "zip_bin": str((source_manifest.get("sources") or {}).get("zip_bin") or ""),
             "rgba_manifest": str(effective_rgba_manifest or ""),
+        },
+        "options": {
+            "texture_mode": mode,
+            "raw_source_kinds": sorted(source_kind_set),
         },
         "outputs": {
             "mesh_obj": "mesh/mesh.obj",
@@ -521,7 +567,16 @@ def export_event_import_bundle(intermediate_dir, out_dir, event_id=None, rgba_ma
     return bundle_root
 
 
-def _extract_then_export(xml_path, zip_path, event_id: int, out_dir, vertex_stride: int = 0, rgba_manifest=None):
+def _extract_then_export(
+    xml_path,
+    zip_path,
+    event_id: int,
+    out_dir,
+    vertex_stride: int = 0,
+    rgba_manifest=None,
+    texture_mode: str = "auto",
+    raw_source_kinds: set[str] | None = None,
+):
     intermediate_path = extract_event_intermediate(
         xml_path=xml_path,
         zip_path=zip_path,
@@ -529,7 +584,14 @@ def _extract_then_export(xml_path, zip_path, event_id: int, out_dir, vertex_stri
         out_dir=out_dir,
         vertex_stride=vertex_stride,
     )
-    return export_event_import_bundle(intermediate_path, out_dir, event_id=event_id, rgba_manifest=rgba_manifest)
+    return export_event_import_bundle(
+        intermediate_path,
+        out_dir,
+        event_id=event_id,
+        rgba_manifest=rgba_manifest,
+        texture_mode=texture_mode,
+        raw_source_kinds=raw_source_kinds,
+    )
 
 
 def main(argv=None):
@@ -541,7 +603,22 @@ def main(argv=None):
     parser.add_argument("--out", required=True, help="Output directory")
     parser.add_argument("--vertex-stride", required=False, type=int, default=0, help="Optional vertex stride hint for zip.xml extraction")
     parser.add_argument("--rgba-manifest", required=False, help="Optional JSON mapping for external RGBA bytes overrides; if omitted, auto-discover event_<id>/rgba/rgba_manifest.json")
+    parser.add_argument(
+        "--texture-mode",
+        required=False,
+        choices=["auto", "decoded", "raw"],
+        default="auto",
+        help="Texture export mode: auto (default), decoded (prefer png), raw (always .bin for non-image)",
+    )
+    parser.add_argument(
+        "--raw-source-kinds",
+        required=False,
+        default="",
+        help="Comma-separated source_kind values that force raw export when --texture-mode=auto",
+    )
     args = parser.parse_args(argv)
+
+    raw_source_kinds = _parse_source_kind_list(args.raw_source_kinds)
 
     if args.intermediate:
         bundle_root = export_event_import_bundle(
@@ -549,6 +626,8 @@ def main(argv=None):
             out_dir=args.out,
             event_id=args.event,
             rgba_manifest=args.rgba_manifest,
+            texture_mode=args.texture_mode,
+            raw_source_kinds=raw_source_kinds,
         )
     else:
         if not args.xml or not args.zip or args.event is None:
@@ -560,6 +639,8 @@ def main(argv=None):
             out_dir=args.out,
             vertex_stride=int(args.vertex_stride),
             rgba_manifest=args.rgba_manifest,
+            texture_mode=args.texture_mode,
+            raw_source_kinds=raw_source_kinds,
         )
 
     print(f"[OK] import bundle generated: {bundle_root}")

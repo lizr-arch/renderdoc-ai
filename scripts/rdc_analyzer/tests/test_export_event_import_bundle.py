@@ -206,6 +206,53 @@ def test_export_event_import_bundle_keeps_texture_source_metadata(tmp_path):
 
 
 
+def test_export_event_import_bundle_force_raw_for_source_kind(tmp_path):
+    from export_event_import_bundle import export_event_import_bundle
+
+    event_id = 104
+    event_root = tmp_path / f"event_{event_id}"
+    intermediate = event_root / "intermediate"
+    intermediate.mkdir(parents=True, exist_ok=True)
+
+    _write_sample_intermediate(
+        intermediate,
+        texture_format="R8G8B8A8",
+        texture_source_kind="vulkan_device_memory_raw",
+        texture_zip_entry="000007",
+    )
+
+    (event_root / "manifest.json").write_text(
+        json.dumps(
+            {
+                "api": "Vulkan",
+                "sources": {
+                    "zip_xml": "capture.zip.xml",
+                    "zip_bin": "capture.zip",
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    bundle_root = export_event_import_bundle(
+        str(intermediate),
+        str(tmp_path / "out"),
+        event_id=event_id,
+        texture_mode="auto",
+        raw_source_kinds={"vulkan_device_memory_raw"},
+    )
+
+    materials = json.loads((bundle_root / "materials" / "materials.json").read_text(encoding="utf-8"))
+    texture_entry = materials["materials"][0]["textures"][0]
+
+    assert texture_entry["status"] == "raw_copy"
+    assert texture_entry["output_path"].endswith(".bin")
+
+    bundle_manifest = json.loads((bundle_root / "bundle_manifest.json").read_text(encoding="utf-8"))
+    assert bundle_manifest["options"]["texture_mode"] == "auto"
+    assert "vulkan_device_memory_raw" in bundle_manifest["options"]["raw_source_kinds"]
+
+
 def test_export_event_import_bundle_empty_texture_marks_missing_source(tmp_path):
     from export_event_import_bundle import export_event_import_bundle
 

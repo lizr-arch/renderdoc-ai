@@ -37,6 +37,69 @@ def test_batch_summary_schema_validates_minimal():
     _validate_summary_payload(payload)
 
 
+def test_batch_summary_schema_accepts_extended_fields():
+    payload = {
+        "schema_version": "1.0",
+        "schema_path": "schema/batch_import_bundle_summary.schema.json",
+        "root": "D:/root",
+        "out": "D:/out",
+        "events_total": 1,
+        "success_count": 1,
+        "failed_count": 0,
+        "failed_event_ids": [],
+        "retry_events_arg": "",
+        "retry_command": "",
+        "options": {
+            "texture_mode": "auto",
+            "raw_source_kinds": ["vulkan_device_memory_raw"],
+        },
+        "texture_status_totals": {
+            "decoded_rgba8_png": 1,
+            "rgba_bytes_png": 0,
+            "copied_image": 0,
+            "raw_copy": 0,
+            "missing_source": 0,
+            "other": 0,
+            "total": 1,
+        },
+        "selection": {
+            "source": "D:/scan.json",
+            "top_textured": 1,
+            "min_textures": 1,
+            "selected": [
+                {"event_id": 100, "texture_count": 3, "index_count": 123, "pipeline": 456},
+            ],
+        },
+        "results": [
+            {
+                "event_id": 100,
+                "status": "ok",
+                "bundle_dir": "D:/out/event_100/import_bundle",
+                "error": "",
+                "statistics": {
+                    "vertex_count": 3,
+                    "index_count": 3,
+                    "triangle_count": 1,
+                    "shader_count": 2,
+                    "texture_count": 1,
+                    "decoded_texture_count": 1,
+                },
+                "texture_status_counts": {
+                    "decoded_rgba8_png": 1,
+                    "rgba_bytes_png": 0,
+                    "copied_image": 0,
+                    "raw_copy": 0,
+                    "missing_source": 0,
+                    "other": 0,
+                    "total": 1,
+                },
+            },
+        ],
+    }
+
+    _validate_summary_payload(payload)
+
+
 def test_batch_summary_schema_rejects_missing_field():
     payload = {
         "schema_version": "1.0",
