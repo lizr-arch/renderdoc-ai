@@ -259,6 +259,8 @@ def _export_texture_entry(
     slot = str(entry.get("slot") or f"slot_{index}")
     sampler = str(entry.get("sampler") or "")
     format_name = str(entry.get("format") or entry.get("format_name") or "")
+    source_kind = str(entry.get("source_kind") or "")
+    zip_entry = str(entry.get("zip_entry") or "")
     width = int(entry.get("width") or 0)
     height = int(entry.get("height") or 0)
 
@@ -273,6 +275,10 @@ def _export_texture_entry(
         "height": height,
         "format": format_name,
     }
+    if source_kind:
+        result["source_kind"] = source_kind
+    if zip_entry:
+        result["zip_entry"] = zip_entry
 
     textures_dir.mkdir(parents=True, exist_ok=True)
     base_name = _safe_stem(source_path, f"tex_{texture_id}")

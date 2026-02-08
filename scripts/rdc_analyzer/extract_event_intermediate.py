@@ -311,10 +311,24 @@ def extract_vulkan_event_intermediate(xml_path, zip_path, event_id, out_dir, ver
 
             zip_entry = _resolve_zip_entry_name(buffer_index, zip_names)
             texture["zip_entry"] = zip_entry or ""
+            texture["source_kind"] = "vulkan_device_memory_raw"
 
-            # Vulkan image memory is commonly GPU-native layout; keep payload extraction optional.
             if not zip_entry:
                 continue
+
+            blob = zip_handle.read(zip_entry)
+            memory_offset = int(texture.get("memory_offset", 0))
+            contents_size = int(texture.get("memory_contents_size", 0))
+
+            if contents_size > 0:
+                blob = _slice_bytes(blob, memory_offset, contents_size)
+            elif memory_offset > 0:
+                blob = _slice_bytes(blob, memory_offset, max(0, len(blob) - memory_offset))
+
+            if not blob:
+                continue
+
+            texture_blobs[texture_path] = blob
 
     decoded_indices = _decode_indices(index_bytes, index_format)
     vertex_offset = int(draw.get("vertex_offset", 0))

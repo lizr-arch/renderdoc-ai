@@ -180,6 +180,54 @@ def test_extract_vulkan_event_intermediate_end_to_end(tmp_path):
     assert manifest["buffers"]["index"]["zip_entry"] == "000007"
 
 
+def test_extract_vulkan_event_intermediate_exports_vulkan_texture_blob(tmp_path, monkeypatch):
+    import extract_event_intermediate as extractor
+
+    xml_path = tmp_path / "sample.zip.xml"
+    zip_path = tmp_path / "sample.zip"
+    out_dir = tmp_path / "out"
+
+    _write_sample_vulkan_xml(xml_path)
+    _write_sample_zip(zip_path)
+
+    original_extract = extractor.extract_vulkan_bindings_for_event
+
+    def _inject_texture_binding(xml_source, event):
+        bindings = original_extract(xml_source, event)
+        bindings["textures"] = [
+            {
+                "slot": "set0.binding0",
+                "sampler": "set0.binding1",
+                "texture_id": 42,
+                "path": "tex_42.bin",
+                "format": "",
+                "width": 0,
+                "height": 0,
+                "memory_buffer_index": 7,
+                "memory_offset": 8,
+                "memory_contents_size": 16,
+            }
+        ]
+        return bindings
+
+    monkeypatch.setattr(extractor, "extract_vulkan_bindings_for_event", _inject_texture_binding)
+
+    intermediate_path = extractor.extract_vulkan_event_intermediate(
+        xml_path=str(xml_path),
+        zip_path=str(zip_path),
+        event_id=100,
+        out_dir=str(out_dir),
+    )
+
+    texture_bin = Path(intermediate_path) / "textures" / "tex_42.bin"
+    assert texture_bin.exists()
+    assert texture_bin.read_bytes() == bytes(range(16))
+
+    material_json = Path(intermediate_path) / "materials" / "material.json"
+    material = json.loads(material_json.read_text(encoding="utf-8"))["material"]
+    assert material["textures"][0]["source_kind"] == "vulkan_device_memory_raw"
+
+
 def test_extract_vulkan_event_intermediate_event_not_found(tmp_path):
     from extract_event_intermediate import extract_vulkan_event_intermediate
 

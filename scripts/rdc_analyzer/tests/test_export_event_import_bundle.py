@@ -10,7 +10,13 @@ SCRIPT_DIR = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(SCRIPT_DIR))
 
 
-def _write_sample_intermediate(root: Path, *, texture_format: str = "R8G8B8A8"):
+def _write_sample_intermediate(
+    root: Path,
+    *,
+    texture_format: str = "R8G8B8A8",
+    texture_source_kind: str = "",
+    texture_zip_entry: str = "",
+):
     mesh_dir = root / "mesh"
     mesh_dir.mkdir(parents=True, exist_ok=True)
 
@@ -35,6 +41,20 @@ def _write_sample_intermediate(root: Path, *, texture_format: str = "R8G8B8A8"):
     mesh_dir.joinpath("vertex.bin").write_bytes(vertex_bytes)
     mesh_dir.joinpath("index.bin").write_bytes(b"\x00\x00\x01\x00\x02\x00")
 
+    texture_entry = {
+        "slot": "albedo",
+        "texture_id": 7,
+        "path": "tex_7.bin",
+        "sampler": "s0",
+        "width": 2,
+        "height": 1,
+        "format": texture_format,
+    }
+    if texture_source_kind:
+        texture_entry["source_kind"] = texture_source_kind
+    if texture_zip_entry:
+        texture_entry["zip_entry"] = texture_zip_entry
+
     material_dir = root / "materials"
     material_dir.mkdir(parents=True, exist_ok=True)
     material_dir.joinpath("material.json").write_text(
@@ -43,17 +63,7 @@ def _write_sample_intermediate(root: Path, *, texture_format: str = "R8G8B8A8"):
                 "material": {
                     "name": "mat0",
                     "shader": "ps",
-                    "textures": [
-                        {
-                            "slot": "albedo",
-                            "texture_id": 7,
-                            "path": "tex_7.bin",
-                            "sampler": "s0",
-                            "width": 2,
-                            "height": 1,
-                            "format": texture_format,
-                        }
-                    ],
+                    "textures": [texture_entry],
                     "constants": [{"name": "_BaseColor", "type": "float4", "value": [1, 1, 1, 1]}],
                 }
             }
@@ -154,6 +164,45 @@ def test_export_event_import_bundle(tmp_path, texture_format, expected_status, e
     assert bundle_manifest["statistics"]["vertex_count"] == 3
     assert bundle_manifest["statistics"]["index_count"] == 3
     assert bundle_manifest["statistics"]["texture_count"] == 1
+
+
+
+def test_export_event_import_bundle_keeps_texture_source_metadata(tmp_path):
+    from export_event_import_bundle import export_event_import_bundle
+
+    event_id = 100
+    event_root = tmp_path / f"event_{event_id}"
+    intermediate = event_root / "intermediate"
+    intermediate.mkdir(parents=True, exist_ok=True)
+
+    _write_sample_intermediate(
+        intermediate,
+        texture_format="UNKNOWN_FMT",
+        texture_source_kind="vulkan_device_memory_raw",
+        texture_zip_entry="000007",
+    )
+
+    (event_root / "manifest.json").write_text(
+        json.dumps(
+            {
+                "api": "Vulkan",
+                "sources": {
+                    "zip_xml": "capture.zip.xml",
+                    "zip_bin": "capture.zip",
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    bundle_root = export_event_import_bundle(str(intermediate), str(tmp_path / "out"), event_id=event_id)
+    materials = json.loads((bundle_root / "materials" / "materials.json").read_text(encoding="utf-8"))
+    texture_entry = materials["materials"][0]["textures"][0]
+
+    assert texture_entry["status"] == "raw_copy"
+    assert texture_entry["source_kind"] == "vulkan_device_memory_raw"
+    assert texture_entry["zip_entry"] == "000007"
+
 
 
 
