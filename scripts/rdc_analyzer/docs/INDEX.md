@@ -2,7 +2,7 @@
 
 
 
-> **更新日期**: 2025-02-07 | **版本**: 2.6.0 | **维护**: Codex Agent
+> **更新日期**: 2026-02-08 | **版本**: 2.6.1 | **维护**: Codex Agent
 
 
 
@@ -37,6 +37,7 @@
 |------|------|--------|
 
 | [EXPORT_ROUTES.md](EXPORT_ROUTES.md) | **RDC 报告导出路线图** - 三条导出路线 + 新组件（v2.2.0）⭐ | 导出路线, Bundle, XML, 无GPU, RdcAdapter, JsonRenderer |
+| [UI_XML_BUNDLE_UPDATE_2026-02-08.md](UI_XML_BUNDLE_UPDATE_2026-02-08.md) | **UI + xml_to_bundle 更新记录**（v2.6.1）- 仪表盘 UI 统一 + ZIP 缩略图 + Vulkan Shader 提取 | UI, dashboard, xml_to_bundle, zip, rdc, spirv-cross |
 | [BATCH_EXPORT.md](BATCH_EXPORT.md) | **纹理批量导出 CLI** - 一键导出所有纹理 (v1.4.0) | 批量导出, CLI, gallery, manifest |
 | [D3D11_SUPPORT.md](D3D11_SUPPORT.md) | **D3D11 纹理提取** - 支持 DirectX 11 离线提取 (v1.5.0) | D3D11, DirectX, DXGI, 离线提取 |
 
@@ -187,6 +188,7 @@
 | **如何进行多帧统计对比？** | [MULTI_FRAME_GUIDE.md](MULTI_FRAME_GUIDE.md) ⭐ |
 | **如何集成 CI/CD 回归门禁？** | [MULTI_FRAME_GUIDE.md](MULTI_FRAME_GUIDE.md) (JUnit XML 输出) |
 | **API 接口文档在哪？** | [API_REFERENCE.md](API_REFERENCE.md) |
+| **本轮 UI / xml_to_bundle 更新说明？** | [UI_XML_BUNDLE_UPDATE_2026-02-08.md](UI_XML_BUNDLE_UPDATE_2026-02-08.md) ⭐ |
 | **端到端工作流指南？** | [E2E_WORKFLOW_GUIDE.md](E2E_WORKFLOW_GUIDE.md) ⭐ |
 | **数据 Schema 验证？** | [E2E_WORKFLOW_GUIDE.md](E2E_WORKFLOW_GUIDE.md) (JSON Schema 章节) |
 
