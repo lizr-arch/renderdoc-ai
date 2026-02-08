@@ -1,0 +1,280 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://renderdoc.org/schemas/report_bundle.schema.json",
+  "title": "RDC Report Bundle",
+  "description": "RDC 分析报告 Bundle 的顶层结构，包含所有页面数据",
+  "type": "object",
+  "required": [
+    "meta",
+    "textures",
+    "events"
+  ],
+  "properties": {
+    "meta": {
+      "type": "object",
+      "description": "报告元数据",
+      "required": [
+        "version",
+        "generated_at"
+      ],
+      "properties": {
+        "version": {
+          "type": "string",
+          "description": "报告格式版本 (如 2.6.0)"
+        },
+        "generated_at": {
+          "type": "string",
+          "format": "date-time",
+          "description": "生成时间 (ISO 8601)"
+        },
+        "source_file": {
+          "type": "string",
+          "description": "源 RDC 文件路径"
+        },
+        "api": {
+          "type": "string",
+          "enum": ["Vulkan", "D3D11", "D3D12", "OpenGL", "OpenGLES", "Unknown"],
+          "description": "图形 API"
+        },
+        "capture_time": {
+          "type": "string",
+          "description": "捕获时间"
+        },
+        "driver_info": {
+          "type": "object",
+          "properties": {
+            "vendor": {
+              "type": "string"
+            },
+            "renderer": {
+              "type": "string"
+            },
+            "version": {
+              "type": "string"
+            }
+          }
+        },
+        "generator": {
+          "type": "string",
+          "description": "生成器名称 (如 rdc_analyzer)"
+        }
+      }
+    },
+    "summary": {
+      "type": "object",
+      "description": "帧统计摘要",
+      "properties": {
+        "total_events": {
+          "type": "integer",
+          "description": "总事件数"
+        },
+        "draw_call_count": {
+          "type": "integer",
+          "description": "Draw Call 数量"
+        },
+        "dispatch_count": {
+          "type": "integer",
+          "description": "Dispatch 数量"
+        },
+        "total_textures": {
+          "type": "integer",
+          "description": "纹理总数"
+        },
+        "total_shaders": {
+          "type": "integer",
+          "description": "Shader 总数"
+        },
+        "total_vram": {
+          "type": "integer",
+          "description": "VRAM 总量 (字节)"
+        },
+        "triangle_count": {
+          "type": "integer",
+          "description": "三角形总数"
+        },
+        "vertex_count": {
+          "type": "integer",
+          "description": "顶点总数"
+        }
+      }
+    },
+    "textures": {
+      "type": "array",
+      "description": "纹理数据列表",
+      "$ref": "textures_data.schema.json"
+    },
+    "events": {
+      "type": "array",
+      "description": "事件数据列表",
+      "$ref": "events_data.schema.json"
+    },
+    "shaders": {
+      "type": "array",
+      "description": "Shader 数据列表",
+      "$ref": "shader_data.schema.json"
+    },
+    "issues": {
+      "type": "array",
+      "description": "检测到的问题汇总",
+      "items": {
+        "type": "object",
+        "required": [
+          "rule",
+          "level",
+          "message"
+        ],
+        "properties": {
+          "rule": {
+            "type": "string",
+            "description": "规则 ID (如 RD_TEX_001)"
+          },
+          "level": {
+            "type": "string",
+            "enum": ["info", "warn", "error", "critical"],
+            "description": "问题等级"
+          },
+          "message": {
+            "type": "string",
+            "description": "问题描述"
+          },
+          "resource_id": {
+            "type": "integer",
+            "description": "相关资源 ID"
+          },
+          "event_id": {
+            "type": "integer",
+            "description": "相关事件 ID"
+          },
+          "suggestion": {
+            "type": "string",
+            "description": "优化建议"
+          }
+        }
+      }
+    },
+    "optimization": {
+      "type": "object",
+      "description": "优化建议汇总",
+      "properties": {
+        "score": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100,
+          "description": "优化评分"
+        },
+        "categories": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "score": {
+                "type": "integer"
+              },
+              "issues": {
+                "type": "array"
+              }
+            }
+          }
+        }
+      }
+    },
+    "performance": {
+      "type": "object",
+      "description": "性能数据",
+      "properties": {
+        "gpu_timing": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "eid": {
+                "type": "integer"
+              },
+              "duration_us": {
+                "type": "number"
+              }
+            }
+          }
+        },
+        "hotspots": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "eid": {
+                "type": "integer"
+              },
+              "name": {
+                "type": "string"
+              },
+              "duration_us": {
+                "type": "number"
+              },
+              "percentage": {
+                "type": "number"
+              }
+            }
+          }
+        }
+      }
+    },
+    "duplicate_analysis": {
+      "type": "object",
+      "description": "重复资源分析",
+      "properties": {
+        "texture_groups": {
+          "type": "array"
+        },
+        "shader_groups": {
+          "type": "array"
+        }
+      }
+    },
+    "texture_usage_map": {
+      "type": "object",
+      "description": "纹理使用映射 (资源ID -> 使用事件列表)",
+      "additionalProperties": {
+        "type": "array",
+        "items": {
+          "type": "integer"
+        }
+      }
+    },
+    "resource_usage_index": {
+      "type": "object",
+      "description": "资源使用索引",
+      "properties": {
+        "texture_to_events": {
+          "type": "object"
+        },
+        "shader_to_events": {
+          "type": "object"
+        },
+        "event_to_resources": {
+          "type": "object"
+        }
+      }
+    },
+    "manifest": {
+      "type": "object",
+      "description": "Bundle 清单",
+      "properties": {
+        "files": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "thumbnail_count": {
+          "type": "integer"
+        },
+        "shader_count": {
+          "type": "integer"
+        }
+      }
+    }
+  }
+}

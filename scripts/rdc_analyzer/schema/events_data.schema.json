@@ -1,0 +1,208 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://renderdoc.org/schemas/events_data.schema.json",
+  "title": "RDC Report Events Data",
+  "description": "事件数据数组，用于 events.html 渲染",
+  "type": "array",
+  "items": {
+    "type": "object",
+    "required": [
+      "eventId",
+      "name"
+    ],
+    "properties": {
+      "id": {
+        "type": "integer",
+        "description": "事件 ID (兼容字段)"
+      },
+      "eid": {
+        "type": "integer",
+        "description": "事件 ID (Event ID)"
+      },
+      "eventId": {
+        "type": "integer",
+        "description": "事件 ID (兼容字段)"
+      },
+      "name": {
+        "type": "string",
+        "description": "事件名称 (如 Draw(1234), CopyTexture)"
+      },
+      "type": {
+        "type": "string",
+        "enum": ["draw", "dispatch", "clear", "copy", "marker_push", "marker_pop", "marker", "other"],
+        "description": "事件类型"
+      },
+      "flags": {
+        "description": "事件标志 (RenderDoc ActionFlags 位掩码 或 字符串数组)"
+      },
+      "depth": {
+        "type": "integer",
+        "minimum": 0,
+        "description": "嵌套深度 (Marker 层级)"
+      },
+      "numIndices": {
+        "type": "integer",
+        "minimum": 0,
+        "description": "索引数量"
+      },
+      "numInstances": {
+        "type": "integer",
+        "minimum": 0,
+        "description": "实例数量"
+      },
+      "parent": {
+        "type": ["integer", "null"],
+        "description": "父事件 ID"
+      },
+      "parentEid": {
+        "type": ["integer", "null"],
+        "description": "父事件 ID (兼容字段)"
+      },
+      "duration": {
+        "type": "number",
+        "minimum": 0,
+        "description": "GPU 执行时间 (微秒)"
+      },
+      "hasChildren": {
+        "type": "boolean",
+        "description": "是否有子事件"
+      },
+      "childCount": {
+        "type": "integer",
+        "minimum": 0,
+        "description": "子事件数量"
+      },
+      "shaders": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "integer",
+              "description": "Shader 资源 ID"
+            },
+            "stage": {
+              "type": "string",
+              "description": "Shader 阶段"
+            },
+            "name": {
+              "type": "string",
+              "description": "Shader 名称"
+            }
+          }
+        },
+        "description": "绑定的 Shader 列表"
+      },
+      "textures": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "integer",
+              "description": "纹理资源 ID"
+            },
+            "slot": {
+              "type": "integer",
+              "description": "绑定槽位"
+            },
+            "name": {
+              "type": "string",
+              "description": "纹理名称"
+            }
+          }
+        },
+        "description": "绑定的纹理列表"
+      },
+      "renderTargets": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "integer",
+              "description": "RT 资源 ID"
+            },
+            "name": {
+              "type": "string",
+              "description": "RT 名称"
+            },
+            "thumbnail": {
+              "type": "string",
+              "description": "Base64 编码的缩略图"
+            }
+          }
+        },
+        "description": "渲染目标列表"
+      },
+      "rtSnapshot": {
+        "type": "string",
+        "description": "RT 快照路径 (旧格式兼容)"
+      },
+      "output": {
+        "type": "object",
+        "description": "输出资源信息",
+        "properties": {
+          "color0": {
+            "type": "string",
+            "description": "Color0 RT 路径"
+          },
+          "depth": {
+            "type": "string",
+            "description": "深度 RT 路径"
+          }
+        }
+      },
+      "pipelineState": {
+        "type": "object",
+        "description": "Pipeline State 快照",
+        "properties": {
+          "viewport": {
+            "type": ["object", "null"]
+          },
+          "scissor": {
+            "type": ["object", "null"]
+          },
+          "blend": {
+            "type": ["object", "null"]
+          },
+          "blendState": {
+            "type": ["object", "null"]
+          },
+          "depthStencil": {
+            "type": ["object", "null"]
+          },
+          "depthState": {
+            "type": ["object", "null"]
+          },
+          "rasterizer": {
+            "type": ["object", "null"]
+          },
+          "rasterizerState": {
+            "type": ["object", "null"]
+          }
+        },
+        "additionalProperties": true
+      },
+      "issues": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "rule": {
+              "type": "string"
+            },
+            "level": {
+              "type": "string",
+              "enum": ["info", "warn", "error"]
+            },
+            "message": {
+              "type": "string"
+            }
+          }
+        },
+        "description": "检测到的问题列表"
+      }
+    }
+  }
+}

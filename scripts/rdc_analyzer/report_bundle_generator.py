@@ -17,7 +17,7 @@ import os
 import re
 from pathlib import Path
 from datetime import datetime
-from typing import Dict, List, Union
+from typing import Any, Dict, List, Union
 
 # 拆分模块
 from timeline_builder import (
@@ -119,17 +119,26 @@ def validate_payload_schema(payload, schema_path: Path):
 class ReportBundleGenerator:
     """4 页面报告包生成器"""
     
-    def __init__(self, output_dir: Union[str, Path], capture_name: str):
+    # Schema 文件映射
+    SCHEMA_FILES = {
+        "textures": "textures_data.schema.json",
+        "events": "events_data.schema.json",
+        "bundle": "report_bundle.schema.json",
+    }
+    
+    def __init__(self, output_dir: Union[str, Path], capture_name: str, validate_schema: bool = False):
         """
         初始化生成器
         
         Args:
             output_dir: 输出目录路径
             capture_name: 捕获文件名（用于标题和 manifest）
+            validate_schema: 是否在生成时验证 JSON Schema
         """
         self.output_dir = Path(output_dir)
         self.capture_name = capture_name
         self.timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        self.validate_schema = validate_schema
         
         # 数据存储
         self.textures: List[Dict] = []
@@ -367,9 +376,52 @@ class ReportBundleGenerator:
             placeholder = "{{" + key + "}}"
             result = result.replace(placeholder, str(value))
         return result
+
+    def _dump_json_for_script(self, payload: Any) -> str:
+        """安全序列化 JSON，用于内联到 <script>，避免脚本标签提前闭合。"""
+        dumped = json.dumps(payload, ensure_ascii=False)
+        return (
+            dumped
+            .replace('</', '<\/')
+            .replace(' ', '\\u2028')
+            .replace(' ', '\\u2029')
+        )
     
     def _validate_payload_schema(self, payload, schema_name: str):
-        validate_payload_schema(payload, _SCHEMA_DIR / schema_name)
+        """内部验证辅助方法"""
+        if self.validate_schema:
+            validate_payload_schema(payload, _SCHEMA_DIR / schema_name)
+    
+    def validate_all_data(self) -> List[str]:
+        """
+        验证所有核心数据结构是否符合 JSON Schema
+        
+        Returns:
+            错误列表，空列表表示验证通过
+        """
+        errors = []
+        
+        # 验证纹理数据
+        try:
+            schema_path = _SCHEMA_DIR / self.SCHEMA_FILES["textures"]
+            if schema_path.exists():
+                validate_payload_schema(self.textures, schema_path)
+                print(f"  [SCHEMA] textures: ✓ ({len(self.textures)} items)")
+        except ValueError as e:
+            errors.append(f"textures: {e}")
+            print(f"  [SCHEMA] textures: ✗ {e}")
+        
+        # 验证事件数据
+        try:
+            schema_path = _SCHEMA_DIR / self.SCHEMA_FILES["events"]
+            if schema_path.exists():
+                validate_payload_schema(self.events, schema_path)
+                print(f"  [SCHEMA] events: ✓ ({len(self.events)} items)")
+        except ValueError as e:
+            errors.append(f"events: {e}")
+            print(f"  [SCHEMA] events: ✗ {e}")
+        
+        return errors
 
     def _format_bytes(self, bytes_val: int) -> str:
         """格式化字节大小"""
@@ -660,6 +712,11 @@ class ReportBundleGenerator:
             resource_id = tex.get("resource_id") or tex.get("resourceId") or tex_id
             mips = tex.get("mips", tex.get("mipLevels", 1))
             vram = tex.get("vram", tex.get("byteSize", 0))
+            try:
+                vram_bytes = int(vram or 0)
+            except Exception:
+                vram_bytes = 0
+            vram_label = self._format_bytes(vram_bytes) if vram_bytes > 0 else "N/A"
             has_issue = bool(tex.get("issues"))
             thumb = self._normalize_thumbnail(tex.get("thumbnail", ""))
             
@@ -699,6 +756,10 @@ class ReportBundleGenerator:
                     <div class="texture-item-info texture-info">
                         <div class="texture-item-name texture-name">{display_name}{size_tag}</div>
                         <div class="texture-item-meta texture-meta">{width}×{height} • {simple_fmt}</div>
+                        <div class="texture-item-submeta">
+                            <span class="texture-id-badge">ID {resource_id}</span>
+                            <span class="texture-vram-badge">{vram_label}</span>
+                        </div>
                     </div>
                 </div>'''
         
@@ -707,7 +768,7 @@ class ReportBundleGenerator:
             "TEXTURE_COUNT": str(len(self.textures)),
             "TOTAL_VRAM": self._format_bytes(self.stats["vram_usage"]),
             "TEXTURE_LIST_HTML": texture_list_html,
-            "TEXTURE_DATA_JSON": json.dumps(textures_with_usage, ensure_ascii=False),
+            "TEXTURE_DATA_JSON": self._dump_json_for_script(textures_with_usage),
         }
         
         return self._render_template(template, replacements)
@@ -871,10 +932,10 @@ class ReportBundleGenerator:
             "DRAW_CALL_COUNT": str(self.stats["draw_calls"]),
             "TIMELINE_BARS_HTML": timeline_bars_html,
             "EVENT_LIST_HTML": event_list_html,
-            "EVENT_DATA_JSON": json.dumps(prepared_events, ensure_ascii=False),
+            "EVENT_DATA_JSON": self._dump_json_for_script(prepared_events),
             "RT_SERVER_PORT": str(self.rt_server_port),  # RT 预览服务端口
             # M4.1: 热力图数据
-            "HEATMAP_DATA_JSON": json.dumps(heatmap_data, ensure_ascii=False),
+            "HEATMAP_DATA_JSON": self._dump_json_for_script(heatmap_data),
         }
         
         return self._render_template(template, replacements)
@@ -1014,7 +1075,7 @@ class ReportBundleGenerator:
             "SHADER_COUNT": str(len(self.shaders)),
             "MALI_ANALYZED_COUNT": str(mali_analyzed_count),
             "SHADER_LIST_HTML": shader_list_html,
-            "SHADER_DATA_JSON": json.dumps(shader_with_mali, ensure_ascii=False)
+            "SHADER_DATA_JSON": self._dump_json_for_script(shader_with_mali)
         }
         
         return self._render_template(template, replacements)
@@ -1149,7 +1210,7 @@ class ReportBundleGenerator:
                 </div>'''
         
         # JSON 数据供 JS 使用
-        recommendations_json = json.dumps(all_issues, ensure_ascii=False)
+        recommendations_json = self._dump_json_for_script(all_issues)
         # 分析时间
         analysis_time = self.timestamp
         
@@ -1287,7 +1348,8 @@ def generate_report_bundle(
     performance_data: Dict = None,
     mali_data: Dict = None,
     frame_thumbnail: str = None,
-    texture_usage_map: Dict = None
+    texture_usage_map: Dict = None,
+    validate_schema: bool = False
 ) -> Dict[str, str]:
     """
     便捷函数：生成完整的 4 页面报告包
@@ -1302,11 +1364,12 @@ def generate_report_bundle(
         mali_data: Mali Offline Compiler 数据
         frame_thumbnail: 帧缩略图 Base64
         texture_usage_map: 纹理使用映射
+        validate_schema: 是否验证 JSON Schema
         
     Returns:
         生成的文件路径字典
     """
-    generator = ReportBundleGenerator(output_dir, capture_name)
+    generator = ReportBundleGenerator(output_dir, capture_name, validate_schema=validate_schema)
     
     generator.set_textures(textures or [], texture_usage_map)
     generator.set_events(events or [])
@@ -1342,6 +1405,8 @@ Examples:
     parser.add_argument("input", help="Input JSON file (textures/events/shaders data)")
     parser.add_argument("-o", "--output", required=True, help="Output directory")
     parser.add_argument("-n", "--name", help="Capture name (default: input filename)")
+    parser.add_argument("--validate", action="store_true", 
+                        help="Validate data against JSON Schema before generating")
     
     args = parser.parse_args()
     
@@ -1367,6 +1432,23 @@ Examples:
     frame_thumb = data.get("frame_thumbnail", "") if isinstance(data, dict) else ""
     usage_map = data.get("texture_usage_map", {}) if isinstance(data, dict) else {}
     
+    # 如果启用验证，先执行 Schema 验证
+    if args.validate:
+        print("=== Schema Validation ===\n")
+        generator = ReportBundleGenerator(args.output, capture_name, validate_schema=True)
+        generator.set_textures(textures, usage_map)
+        generator.set_events(events)
+        generator.set_shaders(shaders, mali_data)
+        
+        errors = generator.validate_all_data()
+        if errors:
+            print(f"\n[WARNING] Schema validation found {len(errors)} error(s)")
+            for err in errors:
+                print(f"  - {err}")
+            print("")
+        else:
+            print("\n[OK] All data validated successfully\n")
+    
     # 生成报告
     output_files = generate_report_bundle(
         output_dir=args.output,
@@ -1377,7 +1459,8 @@ Examples:
         performance_data=performance,
         mali_data=mali_data,
         frame_thumbnail=frame_thumb,
-        texture_usage_map=usage_map
+        texture_usage_map=usage_map,
+        validate_schema=args.validate
     )
     
     print(f"\n=== Report Bundle Generated ===")

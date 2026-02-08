@@ -1,0 +1,333 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://renderdoc.org/schemas/comparison_result.schema.json",
+  "title": "RDC Comparison Result",
+  "description": "双帧对比分析结果，用于回归检测和性能对比",
+  "type": "object",
+  "required": [
+    "baseline_file",
+    "target_file",
+    "has_changes",
+    "summary"
+  ],
+  "properties": {
+    "baseline_file": {
+      "type": "string",
+      "description": "基准帧文件路径"
+    },
+    "target_file": {
+      "type": "string",
+      "description": "目标帧文件路径"
+    },
+    "api_type": {
+      "type": "string",
+      "enum": ["Vulkan", "D3D11", "D3D12", "OpenGL", "OpenGLES", "Unknown"],
+      "description": "图形 API 类型"
+    },
+    "has_changes": {
+      "type": "boolean",
+      "description": "是否检测到变化"
+    },
+    "comparison_time": {
+      "type": "string",
+      "format": "date-time",
+      "description": "对比时间"
+    },
+    "summary": {
+      "type": "object",
+      "description": "变化摘要",
+      "required": [
+        "draw_calls",
+        "triangles"
+      ],
+      "properties": {
+        "draw_calls": {
+          "$ref": "#/$defs/metric_diff"
+        },
+        "dispatches": {
+          "$ref": "#/$defs/metric_diff"
+        },
+        "triangles": {
+          "$ref": "#/$defs/metric_diff"
+        },
+        "vertices": {
+          "$ref": "#/$defs/metric_diff"
+        },
+        "texture_count": {
+          "$ref": "#/$defs/metric_diff"
+        },
+        "texture_memory": {
+          "$ref": "#/$defs/metric_diff"
+        },
+        "buffer_count": {
+          "$ref": "#/$defs/metric_diff"
+        },
+        "buffer_memory": {
+          "$ref": "#/$defs/metric_diff"
+        },
+        "shader_count": {
+          "$ref": "#/$defs/metric_diff"
+        },
+        "shader_changes": {
+          "$ref": "#/$defs/metric_diff"
+        },
+        "rt_switches": {
+          "$ref": "#/$defs/metric_diff"
+        },
+        "blend_changes": {
+          "$ref": "#/$defs/metric_diff"
+        },
+        "depth_changes": {
+          "$ref": "#/$defs/metric_diff"
+        }
+      }
+    },
+    "statistics": {
+      "type": "object",
+      "description": "资源变化统计",
+      "properties": {
+        "textures": {
+          "type": "object",
+          "properties": {
+            "added": {
+              "type": "integer",
+              "description": "新增纹理数"
+            },
+            "removed": {
+              "type": "integer",
+              "description": "移除纹理数"
+            },
+            "modified": {
+              "type": "integer",
+              "description": "修改纹理数"
+            }
+          }
+        },
+        "shaders": {
+          "type": "object",
+          "properties": {
+            "added": {
+              "type": "integer"
+            },
+            "removed": {
+              "type": "integer"
+            },
+            "modified": {
+              "type": "integer"
+            }
+          }
+        },
+        "draw_calls": {
+          "type": "object",
+          "properties": {
+            "added": {
+              "type": "integer"
+            },
+            "removed": {
+              "type": "integer"
+            }
+          }
+        }
+      }
+    },
+    "texture_diffs": {
+      "type": "array",
+      "description": "纹理变化详情",
+      "items": {
+        "$ref": "#/$defs/resource_diff"
+      }
+    },
+    "shader_diffs": {
+      "type": "array",
+      "description": "Shader 变化详情",
+      "items": {
+        "$ref": "#/$defs/resource_diff"
+      }
+    },
+    "buffer_diffs": {
+      "type": "array",
+      "description": "Buffer 变化详情",
+      "items": {
+        "$ref": "#/$defs/resource_diff"
+      }
+    },
+    "draw_call_diffs": {
+      "type": "array",
+      "description": "Draw Call 变化详情",
+      "items": {
+        "type": "object",
+        "properties": {
+          "eid": {
+            "type": "integer"
+          },
+          "change_type": {
+            "type": "string",
+            "enum": ["added", "removed", "modified"]
+          },
+          "baseline": {
+            "type": "object"
+          },
+          "target": {
+            "type": "object"
+          },
+          "changes": {
+            "type": "array"
+          }
+        }
+      }
+    },
+    "state_diffs": {
+      "type": "array",
+      "description": "Pipeline State 变化详情",
+      "items": {
+        "type": "object",
+        "properties": {
+          "eid": {
+            "type": "integer"
+          },
+          "state_type": {
+            "type": "string"
+          },
+          "changes": {
+            "type": "array"
+          }
+        }
+      }
+    },
+    "regression_analysis": {
+      "type": "object",
+      "description": "回归分析结果 (可选)",
+      "properties": {
+        "is_regression": {
+          "type": "boolean",
+          "description": "是否检测到回归"
+        },
+        "severity": {
+          "type": "string",
+          "enum": ["low", "medium", "high", "critical"],
+          "description": "回归严重程度"
+        },
+        "issues": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string"
+              },
+              "message": {
+                "type": "string"
+              },
+              "evidence": {
+                "type": "array"
+              }
+            }
+          }
+        }
+      }
+    },
+    "statistical_analysis": {
+      "type": "object",
+      "description": "统计分析结果 (多帧对比)",
+      "properties": {
+        "sample_count": {
+          "type": "integer",
+          "description": "采样帧数"
+        },
+        "metrics": {
+          "type": "object",
+          "description": "指标统计",
+          "additionalProperties": {
+            "type": "object",
+            "properties": {
+              "mean": {
+                "type": "number"
+              },
+              "std": {
+                "type": "number"
+              },
+              "min": {
+                "type": "number"
+              },
+              "max": {
+                "type": "number"
+              },
+              "z_score": {
+                "type": "number"
+              },
+              "significance": {
+                "type": "string",
+                "enum": ["none", "low", "medium", "high"]
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "metric_diff": {
+      "type": "object",
+      "description": "单指标变化",
+      "properties": {
+        "baseline": {
+          "type": "number",
+          "description": "基准值"
+        },
+        "target": {
+          "type": "number",
+          "description": "目标值"
+        },
+        "delta": {
+          "type": "number",
+          "description": "绝对变化量"
+        },
+        "percentage": {
+          "type": "number",
+          "description": "变化百分比"
+        }
+      }
+    },
+    "resource_diff": {
+      "type": "object",
+      "description": "资源变化详情",
+      "properties": {
+        "id": {
+          "type": "integer",
+          "description": "资源 ID"
+        },
+        "name": {
+          "type": "string",
+          "description": "资源名称"
+        },
+        "change_type": {
+          "type": "string",
+          "enum": ["added", "removed", "modified"],
+          "description": "变化类型"
+        },
+        "baseline": {
+          "type": "object",
+          "description": "基准值"
+        },
+        "target": {
+          "type": "object",
+          "description": "目标值"
+        },
+        "changes": {
+          "type": "array",
+          "description": "具体变化列表",
+          "items": {
+            "type": "object",
+            "properties": {
+              "field": {
+                "type": "string"
+              },
+              "old_value": {},
+              "new_value": {}
+            }
+          }
+        }
+      }
+    }
+  }
+}

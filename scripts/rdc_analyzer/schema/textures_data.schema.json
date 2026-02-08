@@ -1,0 +1,120 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://renderdoc.org/schemas/textures_data.schema.json",
+  "title": "RDC Report Textures Data",
+  "description": "纹理数据数组，用于 textures.html 渲染",
+  "type": "array",
+  "items": {
+    "type": "object",
+    "required": [
+      "width",
+      "height",
+      "format"
+    ],
+    "properties": {
+      "id": {
+        "type": "integer",
+        "description": "RenderDoc 资源 ID"
+      },
+      "resource_id": {
+        "type": "integer",
+        "description": "资源 ID (兼容字段)"
+      },
+      "name": {
+        "type": "string",
+        "description": "纹理名称/标签"
+      },
+      "width": {
+        "type": "integer",
+        "minimum": 1,
+        "description": "宽度 (像素)"
+      },
+      "height": {
+        "type": "integer",
+        "minimum": 1,
+        "description": "高度 (像素)"
+      },
+      "depth": {
+        "type": "integer",
+        "minimum": 1,
+        "default": 1,
+        "description": "深度 (3D 纹理)"
+      },
+      "format": {
+        "type": "string",
+        "description": "像素格式 (如 BC7_UNORM, R8G8B8A8_UNORM)"
+      },
+      "mips": {
+        "type": "integer",
+        "minimum": 1,
+        "default": 1,
+        "description": "Mipmap 层级数"
+      },
+      "arraySize": {
+        "type": "integer",
+        "minimum": 1,
+        "default": 1,
+        "description": "数组大小 (纹理数组/Cubemap)"
+      },
+      "msaa": {
+        "type": "integer",
+        "minimum": 1,
+        "default": 1,
+        "description": "MSAA 采样数"
+      },
+      "estimatedSize": {
+        "type": "integer",
+        "minimum": 0,
+        "description": "估算 VRAM 大小 (字节)"
+      },
+      "thumbnail": {
+        "type": "string",
+        "description": "Base64 编码的 PNG 缩略图"
+      },
+      "usage": {
+        "description": "纹理使用信息 (Vulkan flags 字符串 或 事件使用记录数组)"
+      },
+      "issues": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "rule": {
+              "type": "string",
+              "description": "规则 ID"
+            },
+            "level": {
+              "type": "string",
+              "enum": ["info", "warn", "error"],
+              "description": "问题等级"
+            },
+            "message": {
+              "type": "string",
+              "description": "问题描述"
+            }
+          }
+        },
+        "description": "检测到的问题列表"
+      },
+      "source": {
+        "type": "string",
+        "description": "纹理来源 (如文件路径)"
+      },
+      "createInfo": {
+        "type": "object",
+        "description": "创建信息 (Vulkan vkCreateImage 等)",
+        "properties": {
+          "imageType": {
+            "type": "string"
+          },
+          "tiling": {
+            "type": "string"
+          },
+          "samples": {
+            "type": "integer"
+          }
+        }
+      }
+    }
+  }
+}
