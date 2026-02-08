@@ -468,6 +468,35 @@ def test_build_skip_report_markdown_groups_by_reason_code():
 
 
 
+
+def test_build_skip_retry_command_capture_mode_appends_strict_mesh():
+    import export_event_import_bundle_batch as batch_mod
+
+    summary = {
+        "root": "D:/root",
+        "out": "D:/out",
+        "inputs": {
+            "mode": "capture_zip",
+            "xml": "D:/capture.zip.xml",
+            "zip": "D:/capture.zip",
+            "vertex_stride": 32,
+        },
+        "options": {
+            "texture_mode": "raw",
+            "raw_source_kinds": ["vulkan_device_memory_raw"],
+        },
+    }
+
+    cmd = batch_mod._build_skip_retry_command(summary, [700, 701], strict_mesh=True)
+    assert '--events "700,701"' in cmd
+    assert 'capture.zip.xml' in cmd
+    assert 'capture.zip' in cmd
+    assert '--vertex-stride 32' in cmd
+    assert '--texture-mode "raw"' in cmd
+    assert '--raw-source-kinds "vulkan_device_memory_raw"' in cmd
+    assert '--strict-mesh' in cmd
+
+
 def test_main_capture_mode_writes_skip_diagnostics(tmp_path, monkeypatch):
     import export_event_import_bundle_batch as batch_mod
 
@@ -578,6 +607,9 @@ def test_main_capture_mode_writes_skip_diagnostics(tmp_path, monkeypatch):
     assert skip_report_path.exists()
     skip_report_text = skip_report_path.read_text(encoding="utf-8")
     assert "missing_vertex_buffer_binding" in skip_report_text
+    assert '--events "710"' in skip_report_text
+    assert '--strict-mesh' in skip_report_text
+    assert 'capture_skip.zip.xml' in skip_report_text
 
 def test_main_capture_mode_from_scan_invokes_capture_runner(tmp_path, monkeypatch):
     import export_event_import_bundle_batch as batch_mod

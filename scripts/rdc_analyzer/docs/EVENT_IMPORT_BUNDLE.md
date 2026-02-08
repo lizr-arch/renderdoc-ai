@@ -96,7 +96,7 @@ py -3 scripts/rdc_analyzer/export_event_import_bundle_batch.py --root "D:/backup
   - `batch_import_bundle_retry_command.txt`
 - 存在 skip 时自动生成：
   - `batch_import_bundle_skip_diagnostics.json`（`skip_diagnostics[]` 的独立导出）
-  - `batch_import_bundle_skip_report.md`（按 `reason_code` 聚合计数 + 处理建议）
+  - `batch_import_bundle_skip_report.md`（按 `reason_code` 聚合计数 + 处理建议 + 可复制 `retry/retry_strict` 命令）
 
 重跑示例：
 

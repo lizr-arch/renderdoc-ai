@@ -802,7 +802,66 @@ def _skip_reason_tip(reason_code: str):
     return "unknown mesh incompatibility; rerun with --strict-mesh for hard-fail triage"
 
 
-def _build_skip_report_markdown(diagnostics: list[dict]):
+def _build_skip_retry_command(summary: dict | None, event_ids: list[int], strict_mesh: bool = False):
+    if not isinstance(summary, dict):
+        return ""
+
+    normalized_ids = sorted(
+        {
+            _to_int(event_id, default=0)
+            for event_id in (event_ids or [])
+            if _to_int(event_id, default=0) > 0
+        }
+    )
+    if not normalized_ids:
+        return ""
+
+    out_value = str(summary.get("out") or "").strip()
+    if not out_value:
+        return ""
+
+    inputs = summary.get("inputs") if isinstance(summary.get("inputs"), dict) else {}
+    options = summary.get("options") if isinstance(summary.get("options"), dict) else {}
+
+    root_value = str(summary.get("root") or "").strip()
+    root_path = Path(root_value) if root_value else Path(".")
+    out_path = Path(out_value)
+
+    capture_xml = None
+    capture_zip = None
+    vertex_stride = 0
+    if str(inputs.get("mode") or "") == "capture_zip":
+        xml_value = str(inputs.get("xml") or "").strip()
+        zip_value = str(inputs.get("zip") or "").strip()
+        if xml_value and zip_value:
+            capture_xml = Path(xml_value)
+            capture_zip = Path(zip_value)
+            vertex_stride = _to_int(inputs.get("vertex_stride"), default=0)
+
+    raw_source_kinds = {
+        str(value).strip()
+        for value in (options.get("raw_source_kinds") or [])
+        if str(value).strip()
+    }
+
+    command = _build_retry_command(
+        root=root_path,
+        out=out_path,
+        failed_event_ids=normalized_ids,
+        texture_mode=str(options.get("texture_mode") or "auto"),
+        raw_source_kinds=raw_source_kinds,
+        capture_xml=capture_xml,
+        capture_zip=capture_zip,
+        vertex_stride=int(vertex_stride),
+    )
+
+    if command and strict_mesh:
+        command += " --strict-mesh"
+
+    return command
+
+
+def _build_skip_report_markdown(diagnostics: list[dict], summary: dict | None = None):
     lines = ["# Batch Skip Report", ""]
     lines.append(f"- skipped_events: {len(diagnostics)}")
 
@@ -828,6 +887,13 @@ def _build_skip_report_markdown(diagnostics: list[dict]):
         lines.append(f"  - events: {event_text}")
         lines.append(f"  - tip: {_skip_reason_tip(reason_code)}")
 
+        retry_command = _build_skip_retry_command(summary, event_ids, strict_mesh=False)
+        strict_retry_command = _build_skip_retry_command(summary, event_ids, strict_mesh=True)
+        if retry_command:
+            lines.append(f"  - retry: `{retry_command}`")
+        if strict_retry_command and strict_retry_command != retry_command:
+            lines.append(f"  - retry_strict: `{strict_retry_command}`")
+
     lines.append("")
     lines.append("## Next Step")
     lines.append("- Use summary.skip_diagnostics + this report to choose retry events or scan strategy.")
@@ -846,7 +912,7 @@ def _write_skip_artifacts(summary: dict, out_root: Path):
     diag_path.write_text(json.dumps(diagnostics, indent=2), encoding="utf-8")
 
     report_path = out_root / "batch_import_bundle_skip_report.md"
-    report_path.write_text(_build_skip_report_markdown(diagnostics), encoding="utf-8")
+    report_path.write_text(_build_skip_report_markdown(diagnostics, summary=summary), encoding="utf-8")
 
     return {
         "skip_diagnostics": str(diag_path),
