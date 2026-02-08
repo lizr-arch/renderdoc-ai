@@ -19,17 +19,29 @@ from pathlib import Path
 from datetime import datetime
 from typing import Any, Dict, List, Union
 
-# 拆分模块（相对导入）
-from .timeline_builder import (
-    build_aggregated_timeline,
-    prepare_events_for_frontend,
-    build_events_tree
-)
-from .server_scripts import generate_rt_server_scripts
+# 拆分模块（优先相对导入，兼容直接模块导入）
+try:
+    from .timeline_builder import (
+        build_aggregated_timeline,
+        prepare_events_for_frontend,
+        build_events_tree
+    )
+    from .server_scripts import generate_rt_server_scripts
 
-# M4.1: 热力图模块
-from .core.heatmap_builder import build_heatmap_from_bindings
-from .core.types import ResourceUsageIndex
+    # M4.1: 热力图模块
+    from .core.heatmap_builder import build_heatmap_from_bindings
+    from .core.types import ResourceUsageIndex
+except ImportError:
+    from timeline_builder import (
+        build_aggregated_timeline,
+        prepare_events_for_frontend,
+        build_events_tree
+    )
+    from server_scripts import generate_rt_server_scripts
+
+    # M4.1: 热力图模块
+    from core.heatmap_builder import build_heatmap_from_bindings
+    from core.types import ResourceUsageIndex
 
 # 模板目录
 TEMPLATES_DIR = Path(__file__).parent / "templates"

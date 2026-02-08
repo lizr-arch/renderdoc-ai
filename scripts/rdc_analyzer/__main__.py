@@ -1673,7 +1673,7 @@ def cmd_bundle(args):
         
         if args.external_data:
             print()
-            print("  📦 外部数据模式已启用:")
+            print("  [INFO] 外部数据模式已启用:")
             for key, filename in output_files.items():
                 if key.endswith('_data'):
                     file_path = output_dir / filename
@@ -1682,7 +1682,7 @@ def cmd_bundle(args):
                         print(f"    - {filename}: {size_kb:.1f} KB")
         
         print()
-        print(f"  🌐 打开报告: {output_dir / 'index.html'}")
+        print(f"  [INFO] 打开报告: {output_dir / 'index.html'}")
         print()
         
         return 0
