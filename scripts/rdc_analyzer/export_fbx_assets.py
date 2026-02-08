@@ -58,6 +58,86 @@ def _load_mesh(intermediate_path):
     return mesh_blob.get("mesh", {})
 
 
+def _load_shader_entries(intermediate_path):
+    shader_dir = intermediate_path / "shaders"
+    if not shader_dir.exists():
+        return []
+
+    entries = []
+    for shader_json in sorted(shader_dir.glob("*.json")):
+        try:
+            blob = json.loads(shader_json.read_text(encoding="utf-8"))
+        except Exception:
+            continue
+
+        shader = blob.get("shader", {}) if isinstance(blob, dict) else {}
+        if not isinstance(shader, dict):
+            continue
+
+        stage = str(shader.get("stage") or shader_json.stem)
+        source_kind = str(shader.get("source_kind") or "")
+        bytecode_format = str(shader.get("bytecode_format") or "")
+        entry_name = str(shader.get("entry") or "")
+        source_resource_id = int(shader.get("source_resource_id") or shader.get("resource_id") or 0)
+        source_bin = str(shader.get("path") or f"{stage}.bin")
+
+        entries.append(
+            {
+                "stage": stage,
+                "source_kind": source_kind,
+                "bytecode_format": bytecode_format,
+                "entry": entry_name,
+                "source_resource_id": source_resource_id,
+                "source_json": f"intermediate/shaders/{shader_json.name}",
+                "source_bin": f"intermediate/shaders/{source_bin}",
+            }
+        )
+
+    return entries
+
+
+def _build_shader_route(shader_entry, engine):
+    source_kind = str(shader_entry.get("source_kind") or "")
+    bytecode_format = str(shader_entry.get("bytecode_format") or "").lower()
+
+    output_ext = ".hlsl" if engine == "unity" else ".usf"
+    stage = str(shader_entry.get("stage") or "unknown")
+
+    if source_kind in {"vulkan_shader_object", "vulkan_shader_module"} or "spirv" in bytecode_format:
+        strategy = "spirv_to_hlsl"
+        tool = "spirv-cross"
+    elif source_kind == "d3d11_shader_bytecode" or bytecode_format in {"dxbc", "dxil"}:
+        strategy = "dxbc_to_hlsl"
+        tool = "dxbc-toolchain"
+    else:
+        strategy = "manual_review"
+        tool = ""
+
+    return {
+        **shader_entry,
+        "engine": engine,
+        "strategy": strategy,
+        "tool": tool,
+        "output_source": f"shaders/{stage}{output_ext}",
+    }
+
+
+def _write_shader_import_plan(intermediate_path, event_root, engine, engine_dir):
+    shader_entries = _load_shader_entries(intermediate_path)
+    routed = [_build_shader_route(entry, engine) for entry in shader_entries]
+    plan = {
+        "schema_version": "1.0",
+        "event_id": int(event_root.name.split("_", 1)[1]) if event_root.name.startswith("event_") else 0,
+        "engine": engine,
+        "intermediate": str(intermediate_path),
+        "shader_count": len(routed),
+        "shaders": routed,
+    }
+    plan_path = engine_dir / "shader_import_plan.json"
+    plan_path.write_text(json.dumps(plan, indent=2), encoding="utf-8")
+    return plan_path
+
+
 def _compute_stats(intermediate_path):
     mesh = _load_mesh(intermediate_path)
     vertex_count = int(mesh.get("vertex_count", 0))
@@ -98,6 +178,9 @@ def export_fbx_assets(intermediate_dir, out_dir, event_id, allow_missing_backend
     unreal_dir = fbx_root / "unreal"
     unity_dir.mkdir(parents=True, exist_ok=True)
     unreal_dir.mkdir(parents=True, exist_ok=True)
+
+    _write_shader_import_plan(intermediate_path, event_root, "unity", unity_dir)
+    _write_shader_import_plan(intermediate_path, event_root, "unreal", unreal_dir)
 
     backend = resolve_fbx_backend()
     if backend == "none":

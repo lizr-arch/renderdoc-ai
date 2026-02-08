@@ -86,3 +86,100 @@ def test_cli_creates_stats(tmp_path, monkeypatch):
     ) == 0
     stats_path = out_dir / "event_1" / "stats.json"
     assert stats_path.exists()
+
+    unity_plan = out_dir / "event_1" / "fbx" / "unity" / "shader_import_plan.json"
+    unreal_plan = out_dir / "event_1" / "fbx" / "unreal" / "shader_import_plan.json"
+    assert unity_plan.exists()
+    assert unreal_plan.exists()
+
+    unity_payload = json.loads(unity_plan.read_text(encoding="utf-8"))
+    unreal_payload = json.loads(unreal_plan.read_text(encoding="utf-8"))
+    assert unity_payload["shader_count"] == 0
+    assert unreal_payload["shader_count"] == 0
+
+
+def test_shader_import_plan_routes_by_source_kind(tmp_path, monkeypatch):
+    from export_fbx_assets import main
+
+    intermediate = tmp_path / "intermediate"
+    _write_mesh_intermediate(intermediate)
+
+    material_dir = intermediate / "materials"
+    material_dir.mkdir(parents=True, exist_ok=True)
+    material_dir.joinpath("material.json").write_text(
+        json.dumps({"material": {"textures": []}}), encoding="utf-8"
+    )
+
+    shaders_dir = intermediate / "shaders"
+    shaders_dir.mkdir(parents=True, exist_ok=True)
+    shaders_dir.joinpath("vs.json").write_text(
+        json.dumps(
+            {
+                "shader": {
+                    "stage": "vs",
+                    "bytecode_format": "spirv",
+                    "entry": "main_vs",
+                    "source_kind": "vulkan_shader_module",
+                    "source_resource_id": 101,
+                    "path": "vs.bin",
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+    shaders_dir.joinpath("ps.json").write_text(
+        json.dumps(
+            {
+                "shader": {
+                    "stage": "ps",
+                    "bytecode_format": "dxbc",
+                    "entry": "main_ps",
+                    "source_kind": "d3d11_shader_bytecode",
+                    "source_resource_id": 202,
+                    "path": "ps.bin",
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    monkeypatch.setenv("RDC_FBX_ALLOW_MISSING", "1")
+    out_dir = tmp_path / "out"
+    out_dir.mkdir()
+
+    assert main(
+        [
+            "--intermediate",
+            str(intermediate),
+            "--out",
+            str(out_dir),
+            "--event",
+            "9",
+        ]
+    ) == 0
+
+    unity_plan_path = out_dir / "event_9" / "fbx" / "unity" / "shader_import_plan.json"
+    unreal_plan_path = out_dir / "event_9" / "fbx" / "unreal" / "shader_import_plan.json"
+
+    unity_plan = json.loads(unity_plan_path.read_text(encoding="utf-8"))
+    unreal_plan = json.loads(unreal_plan_path.read_text(encoding="utf-8"))
+
+    assert unity_plan["shader_count"] == 2
+    assert unreal_plan["shader_count"] == 2
+
+    unity_by_stage = {item["stage"]: item for item in unity_plan["shaders"]}
+    unreal_by_stage = {item["stage"]: item for item in unreal_plan["shaders"]}
+
+    assert unity_by_stage["vs"]["strategy"] == "spirv_to_hlsl"
+    assert unity_by_stage["vs"]["tool"] == "spirv-cross"
+    assert unity_by_stage["vs"]["output_source"].endswith("vs.hlsl")
+
+    assert unity_by_stage["ps"]["strategy"] == "dxbc_to_hlsl"
+    assert unity_by_stage["ps"]["tool"] == "dxbc-toolchain"
+    assert unity_by_stage["ps"]["output_source"].endswith("ps.hlsl")
+
+    assert unreal_by_stage["vs"]["strategy"] == "spirv_to_hlsl"
+    assert unreal_by_stage["vs"]["output_source"].endswith("vs.usf")
+
+    assert unreal_by_stage["ps"]["strategy"] == "dxbc_to_hlsl"
+    assert unreal_by_stage["ps"]["output_source"].endswith("ps.usf")
