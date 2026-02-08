@@ -1,6 +1,6 @@
 # RDC Analyzer 开发里程碑 (统一追踪)
 
-> **版本**: 2.2.0 | **更新日期**: 2025-02-08  
+> **版本**: 2.3.0 | **更新日期**: 2025-02-08  
 > **创建日期**: 2025-01-24  
 > **目的**: 统一追踪所有待办开发任务，避免会话遗忘  
 > **使用方法**: 完成一个任务后，将 `[ ]` 改为 `[x]` 并提交
@@ -36,7 +36,7 @@
 | Phase 5: B-mode 对比 | ✅ 完成 | 4/4 | 多帧统计 + CI 集成 |
 | **Phase 6: P0 报告完善** | ✅ 完成 | 4/4 | Schema/缩略图/Shader/RT |
 | **Phase 7: 端到端验证** | ✅ 完成 | 3/3 | E2E测试/文档/性能优化 |
-| P0-NEW-3: Schema 规范 | ⏳ 待开始 | 0/1 | 小范围改动 |
+| P0-NEW-3: Schema 规范 | ✅ 完成 | 1/1 | 已规范化 (2025-02-05) |
 
 ---
 
@@ -366,15 +366,17 @@ evidence_chain.to_dict() 输出完整 JSON
 
 ---
 
-## ⚡ 快速修复项
+## ✅ 快速修复项 — 已完成
 
-### P0-NEW-3: verification_plan schema 规范化
+### P0-NEW-3: verification_plan schema 规范化 ✅
 
+> **状态**: ✅ 已完成 (2025-02-05)  
 > **源文档**: `WORK_SUMMARY_ROADMAP.md` 第 13-16 行
 
-- [ ] 统一 `how_to_verify` vs `how_to_capture` 字段命名
-- [ ] 统一 `expected_direction` 枚举值 (`increase`/`decrease`/`unchanged`)
-- [ ] 更新 `main.py:_build_suggestions()` 函数
+- [x] 统一 `how_to_verify` → `how_to_capture` 字段命名
+- [x] 统一 `expected_direction` 枚举值 (`increase`/`decrease`/`unchanged`)
+- [x] 更新 `main.py:_build_suggestions()` 函数
+- [x] DOD 测试: `test_dod_compliance.py::TestVerificationPlanSchema` 4/4 通过
 
 ---
 
