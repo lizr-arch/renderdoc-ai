@@ -5,11 +5,16 @@ XML → 4 页面 Bundle 报告生成器
 从 RenderDoc 导出的 XML 文件生成完整的 Bundle 报告，
 无需 renderdoc 模块，可独立运行。
 
+支持从 Vulkan RDC 文件中提取 SPIR-V Shader 并转换为 GLSL。
+
 用法:
-    py -3 xml_to_bundle.py <xml_file> [-o OUTPUT_DIR] [-n NAME]
+    py -3 xml_to_bundle.py <xml_file> [-o OUTPUT_DIR] [-n NAME] [--zip ZIP_FILE]
 
 示例:
     py -3 xml_to_bundle.py capture.xml -o output_dir -n "My Capture"
+    py -3 xml_to_bundle.py capture.xml --zip capture.zip  # 带缩略图
+    py -3 xml_to_bundle.py capture.xml --rdc capture.rdc  # 提取 Vulkan Shaders
+    py -3 xml_to_bundle.py capture.xml --rdc capture.rdc --spirv-cross /path/to/spirv-cross
 """
 
 import sys
@@ -264,6 +269,16 @@ def parse_args():
                         help='Output directory (default: <xml_name>_bundle)')
     parser.add_argument('-n', '--name', default=None,
                         help='Capture name for report title')
+    parser.add_argument('--zip', dest='zip_file', default=None,
+                        help='Path to ZIP file with texture data (for thumbnails)')
+    parser.add_argument('--rdc', dest='rdc_file', default=None,
+                        help='Path to RDC file for Vulkan shader extraction (SPIR-V → GLSL)')
+    parser.add_argument('--spirv-cross', dest='spirv_cross', default=None,
+                        help='Path to spirv-cross executable (auto-detected if not provided)')
+    parser.add_argument('--max-thumbnails', type=int, default=50,
+                        help='Maximum number of thumbnails to generate (default: 50)')
+    parser.add_argument('--thumbnail-size', type=int, default=128,
+                        help='Max thumbnail dimension in pixels (default: 128)')
     parser.add_argument('-v', '--verbose', action='store_true',
                         help='Verbose output')
     return parser.parse_args()
@@ -336,6 +351,241 @@ def xml_to_bundle_textures_dict(textures_raw: List[Dict]) -> List[Dict]:
         textures.append(tex)
     
     return textures
+
+
+def generate_thumbnails_from_zip(
+    xml_path: Path,
+    zip_path: Optional[Path],
+    textures: List[Dict],
+    max_count: int = 50,
+    max_size: int = 128,
+    verbose: bool = False
+) -> int:
+    """
+    从 ZIP 文件生成缩略图并合并到纹理列表
+    
+    Args:
+        xml_path: XML 文件路径
+        zip_path: ZIP 文件路径 (None 则自动检测)
+        textures: 纹理列表 (将被原地修改)
+        max_count: 最大缩略图数量
+        max_size: 缩略图最大尺寸
+        verbose: 详细输出
+    
+    Returns:
+        成功生成的缩略图数量
+    """
+    # 尝试导入 ThumbnailGenerator
+    try:
+        from thumbnail_generator import ThumbnailGenerator
+    except ImportError:
+        if verbose:
+            print("      [WARN] thumbnail_generator not available, skipping thumbnails")
+        return 0
+    
+    # 确定 ZIP 路径
+    if zip_path is None:
+        # 自动检测同名 ZIP 文件
+        auto_zip = xml_path.with_suffix('.zip')
+        if auto_zip.exists():
+            zip_path = auto_zip
+            if verbose:
+                print(f"      [INFO] Auto-detected ZIP: {zip_path.name}")
+        else:
+            if verbose:
+                print("      [INFO] No ZIP file found, thumbnails will be empty")
+            return 0
+    else:
+        zip_path = Path(zip_path)
+        if not zip_path.exists():
+            if verbose:
+                print(f"      [WARN] ZIP file not found: {zip_path}")
+            return 0
+    
+    # 初始化生成器
+    try:
+        generator = ThumbnailGenerator(str(xml_path), str(zip_path))
+        available, reason = generator.is_available()
+        if not available:
+            if verbose:
+                print(f"      [WARN] ThumbnailGenerator not available: {reason}")
+            return 0
+    except Exception as e:
+        if verbose:
+            print(f"      [WARN] Failed to init ThumbnailGenerator: {e}")
+        return 0
+    
+    # 生成缩略图
+    try:
+        results = generator.generate_thumbnails(
+            max_count=max_count,
+            max_size=max_size,
+            min_texture_size=32,  # 跳过太小的纹理
+            skip_formats=["DEPTH", "STENCIL", "D32", "D24", "D16"]
+        )
+    except Exception as e:
+        if verbose:
+            print(f"      [WARN] Thumbnail generation failed: {e}")
+        return 0
+    
+    if not results:
+        return 0
+    
+    # 构建 resource_id → base64 映射
+    thumbnail_map = {}
+    for r in results:
+        if r.success and r.base64_data:
+            thumbnail_map[r.resource_id] = r.base64_data
+    
+    # 合并到纹理列表
+    count = 0
+    for tex in textures:
+        tex_id = tex.get("id", "")
+        if tex_id in thumbnail_map:
+            tex["thumbnail"] = thumbnail_map[tex_id]
+            count += 1
+    
+    return count
+
+
+def extract_vulkan_shaders_from_rdc(
+    rdc_path: Path,
+    spirv_cross_path: Optional[str] = None,
+    verbose: bool = False
+) -> List[Dict]:
+    """
+    从 Vulkan RDC 文件中提取 SPIR-V Shaders 并转换为 GLSL
+    
+    Args:
+        rdc_path: RDC 文件路径
+        spirv_cross_path: spirv-cross 可执行文件路径 (可选)
+        verbose: 详细输出
+    
+    Returns:
+        Shader 字典列表，格式与 ReportBundleGenerator.shaders 兼容
+    """
+    import shutil
+    import subprocess
+    import tempfile
+    import hashlib
+    
+    # 尝试导入 RDC 解析器
+    try:
+        from parsers.rdc_parser import RDCParser
+        from parsers.shader_extractor import ShaderExtractor as SPIRVExtractor
+    except ImportError:
+        if verbose:
+            print("      [WARN] parsers module not available, skipping shader extraction")
+        return []
+    
+    # 查找 spirv-cross
+    spirv_cross = spirv_cross_path
+    if not spirv_cross:
+        # 自动检测
+        spirv_cross = shutil.which("spirv-cross")
+        if not spirv_cross:
+            # 尝试常见路径
+            common_paths = [
+                r"C:\VulkanSDK\1.3.290.0\Bin\spirv-cross.exe",
+                r"D:\VulkanSDK\1.3.290.0\Bin\spirv-cross.exe",
+                r"C:\Program Files\RenderDoc\plugins\spirv\spirv-cross.exe",
+                "/usr/bin/spirv-cross",
+                "/usr/local/bin/spirv-cross",
+            ]
+            for p in common_paths:
+                if Path(p).exists():
+                    spirv_cross = p
+                    break
+    
+    if verbose:
+        if spirv_cross:
+            print(f"      [INFO] spirv-cross: {spirv_cross}")
+        else:
+            print("      [WARN] spirv-cross not found, GLSL conversion disabled")
+    
+    # 解析 RDC 文件
+    try:
+        rdc_parser = RDCParser(str(rdc_path))
+        rdc_parser.parse()
+        
+        # 检查是否是 Vulkan 捕获
+        if rdc_parser.driver != "Vulkan":
+            if verbose:
+                print(f"      [INFO] RDC is {rdc_parser.driver}, not Vulkan. Skipping shader extraction.")
+            return []
+        
+        # 获取 FrameCapture 数据
+        fc_data = rdc_parser.section_parser.get_frame_capture_data()
+        if not fc_data:
+            if verbose:
+                print("      [WARN] No FrameCapture data in RDC")
+            return []
+        
+        # 提取 SPIR-V shaders
+        spirv_extractor = SPIRVExtractor()
+        spirv_shaders = spirv_extractor.extract_from_chunks(fc_data, rdc_parser.chunks)
+        
+        if verbose:
+            print(f"      [INFO] Extracted {len(spirv_shaders)} SPIR-V shaders")
+        
+    except Exception as e:
+        if verbose:
+            print(f"      [WARN] RDC parsing failed: {e}")
+        return []
+    
+    # 转换为 Bundle 格式
+    shaders = []
+    for idx, spirv_shader in enumerate(spirv_shaders):
+        # 生成 shader ID
+        shader_hash = hashlib.sha1(spirv_shader.spirv_data).hexdigest()[:12]
+        shader_id = f"SPIRV_{shader_hash}"
+        
+        # 尝试转换为 GLSL
+        glsl_source = ""
+        if spirv_cross and spirv_shader.spirv_data:
+            try:
+                with tempfile.NamedTemporaryFile(suffix=".spv", delete=False) as tmp:
+                    tmp.write(spirv_shader.spirv_data)
+                    tmp_path = tmp.name
+                
+                result = subprocess.run(
+                    [spirv_cross, tmp_path, "--vulkan-semantics"],
+                    capture_output=True,
+                    text=True,
+                    timeout=10
+                )
+                
+                if result.returncode == 0:
+                    glsl_source = result.stdout
+                elif verbose:
+                    print(f"      [WARN] spirv-cross failed for shader {idx}: {result.stderr[:100]}")
+                
+                # 清理临时文件
+                Path(tmp_path).unlink(missing_ok=True)
+                
+            except subprocess.TimeoutExpired:
+                if verbose:
+                    print(f"      [WARN] spirv-cross timeout for shader {idx}")
+            except Exception as e:
+                if verbose:
+                    print(f"      [WARN] GLSL conversion failed: {e}")
+        
+        # 构建 shader 字典
+        shader = {
+            "id": shader_id,
+            "name": spirv_shader.stage_name or f"Shader_{idx}",
+            "type": spirv_shader.stage_name[:2].upper() if spirv_shader.stage_name else "VS",
+            "stage": spirv_shader.stage_name or "Unknown",
+            "entry_point": "main",
+            "encoding": "SPIR-V",
+            "source_code": glsl_source or f"// SPIR-V binary ({spirv_shader.code_size} bytes)\n// spirv-cross required for GLSL conversion",
+            "code_size": spirv_shader.code_size,
+            "has_debug_info": False,
+            "resource_id": str(spirv_shader.resource_id),
+        }
+        shaders.append(shader)
+    
+    return shaders
 
 
 def estimate_bpp(format_str: str) -> int:
@@ -421,6 +671,55 @@ def main():
     print(f"      Est. VRAM: {vram_total / (1024*1024):.1f} MB")
     
     # ========================================================================
+    # 生成缩略图 (可选)
+    # ========================================================================
+    
+    zip_path = Path(args.zip_file) if args.zip_file else None
+    thumbnail_count = generate_thumbnails_from_zip(
+        xml_path=xml_path,
+        zip_path=zip_path,
+        textures=textures,
+        max_count=args.max_thumbnails,
+        max_size=args.thumbnail_size,
+        verbose=args.verbose
+    )
+    
+    if thumbnail_count > 0:
+        print(f"      Thumbnails: {thumbnail_count} generated")
+    elif args.verbose:
+        print("      Thumbnails: 0 (no ZIP file or generation failed)")
+    
+    # ========================================================================
+    # 提取 Vulkan Shaders (可选)
+    # ========================================================================
+    
+    shaders = []
+    rdc_path = Path(args.rdc_file) if args.rdc_file else None
+    
+    # 自动检测同名 RDC 文件（仅 Vulkan 捕获）
+    if rdc_path is None and driver == "Vulkan":
+        auto_rdc = xml_path.with_suffix('.rdc')
+        if auto_rdc.exists():
+            rdc_path = auto_rdc
+            if args.verbose:
+                print(f"      [INFO] Auto-detected RDC: {rdc_path.name}")
+    
+    if rdc_path and rdc_path.exists():
+        print(f"      Extracting Vulkan shaders from: {rdc_path.name}")
+        shaders = extract_vulkan_shaders_from_rdc(
+            rdc_path=rdc_path,
+            spirv_cross_path=args.spirv_cross,
+            verbose=args.verbose
+        )
+        if shaders:
+            print(f"      Shaders: {len(shaders)} extracted")
+            glsl_count = sum(1 for s in shaders if "SPIR-V binary" not in s.get("source_code", ""))
+            if glsl_count > 0:
+                print(f"      GLSL converted: {glsl_count}")
+    elif args.rdc_file:
+        print(f"      [WARN] RDC file not found: {args.rdc_file}")
+    
+    # ========================================================================
     # 生成 Bundle 报告
     # ========================================================================
     
@@ -431,13 +730,13 @@ def main():
     # 设置数据
     generator.events = events
     generator.textures = textures
-    generator.shaders = []  # XML 通常不含 shader 源码
+    generator.shaders = shaders
     
     # 更新统计
     generator.stats.update({
         "total_textures": len(textures),
         "total_events": len(events),
-        "total_shaders": 0,
+        "total_shaders": len(shaders),
         "draw_calls": draw_count,
         "dispatch_calls": dispatch_count,
         "clear_calls": clear_count,
