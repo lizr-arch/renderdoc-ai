@@ -451,6 +451,23 @@ def test_build_skip_diagnostics_includes_scan_hints():
     assert diag["scan_hints"]["mesh_incompatible_reasons"] == ["missing_vertex_binding"]
 
 
+def test_build_skip_report_markdown_groups_by_reason_code():
+    import export_event_import_bundle_batch as batch_mod
+
+    report = batch_mod._build_skip_report_markdown(
+        [
+            {"event_id": 100, "reason_code": "mesh_layout_incomplete", "status": "skipped_mesh_incompatible", "error": "x"},
+            {"event_id": 101, "reason_code": "mesh_layout_incomplete", "status": "skipped_mesh_incompatible", "error": "y"},
+            {"event_id": 102, "reason_code": "missing_vertex_buffer_binding", "status": "skipped_mesh_incompatible", "error": "z"},
+        ]
+    )
+
+    assert "mesh_layout_incomplete: 2 event(s)" in report
+    assert "missing_vertex_buffer_binding: 1 event(s)" in report
+    assert "events: 100, 101" in report
+
+
+
 def test_main_capture_mode_writes_skip_diagnostics(tmp_path, monkeypatch):
     import export_event_import_bundle_batch as batch_mod
 
@@ -550,11 +567,17 @@ def test_main_capture_mode_writes_skip_diagnostics(tmp_path, monkeypatch):
     assert summary["skip_diagnostics"][0]["reason_code"] == "missing_vertex_buffer_binding"
     assert summary["skip_diagnostics"][0]["scan_hints"]["has_vertex_binding"] is False
     assert summary["skip_files"]["skip_diagnostics"]
+    assert summary["skip_files"]["skip_report"]
 
     skip_diag_path = Path(summary["skip_files"]["skip_diagnostics"])
     assert skip_diag_path.exists()
     skip_payload = json.loads(skip_diag_path.read_text(encoding="utf-8"))
     assert skip_payload[0]["event_id"] == 710
+
+    skip_report_path = Path(summary["skip_files"]["skip_report"])
+    assert skip_report_path.exists()
+    skip_report_text = skip_report_path.read_text(encoding="utf-8")
+    assert "missing_vertex_buffer_binding" in skip_report_text
 
 def test_main_capture_mode_from_scan_invokes_capture_runner(tmp_path, monkeypatch):
     import export_event_import_bundle_batch as batch_mod

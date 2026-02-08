@@ -123,7 +123,8 @@ def test_batch_summary_schema_accepts_extended_fields():
             }
         ],
         "skip_files": {
-            "skip_diagnostics": "D:/out/batch_import_bundle_skip_diagnostics.json"
+            "skip_diagnostics": "D:/out/batch_import_bundle_skip_diagnostics.json",
+            "skip_report": "D:/out/batch_import_bundle_skip_report.md"
         },
     }
 

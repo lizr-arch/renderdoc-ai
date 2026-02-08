@@ -789,6 +789,52 @@ def _write_retry_artifacts(summary: dict, out_root: Path):
 
 
 
+def _skip_reason_tip(reason_code: str):
+    reason = str(reason_code or "").strip().lower()
+    if reason == "mesh_layout_incomplete":
+        return "mesh metadata incomplete; inspect mesh.json generation for this event"
+    if reason == "missing_position_semantic":
+        return "vertex layout has no POSITION semantic; cannot build import mesh"
+    if reason == "missing_vertex_buffer_binding":
+        return "draw has no vertex binding; likely non-geometry draw or parser missed bind"
+    if reason == "missing_index_buffer_binding":
+        return "draw has no index binding; validate scan filters or parser state tracking"
+    return "unknown mesh incompatibility; rerun with --strict-mesh for hard-fail triage"
+
+
+def _build_skip_report_markdown(diagnostics: list[dict]):
+    lines = ["# Batch Skip Report", ""]
+    lines.append(f"- skipped_events: {len(diagnostics)}")
+
+    grouped = {}
+    for row in diagnostics:
+        if not isinstance(row, dict):
+            continue
+        reason_code = str(row.get("reason_code") or "mesh_incompatible_unknown")
+        event_id = _to_int(row.get("event_id"), default=0)
+        grouped.setdefault(reason_code, []).append(event_id)
+
+    if not grouped:
+        lines.append("- no grouped diagnostics")
+        lines.append("")
+        return "\n".join(lines) + "\n"
+
+    lines.append("")
+    lines.append("## Reason Groups")
+    for reason_code in sorted(grouped.keys()):
+        event_ids = sorted(event_id for event_id in grouped[reason_code] if event_id > 0)
+        event_text = ", ".join(str(event_id) for event_id in event_ids) if event_ids else "(none)"
+        lines.append(f"- {reason_code}: {len(event_ids)} event(s)")
+        lines.append(f"  - events: {event_text}")
+        lines.append(f"  - tip: {_skip_reason_tip(reason_code)}")
+
+    lines.append("")
+    lines.append("## Next Step")
+    lines.append("- Use summary.skip_diagnostics + this report to choose retry events or scan strategy.")
+    lines.append("")
+    return "\n".join(lines) + "\n"
+
+
 def _write_skip_artifacts(summary: dict, out_root: Path):
     diagnostics = list(summary.get("skip_diagnostics") or [])
     if not diagnostics:
@@ -799,8 +845,12 @@ def _write_skip_artifacts(summary: dict, out_root: Path):
     diag_path = out_root / "batch_import_bundle_skip_diagnostics.json"
     diag_path.write_text(json.dumps(diagnostics, indent=2), encoding="utf-8")
 
+    report_path = out_root / "batch_import_bundle_skip_report.md"
+    report_path.write_text(_build_skip_report_markdown(diagnostics), encoding="utf-8")
+
     return {
         "skip_diagnostics": str(diag_path),
+        "skip_report": str(report_path),
     }
 
 

@@ -165,10 +165,14 @@
     "skip_files": {
       "type": "object",
       "required": [
-        "skip_diagnostics"
+        "skip_diagnostics",
+        "skip_report"
       ],
       "properties": {
         "skip_diagnostics": {
+          "type": "string"
+        },
+        "skip_report": {
           "type": "string"
         }
       }
