@@ -59,7 +59,7 @@ def _write_mesh_intermediate(root: Path) -> None:
 
 def test_cli_creates_stats(tmp_path, monkeypatch):
     try:
-        from export_fbx_assets import main
+        import export_fbx_assets as exporter
     except ImportError as exc:
         pytest.fail(f"export_fbx_assets missing: {exc}")
 
@@ -74,7 +74,7 @@ def test_cli_creates_stats(tmp_path, monkeypatch):
     monkeypatch.setenv("RDC_FBX_ALLOW_MISSING", "1")
     out_dir = tmp_path / "out"
     out_dir.mkdir()
-    assert main(
+    assert exporter.main(
         [
             "--intermediate",
             str(intermediate),
@@ -96,10 +96,12 @@ def test_cli_creates_stats(tmp_path, monkeypatch):
     unreal_payload = json.loads(unreal_plan.read_text(encoding="utf-8"))
     assert unity_payload["shader_count"] == 0
     assert unreal_payload["shader_count"] == 0
+    assert unity_payload.get("execution", {}).get("status_counts", {}) == {}
+    assert unreal_payload.get("execution", {}).get("status_counts", {}) == {}
 
 
 def test_shader_import_plan_routes_by_source_kind(tmp_path, monkeypatch):
-    from export_fbx_assets import main
+    import export_fbx_assets as exporter
 
     intermediate = tmp_path / "intermediate"
     _write_mesh_intermediate(intermediate)
@@ -142,12 +144,21 @@ def test_shader_import_plan_routes_by_source_kind(tmp_path, monkeypatch):
         ),
         encoding="utf-8",
     )
+    shaders_dir.joinpath("vs.bin").write_bytes(b"SPIRV")
+    shaders_dir.joinpath("ps.bin").write_bytes(b"DXBC")
 
     monkeypatch.setenv("RDC_FBX_ALLOW_MISSING", "1")
+    monkeypatch.setattr(exporter, "resolve_spirv_cross_path", lambda cli: cli or "mock_spirv_cross")
+    monkeypatch.setattr(
+        exporter,
+        "run_spirv_cross",
+        lambda path, data: "// converted by mock spirv-cross\nfloat4 main() : SV_Target { return 1; }\n",
+    )
+
     out_dir = tmp_path / "out"
     out_dir.mkdir()
 
-    assert main(
+    assert exporter.main(
         [
             "--intermediate",
             str(intermediate),
@@ -155,6 +166,8 @@ def test_shader_import_plan_routes_by_source_kind(tmp_path, monkeypatch):
             str(out_dir),
             "--event",
             "9",
+            "--spirv-cross",
+            "mock_spirv_cross",
         ]
     ) == 0
 
@@ -183,3 +196,23 @@ def test_shader_import_plan_routes_by_source_kind(tmp_path, monkeypatch):
 
     assert unreal_by_stage["ps"]["strategy"] == "dxbc_to_hlsl"
     assert unreal_by_stage["ps"]["output_source"].endswith("ps.usf")
+
+    assert unity_by_stage["vs"]["status"] == "converted"
+    assert unity_by_stage["ps"]["status"] == "stubbed_dxbc"
+    assert unreal_by_stage["vs"]["status"] == "converted"
+    assert unreal_by_stage["ps"]["status"] == "stubbed_dxbc"
+
+    unity_vs = unity_plan_path.parent / unity_by_stage["vs"]["generated_file"]
+    unity_ps = unity_plan_path.parent / unity_by_stage["ps"]["generated_file"]
+    unreal_vs = unreal_plan_path.parent / unreal_by_stage["vs"]["generated_file"]
+    unreal_ps = unreal_plan_path.parent / unreal_by_stage["ps"]["generated_file"]
+
+    assert unity_vs.exists()
+    assert unity_ps.exists()
+    assert unreal_vs.exists()
+    assert unreal_ps.exists()
+
+    assert "converted by mock spirv-cross" in unity_vs.read_text(encoding="utf-8")
+    assert "dxbc conversion adapter placeholder" in unity_ps.read_text(encoding="utf-8")
+    assert "converted by mock spirv-cross" in unreal_vs.read_text(encoding="utf-8")
+    assert "dxbc conversion adapter placeholder" in unreal_ps.read_text(encoding="utf-8")

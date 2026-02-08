@@ -3,6 +3,12 @@ import json
 import os
 from pathlib import Path
 
+try:
+    from exporters.spirv_cross_bridge import resolve_spirv_cross_path, run_spirv_cross
+except Exception:
+    resolve_spirv_cross_path = None
+    run_spirv_cross = None
+
 
 def _parse_event_id_from_path(intermediate_path):
     if intermediate_path.name == "intermediate":
@@ -138,6 +144,112 @@ def _write_shader_import_plan(intermediate_path, event_root, engine, engine_dir)
     return plan_path
 
 
+def _resolve_shader_source_path(intermediate_path, source_bin):
+    rel = str(source_bin or "").replace("\\", "/")
+    candidates = []
+    if rel:
+        rel_path = Path(rel)
+        candidates.append(intermediate_path / rel_path)
+        candidates.append(intermediate_path.parent / rel_path)
+        candidates.append(intermediate_path / "shaders" / rel_path.name)
+
+    for candidate in candidates:
+        if candidate.exists():
+            return candidate
+
+    if candidates:
+        return candidates[0]
+    return None
+
+
+def _write_shader_stub(output_path, route, reason):
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    lines = [
+        "// Auto-generated shader placeholder",
+        f"// stage: {route.get('stage', 'unknown')}",
+        f"// strategy: {route.get('strategy', '')}",
+        f"// source_kind: {route.get('source_kind', '')}",
+        f"// source_bin: {route.get('source_bin', '')}",
+        f"// reason: {reason}",
+        "",
+        "// TODO: replace this file with converted shader source.",
+    ]
+    output_path.write_text("\n".join(lines), encoding="utf-8")
+
+
+def _execute_shader_import_plan(intermediate_path, plan_path, spirv_cross_cli_path=None):
+    plan = json.loads(plan_path.read_text(encoding="utf-8"))
+    routes = list(plan.get("shaders") or [])
+
+    spirv_path = ""
+    if callable(resolve_spirv_cross_path):
+        spirv_path = str(resolve_spirv_cross_path(spirv_cross_cli_path) or "")
+    elif spirv_cross_cli_path:
+        spirv_path = str(spirv_cross_cli_path)
+
+    status_counts = {}
+
+    for route in routes:
+        strategy = str(route.get("strategy") or "manual_review")
+        output_rel = str(route.get("output_source") or "")
+        if not output_rel:
+            stage = str(route.get("stage") or "unknown")
+            output_rel = f"shaders/{stage}.txt"
+            route["output_source"] = output_rel
+
+        output_path = plan_path.parent / output_rel
+        source_path = _resolve_shader_source_path(intermediate_path, route.get("source_bin"))
+        source_exists = bool(source_path and source_path.exists())
+
+        status = "manual_review"
+        message = ""
+
+        if strategy == "spirv_to_hlsl":
+            if not source_exists:
+                status = "missing_source"
+                message = "source SPIR-V binary not found"
+                _write_shader_stub(output_path, route, message)
+            elif not spirv_path or not callable(run_spirv_cross):
+                status = "missing_spirv_cross"
+                message = "spirv-cross not available"
+                _write_shader_stub(output_path, route, message)
+            else:
+                try:
+                    source_text = run_spirv_cross(spirv_path, source_path.read_bytes())
+                    output_path.parent.mkdir(parents=True, exist_ok=True)
+                    output_path.write_text(source_text, encoding="utf-8")
+                    status = "converted"
+                    message = "converted by spirv-cross"
+                except Exception as exc:
+                    status = "spirv_cross_failed"
+                    message = str(exc)
+                    _write_shader_stub(output_path, route, message)
+        elif strategy == "dxbc_to_hlsl":
+            status = "stubbed_dxbc"
+            message = "dxbc conversion adapter placeholder"
+            _write_shader_stub(output_path, route, message)
+        else:
+            status = "manual_review"
+            message = "no automatic converter configured"
+            _write_shader_stub(output_path, route, message)
+
+        route["status"] = status
+        route["message"] = message
+        route["generated_file"] = output_rel.replace("\\", "/")
+        route["source_exists"] = bool(source_exists)
+        route["resolved_source"] = str(source_path) if source_path else ""
+
+        status_counts[status] = int(status_counts.get(status, 0)) + 1
+
+    plan["shaders"] = routes
+    plan["execution"] = {
+        "spirv_cross": spirv_path,
+        "status_counts": status_counts,
+    }
+    plan_path.write_text(json.dumps(plan, indent=2), encoding="utf-8")
+    return plan_path
+
+
 def _compute_stats(intermediate_path):
     mesh = _load_mesh(intermediate_path)
     vertex_count = int(mesh.get("vertex_count", 0))
@@ -157,7 +269,7 @@ def _compute_stats(intermediate_path):
     }
 
 
-def export_fbx_assets(intermediate_dir, out_dir, event_id, allow_missing_backend=False):
+def export_fbx_assets(intermediate_dir, out_dir, event_id, allow_missing_backend=False, spirv_cross_path=None):
     from converters.obj_writer import write_obj
     from converters.fbx_profiles import build_profile
     from converters.fbx_sdk_bridge import resolve_fbx_backend, convert_obj_to_fbx
@@ -179,8 +291,11 @@ def export_fbx_assets(intermediate_dir, out_dir, event_id, allow_missing_backend
     unity_dir.mkdir(parents=True, exist_ok=True)
     unreal_dir.mkdir(parents=True, exist_ok=True)
 
-    _write_shader_import_plan(intermediate_path, event_root, "unity", unity_dir)
-    _write_shader_import_plan(intermediate_path, event_root, "unreal", unreal_dir)
+    unity_plan_path = _write_shader_import_plan(intermediate_path, event_root, "unity", unity_dir)
+    unreal_plan_path = _write_shader_import_plan(intermediate_path, event_root, "unreal", unreal_dir)
+
+    _execute_shader_import_plan(intermediate_path, unity_plan_path, spirv_cross_cli_path=spirv_cross_path)
+    _execute_shader_import_plan(intermediate_path, unreal_plan_path, spirv_cross_cli_path=spirv_cross_path)
 
     backend = resolve_fbx_backend()
     if backend == "none":
@@ -201,8 +316,15 @@ def main(argv=None):
     parser.add_argument("--intermediate", required=True, help="Intermediate directory")
     parser.add_argument("--out", required=True, help="Output directory")
     parser.add_argument("--event", required=False, help="Event ID")
+    parser.add_argument("--spirv-cross", required=False, help="Path to spirv-cross executable")
     args = parser.parse_args(argv)
 
     allow_missing = os.environ.get("RDC_FBX_ALLOW_MISSING") == "1"
     event_id = int(args.event) if args.event else None
-    return export_fbx_assets(args.intermediate, args.out, event_id, allow_missing_backend=allow_missing)
+    return export_fbx_assets(
+        args.intermediate,
+        args.out,
+        event_id,
+        allow_missing_backend=allow_missing,
+        spirv_cross_path=args.spirv_cross,
+    )
