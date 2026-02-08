@@ -32,7 +32,7 @@
 | **M1: ResourceUsageIndex** | ✅ 已完成 | 10/10 | 资源反向索引 |
 | **M2: EvidenceChain** | ✅ 已完成 | 12/12 | 证据链生成 |
 | **M3: UI 跳转/高亮** | ✅ 已完成 | 13/13 | 跨页面证据链导航 |
-| M4: 高级可视化 | ⏳ 可选 | 0/6 | 热力图等 |
+| **M4: 高级可视化** | ⏳ 进行中 | 3/6 | M4.1 热力图已完成 |
 | Phase 5: B-mode 对比 | ✅ 完成 | 4/4 | 多帧统计 + CI 集成 |
 | **Phase 6: P0 报告完善** | ✅ 完成 | 4/4 | Schema/缩略图/Shader/RT |
 | **Phase 7: 端到端验证** | ✅ 完成 | 3/3 | E2E测试/文档/性能优化 |
@@ -231,11 +231,21 @@ evidence_chain.to_dict() 输出完整 JSON
 > **预估工时**: 2 天  
 > **源文档**: `EVIDENCE_CHAIN_DEVELOPMENT_PLAN.md` 第 335-365 行
 
-### M4.1 资源绑定热力图
+### M4.1 资源绑定热力图 ✅ 已完成
 
-- [ ] **M4.1.1** 在 `events.html` 时间线新增热力图图层
-- [ ] **M4.1.2** 实现 `renderBindingHeatmap(resource_id)` 函数
-- [ ] **M4.1.3** 冗余绑定区域标红，正常绑定标绿
+> **状态**: ✅ 已完成 (2025-02-08，文档追溯补录)  
+> **实现位置**: `core/heatmap_builder.py`, `report_bundle_generator.py`, `events.html`
+
+- [x] **M4.1.1** 在 `events.html` 时间线新增热力图图层
+  - 实现文件: `templates/events.html` 第 2557-2808 行
+  - 功能: 热力图切换按钮、资源选择器、颜色图例
+- [x] **M4.1.2** 实现 `renderBindingHeatmap(resource_id)` 函数
+  - JS 函数: `renderHeatmap()`, `onHeatmapResourceChange()`, `toggleHeatmap()`
+  - 后端: `HeatmapBuilder.build_for_resource()` in `core/heatmap_builder.py`
+- [x] **M4.1.3** 冗余绑定区域标红，正常绑定标绿
+  - 模式颜色: FIRST_USE(蓝), CONTINUOUS(绿), SPARSE(黄), ISOLATED(红)
+  - Schema: `schema/report_heatmap_data.schema.json`
+  - 单元测试: `tests/test_heatmap_builder.py` (11/11 通过)
 
 ### M4.2 Pass 分组视图
 
