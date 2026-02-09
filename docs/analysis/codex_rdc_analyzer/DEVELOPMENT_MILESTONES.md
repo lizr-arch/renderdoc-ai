@@ -32,7 +32,7 @@
 | **M1: ResourceUsageIndex** | ✅ 已完成 | 10/10 | 资源反向索引 |
 | **M2: EvidenceChain** | ✅ 已完成 | 12/12 | 证据链生成 |
 | **M3: UI 跳转/高亮** | ✅ 已完成 | 13/13 | 跨页面证据链导航 |
-| **M4: 高级可视化** | ⏳ 进行中 | 3/6 | M4.1 热力图已完成 |
+| **M4: 高级可视化** | ✅ 已完成 | 6/6 | M4.1 热力图 + M4.2 Pass 分组 |
 | Phase 5: B-mode 对比 | ✅ 完成 | 4/4 | 多帧统计 + CI 集成 |
 | **Phase 6: P0 报告完善** | ✅ 完成 | 4/4 | Schema/缩略图/Shader/RT |
 | **Phase 7: 端到端验证** | ✅ 完成 | 3/3 | E2E测试/文档/性能优化 |
@@ -225,8 +225,9 @@ evidence_chain.to_dict() 输出完整 JSON
 
 ---
 
-## 🟢 M4: 高级可视化（可选）
+## ✅ M4: 高级可视化（可选）— 已完成
 
+> **状态**: ✅ 已完成 (2025-02-08，文档追溯补录)  
 > **优先级**: P2 (可选)  
 > **预估工时**: 2 天  
 > **源文档**: `EVIDENCE_CHAIN_DEVELOPMENT_PLAN.md` 第 335-365 行
@@ -247,11 +248,24 @@ evidence_chain.to_dict() 输出完整 JSON
   - Schema: `schema/report_heatmap_data.schema.json`
   - 单元测试: `tests/test_heatmap_builder.py` (11/11 通过)
 
-### M4.2 Pass 分组视图
+### M4.2 Pass 分组视图 ✅ 已完成
 
-- [ ] **M4.2.1** 在 `events.html` 新增 Pass 分组视图
-- [ ] **M4.2.2** 实现 Pass 折叠/展开
-- [ ] **M4.2.3** 显示 Pass 级别的 GPU 时间统计
+> **状态**: ✅ 已完成 (2025-02-08，文档追溯补录)  
+> **实现位置**: `templates/events.html`
+
+- [x] **M4.2.1** 在 `events.html` 新增 Pass 分组视图
+  - 切换按钮: 第 1334 行 `<button id="passModeToggle">`
+  - 构建逻辑: 第 2005 行 `buildPassGroups()` - 基于 marker_push/pop
+  - 嵌套支持: 使用栈结构处理嵌套 Pass
+- [x] **M4.2.2** 实现 Pass 折叠/展开
+  - 单个切换: 第 2127 行 `togglePassExpand(passKey)`
+  - 全部展开: 第 2137 行 `expandAllPasses()`
+  - 全部折叠: 第 2148 行 `collapseAllPasses()`
+  - 状态保持: `passExpandState` 对象记录每个 Pass 状态
+- [x] **M4.2.3** 显示 Pass 级别的 GPU 时间统计
+  - 时间计算: 第 2038-2040 行 `currentPass.gpuTime = children.reduce(...)`
+  - Draw 计数: 第 2041-2043 行 `currentPass.drawCount = children.filter(...)`
+  - UI 显示: 第 1739 行 `formatGpuTime(pass.gpuTime)` + 第 1747-1757 行统计面板
 
 ---
 
