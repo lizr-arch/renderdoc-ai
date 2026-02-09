@@ -154,6 +154,12 @@ def test_shader_import_plan_routes_by_source_kind(tmp_path, monkeypatch):
         "run_spirv_cross",
         lambda path, data: "// converted by mock spirv-cross\nfloat4 main() : SV_Target { return 1; }\n",
     )
+    monkeypatch.setattr(exporter, "resolve_dxbc_tool_paths", lambda fxc, dxc: {"fxc": "mock_fxc", "dxc": ""})
+    monkeypatch.setattr(
+        exporter,
+        "dumpbin_dxbc_with_fxc",
+        lambda path, data: "ps_5_0\ndcl_globalFlags refactoringAllowed\ndcl_output o0.xyzw\nmov o0.xyzw, l(1.0,0,0,1.0)\nret\n",
+    )
 
     out_dir = tmp_path / "out"
     out_dir.mkdir()
@@ -198,9 +204,9 @@ def test_shader_import_plan_routes_by_source_kind(tmp_path, monkeypatch):
     assert unreal_by_stage["ps"]["output_source"].endswith("ps.usf")
 
     assert unity_by_stage["vs"]["status"] == "converted"
-    assert unity_by_stage["ps"]["status"] == "stubbed_dxbc"
+    assert unity_by_stage["ps"]["status"] == "reconstructed_hlsl"
     assert unreal_by_stage["vs"]["status"] == "converted"
-    assert unreal_by_stage["ps"]["status"] == "stubbed_dxbc"
+    assert unreal_by_stage["ps"]["status"] == "reconstructed_hlsl"
 
     unity_vs = unity_plan_path.parent / unity_by_stage["vs"]["generated_file"]
     unity_ps = unity_plan_path.parent / unity_by_stage["ps"]["generated_file"]
@@ -212,7 +218,10 @@ def test_shader_import_plan_routes_by_source_kind(tmp_path, monkeypatch):
     assert unreal_vs.exists()
     assert unreal_ps.exists()
 
+    assert (unity_plan_path.parent / unity_by_stage["ps"]["disassembly_file"]).exists()
+    assert (unreal_plan_path.parent / unreal_by_stage["ps"]["disassembly_file"]).exists()
+
     assert "converted by mock spirv-cross" in unity_vs.read_text(encoding="utf-8")
-    assert "dxbc conversion adapter placeholder" in unity_ps.read_text(encoding="utf-8")
+    assert "Auto-generated HLSL scaffold" in unity_ps.read_text(encoding="utf-8")
     assert "converted by mock spirv-cross" in unreal_vs.read_text(encoding="utf-8")
-    assert "dxbc conversion adapter placeholder" in unreal_ps.read_text(encoding="utf-8")
+    assert "Auto-generated HLSL scaffold" in unreal_ps.read_text(encoding="utf-8")

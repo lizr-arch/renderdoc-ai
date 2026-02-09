@@ -15,6 +15,19 @@ except Exception:
     resolve_spirv_cross_path = None
     run_spirv_cross = None
 
+try:
+    from dxbc_bridge import (
+        dumpbin_dxbc_with_fxc,
+        dumpbin_dxil_with_dxc,
+        generate_hlsl_scaffold,
+        resolve_dxbc_tool_paths,
+    )
+except Exception:
+    dumpbin_dxbc_with_fxc = None
+    dumpbin_dxil_with_dxc = None
+    generate_hlsl_scaffold = None
+    resolve_dxbc_tool_paths = None
+
 
 def _parse_event_id_from_path(intermediate_path):
     if intermediate_path.name == "intermediate":
@@ -183,7 +196,13 @@ def _write_shader_stub(output_path, route, reason):
     output_path.write_text("\n".join(lines), encoding="utf-8")
 
 
-def _execute_shader_import_plan(intermediate_path, plan_path, spirv_cross_cli_path=None):
+def _execute_shader_import_plan(
+    intermediate_path,
+    plan_path,
+    spirv_cross_cli_path=None,
+    fxc_cli_path=None,
+    dxc_cli_path=None,
+):
     plan = json.loads(plan_path.read_text(encoding="utf-8"))
     routes = list(plan.get("shaders") or [])
 
@@ -192,6 +211,12 @@ def _execute_shader_import_plan(intermediate_path, plan_path, spirv_cross_cli_pa
         spirv_path = str(resolve_spirv_cross_path(spirv_cross_cli_path) or "")
     elif spirv_cross_cli_path:
         spirv_path = str(spirv_cross_cli_path)
+
+    dxbc_tools = {"fxc": "", "dxc": ""}
+    if callable(resolve_dxbc_tool_paths):
+        resolved = resolve_dxbc_tool_paths(fxc_cli_path, dxc_cli_path) or {}
+        dxbc_tools["fxc"] = str(resolved.get("fxc") or "")
+        dxbc_tools["dxc"] = str(resolved.get("dxc") or "")
 
     status_counts = {}
 
@@ -231,9 +256,70 @@ def _execute_shader_import_plan(intermediate_path, plan_path, spirv_cross_cli_pa
                     message = str(exc)
                     _write_shader_stub(output_path, route, message)
         elif strategy == "dxbc_to_hlsl":
-            status = "stubbed_dxbc"
-            message = "dxbc conversion adapter placeholder"
-            _write_shader_stub(output_path, route, message)
+            if not source_exists:
+                status = "missing_source"
+                message = "source DXBC/DXIL binary not found"
+                _write_shader_stub(output_path, route, message)
+            else:
+                bytecode_format = str(route.get("bytecode_format") or "").lower()
+                tool_used = ""
+                disassembly = ""
+
+                try:
+                    source_bytes = source_path.read_bytes()
+
+                    if bytecode_format == "dxil":
+                        if dxbc_tools.get("dxc") and callable(dumpbin_dxil_with_dxc):
+                            disassembly = dumpbin_dxil_with_dxc(dxbc_tools["dxc"], source_bytes)
+                            tool_used = "dxc-dumpbin"
+                        elif dxbc_tools.get("fxc") and callable(dumpbin_dxbc_with_fxc):
+                            disassembly = dumpbin_dxbc_with_fxc(dxbc_tools["fxc"], source_bytes)
+                            tool_used = "fxc-dumpbin"
+                    else:
+                        if dxbc_tools.get("fxc") and callable(dumpbin_dxbc_with_fxc):
+                            disassembly = dumpbin_dxbc_with_fxc(dxbc_tools["fxc"], source_bytes)
+                            tool_used = "fxc-dumpbin"
+                        elif dxbc_tools.get("dxc") and callable(dumpbin_dxil_with_dxc):
+                            disassembly = dumpbin_dxil_with_dxc(dxbc_tools["dxc"], source_bytes)
+                            tool_used = "dxc-dumpbin"
+
+                    if not disassembly:
+                        status = "missing_dxbc_tool"
+                        message = "no DXBC/DXIL dumpbin tool available"
+                        _write_shader_stub(output_path, route, message)
+                    else:
+                        stage = str(route.get("stage") or "")
+                        entry = str(route.get("entry") or "")
+                        label = str(route.get("source_bin") or "")
+
+                        reconstruction = disassembly
+                        analysis = {}
+                        if callable(generate_hlsl_scaffold):
+                            reconstruction, analysis = generate_hlsl_scaffold(
+                                disassembly,
+                                stage,
+                                entry_name=entry,
+                                source_label=label,
+                            )
+
+                        output_path.parent.mkdir(parents=True, exist_ok=True)
+                        output_path.write_text(reconstruction, encoding="utf-8")
+
+                        disassembly_rel = f"{output_rel}.asm.txt"
+                        disassembly_path = plan_path.parent / disassembly_rel
+                        disassembly_path.parent.mkdir(parents=True, exist_ok=True)
+                        disassembly_path.write_text(disassembly, encoding="utf-8")
+
+                        route["disassembly_file"] = disassembly_rel.replace("\\", "/")
+                        if analysis:
+                            route["analysis"] = analysis
+
+                        status = "reconstructed_hlsl"
+                        message = f"generated scaffold from {tool_used}"
+                except Exception as exc:
+                    status = "dxbc_tool_failed"
+                    message = str(exc)
+                    _write_shader_stub(output_path, route, message)
         else:
             status = "manual_review"
             message = "no automatic converter configured"
@@ -250,6 +336,7 @@ def _execute_shader_import_plan(intermediate_path, plan_path, spirv_cross_cli_pa
     plan["shaders"] = routes
     plan["execution"] = {
         "spirv_cross": spirv_path,
+        "dxbc_tools": dxbc_tools,
         "status_counts": status_counts,
     }
     plan_path.write_text(json.dumps(plan, indent=2), encoding="utf-8")
@@ -275,7 +362,15 @@ def _compute_stats(intermediate_path):
     }
 
 
-def export_fbx_assets(intermediate_dir, out_dir, event_id, allow_missing_backend=False, spirv_cross_path=None):
+def export_fbx_assets(
+    intermediate_dir,
+    out_dir,
+    event_id,
+    allow_missing_backend=False,
+    spirv_cross_path=None,
+    fxc_path=None,
+    dxc_path=None,
+):
     from converters.obj_writer import write_obj
     from converters.fbx_profiles import build_profile
     from converters.fbx_sdk_bridge import resolve_fbx_backend, convert_obj_to_fbx
@@ -300,8 +395,20 @@ def export_fbx_assets(intermediate_dir, out_dir, event_id, allow_missing_backend
     unity_plan_path = _write_shader_import_plan(intermediate_path, event_root, "unity", unity_dir)
     unreal_plan_path = _write_shader_import_plan(intermediate_path, event_root, "unreal", unreal_dir)
 
-    _execute_shader_import_plan(intermediate_path, unity_plan_path, spirv_cross_cli_path=spirv_cross_path)
-    _execute_shader_import_plan(intermediate_path, unreal_plan_path, spirv_cross_cli_path=spirv_cross_path)
+    _execute_shader_import_plan(
+        intermediate_path,
+        unity_plan_path,
+        spirv_cross_cli_path=spirv_cross_path,
+        fxc_cli_path=fxc_path,
+        dxc_cli_path=dxc_path,
+    )
+    _execute_shader_import_plan(
+        intermediate_path,
+        unreal_plan_path,
+        spirv_cross_cli_path=spirv_cross_path,
+        fxc_cli_path=fxc_path,
+        dxc_cli_path=dxc_path,
+    )
 
     backend = resolve_fbx_backend()
     if backend == "none":
@@ -323,6 +430,8 @@ def main(argv=None):
     parser.add_argument("--out", required=True, help="Output directory")
     parser.add_argument("--event", required=False, help="Event ID")
     parser.add_argument("--spirv-cross", required=False, help="Path to spirv-cross executable")
+    parser.add_argument("--fxc", required=False, help="Path to fxc executable")
+    parser.add_argument("--dxc", required=False, help="Path to dxc executable")
     args = parser.parse_args(argv)
 
     allow_missing = os.environ.get("RDC_FBX_ALLOW_MISSING") == "1"
@@ -333,6 +442,8 @@ def main(argv=None):
         event_id,
         allow_missing_backend=allow_missing,
         spirv_cross_path=args.spirv_cross,
+        fxc_path=args.fxc,
+        dxc_path=args.dxc,
     )
 
 if __name__ == "__main__":
