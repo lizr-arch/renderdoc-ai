@@ -275,7 +275,7 @@
 - [x] `stats/junit_reporter.py`: `JUnitReporter` 类
 - [x] CLI `--junit-xml <path>` 参数
 - [x] 回归检测 → exit code 1
-- [ ] GitHub Action 示例 (待完成)
+- [x] GitHub Action 示例 (`docs/E2E_WORKFLOW_GUIDE.md` + `MULTI_FRAME_GUIDE.md`)
 
 ---
 
