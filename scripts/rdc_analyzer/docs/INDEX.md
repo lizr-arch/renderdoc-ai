@@ -39,6 +39,7 @@
 | [EXPORT_ROUTES.md](EXPORT_ROUTES.md) | **RDC 报告导出路线图** - 三条导出路线 + 新组件（v2.2.0）⭐ | 导出路线, Bundle, XML, 无GPU, RdcAdapter, JsonRenderer |
 | [UI_XML_BUNDLE_UPDATE_2026-02-08.md](UI_XML_BUNDLE_UPDATE_2026-02-08.md) | **UI + xml_to_bundle 更新记录**（v2.6.1）- 仪表盘 UI 统一 + ZIP 缩略图 + Vulkan Shader 提取 | UI, dashboard, xml_to_bundle, zip, rdc, spirv-cross |
 | [VISUAL_ACCEPTANCE_CHECKLIST.md](VISUAL_ACCEPTANCE_CHECKLIST.md) | **一页式视觉验收清单**（v1.0.0）- 专业仪表盘验收评分 + 缺陷分级模板 | 验收, 视觉, dashboard, UX, checklist |
+| [VISUAL_ACCEPTANCE_RESULT_TEMPLATE.md](VISUAL_ACCEPTANCE_RESULT_TEMPLATE.md) | **视觉验收结果填写版**（v1.0.0）- 一页回填评分/缺陷/结论，便于闭环 | 验收, 结果, 模板, checklist |
 | [BATCH_EXPORT.md](BATCH_EXPORT.md) | **纹理批量导出 CLI** - 一键导出所有纹理 (v1.4.0) | 批量导出, CLI, gallery, manifest |
 | [D3D11_SUPPORT.md](D3D11_SUPPORT.md) | **D3D11 纹理提取** - 支持 DirectX 11 离线提取 (v1.5.0) | D3D11, DirectX, DXGI, 离线提取 |
 
@@ -207,6 +208,7 @@
 | **API 接口文档在哪？** | [API_REFERENCE.md](API_REFERENCE.md) |
 | **本轮 UI / xml_to_bundle 更新说明？** | [UI_XML_BUNDLE_UPDATE_2026-02-08.md](UI_XML_BUNDLE_UPDATE_2026-02-08.md) ⭐ |
 | **如何做 Bundle 报告视觉验收？** | [VISUAL_ACCEPTANCE_CHECKLIST.md](VISUAL_ACCEPTANCE_CHECKLIST.md) ⭐ |
+| **视觉验收结果怎么记录？** | [VISUAL_ACCEPTANCE_RESULT_TEMPLATE.md](VISUAL_ACCEPTANCE_RESULT_TEMPLATE.md) ⭐ |
 | **端到端工作流指南？** | [E2E_WORKFLOW_GUIDE.md](E2E_WORKFLOW_GUIDE.md) ⭐ |
 | **数据 Schema 验证？** | [E2E_WORKFLOW_GUIDE.md](E2E_WORKFLOW_GUIDE.md) (JSON Schema 章节) |
 | **如何使用热力图功能？** | [UI_FEATURES_GUIDE.md](UI_FEATURES_GUIDE.md) (M4.1 章节) ⭐ |
