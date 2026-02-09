@@ -299,8 +299,35 @@
             flex-shrink: 0;
         }
 
+        #hlslBtn {
+            min-width: 132px;
+            padding: 0 16px;
+        }
+
         #aiOptimizeBtn {
-            min-width: 124px;
+            min-width: 118px;
+            color: #c6d8f5;
+            border-color: rgba(96, 119, 156, 0.62);
+            background: linear-gradient(180deg, rgba(27, 39, 61, 0.9) 0%, rgba(17, 26, 42, 0.96) 100%);
+        }
+
+        #aiOptimizeBtn:hover {
+            color: #e7f2ff;
+            border-color: rgba(108, 155, 222, 0.74);
+            background: linear-gradient(180deg, rgba(37, 56, 88, 0.9) 0%, rgba(22, 35, 57, 0.96) 100%);
+        }
+
+        #aiOptimizeBtn.active {
+            color: #ffffff;
+            border-color: rgba(66, 147, 255, 0.72);
+            background: linear-gradient(180deg, rgba(67, 146, 255, 0.86) 0%, rgba(41, 111, 215, 0.86) 100%);
+            box-shadow: 0 4px 10px rgba(47, 118, 220, 0.3);
+        }
+
+        .toolbar-group.primary-actions .mode-badge {
+            margin-left: 2px;
+            border-left: 1px solid rgba(90, 113, 152, 0.46);
+            padding-left: 12px;
         }
 
         .mode-badge {

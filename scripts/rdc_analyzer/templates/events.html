@@ -869,6 +869,33 @@
             max-height: 100%;
             object-fit: contain;
         }
+
+        #outputEmpty {
+            padding: 14px 18px;
+            border-radius: 12px;
+            border: 1px dashed rgba(94, 120, 160, 0.42);
+            background: linear-gradient(180deg, rgba(20, 31, 50, 0.46) 0%, rgba(12, 19, 31, 0.46) 100%);
+            text-align: center;
+        }
+
+        #outputEmpty .canvas-empty-text {
+            font-size: 13px;
+            font-weight: 700;
+            color: #dbe8ff;
+        }
+
+        #outputEmpty .canvas-empty-subtext {
+            margin-top: 6px;
+            font-size: 11px;
+            color: var(--text-muted);
+            max-width: 420px;
+            line-height: 1.35;
+        }
+
+        #outputEmpty.no-preview {
+            border-style: solid;
+            border-color: rgba(79, 120, 182, 0.42);
+        }
         
         /* ========== RT 懒加载面板样式 ========== */
         .rt-lazy-load-panel {
@@ -1388,8 +1415,9 @@
                 <div class="output-preview-container">
                     <div class="canvas-viewport" id="outputViewport">
                         <div class="canvas-empty" id="outputEmpty">
-                            <div class="canvas-empty-icon">📋</div>
-                            <div class="canvas-empty-text">从左侧列表选择事件</div>
+                            <div class="canvas-empty-icon">🖼️</div>
+                            <div class="canvas-empty-text">请选择事件查看输出</div>
+                            <div class="canvas-empty-subtext" id="outputEmptySubtext">若无预导出快照，可点击下方“从 RDC 加载快照”</div>
                         </div>
                         <img class="preview-img hidden" id="outputImg" src="" alt="Output Preview">
                         <!-- 懒加载按钮区域 -->
@@ -2239,6 +2267,16 @@
             }
         }
         
+        function setOutputEmptyMessage(title, subtitle) {
+            const empty = document.getElementById('outputEmpty');
+            const titleEl = empty ? empty.querySelector('.canvas-empty-text') : null;
+            const subtitleEl = document.getElementById('outputEmptySubtext');
+            if (titleEl && title) titleEl.textContent = title;
+            if (subtitleEl) {
+                subtitleEl.textContent = subtitle || '若无预导出快照，可点击下方“从 RDC 加载快照”';
+            }
+        }
+
         function updateOutputPreview(event) {
             const img = document.getElementById('outputImg');
             const empty = document.getElementById('outputEmpty');
@@ -2250,6 +2288,7 @@
                 img.src = event.rtSnapshot;
                 img.classList.remove('hidden');
                 empty.classList.add('hidden');
+                empty.classList.remove('no-preview');
                 viewport.classList.add('has-preview');
                 lazyPanel.style.display = 'none';  // 隐藏懒加载按钮
                 setRTLoadStatus('', '');
@@ -2261,6 +2300,7 @@
                 img.src = event.output.color0;
                 img.classList.remove('hidden');
                 empty.classList.add('hidden');
+                empty.classList.remove('no-preview');
                 viewport.classList.add('has-preview');
                 lazyPanel.style.display = 'none';
                 return;
@@ -2269,6 +2309,8 @@
             // 无预导出数据，显示懒加载面板
             img.classList.add('hidden');
             empty.classList.remove('hidden');
+            empty.classList.add('no-preview');
+            setOutputEmptyMessage('当前事件暂无可预览图像', '可点击“从 RDC 加载快照”，或切换到包含 Render Target 的事件');
             viewport.classList.remove('has-preview');
             lazyPanel.style.display = '';  // 显示懒加载按钮
             resetRTLoadPanel();

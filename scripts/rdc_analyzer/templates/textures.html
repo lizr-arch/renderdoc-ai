@@ -196,6 +196,72 @@
         .preview-img {
             filter: drop-shadow(0 6px 18px rgba(0, 0, 0, 0.48));
         }
+
+        #canvasEmpty {
+            padding: 14px 18px;
+            border-radius: 12px;
+            border: 1px dashed rgba(94, 120, 160, 0.42);
+            background: linear-gradient(180deg, rgba(20, 31, 50, 0.5) 0%, rgba(12, 19, 31, 0.5) 100%);
+            text-align: center;
+        }
+
+        #canvasEmpty .canvas-empty-icon {
+            opacity: 0.82;
+        }
+
+        #canvasEmpty .canvas-empty-text {
+            font-size: 13px;
+            font-weight: 700;
+            color: #dbe8ff;
+        }
+
+        #canvasEmpty .canvas-empty-subtext {
+            margin-top: 6px;
+            font-size: 11px;
+            color: var(--text-muted);
+            max-width: 340px;
+            line-height: 1.35;
+        }
+
+        #canvasEmpty.no-thumbnail {
+            border-style: solid;
+            border-color: rgba(79, 120, 182, 0.42);
+        }
+
+        #propName {
+            font-size: 12px;
+            font-weight: 700;
+            line-height: 1.35;
+            color: #e8f2ff;
+            word-break: break-word;
+        }
+
+        #propId {
+            font-family: var(--font-mono);
+            font-size: 10px;
+            color: #c6d8f5;
+        }
+
+        #propDimensions,
+        #propFormat,
+        #propVram {
+            display: inline-flex;
+            align-items: center;
+            min-height: 20px;
+            padding: 0 8px;
+            border-radius: 999px;
+            border: 1px solid rgba(90, 112, 149, 0.58);
+            background: rgba(20, 30, 48, 0.74);
+            font-family: var(--font-mono);
+            font-size: 10px;
+            color: #d4e3ff;
+        }
+
+        #propVram {
+            border-color: rgba(74, 154, 255, 0.52);
+            color: #8ec7ff;
+            background: rgba(24, 49, 84, 0.68);
+        }
         
         /* 网格视图切换 */
         .view-mode-grid .texture-list {
@@ -701,7 +767,8 @@
                 <div class="canvas-viewport" id="canvasViewport">
                     <div class="canvas-empty" id="canvasEmpty">
                         <div class="canvas-empty-icon">🖼️</div>
-                        <div class="canvas-empty-text">从左侧列表选择纹理</div>
+                        <div class="canvas-empty-text">请选择纹理查看预览</div>
+                        <div class="canvas-empty-subtext" id="canvasEmptySubtext">支持筛选/排序后快速定位</div>
                     </div>
                     <img class="preview-img hidden" id="previewImg" src="" alt="Texture Preview">
                     
@@ -1028,7 +1095,7 @@
             // 更新预览
             const previewImg = document.getElementById('previewImg');
             const canvasEmpty = document.getElementById('canvasEmpty');
-            updateTexturePreview(texture, previewImg, canvasEmpty);
+            const hasPreview = updateTexturePreview(texture, previewImg, canvasEmpty);
             
             // 更新属性面板（优先使用 display_name）
             document.getElementById('propName').textContent = texture.display_name || texture.name || '-';
@@ -1044,8 +1111,8 @@
             // 更新使用情况
             updateUsage(texture);
             
-            // 显示颜色拾取器
-            document.getElementById('colorPicker').classList.remove('hidden');
+            // 仅在有预览图时显示颜色拾取器
+            document.getElementById('colorPicker').classList.toggle('hidden', !hasPreview);
             updateTexturePanelSummary();
 
         }
@@ -1053,19 +1120,32 @@
         function updateTexturePreview(texture, previewImg, canvasEmpty) {
             const imgEl = previewImg || document.getElementById('previewImg');
             const emptyEl = canvasEmpty || document.getElementById('canvasEmpty');
+            const emptyText = document.getElementById('canvasEmptyText') || emptyEl.querySelector('.canvas-empty-text');
+            const emptySubtext = document.getElementById('canvasEmptySubtext');
+
+            // 防止残留错误图标：统一先清空 src
+            imgEl.src = '';
 
             if (texture.thumbnail) {
                 imgEl.src = texture.thumbnail;
                 imgEl.classList.remove('hidden');
                 emptyEl.classList.add('hidden');
-            } else {
-                // 使用动态 SVG 占位符
-                imgEl.src = generatePlaceholderSvg(texture);
-                imgEl.classList.remove('hidden');
-                emptyEl.classList.add('hidden');
+                emptyEl.classList.remove('no-thumbnail');
+                if (emptyText) emptyText.textContent = '请选择纹理查看预览';
+                if (emptySubtext) emptySubtext.textContent = '支持筛选/排序后快速定位';
+                return true;
             }
+
+            // 无缩略图数据时，显示可解释的空状态，而不是破图图标
+            imgEl.classList.add('hidden');
+            emptyEl.classList.remove('hidden');
+            emptyEl.classList.add('no-thumbnail');
+            const sizeText = `${texture.width || 0}×${texture.height || 0}`;
+            if (emptyText) emptyText.textContent = '当前纹理无可用缩略图';
+            if (emptySubtext) emptySubtext.textContent = `${sizeText} / Format ${texture.format || '-'} · 可继续查看属性与使用情况`;
+            return false;
         }
-        
+
         function formatMipmap(texture) {
             const mipCount = getTextureMipCount(texture);
             const width = Math.max(parseInt(texture.width || 1, 10) || 1, 1);
