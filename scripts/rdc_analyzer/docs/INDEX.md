@@ -2,7 +2,7 @@
 
 
 
-> **更新日期**: 2026-02-08 | **版本**: 2.6.1 | **维护**: Codex Agent
+> **更新日期**: 2025-02-06 | **版本**: 2.6.2 | **维护**: Codex Agent
 
 
 
@@ -77,7 +77,7 @@
 
 
 
-### � 证据链与交互 (v2.4.0 新增)
+### 🔗 证据链与交互 (v2.4.0 新增)
 
 | 文档 | 说明 | 关键词 |
 |------|------|--------|
@@ -92,6 +92,22 @@
 - URL 参数传递：`?id=468&highlight=true`
 - 自动滚动定位 + CSS 脉冲高亮动画
 - 支持离线 HTML 报告
+
+### 🎨 高级可视化功能 (v2.6.2 新增)
+
+| 文档 | 说明 | 关键词 |
+|------|------|--------|
+| [UI_FEATURES_GUIDE.md](UI_FEATURES_GUIDE.md) | **UI 功能使用指南** - M4.1 热力图 / M4.2 Pass 分组 / Phase 7C 外部数据 ⭐ | 热力图, Pass分组, 外部数据, UI, 可视化 |
+
+**功能摘要**：
+- **M4.1** 资源绑定热力图：可视化纹理/Buffer 使用模式（FIRST_USE/CONTINUOUS/SPARSE/ISOLATED）
+- **M4.2** Pass 分组视图：基于 Debug Markers 的层级事件分组
+- **Phase 7C** 外部数据加载：JSON 数据分离，HTML 大小减少 84%
+
+**使用入口**：
+- 🔥 绑定热力图 按钮（events.html 顶部）
+- 📁 Pass 分组 按钮（events.html 底部）
+- `--external-data` CLI 标志
 
 ### �📝 格式与规范
 
@@ -191,6 +207,9 @@
 | **本轮 UI / xml_to_bundle 更新说明？** | [UI_XML_BUNDLE_UPDATE_2026-02-08.md](UI_XML_BUNDLE_UPDATE_2026-02-08.md) ⭐ |
 | **端到端工作流指南？** | [E2E_WORKFLOW_GUIDE.md](E2E_WORKFLOW_GUIDE.md) ⭐ |
 | **数据 Schema 验证？** | [E2E_WORKFLOW_GUIDE.md](E2E_WORKFLOW_GUIDE.md) (JSON Schema 章节) |
+| **如何使用热力图功能？** | [UI_FEATURES_GUIDE.md](UI_FEATURES_GUIDE.md) (M4.1 章节) ⭐ |
+| **如何使用 Pass 分组？** | [UI_FEATURES_GUIDE.md](UI_FEATURES_GUIDE.md) (M4.2 章节) ⭐ |
+| **如何启用外部数据加载？** | [UI_FEATURES_GUIDE.md](UI_FEATURES_GUIDE.md) (Phase 7C 章节) |
 
 
 
