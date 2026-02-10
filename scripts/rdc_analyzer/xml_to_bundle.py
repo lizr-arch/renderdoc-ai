@@ -688,8 +688,12 @@ def main():
     
     if thumbnail_count > 0:
         print(f"      Thumbnails: {thumbnail_count} generated")
-    elif args.verbose:
-        print("      Thumbnails: 0 (no ZIP file or generation failed)")
+    else:
+        print("      [INFO] Thumbnails: 0 (textures page will show placeholder previews)")
+        if args.zip_file:
+            print("      [HINT] Check ZIP contents and thumbnail_generator availability")
+        else:
+            print("      [HINT] Provide --zip <capture.zip> to enable thumbnail extraction")
     
     # ========================================================================
     # 提取 Vulkan Shaders (可选)
@@ -718,8 +722,14 @@ def main():
             glsl_count = sum(1 for s in shaders if "SPIR-V binary" not in s.get("source_code", ""))
             if glsl_count > 0:
                 print(f"      GLSL converted: {glsl_count}")
+        else:
+            print("      [INFO] Shaders: 0 (no extractable shader source in this capture)")
+            print("      [HINT] Use a capture with shader debug/source data and configure shader tools")
     elif args.rdc_file:
         print(f"      [WARN] RDC file not found: {args.rdc_file}")
+    elif driver == "Vulkan":
+        print("      [INFO] Shaders: 0 (no RDC input, shaders page will stay empty)")
+        print("      [HINT] Provide --rdc <capture.rdc> to enable shader extraction")
     
     # ========================================================================
     # 生成 Bundle 报告
@@ -749,7 +759,14 @@ def main():
     
     # 生成所有页面
     generator.generate_all()
-    
+
+    thumbnail_attached = sum(1 for t in textures if t.get("thumbnail"))
+    print(f"      Data quality: thumbnails {thumbnail_attached}/{len(textures)}, shaders {len(shaders)}")
+    if thumbnail_attached == 0 and len(textures) > 0:
+        print("      [NOTE] textures.html placeholders are expected without extracted thumbnails")
+    if len(shaders) == 0:
+        print("      [NOTE] shaders.html empty state is expected when shader extraction yields no results")
+
     print()
     print("=" * 60)
     print("Bundle Report Generated Successfully!")

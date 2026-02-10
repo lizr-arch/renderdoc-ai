@@ -63,6 +63,10 @@
     --accent-orange: #f0883e;
     --accent-purple: #a371f7;
     --accent-teal: #2dd4bf;
+    --accent-cyan: #2dd4bf;
+    --accent-pink: #ec4899;
+    --accent: var(--accent-blue);
+    --accent-hover: #388bfd;
     
     /* 尺寸变量 */
     --panel-header: 28px;
@@ -84,6 +88,7 @@
     /* 圆角 */
     --radius-sm: 3px;
     --radius-md: 4px;
+    --radius: var(--radius-md);
     --radius-lg: 6px;
     --radius-xl: 8px;
 }

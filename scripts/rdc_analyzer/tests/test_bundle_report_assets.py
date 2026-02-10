@@ -8,6 +8,7 @@ Bundle 报告资源验证
 避免缩略图与源码被错误处理导致页面空白。
 """
 
+import re
 import sys
 from pathlib import Path
 
@@ -408,3 +409,32 @@ def test_events_right_panel_typography_contract(tmp_path):
     assert "color: var(--accent-blue);" in html
     assert "#panelRight .prop-section-title" in html
     assert "letter-spacing: 0.2px;" in html
+
+def test_common_css_theme_alias_tokens_contract():
+    css_path = Path(__file__).resolve().parents[1] / "templates" / "common.css"
+    css = css_path.read_text(encoding="utf-8")
+
+    assert "--accent-cyan:" in css
+    assert "--accent-pink:" in css
+    assert "--accent:" in css
+    assert "--accent-hover:" in css
+    assert "--radius:" in css
+
+
+def test_template_css_vars_defined_contract():
+    templates_dir = Path(__file__).resolve().parents[1] / "templates"
+    files = ["common.css", "events.html", "shaders.html", "textures.html"]
+
+    defined = set()
+    used = set()
+    def_pattern = re.compile(r"(--[a-zA-Z0-9_-]+)\s*:")
+    use_pattern = re.compile(r"var\((--[a-zA-Z0-9_-]+)\)")
+
+    for filename in files:
+        text = (templates_dir / filename).read_text(encoding="utf-8")
+        defined.update(def_pattern.findall(text))
+        used.update(use_pattern.findall(text))
+
+    undefined = sorted(var for var in used if var not in defined)
+    assert not undefined, f"undefined CSS vars in templates: {', '.join(undefined)}"
+
