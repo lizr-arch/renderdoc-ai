@@ -12,6 +12,8 @@ from extract_event_intermediate import extract_event_intermediate, validate_json
 
 _SCHEMA_DIR = Path(__file__).resolve().parent / "schema"
 _ARTIFACT_SCHEMA_PATH = _SCHEMA_DIR / "artifact_index.schema.json"
+_DEFAULT_ENGINE_TARGETS = ("unity", "unreal")
+_KNOWN_ENGINE_TARGETS = ("unity", "unreal", "messiah")
 
 
 def _parse_event_id_from_path(path: Path):
@@ -73,6 +75,35 @@ def _parse_source_kind_list(value: str | None):
         if token:
             tokens.append(token)
     return set(tokens)
+
+
+def _parse_engine_targets(value):
+    if value is None:
+        return list(_DEFAULT_ENGINE_TARGETS)
+
+    if isinstance(value, str):
+        chunks = value.replace(";", ",").split(",")
+    elif isinstance(value, (list, tuple, set)):
+        chunks = list(value)
+    else:
+        raise ValueError(f"unsupported engine_targets type: {type(value)}")
+
+    parsed = []
+    for chunk in chunks:
+        token = str(chunk).strip().lower()
+        if not token:
+            continue
+        if token not in _KNOWN_ENGINE_TARGETS:
+            raise ValueError(
+                f"unsupported engine target: {token}. supported: {', '.join(_KNOWN_ENGINE_TARGETS)}"
+            )
+        if token not in parsed:
+            parsed.append(token)
+
+    if not parsed:
+        return list(_DEFAULT_ENGINE_TARGETS)
+
+    return parsed
 
 
 def _load_json(path: Path, default):
@@ -186,6 +217,89 @@ def _detect_fbx_stage_status(event_root: Path, allow_missing_backend: bool):
     return "failed"
 
 
+def _build_engine_statuses(event_root: Path, bundle_root: Path, engine_targets, fbx_stage_status: str):
+    requested = set(engine_targets)
+
+    materials_path = bundle_root / "materials" / "materials.json"
+    textures_dir = bundle_root / "textures"
+    bundle_mesh_obj = bundle_root / "mesh" / "mesh.obj"
+
+    unity_fbx = event_root / "fbx" / "unity" / "mesh.fbx"
+    unreal_fbx = event_root / "fbx" / "unreal" / "mesh.fbx"
+    unity_plan = event_root / "fbx" / "unity" / "shader_import_plan.json"
+    unreal_plan = event_root / "fbx" / "unreal" / "shader_import_plan.json"
+
+    def _unity_status():
+        if "unity" not in requested:
+            return "not_requested"
+        if unity_fbx.exists():
+            return "ok"
+        if fbx_stage_status == "degraded_missing_fbx_backend":
+            return "degraded_missing_fbx_backend"
+        return "failed"
+
+    def _unreal_status():
+        if "unreal" not in requested:
+            return "not_requested"
+        if unreal_fbx.exists():
+            return "ok"
+        if fbx_stage_status == "degraded_missing_fbx_backend":
+            return "degraded_missing_fbx_backend"
+        return "failed"
+
+    messiah_status = "not_implemented" if "messiah" in requested else "not_requested"
+
+    engines = {
+        "unity": {
+            "requested": bool("unity" in requested),
+            "status": _unity_status(),
+            "mesh_format": "fbx",
+            "shader_format": "hlsl",
+            "material_format": "materials_json",
+            "coordinate_system": {"up_axis": "Y", "unit": "meter"},
+            "artifacts": {
+                "mesh": _rel_or_abs(unity_fbx, event_root),
+                "shader_plan": _rel_or_abs(unity_plan, event_root),
+                "materials": _rel_or_abs(materials_path, event_root),
+                "textures_dir": _rel_or_abs(textures_dir, event_root),
+            },
+            "notes": "Unity 导入优先使用 fbx/unity + shader_import_plan",
+        },
+        "unreal": {
+            "requested": bool("unreal" in requested),
+            "status": _unreal_status(),
+            "mesh_format": "fbx",
+            "shader_format": "usf",
+            "material_format": "materials_json",
+            "coordinate_system": {"up_axis": "Z", "unit": "centimeter"},
+            "artifacts": {
+                "mesh": _rel_or_abs(unreal_fbx, event_root),
+                "shader_plan": _rel_or_abs(unreal_plan, event_root),
+                "materials": _rel_or_abs(materials_path, event_root),
+                "textures_dir": _rel_or_abs(textures_dir, event_root),
+            },
+            "notes": "Unreal 导入优先使用 fbx/unreal + shader_import_plan",
+        },
+        "messiah": {
+            "requested": bool("messiah" in requested),
+            "status": messiah_status,
+            "mesh_format": "obj",
+            "shader_format": "intermediate_json_bin",
+            "material_format": "materials_json",
+            "coordinate_system": {"up_axis": "unknown", "unit": "unknown"},
+            "artifacts": {
+                "mesh": _rel_or_abs(bundle_mesh_obj, event_root),
+                "shader_plan": "",
+                "materials": _rel_or_abs(materials_path, event_root),
+                "textures_dir": _rel_or_abs(textures_dir, event_root),
+            },
+            "notes": "Messiah 目标在 M2 为占位状态，后续接专用导入器。",
+        },
+    }
+
+    return engines
+
+
 def orchestrate_event_assets(
     *,
     out_dir,
@@ -197,6 +311,7 @@ def orchestrate_event_assets(
     rgba_manifest=None,
     texture_mode="auto",
     raw_source_kinds=None,
+    engine_targets=None,
     allow_missing_fbx_backend=False,
     spirv_cross_path=None,
     fxc_path=None,
@@ -214,6 +329,7 @@ def orchestrate_event_assets(
 
     stage_results = []
     raw_source_kinds = set(raw_source_kinds or set())
+    engine_targets = _parse_engine_targets(engine_targets)
 
     if intermediate_dir:
         base_path = Path(intermediate_dir)
@@ -221,7 +337,13 @@ def orchestrate_event_assets(
             event_id = _pick_event_id(base_path)
         event_id = int(event_id)
         intermediate_path = _resolve_intermediate_path(base_path, event_id)
-        stage_results.append({"name": "extract_intermediate", "status": "reused", "message": "using existing intermediate"})
+        stage_results.append(
+            {
+                "name": "extract_intermediate",
+                "status": "reused",
+                "message": "using existing intermediate",
+            }
+        )
     else:
         if event_id is None:
             raise ValueError("--event is required when using --xml/--zip")
@@ -235,7 +357,13 @@ def orchestrate_event_assets(
                 vertex_stride=int(vertex_stride),
             )
         )
-        stage_results.append({"name": "extract_intermediate", "status": "ok", "message": "intermediate generated"})
+        stage_results.append(
+            {
+                "name": "extract_intermediate",
+                "status": "ok",
+                "message": "intermediate generated",
+            }
+        )
 
     bundle_root = Path(
         export_event_import_bundle(
@@ -247,27 +375,45 @@ def orchestrate_event_assets(
             raw_source_kinds=raw_source_kinds,
         )
     )
-    stage_results.append({"name": "export_import_bundle", "status": "ok", "message": "import bundle generated"})
-
-    export_fbx_assets(
-        intermediate_dir=str(intermediate_path),
-        out_dir=str(out_root),
-        event_id=event_id,
-        allow_missing_backend=bool(allow_missing_fbx_backend),
-        spirv_cross_path=spirv_cross_path,
-        fxc_path=fxc_path,
-        dxc_path=dxc_path,
+    stage_results.append(
+        {
+            "name": "export_import_bundle",
+            "status": "ok",
+            "message": "import bundle generated",
+        }
     )
 
     event_root = out_root / f"event_{event_id}"
-    fbx_status = _detect_fbx_stage_status(event_root, bool(allow_missing_fbx_backend))
-    stage_results.append(
-        {
-            "name": "export_fbx_assets",
-            "status": fbx_status,
-            "message": "fbx outputs available" if fbx_status == "ok" else "fbx backend missing, kept obj/import bundle",
-        }
-    )
+    needs_fbx = bool({"unity", "unreal"} & set(engine_targets))
+    if needs_fbx:
+        export_fbx_assets(
+            intermediate_dir=str(intermediate_path),
+            out_dir=str(out_root),
+            event_id=event_id,
+            allow_missing_backend=bool(allow_missing_fbx_backend),
+            spirv_cross_path=spirv_cross_path,
+            fxc_path=fxc_path,
+            dxc_path=dxc_path,
+        )
+        fbx_status = _detect_fbx_stage_status(event_root, bool(allow_missing_fbx_backend))
+        stage_results.append(
+            {
+                "name": "export_fbx_assets",
+                "status": fbx_status,
+                "message": "fbx outputs available"
+                if fbx_status == "ok"
+                else "fbx backend missing, kept obj/import bundle",
+            }
+        )
+    else:
+        fbx_status = "skipped_no_fbx_targets"
+        stage_results.append(
+            {
+                "name": "export_fbx_assets",
+                "status": fbx_status,
+                "message": "skipped because engine_targets has no unity/unreal",
+            }
+        )
 
     bundle_manifest_path = bundle_root / "bundle_manifest.json"
     materials_path = bundle_root / "materials" / "materials.json"
@@ -287,11 +433,15 @@ def orchestrate_event_assets(
     elif isinstance(source_manifest, dict) and source_manifest.get("api"):
         api = str(source_manifest.get("api"))
 
+    engines = _build_engine_statuses(event_root, bundle_root, engine_targets, fbx_status)
+
     artifact_index = {
-        "schema_version": "1.0",
+        "schema_version": "1.1",
         "schema_path": "schema/artifact_index.schema.json",
         "event_id": int(event_id),
         "api": api,
+        "engine_targets": engine_targets,
+        "engines": engines,
         "sources": {
             "intermediate_dir": str(intermediate_path),
             "zip_xml": str((bundle_sources or {}).get("zip_xml") or (source_sources or {}).get("zip_xml") or ""),
@@ -334,14 +484,26 @@ def orchestrate_event_assets(
 
 
 def main(argv=None):
-    parser = argparse.ArgumentParser(description="Orchestrate event asset export (intermediate -> bundle -> fbx)")
+    parser = argparse.ArgumentParser(
+        description="Orchestrate event asset export (intermediate -> bundle -> fbx)"
+    )
     parser.add_argument("--intermediate", required=False, help="Path to intermediate folder (or event root)")
     parser.add_argument("--xml", required=False, help="Path to capture.zip.xml")
     parser.add_argument("--zip", required=False, help="Path to capture.zip")
     parser.add_argument("--event", required=False, type=int, help="Target event id")
     parser.add_argument("--out", required=True, help="Output directory")
-    parser.add_argument("--vertex-stride", required=False, type=int, default=0, help="Optional vertex stride hint for zip.xml extraction")
-    parser.add_argument("--rgba-manifest", required=False, help="Optional JSON mapping for external RGBA bytes overrides")
+    parser.add_argument(
+        "--vertex-stride",
+        required=False,
+        type=int,
+        default=0,
+        help="Optional vertex stride hint for zip.xml extraction",
+    )
+    parser.add_argument(
+        "--rgba-manifest",
+        required=False,
+        help="Optional JSON mapping for external RGBA bytes overrides",
+    )
     parser.add_argument(
         "--texture-mode",
         required=False,
@@ -355,6 +517,12 @@ def main(argv=None):
         default="",
         help="Comma-separated source_kind values that force raw export when --texture-mode=auto",
     )
+    parser.add_argument(
+        "--engine-targets",
+        required=False,
+        default=",".join(_DEFAULT_ENGINE_TARGETS),
+        help="Comma-separated engine targets. supported: unity, unreal, messiah",
+    )
     parser.add_argument("--spirv-cross", required=False, help="Path to spirv-cross executable")
     parser.add_argument("--fxc", required=False, help="Path to fxc executable")
     parser.add_argument("--dxc", required=False, help="Path to dxc executable")
@@ -367,7 +535,9 @@ def main(argv=None):
     args = parser.parse_args(argv)
 
     raw_source_kinds = _parse_source_kind_list(args.raw_source_kinds)
-    allow_missing_backend = bool(args.allow_missing_fbx_backend or os.environ.get("RDC_FBX_ALLOW_MISSING") == "1")
+    allow_missing_backend = bool(
+        args.allow_missing_fbx_backend or os.environ.get("RDC_FBX_ALLOW_MISSING") == "1"
+    )
 
     artifact_index_path = orchestrate_event_assets(
         out_dir=args.out,
@@ -379,6 +549,7 @@ def main(argv=None):
         rgba_manifest=args.rgba_manifest,
         texture_mode=args.texture_mode,
         raw_source_kinds=raw_source_kinds,
+        engine_targets=args.engine_targets,
         allow_missing_fbx_backend=allow_missing_backend,
         spirv_cross_path=args.spirv_cross,
         fxc_path=args.fxc,

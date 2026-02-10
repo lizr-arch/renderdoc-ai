@@ -15,6 +15,14 @@
 
 ---
 
+## 0.1 M2 实现状态（2026-02-10）
+
+- ✅ orchestrator 支持 `--engine-targets`
+- ✅ `artifact_index.json` 新增 `engine_targets` + `engines{unity,unreal,messiah}`
+- ✅ `messiah` 支持 `not_implemented` 非阻断状态表达
+
+---
+
 ## 1. Skill 定位
 
 **名称建议**：`rdc-event-asset-orchestrator`  
@@ -196,7 +204,7 @@
 ## 8. 实施拆分建议（供后续 /do）
 
 1. M1：实现 orchestrator CLI（仅串联 S0-S4，不加 AI）。
-2. M2：补充 `artifact_index` 字段扩展（按引擎差异增量演进）。
+2. M2：✅ 已完成（engine_targets + engines 差异字段）。
 3. M3：增加 AI enrichment sidecar（非阻断）。
 4. M4：扩展 batch orchestrator 与 scan 选点联动。
 

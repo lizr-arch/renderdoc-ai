@@ -93,10 +93,15 @@ def test_orchestrator_generates_artifact_index(tmp_path, monkeypatch):
     assert artifact_index_path.exists()
 
     payload = json.loads(artifact_index_path.read_text(encoding="utf-8"))
-    assert payload["schema_version"] == "1.0"
+    assert payload["schema_version"] == "1.1"
     assert payload["schema_path"].endswith("schema/artifact_index.schema.json")
     assert payload["event_id"] == event_id
     assert payload["api"] == "Vulkan"
+
+    assert payload["engine_targets"] == ["unity", "unreal"]
+    assert payload["engines"]["unity"]["requested"] is True
+    assert payload["engines"]["unreal"]["requested"] is True
+    assert payload["engines"]["messiah"]["requested"] is False
 
     assert payload["stages"][0]["name"] == "extract_intermediate"
     assert payload["stages"][0]["status"] == "reused"
@@ -159,6 +164,48 @@ def test_orchestrator_xml_zip_branch_with_mock_extract(tmp_path, monkeypatch):
     assert payload["api"] == "D3D11"
     assert payload["stages"][0]["name"] == "extract_intermediate"
     assert payload["stages"][0]["status"] == "ok"
+
+
+def test_orchestrator_messiah_only_skips_fbx(tmp_path, monkeypatch):
+    monkeypatch.setenv("RDC_FBX_ALLOW_MISSING", "1")
+
+    from event_asset_orchestrator import orchestrate_event_assets
+
+    event_id = 222
+    event_root = tmp_path / f"event_{event_id}"
+    intermediate = event_root / "intermediate"
+    intermediate.mkdir(parents=True, exist_ok=True)
+    _write_minimal_intermediate(intermediate)
+
+    (event_root / "manifest.json").write_text(
+        json.dumps(
+            {
+                "api": "Vulkan",
+                "sources": {"zip_xml": "capture.zip.xml", "zip_bin": "capture.zip"},
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    out_dir = tmp_path / "out"
+    artifact_index_path = orchestrate_event_assets(
+        out_dir=str(out_dir),
+        intermediate_dir=str(intermediate),
+        event_id=event_id,
+        engine_targets="messiah",
+        allow_missing_fbx_backend=True,
+    )
+
+    payload = json.loads(artifact_index_path.read_text(encoding="utf-8"))
+    assert payload["engine_targets"] == ["messiah"]
+
+    fbx_stage = [s for s in payload["stages"] if s["name"] == "export_fbx_assets"][0]
+    assert fbx_stage["status"] == "skipped_no_fbx_targets"
+
+    assert payload["engines"]["unity"]["requested"] is False
+    assert payload["engines"]["unreal"]["requested"] is False
+    assert payload["engines"]["messiah"]["requested"] is True
+    assert payload["engines"]["messiah"]["status"] == "not_implemented"
 
 
 def test_orchestrator_schema_file_exists():

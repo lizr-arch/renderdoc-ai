@@ -189,6 +189,7 @@
 | 哪些工作该由脚本做、哪些可以交给 AI？ | [AI_SCRIPT_BOUNDARY.md](AI_SCRIPT_BOUNDARY.md) |
 | Skill 编排契约在哪里？ | [SKILL_RDC_EVENT_ASSET_ORCHESTRATOR_SPEC.md](SKILL_RDC_EVENT_ASSET_ORCHESTRATOR_SPEC.md) |
 | 如何一键串联 intermediate/bundle/fbx？ | [EVENT_ASSET_ORCHESTRATOR.md](EVENT_ASSET_ORCHESTRATOR.md) |
+| 如何按引擎目标定制导出（unity/unreal/messiah）？ | [EVENT_ASSET_ORCHESTRATOR.md](EVENT_ASSET_ORCHESTRATOR.md) |
 
 | Mali 分析如何集成？ | [MALI_INTEGRATION_SUMMARY.md](MALI_INTEGRATION_SUMMARY.md) |
 

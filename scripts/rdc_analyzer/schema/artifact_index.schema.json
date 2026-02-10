@@ -8,6 +8,8 @@
     "schema_path",
     "event_id",
     "api",
+    "engine_targets",
+    "engines",
     "sources",
     "options",
     "stages",
@@ -28,6 +30,36 @@
     },
     "api": {
       "type": "string"
+    },
+    "engine_targets": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": [
+          "unity",
+          "unreal",
+          "messiah"
+        ]
+      }
+    },
+    "engines": {
+      "type": "object",
+      "required": [
+        "unity",
+        "unreal",
+        "messiah"
+      ],
+      "properties": {
+        "unity": {
+          "$ref": "#/$defs/engineStatus"
+        },
+        "unreal": {
+          "$ref": "#/$defs/engineStatus"
+        },
+        "messiah": {
+          "$ref": "#/$defs/engineStatus"
+        }
+      }
     },
     "sources": {
       "type": "object",
@@ -233,6 +265,79 @@
     },
     "generated_at_utc": {
       "type": "string"
+    }
+  },
+  "$defs": {
+    "engineStatus": {
+      "type": "object",
+      "required": [
+        "requested",
+        "status",
+        "mesh_format",
+        "shader_format",
+        "material_format",
+        "coordinate_system",
+        "artifacts",
+        "notes"
+      ],
+      "properties": {
+        "requested": {
+          "type": "boolean"
+        },
+        "status": {
+          "type": "string"
+        },
+        "mesh_format": {
+          "type": "string"
+        },
+        "shader_format": {
+          "type": "string"
+        },
+        "material_format": {
+          "type": "string"
+        },
+        "coordinate_system": {
+          "type": "object",
+          "required": [
+            "up_axis",
+            "unit"
+          ],
+          "properties": {
+            "up_axis": {
+              "type": "string"
+            },
+            "unit": {
+              "type": "string"
+            }
+          }
+        },
+        "artifacts": {
+          "type": "object",
+          "required": [
+            "mesh",
+            "shader_plan",
+            "materials",
+            "textures_dir"
+          ],
+          "properties": {
+            "mesh": {
+              "type": "string"
+            },
+            "shader_plan": {
+              "type": "string"
+            },
+            "materials": {
+              "type": "string"
+            },
+            "textures_dir": {
+              "type": "string"
+            }
+          }
+        },
+        "notes": {
+          "type": "string"
+        }
+      }
     }
   }
 }
