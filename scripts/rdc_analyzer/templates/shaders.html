@@ -112,6 +112,35 @@
             box-shadow: 0 2px 8px rgba(44, 100, 183, 0.24);
         }
 
+        .data-health-banner {
+            margin: 6px 10px 8px;
+            padding: 7px 9px;
+            border-radius: var(--radius-md);
+            border: 1px solid rgba(90, 115, 150, 0.45);
+            background: rgba(16, 25, 40, 0.72);
+            color: var(--text-secondary);
+            font-size: var(--font-xs);
+            line-height: 1.35;
+        }
+
+        .data-health-banner[data-state='good'] {
+            border-color: rgba(63, 185, 80, 0.45);
+            background: rgba(21, 52, 34, 0.52);
+            color: #b9f3c4;
+        }
+
+        .data-health-banner[data-state='warn'] {
+            border-color: rgba(249, 197, 19, 0.45);
+            background: rgba(69, 54, 12, 0.56);
+            color: #ffe8a3;
+        }
+
+        .data-health-banner[data-state='critical'] {
+            border-color: rgba(233, 69, 96, 0.52);
+            background: rgba(68, 22, 31, 0.58);
+            color: #ffd2dd;
+        }
+
         /* Shader 列表项 */
         .shader-list {
             flex: 1;
@@ -1205,6 +1234,9 @@
                     <span class="summary-chip" id="activeShaderFilter">筛选: 全部</span>
                     <span class="summary-chip accent" id="selectedShaderHint">当前: -</span>
                 </div>
+                <div class="data-health-banner" id="shaderDataHealth" data-state="pending">
+                    数据状态：检测中...
+                </div>
 
                 <!-- Shader 列表 -->
                 <div class="shader-list" id="shaderList">
@@ -2275,6 +2307,41 @@
                     selectedEl.textContent = '当前: -';
                 }
             }
+
+            updateShaderDataHealthBanner();
+        }
+
+        function updateShaderDataHealthBanner() {
+            const banner = document.getElementById('shaderDataHealth');
+            if (!banner) return;
+
+            const total = Array.isArray(allShaders) ? allShaders.length : 0;
+            if (total <= 0) {
+                banner.dataset.state = 'critical';
+                banner.textContent = '数据状态：Shader 数据 0 项，当前页面会显示空态。建议命令：py -3 scripts/rdc_analyzer/xml_to_bundle.py <capture.xml> --rdc <capture.rdc> -o <output_dir>';
+                return;
+            }
+
+            const hlslReady = allShaders.reduce((acc, shader) => {
+                const src = getHlslSource(shader);
+                return acc + (src ? 1 : 0);
+            }, 0);
+            const coverage = Math.round((hlslReady * 1000) / total) / 10;
+
+            if (hlslReady <= 0) {
+                banner.dataset.state = 'warn';
+                banner.textContent = `数据状态：可读 HLSL ${hlslReady}/${total}（${coverage}%），点击“查看 HLSL 代码”将主要显示空态。`;
+                return;
+            }
+
+            if (hlslReady < total) {
+                banner.dataset.state = 'warn';
+                banner.textContent = `数据状态：可读 HLSL ${hlslReady}/${total}（${coverage}%），部分 Shader 仍会显示空态。`;
+                return;
+            }
+
+            banner.dataset.state = 'good';
+            banner.textContent = `数据状态：可读 HLSL ${hlslReady}/${total}（${coverage}%），可进行完整 Shader 视觉验收。`;
         }
 
         // ========== 跳转 ==========

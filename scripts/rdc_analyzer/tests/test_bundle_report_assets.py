@@ -354,8 +354,10 @@ def test_textures_panel_summary_contract(tmp_path):
     assert 'id="texturePanelSummary"' in html
     assert 'id="visibleTextureCount"' in html
     assert 'id="filterStateHint"' in html
+    assert 'id="textureDataHealth"' in html
     assert 'function getTextureFilterLabel()' in html
     assert 'function updateTexturePanelSummary()' in html
+    assert 'function updateTextureDataHealthBanner()' in html
 
 
 def test_shaders_panel_summary_contract(tmp_path):
@@ -372,7 +374,9 @@ def test_shaders_panel_summary_contract(tmp_path):
     assert 'id="shaderPanelSummary"' in html
     assert 'id="visibleShaderCount"' in html
     assert 'id="activeShaderFilter"' in html
+    assert 'id="shaderDataHealth"' in html
     assert 'function updateShaderPanelSummary()' in html
+    assert 'function updateShaderDataHealthBanner()' in html
 
 
 

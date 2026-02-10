@@ -503,6 +503,35 @@
             background: linear-gradient(180deg, rgba(36, 74, 128, 0.78) 0%, rgba(24, 54, 99, 0.78) 100%);
             box-shadow: 0 2px 8px rgba(44, 100, 183, 0.24);
         }
+
+        .data-health-banner {
+            margin: 6px 10px 8px;
+            padding: 7px 9px;
+            border-radius: var(--radius-md);
+            border: 1px solid rgba(90, 115, 150, 0.45);
+            background: rgba(16, 25, 40, 0.72);
+            color: var(--text-secondary);
+            font-size: var(--font-xs);
+            line-height: 1.35;
+        }
+
+        .data-health-banner[data-state='good'] {
+            border-color: rgba(63, 185, 80, 0.45);
+            background: rgba(21, 52, 34, 0.52);
+            color: #b9f3c4;
+        }
+
+        .data-health-banner[data-state='warn'] {
+            border-color: rgba(249, 197, 19, 0.45);
+            background: rgba(69, 54, 12, 0.56);
+            color: #ffe8a3;
+        }
+
+        .data-health-banner[data-state='critical'] {
+            border-color: rgba(233, 69, 96, 0.52);
+            background: rgba(68, 22, 31, 0.58);
+            color: #ffd2dd;
+        }
         
         /* 详情面板增强 */
         .detail-preview {
@@ -725,6 +754,9 @@
                     <span class="summary-chip" id="visibleTextureCount">可见 0</span>
                     <span class="summary-chip" id="selectedTextureHint">当前: -</span>
                     <span class="summary-chip accent" id="filterStateHint">筛选: 全部 · 排序: VRAM</span>
+                </div>
+                <div class="data-health-banner" id="textureDataHealth" data-state="pending">
+                    数据状态：检测中...
                 </div>
 
                 <!-- 纹理列表 -->
@@ -1350,6 +1382,38 @@
             if (filterEl) {
                 filterEl.textContent = `筛选: ${getTextureFilterLabel()} · 排序: ${getTextureSortLabel()}`;
             }
+
+            updateTextureDataHealthBanner();
+        }
+
+        function updateTextureDataHealthBanner() {
+            const banner = document.getElementById('textureDataHealth');
+            if (!banner) return;
+
+            const total = Array.isArray(textureData) ? textureData.length : 0;
+            if (total <= 0) {
+                banner.dataset.state = 'warn';
+                banner.textContent = '数据状态：纹理元数据 0 项，请检查 textures_data.json 或导出流程。';
+                return;
+            }
+
+            const withThumb = textureData.reduce((acc, tex) => acc + ((tex && tex.thumbnail) ? 1 : 0), 0);
+            const coverage = Math.round((withThumb * 1000) / total) / 10;
+
+            if (withThumb <= 0) {
+                banner.dataset.state = 'critical';
+                banner.textContent = `数据状态：缩略图 ${withThumb}/${total}（${coverage}%），当前显示占位图。建议命令：py -3 scripts/rdc_analyzer/xml_to_bundle.py <capture.xml> --zip <capture.zip> -o <output_dir>`;
+                return;
+            }
+
+            if (withThumb < total) {
+                banner.dataset.state = 'warn';
+                banner.textContent = `数据状态：缩略图 ${withThumb}/${total}（${coverage}%），部分纹理将显示占位图。`;
+                return;
+            }
+
+            banner.dataset.state = 'good';
+            banner.textContent = `数据状态：缩略图 ${withThumb}/${total}（${coverage}%），可进行完整视觉验收。`;
         }
 
         function selectDefaultTexture() {

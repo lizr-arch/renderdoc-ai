@@ -1,6 +1,6 @@
 {
-  "": "https://json-schema.org/draft/2020-12/schema",
-  "": "https://renderdoc.org/schemas/ai_enrichment.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://renderdoc.org/schemas/ai_enrichment.schema.json",
   "title": "RDC Event AI Enrichment Sidecar",
   "type": "object",
   "required": [
@@ -49,13 +49,13 @@
     "naming_suggestions": {
       "type": "array",
       "items": {
-        "": "#//namingSuggestion"
+        "$ref": "#/$defs/namingSuggestion"
       }
     },
     "material_semantics": {
       "type": "array",
       "items": {
-        "": "#//materialSemantic"
+        "$ref": "#/$defs/materialSemantic"
       }
     },
     "assumptions": {
@@ -68,7 +68,7 @@
       "type": "string"
     }
   },
-  "": {
+  "$defs": {
     "namingSuggestion": {
       "type": "object",
       "required": [
@@ -115,7 +115,7 @@
         "texture_bindings": {
           "type": "array",
           "items": {
-            "": "#//textureBinding"
+            "$ref": "#/$defs/textureBinding"
           }
         }
       }
