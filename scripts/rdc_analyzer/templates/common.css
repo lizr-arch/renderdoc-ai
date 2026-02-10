@@ -71,8 +71,15 @@
     --scrollbar-width: 8px;
     
     /* 字体 */
-    --font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif;
-    --font-mono: 'Consolas', 'Monaco', 'Courier New', monospace;
+    --font-family: 'Segoe UI', Inter, -apple-system, BlinkMacSystemFont,
+                   'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei',
+                   'Noto Sans CJK SC', sans-serif;
+    --font-mono: 'JetBrains Mono', 'Cascadia Mono', 'Consolas',
+                 'SFMono-Regular', 'Monaco', 'Courier New', monospace;
+    --font-micro: 10px;
+    --font-xs: 11px;
+    --font-sm: 12px;
+    --font-md: 14px;
     
     /* 圆角 */
     --radius-sm: 3px;
@@ -93,7 +100,7 @@ body {
     background: var(--bg-darkest);
     color: var(--text-primary);
     min-height: 100vh;
-    font-size: 13px;
+    font-size: var(--font-md);
     line-height: 1.4;
 }
 

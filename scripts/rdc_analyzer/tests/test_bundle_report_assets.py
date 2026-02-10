@@ -372,3 +372,34 @@ def test_shaders_panel_summary_contract(tmp_path):
     assert 'id="visibleShaderCount"' in html
     assert 'id="activeShaderFilter"' in html
     assert 'function updateShaderPanelSummary()' in html
+
+
+
+def test_common_css_typography_tokens_contract():
+    css_path = Path(__file__).resolve().parents[1] / "templates" / "common.css"
+    css = css_path.read_text(encoding="utf-8")
+
+    assert "--font-micro: 10px" in css
+    assert "--font-xs: 11px" in css
+    assert "--font-sm: 12px" in css
+    assert "--font-md: 14px" in css
+
+    # 中文 fallback 与等宽 fallback 需要明确，避免不同机器显示飘移
+    assert "Microsoft YaHei" in css
+    assert "Noto Sans CJK SC" in css
+    assert "Cascadia Mono" in css
+
+
+def test_events_right_panel_typography_contract(tmp_path):
+    gen = ReportBundleGenerator(output_dir=tmp_path, capture_name="t.rdc")
+    gen.set_events([
+        {"eid": 1, "name": "vkCmdDraw", "type": "draw", "duration_ms": 1.0},
+    ])
+    outputs = gen.generate_all()
+    html = Path(outputs["events"]).read_text(encoding="utf-8")
+
+    assert "#panelRight .stat-label" in html
+    assert "font-size: var(--font-xs);" in html
+    assert "#panelRight .stat-value" in html
+    assert "font-size: var(--font-sm);" in html
+    assert "font-variant-numeric: tabular-nums;" in html

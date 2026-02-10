@@ -378,9 +378,11 @@ def generate_thumbnails_from_zip(
     # 尝试导入 ThumbnailGenerator
     try:
         from thumbnail_generator import ThumbnailGenerator
-    except ImportError:
+    except ImportError as e:
         if verbose:
-            print("      [WARN] thumbnail_generator not available, skipping thumbnails")
+            print(f"      [WARN] thumbnail_generator not available: {e}")
+            import traceback
+            traceback.print_exc()
         return 0
     
     # 确定 ZIP 路径
