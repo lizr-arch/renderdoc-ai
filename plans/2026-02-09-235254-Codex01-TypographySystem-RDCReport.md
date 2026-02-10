@@ -170,3 +170,7 @@ py -3 scripts/rdc_analyzer/xml_to_bundle.py D:\backup\endfield_auto.zip.xml -o D
 - 已执行：py -3 scripts/rdc_analyzer/tools/ui_headless_smoke.py --report-dir D:\backup\endfield_report --out-dir docs\analysis\codex_rdc_analyzer\ui_smoke_artifacts\r4_typography_followup，结果 overall_pass=True。
 - 已执行：py -3 scripts/rdc_analyzer/xml_to_bundle.py D:\backup\endfield_auto.zip.xml -o D:\backup\endfield_report，用于覆盖你当前 visual check 目录。
 - 备注：shaders_data.json=0 场景已在 smoke 中按空态通过处理，不再误报失败。
+- [r2 微调] events 右侧属性栏降一档对比度：value 由 text-primary/600 调整为 text-secondary/500，highlight 统一为 accent-blue，并将右栏 section title 收敛到 xs + 次级色。
+- [r2 验证] 已执行：`py -3 -m pytest scripts/rdc_analyzer/tests/test_bundle_report_assets.py scripts/rdc_analyzer/tests/test_ui_headless_smoke_unit.py -q`，结果 29 passed。
+- [r2 验证] 已执行：`py -3 scripts/rdc_analyzer/tools/ui_headless_smoke.py --report-dir D:\backup\endfield_report --out-dir docs\analysis\codex_rdc_analyzer\ui_smoke_artifacts\r5_typo_contrast_r2`，结果 overall_pass=True。
+

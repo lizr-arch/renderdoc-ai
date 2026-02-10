@@ -402,4 +402,9 @@ def test_events_right_panel_typography_contract(tmp_path):
     assert "font-size: var(--font-xs);" in html
     assert "#panelRight .stat-value" in html
     assert "font-size: var(--font-sm);" in html
+    assert "color: var(--text-secondary);" in html
     assert "font-variant-numeric: tabular-nums;" in html
+    assert "#panelRight .stat-value.highlight" in html
+    assert "color: var(--accent-blue);" in html
+    assert "#panelRight .prop-section-title" in html
+    assert "letter-spacing: 0.2px;" in html
