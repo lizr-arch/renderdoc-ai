@@ -6,6 +6,15 @@
 
 ---
 
+## 0. M1 实现状态（2026-02-10）
+
+- ✅ 新增编排器入口：`scripts/rdc_analyzer/event_asset_orchestrator.py`
+- ✅ 新增结构契约：`scripts/rdc_analyzer/schema/artifact_index.schema.json`
+- ✅ 新增测试：`scripts/rdc_analyzer/tests/test_event_asset_orchestrator.py`
+- ✅ 使用文档：`scripts/rdc_analyzer/docs/EVENT_ASSET_ORCHESTRATOR.md`
+
+---
+
 ## 1. Skill 定位
 
 **名称建议**：`rdc-event-asset-orchestrator`  
@@ -117,7 +126,7 @@
 }
 ```
 
-> 建议新增 schema：`scripts/rdc_analyzer/schema/artifact_index.schema.json`（本 spec 阶段先定义，不在本轮实现）。
+> M1 已落地 schema：`scripts/rdc_analyzer/schema/artifact_index.schema.json`。
 
 ---
 
@@ -187,7 +196,7 @@
 ## 8. 实施拆分建议（供后续 /do）
 
 1. M1：实现 orchestrator CLI（仅串联 S0-S4，不加 AI）。
-2. M2：引入 `artifact_index.schema.json` 并接入验证。
+2. M2：补充 `artifact_index` 字段扩展（按引擎差异增量演进）。
 3. M3：增加 AI enrichment sidecar（非阻断）。
 4. M4：扩展 batch orchestrator 与 scan 选点联动。
 

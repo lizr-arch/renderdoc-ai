@@ -1,0 +1,238 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://renderdoc.org/schemas/artifact_index.schema.json",
+  "title": "RDC Event Asset Orchestrator Artifact Index",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "schema_path",
+    "event_id",
+    "api",
+    "sources",
+    "options",
+    "stages",
+    "artifacts",
+    "status_counts",
+    "statistics",
+    "generated_at_utc"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string"
+    },
+    "schema_path": {
+      "type": "string"
+    },
+    "event_id": {
+      "type": "integer"
+    },
+    "api": {
+      "type": "string"
+    },
+    "sources": {
+      "type": "object",
+      "required": [
+        "intermediate_dir",
+        "zip_xml",
+        "zip_bin"
+      ],
+      "properties": {
+        "intermediate_dir": {
+          "type": "string"
+        },
+        "zip_xml": {
+          "type": "string"
+        },
+        "zip_bin": {
+          "type": "string"
+        }
+      }
+    },
+    "options": {
+      "type": "object",
+      "required": [
+        "texture_mode",
+        "raw_source_kinds",
+        "allow_missing_fbx_backend"
+      ],
+      "properties": {
+        "texture_mode": {
+          "type": "string",
+          "enum": [
+            "auto",
+            "decoded",
+            "raw"
+          ]
+        },
+        "raw_source_kinds": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "allow_missing_fbx_backend": {
+          "type": "boolean"
+        }
+      }
+    },
+    "stages": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "name",
+          "status",
+          "message"
+        ],
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "artifacts": {
+      "type": "object",
+      "required": [
+        "bundle_manifest",
+        "mesh_obj",
+        "mesh_mtl",
+        "materials",
+        "textures_dir",
+        "unity_fbx",
+        "unreal_fbx",
+        "unity_shader_plan",
+        "unreal_shader_plan",
+        "stats"
+      ],
+      "properties": {
+        "bundle_manifest": {
+          "type": "string"
+        },
+        "mesh_obj": {
+          "type": "string"
+        },
+        "mesh_mtl": {
+          "type": "string"
+        },
+        "materials": {
+          "type": "string"
+        },
+        "textures_dir": {
+          "type": "string"
+        },
+        "unity_fbx": {
+          "type": "string"
+        },
+        "unreal_fbx": {
+          "type": "string"
+        },
+        "unity_shader_plan": {
+          "type": "string"
+        },
+        "unreal_shader_plan": {
+          "type": "string"
+        },
+        "stats": {
+          "type": "string"
+        }
+      }
+    },
+    "status_counts": {
+      "type": "object",
+      "required": [
+        "texture",
+        "shader"
+      ],
+      "properties": {
+        "texture": {
+          "type": "object",
+          "required": [
+            "decoded_rgba8_png",
+            "rgba_bytes_png",
+            "copied_image",
+            "raw_copy",
+            "missing_source",
+            "other",
+            "total"
+          ],
+          "properties": {
+            "decoded_rgba8_png": {
+              "type": "integer"
+            },
+            "rgba_bytes_png": {
+              "type": "integer"
+            },
+            "copied_image": {
+              "type": "integer"
+            },
+            "raw_copy": {
+              "type": "integer"
+            },
+            "missing_source": {
+              "type": "integer"
+            },
+            "other": {
+              "type": "integer"
+            },
+            "total": {
+              "type": "integer"
+            }
+          }
+        },
+        "shader": {
+          "type": "object",
+          "required": [
+            "unity",
+            "unreal",
+            "total"
+          ],
+          "properties": {
+            "unity": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "integer"
+              }
+            },
+            "unreal": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "integer"
+              }
+            },
+            "total": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "integer"
+              }
+            }
+          }
+        }
+      }
+    },
+    "statistics": {
+      "type": "object",
+      "required": [
+        "bundle",
+        "mesh"
+      ],
+      "properties": {
+        "bundle": {
+          "type": "object"
+        },
+        "mesh": {
+          "type": "object"
+        }
+      }
+    },
+    "generated_at_utc": {
+      "type": "string"
+    }
+  }
+}
