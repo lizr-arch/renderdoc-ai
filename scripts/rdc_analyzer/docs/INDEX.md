@@ -57,6 +57,9 @@
 | [INTERMEDIATE_FORMAT.md](INTERMEDIATE_FORMAT.md) | **XML/ZIP 中间态格式** - 单 Event 输出 | intermediate, schema, zip.xml |
 | [ZIPXML_EVENT_EXTRACTION.md](ZIPXML_EVENT_EXTRACTION.md) | **ZIPXML 单事件离线导出指南**（Vulkan）- 数据来源/CLI/schema/限制 | zip.xml, event, vb, ib, offline |
 | [EVENT_IMPORT_BUNDLE.md](EVENT_IMPORT_BUNDLE.md) | **Event Import Bundle 导出指南**（single event 闭环） | intermediate, obj, materials, shaders, textures |
+| [FEATURE_COST_BASELINE.md](FEATURE_COST_BASELINE.md) | **功能成本基线**（防重复开发）- 已实现能力 + 成本 + 复用建议 | baseline, cost, capability, reuse |
+| [AI_SCRIPT_BOUNDARY.md](AI_SCRIPT_BOUNDARY.md) | **AI 与脚本职责边界** - 明确哪些必须脚本化、哪些可 AI 增强 | ai, boundary, orchestration |
+| [SKILL_RDC_EVENT_ASSET_ORCHESTRATOR_SPEC.md](SKILL_RDC_EVENT_ASSET_ORCHESTRATOR_SPEC.md) | **Skill 设计规范** - Event 资产编排器输入输出与失败恢复 | skill, orchestrator, artifact_index |
 | [MESSIAH_IMPORT_STATUS.md](MESSIAH_IMPORT_STATUS.md) | **Messiah 导入现状与缺口**（Phase-1 入口） | messiah, import_bundle, repository |
 
 | [MALI_INTEGRATION_SUMMARY.md](MALI_INTEGRATION_SUMMARY.md) | Mali GPU 分析集成 | Mali, GPU, 性能分析 |
@@ -181,6 +184,9 @@
 | 如何导入 Unity 资产？ | [UNITY_IMPORT.md](UNITY_IMPORT.md) |
 | 如何导入 Unreal 资产？ | [UNREAL_IMPORT.md](UNREAL_IMPORT.md) |
 | 如何导出 Mesh/Shader？ | [MESH_SHADER_EXTRACTION.md](MESH_SHADER_EXTRACTION.md) |
+| 如何避免重复开发？ | [FEATURE_COST_BASELINE.md](FEATURE_COST_BASELINE.md) |
+| 哪些工作该由脚本做、哪些可以交给 AI？ | [AI_SCRIPT_BOUNDARY.md](AI_SCRIPT_BOUNDARY.md) |
+| Skill 编排契约在哪里？ | [SKILL_RDC_EVENT_ASSET_ORCHESTRATOR_SPEC.md](SKILL_RDC_EVENT_ASSET_ORCHESTRATOR_SPEC.md) |
 
 | Mali 分析如何集成？ | [MALI_INTEGRATION_SUMMARY.md](MALI_INTEGRATION_SUMMARY.md) |
 
