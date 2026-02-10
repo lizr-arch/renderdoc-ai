@@ -351,3 +351,10 @@ js = _load_asset("scripts/simple_report.js", "// JS not found")
 | [TEXTURE_EXTRACTION.md](TEXTURE_EXTRACTION.md) | 未标注（原因：源文档无 WHAT 段） | 未标注（原因：源文档无关键词段） |
 | [TODO.md](TODO.md) | 未标注（原因：源文档无 WHAT 段） | 未标注（原因：源文档无关键词段） |
 | [UNITY_EXPORT.md](UNITY_EXPORT.md) | 未标注（原因：源文档无 WHAT 段） | 未标注（原因：源文档无关键词段） |
+
+
+### M3 Update (2026-02-10)
+
+- event_asset_orchestrator.py now supports --enable-ai-enrichment.
+- New sidecar schema: schema/ai_enrichment.schema.json.
+- artifact_index.json now includes optional ai_enrichment summary for downstream tools.

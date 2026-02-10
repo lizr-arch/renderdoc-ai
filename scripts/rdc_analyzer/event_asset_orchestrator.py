@@ -12,6 +12,7 @@ from extract_event_intermediate import extract_event_intermediate, validate_json
 
 _SCHEMA_DIR = Path(__file__).resolve().parent / "schema"
 _ARTIFACT_SCHEMA_PATH = _SCHEMA_DIR / "artifact_index.schema.json"
+_AI_ENRICHMENT_SCHEMA_PATH = _SCHEMA_DIR / "ai_enrichment.schema.json"
 _DEFAULT_ENGINE_TARGETS = ("unity", "unreal")
 _KNOWN_ENGINE_TARGETS = ("unity", "unreal", "messiah")
 
@@ -300,6 +301,163 @@ def _build_engine_statuses(event_root: Path, bundle_root: Path, engine_targets, 
     return engines
 
 
+
+def _slugify_name(value, fallback):
+    raw = str(value or "").strip()
+    if not raw:
+        return fallback
+
+    chars = []
+    for char in raw:
+        if char.isalnum() or char in ("_", "-"):
+            chars.append(char)
+        else:
+            chars.append("_")
+
+    cleaned = "".join(chars).strip("_")
+    while "__" in cleaned:
+        cleaned = cleaned.replace("__", "_")
+
+    return cleaned or fallback
+
+
+def _infer_texture_semantic(slot, sampler, source_path, output_path):
+    signals = " ".join(
+        [
+            str(slot or "").lower(),
+            str(sampler or "").lower(),
+            str(source_path or "").lower(),
+            str(output_path or "").lower(),
+        ]
+    )
+
+    mappings = [
+        ("base_color", ("basecolor", "albedo", "diffuse", "color"), 0.85),
+        ("normal", ("normal", "nrm"), 0.90),
+        ("metallic", ("metal", "metalness"), 0.85),
+        ("roughness", ("rough", "gloss"), 0.80),
+        ("occlusion", ("ao", "occlusion", "ambientocclusion"), 0.85),
+        ("emissive", ("emissive", "emission"), 0.90),
+        ("opacity", ("opacity", "alpha", "trans"), 0.75),
+        ("height", ("height", "displacement", "parallax"), 0.80),
+    ]
+
+    for semantic, keywords, confidence in mappings:
+        for keyword in keywords:
+            if keyword in signals:
+                return semantic, confidence, f"keyword:{keyword}"
+
+    if "t0" in signals or "slot0" in signals:
+        return "base_color", 0.45, "fallback:first_texture_slot"
+
+    return "unknown", 0.20, "no_reliable_signal"
+
+
+def _build_ai_enrichment_payload(*, event_id: int, api: str, bundle_root: Path):
+    materials_path = bundle_root / "materials" / "materials.json"
+    payload = _load_json(materials_path, {})
+
+    materials = payload.get("materials") if isinstance(payload, dict) else []
+    if not isinstance(materials, list):
+        materials = []
+
+    naming_suggestions = []
+    material_semantics = []
+    assumptions = []
+
+    for index, material in enumerate(materials):
+        if not isinstance(material, dict):
+            assumptions.append(f"material[{index}]_invalid_record")
+            continue
+
+        material_name = str(material.get("name") or f"material_{index}")
+        suggested_name = _slugify_name(material_name, f"material_{index}")
+
+        naming_suggestions.append(
+            {
+                "target_type": "material",
+                "source_name": material_name,
+                "suggested_name": suggested_name,
+                "confidence": 0.60 if material_name.startswith("mat") else 0.75,
+                "reason": "normalize_material_name",
+            }
+        )
+
+        textures = material.get("textures") if isinstance(material, dict) else []
+        if not isinstance(textures, list):
+            textures = []
+
+        texture_bindings = []
+        for tex_index, texture in enumerate(textures):
+            if not isinstance(texture, dict):
+                assumptions.append(f"{material_name}:texture[{tex_index}]_invalid_record")
+                continue
+
+            slot = str(texture.get("slot") or f"t{tex_index}")
+            sampler = str(texture.get("sampler") or "")
+            source_path = str(texture.get("source_path") or "")
+            output_path = str(texture.get("output_path") or "")
+            status = str(texture.get("status") or "unknown")
+
+            semantic, confidence, reason = _infer_texture_semantic(
+                slot=slot,
+                sampler=sampler,
+                source_path=source_path,
+                output_path=output_path,
+            )
+
+            texture_bindings.append(
+                {
+                    "slot": slot,
+                    "sampler": sampler,
+                    "texture_id": int(texture.get("texture_id") or -1),
+                    "semantic": semantic,
+                    "confidence": float(confidence),
+                    "reason": reason,
+                    "status": status,
+                    "output_path": output_path,
+                }
+            )
+
+            if semantic == "unknown":
+                assumptions.append(f"{material_name}:{slot}:semantic_unknown")
+
+        material_semantics.append(
+            {
+                "material": material_name,
+                "shader": str(material.get("shader") or ""),
+                "texture_bindings": texture_bindings,
+            }
+        )
+
+    if not material_semantics:
+        assumptions.append("no_material_semantics_available")
+
+    return {
+        "schema_version": "1.0",
+        "schema_path": "schema/ai_enrichment.schema.json",
+        "event_id": int(event_id),
+        "api": str(api or "Unknown"),
+        "generator": {
+            "name": "event_asset_orchestrator",
+            "version": "m3",
+            "mode": "heuristic_sidecar",
+        },
+        "naming_suggestions": naming_suggestions,
+        "material_semantics": material_semantics,
+        "assumptions": assumptions,
+        "generated_at_utc": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+    }
+
+
+def _write_ai_enrichment_sidecar(*, event_root: Path, event_id: int, api: str, bundle_root: Path):
+    payload = _build_ai_enrichment_payload(event_id=event_id, api=api, bundle_root=bundle_root)
+    out_path = event_root / "ai_enrichment.json"
+    out_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+    validate_json_file(out_path, _AI_ENRICHMENT_SCHEMA_PATH)
+    return out_path
+
+
 def orchestrate_event_assets(
     *,
     out_dir,
@@ -316,6 +474,7 @@ def orchestrate_event_assets(
     spirv_cross_path=None,
     fxc_path=None,
     dxc_path=None,
+    enable_ai_enrichment=False,
 ):
     if intermediate_dir:
         if xml_path or zip_path:
@@ -435,6 +594,57 @@ def orchestrate_event_assets(
 
     engines = _build_engine_statuses(event_root, bundle_root, engine_targets, fbx_status)
 
+    ai_enrichment = {
+        "status": "not_requested",
+        "file": "",
+        "generator": "event_asset_orchestrator.m3",
+        "message": "ai enrichment disabled",
+    }
+
+    if enable_ai_enrichment:
+        try:
+            ai_sidecar_path = _write_ai_enrichment_sidecar(
+                event_root=event_root,
+                event_id=event_id,
+                api=api,
+                bundle_root=bundle_root,
+            )
+            ai_enrichment = {
+                "status": "ok",
+                "file": _rel_or_abs(ai_sidecar_path, event_root),
+                "generator": "event_asset_orchestrator.m3",
+                "message": "ai enrichment sidecar generated",
+            }
+            stage_results.append(
+                {
+                    "name": "ai_enrichment",
+                    "status": "ok",
+                    "message": "ai sidecar generated",
+                }
+            )
+        except Exception as exc:
+            ai_enrichment = {
+                "status": "degraded_non_blocking",
+                "file": "",
+                "generator": "event_asset_orchestrator.m3",
+                "message": str(exc),
+            }
+            stage_results.append(
+                {
+                    "name": "ai_enrichment",
+                    "status": "degraded_non_blocking",
+                    "message": f"ai sidecar failed: {exc}",
+                }
+            )
+    else:
+        stage_results.append(
+            {
+                "name": "ai_enrichment",
+                "status": "not_requested",
+                "message": "ai sidecar disabled",
+            }
+        )
+
     artifact_index = {
         "schema_version": "1.1",
         "schema_path": "schema/artifact_index.schema.json",
@@ -442,6 +652,7 @@ def orchestrate_event_assets(
         "api": api,
         "engine_targets": engine_targets,
         "engines": engines,
+        "ai_enrichment": ai_enrichment,
         "sources": {
             "intermediate_dir": str(intermediate_path),
             "zip_xml": str((bundle_sources or {}).get("zip_xml") or (source_sources or {}).get("zip_xml") or ""),
@@ -451,6 +662,7 @@ def orchestrate_event_assets(
             "texture_mode": str(texture_mode),
             "raw_source_kinds": sorted(raw_source_kinds),
             "allow_missing_fbx_backend": bool(allow_missing_fbx_backend),
+            "enable_ai_enrichment": bool(enable_ai_enrichment),
         },
         "stages": stage_results,
         "artifacts": {
@@ -464,6 +676,7 @@ def orchestrate_event_assets(
             "unity_shader_plan": _rel_or_abs(unity_plan_path, event_root),
             "unreal_shader_plan": _rel_or_abs(unreal_plan_path, event_root),
             "stats": _rel_or_abs(stats_path, event_root),
+            "ai_enrichment": ai_enrichment.get("file", ""),
         },
         "status_counts": {
             "texture": _count_texture_statuses(materials_path),
@@ -531,6 +744,11 @@ def main(argv=None):
         action="store_true",
         help="Allow missing FBX backend and continue with bundle + shader plans",
     )
+    parser.add_argument(
+        "--enable-ai-enrichment",
+        action="store_true",
+        help="Generate ai_enrichment.json sidecar as non-blocking advisory output",
+    )
 
     args = parser.parse_args(argv)
 
@@ -554,6 +772,7 @@ def main(argv=None):
         spirv_cross_path=args.spirv_cross,
         fxc_path=args.fxc,
         dxc_path=args.dxc,
+        enable_ai_enrichment=bool(args.enable_ai_enrichment),
     )
 
     print(f"[OK] artifact index generated: {artifact_index_path}")

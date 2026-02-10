@@ -104,6 +104,9 @@
         },
         "allow_missing_fbx_backend": {
           "type": "boolean"
+        },
+        "enable_ai_enrichment": {
+          "type": "boolean"
         }
       }
     },
@@ -172,6 +175,9 @@
           "type": "string"
         },
         "stats": {
+          "type": "string"
+        },
+        "ai_enrichment": {
           "type": "string"
         }
       }
@@ -265,6 +271,9 @@
     },
     "generated_at_utc": {
       "type": "string"
+    },
+    "ai_enrichment": {
+      "$ref": "#/$defs/aiEnrichmentStatus"
     }
   },
   "$defs": {
@@ -335,6 +344,34 @@
           }
         },
         "notes": {
+          "type": "string"
+        }
+      }
+    },
+    "aiEnrichmentStatus": {
+      "type": "object",
+      "required": [
+        "status",
+        "file",
+        "generator",
+        "message"
+      ],
+      "properties": {
+        "status": {
+          "type": "string",
+          "enum": [
+            "not_requested",
+            "ok",
+            "degraded_non_blocking"
+          ]
+        },
+        "file": {
+          "type": "string"
+        },
+        "generator": {
+          "type": "string"
+        },
+        "message": {
           "type": "string"
         }
       }

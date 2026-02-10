@@ -216,3 +216,12 @@
 - `artifact_index.json` 可准确反映各阶段成功/失败。
 - 在无 FBX 后端场景下仍可得到可消费的 `import_bundle/`。
 - 所有失败都有 machine-readable status 与可重跑建议。
+
+
+## 10. M3 Implementation Update (2026-02-10)
+
+- Implemented optional AI enrichment sidecar generation in orchestrator.
+- Added non-blocking stage status: ai_enrichment = not_requested | ok | degraded_non_blocking.
+- Added artifact_index.ai_enrichment summary object for machine routing.
+- Added schema: scripts/rdc_analyzer/schema/ai_enrichment.schema.json
+- M3 remains advisory-only and does not alter deterministic export artifacts.

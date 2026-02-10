@@ -127,3 +127,18 @@ py -3 scripts/rdc_analyzer/event_asset_orchestrator.py \
   - `artifacts`（对应产物路径）
 
 这让后续导入器可以按引擎差异做自动路由，而不是猜测文件用途。
+
+
+---
+
+## 8. M3 AI Enrichment Sidecar (Non-blocking)
+
+- New flag: --enable-ai-enrichment
+- New output: event_<id>/ai_enrichment.json
+- Sidecar schema: scripts/rdc_analyzer/schema/ai_enrichment.schema.json
+- artifact_index additions:
+  - ai_enrichment.status: not_requested | ok | degraded_non_blocking
+  - ai_enrichment.file / generator / message
+  - options.enable_ai_enrichment
+  - artifacts.ai_enrichment
+- Failure policy: enrichment failure must NOT stop export pipeline; stage recorded as degraded_non_blocking.
