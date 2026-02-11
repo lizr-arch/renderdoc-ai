@@ -90,6 +90,9 @@ py -3 scripts/rdc_analyzer/one_click_bundle_report.py input.rdc -o bundle_output
 
 # Windows 包装（等价）
 scripts\rdc_analyzer\one_click_bundle_report.bat input.rdc -o bundle_output/ --smoke-no-fail --smoke-no-screenshots
+
+# Windows 预设入口（双击即可，默认 Endfield + D:\backup\endfield_report）
+scripts\rdc_analyzer\one_click_bundle_preset.bat
 ```
 
 脚本行为：
@@ -175,6 +178,7 @@ py -3 -m rdc_analyzer report input.xml -o report.html
 | 工具 | 路径 | 说明 |
 |------|------|------|
 | `one_click_bundle_report.py` | `scripts/rdc_analyzer/one_click_bundle_report.py` | RDC 一键导出（含回退与 smoke） |
+| `one_click_bundle_preset.bat` | `scripts/rdc_analyzer/one_click_bundle_preset.bat` | 双击预设入口（默认 Endfield 路径） |
 | `xml_to_bundle.py` | `scripts/rdc_analyzer/xml_to_bundle.py` | XML / ZIP+XML → Bundle 转换器 |
 | `rdc_analyzer` CLI | `scripts/rdc_analyzer/` | 主分析工具包 |
 | `report_bundle_generator.py` | `scripts/rdc_analyzer/report_bundle_generator.py` | Bundle 生成引擎 |

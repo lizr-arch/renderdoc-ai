@@ -213,6 +213,7 @@
 | **支持哪些纹理格式？** | [TEXTURE_DECODERS.md](TEXTURE_DECODERS.md) (48种: BC1-7, ASTC, ETC2等) |
 | **如何选择报告导出路线？** | [EXPORT_ROUTES.md](EXPORT_ROUTES.md) ⭐ |
 | **如何一条命令从 RDC 生成 Bundle（含回退）？** | [EXPORT_ROUTES.md](EXPORT_ROUTES.md) (one_click 章节) ⭐ |
+| **如何双击直接生成 Endfield 报告？** | [EXPORT_ROUTES.md](EXPORT_ROUTES.md) (one_click 预设入口) |
 | **如何进行多帧统计对比？** | [MULTI_FRAME_GUIDE.md](MULTI_FRAME_GUIDE.md) ⭐ |
 | **如何集成 CI/CD 回归门禁？** | [MULTI_FRAME_GUIDE.md](MULTI_FRAME_GUIDE.md) (JUnit XML 输出) |
 | **API 接口文档在哪？** | [API_REFERENCE.md](API_REFERENCE.md) |
