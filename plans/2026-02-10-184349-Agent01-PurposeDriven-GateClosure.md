@@ -174,7 +174,7 @@ def test_health_score_algorithm():
 
 - [x] D1. 生成 Gate 通过摘要（Gate1~Gate5 状态表）
 - [x] D2. 运行最终回归命令并记录输出
-- [ ] D3. Git 提交（Conventional Commit）
+- [x] D3. Git 提交（Conventional Commit）
 
 ## Build / Test / Lint Quick Guide（命令仅记录，/do 执行）
 
