@@ -1,8 +1,9 @@
 # RDC Analyzer 项目进度报告
 
-> **更新日期**: 2025-01-17
-> **版本**: v2.6
+> **更新日期**: 2026-02-11（历史快照校注）
+> **版本**: v2.6（historical snapshot）
 > **作者**: Codex Agent
+> **说明**: 本文主体内容是 2025-01 阶段快照，不代表当前测试基线；当前测试基线请以 `TASK_TRACKER.md` 与 `WORK_SUMMARY_VERIFICATION.md` 的最新复核为准。
 
 ---
 

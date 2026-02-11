@@ -19,8 +19,9 @@
 ### 中优先级（P1）
 
 - [x] **P1-NEW-2**: 清理 pytest warnings ✅ 2025-02-05
-  - ✅ 完整测试套件 (682 tests) 无 `PytestReturnNotNoneWarning`
-  - 问题可能已在先前会话中修复
+  - ⚠️ 2026-02-11 复核：`py -3 -m pytest scripts/rdc_analyzer/tests -q -rs -p no:cacheprovider`
+  - ⚠️ 最新结果：**813 collected, 807 passed, 6 skipped, 0 warnings**
+  - ⚠️ 历史“682 tests 无 warning”为旧口径，后续以最新全量结果为准
 
 - [x] **P1-NEW-3**: 跨页面证据链导航 ✅ 2025-02-05
   - ✅ Texture → Event 链接 (textures.html?id=X&highlight=true)

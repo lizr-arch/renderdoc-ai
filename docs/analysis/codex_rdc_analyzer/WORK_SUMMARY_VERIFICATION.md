@@ -347,7 +347,7 @@ def local_mali_rdc():
 - HOW: `py -3 -m pytest scripts/rdc_analyzer/tests/test_full_report_mode.py`
 
 **执行结果**
-- 测试结果：`3 passed`
+- 测试结果：6 passed
 - 说明：本次仅验证 full 模式的 JSON 路径解析逻辑，未包含端到端 HTML 生成与 UI 视觉审阅。
 
 **待完成（验收阻塞）**
@@ -442,6 +442,56 @@ def local_mali_rdc():
 ---
 
 
+### 7.13 Gate-1 真实性复核（2026-02-10）
+
+- WHAT: 按 Gate-1 要求复跑 full HTML 与 chunk ratio 验收命令，确认是否可闭环。
+- WHY: 当前交付要求“真实性先于功能数量”，必须确认实链可跑通。
+- HOW: 使用同一份真实样本 `g145-battle-2.rdc` 执行以下命令并记录结果。
+
+**执行命令与结果**
+1) `py -3 scripts/rdc_analyzer/analyze_rdc.py "D:\renderdoc\goog pixel-9\g145-battle-2.rdc" --html-mode full -o "D:\renderdoc\goog pixel-9\g145-battle-2_report_full.html"`
+   - 结果：失败
+   - 关键报错：`Full report requires capture JSON. Provide --full-json or place <rdc>.json / <rdc>_data.json`
+
+2) `py -3 scripts/rdc_analyzer/analyze_rdc.py "D:\renderdoc\goog pixel-9\g145-battle-2.rdc" --json "D:\renderdoc\goog pixel-9\g145-battle-2_data.json" -o "D:\renderdoc\goog pixel-9\g145-battle-2_report_lite_tmp.html"`
+   - 结果：失败
+   - 关键报错：`AttributeError: 'str' object has no attribute 'tell'`
+
+3) `py -3 scripts/rdc_analyzer/rdc_parser.py "D:\renderdoc\goog pixel-9\g145-battle-2.rdc" --chunk-counts`
+   - 结果：失败
+   - 关键报错：`TypeError: RDCFileInfo.__init__() got an unexpected keyword argument 'filepath'`
+
+**结论（Gate-1 状态）**
+- 状态：`blocked_by_logic`（非环境缺失）
+- 说明：样本存在，但 full-html / chunk-counts 路径存在代码级异常，当前无法形成“真实性闭环通过”结论。
+- 后续建议：先修复 `analyze_rdc.py` 与 `rdc_parser.py` 的解析器调用兼容性，再重跑 7.8/7.11/7.12 的验收链。
+
+
+### 7.14 Gate-1 复验（2026-02-11）
+
+- WHAT: 对 7.13 的代码级阻塞进行修复后，复跑同一真实样本链路。
+- WHY: 确认 Gate-1 从 blocked_by_logic 转为可执行闭环。
+- HOW: 使用同一份样本 g145-battle-2.rdc，重跑 chunk-counts、lite JSON、full HTML 三条命令。
+
+执行命令与结果
+1) py -3 scripts/rdc_analyzer/rdc_parser.py "D:/renderdoc/goog pixel-9/g145-battle-2.rdc" --chunk-counts
+   - 结果：通过
+   - 关键输出：Chunks 4352，vkCreateShaderModule 109，vkCreateImage 155
+
+2) py -3 scripts/rdc_analyzer/analyze_rdc.py "D:/renderdoc/goog pixel-9/g145-battle-2.rdc" --json "D:/renderdoc/goog pixel-9/g145-battle-2_data.json" -o "D:/renderdoc/goog pixel-9/g145-battle-2_report_lite_tmp.html"
+   - 结果：通过
+   - 关键输出：Shaders 109，Draw events 636，Pipelines 70，Mali valid analyses 105/109
+
+3) py -3 scripts/rdc_analyzer/analyze_rdc.py "D:/renderdoc/goog pixel-9/g145-battle-2.rdc" --html-mode full -o "D:/renderdoc/goog pixel-9/g145-battle-2_report_full.html"
+   - 结果：通过
+   - 关键输出：自动使用 g145-battle-2_data_single.json 并生成 full HTML
+
+结论（Gate-1 状态）
+- 状态：pass_core_logic
+- 说明：此前两类代码级异常（str.tell + RDCFileInfo keyword drift）已消除，full/lite/chunk-counts 链路均可执行。
+- 数据覆盖备注：texture manifest 仍缺失，因此 full HTML 的 texture/event 维度为低覆盖；该项归类为数据可得性问题，不再归类为逻辑阻塞。
+
+
 ## 8. CLI 使用示例
 
 ### 8.1 单帧分析
@@ -484,7 +534,7 @@ py -3 -m rdc_analyzer compare baseline.json target.json \
 # 全量测试
 cd scripts/rdc_analyzer
 py -3 -m pytest tests -q -rs
-# 预期: 466 passed, 8 skipped, 5 warnings
+# 预期: 807 passed, 6 skipped, 0 warnings（2026-02-11 实测）
 
 # DoD 验收测试
 py -3 -m pytest tests/test_dod_compliance.py -v

@@ -1,7 +1,7 @@
 # RDC Analyzer 任务追踪表
 
 > **创建日期**: 2025-01-20  
-> **最后更新**: 2025-01-23  
+> **最后更新**: 2026-02-11  
 > **目标**: 完成单帧极致分析 + 双帧全方位对比  
 > **环境**: Windows PC + D3D11/D3D12 RDC 文件
 
@@ -23,12 +23,18 @@
 ## ✅ A-first 闭环已完成（2025-01-23 复审）
 
 > **结论**: 验证链缺口已补齐，A-first 作为可验收基线成立。  
-> **当前验证记录**:
+> **历史验证记录（2025-01-23）**:
 > - `py -3 -m pytest -q -rs`（在 `scripts/rdc_analyzer` 下执行）  
 > - 实测：**501 passed, 8 skipped**  
 > **执行计划**: `plans/2025-01-20-152300-Codex-A-first-execution-plan.md`
+>
+> **复核记录（2026-02-10）**:
+> - `py -3 -m pytest scripts/rdc_analyzer/tests -q -rs -p no:cacheprovider`
+> - 实测：**807 passed, 6 skipped, 0 warnings**（813 collected）
+> - 说明：当前主线质量门已恢复全绿，建议以后以该命令作为统一口径。
+> - Gate-1 复验（2026-02-11）：full/lite/chunk-counts 链路已恢复可执行，状态为 pass_core_logic。
 
-### Blockers（必须先补齐）
+### 历史 Blockers（2025-01，已关闭）
 
 1) **P0-NEW-5 测试归属缺口**：`scripts/rdc_analyzer/tests/test_rdc_loader.py`、`test_schema_bridge.py` 未纳入 Git → 结果不可复现。  
 2) **P0-NEW-6 默认验证遗漏关键测试**：P0-NEW-2 / PipelineSampler 测试在 `tests/` 根目录，默认 `scripts/rdc_analyzer` pytest 不会覆盖。  
@@ -45,7 +51,7 @@
 | 7.5 Playbook 建议 | ✅ | steps/expected_impact/risk/engine_howto |
 | 7.6 验证方法 | ✅ | verification_plan 集成到 suggestion |
 | 7.7 Capture Preflight | ✅ | `_build_preflight()` 检测缺失 Markers |
-| 7.8 工程质量底线 | ✅ | 501 passed (2025-01-23) + test_dod_compliance.py |
+| 7.8 工程质量底线 | ✅ | 501 passed (2025-01-23)；复核 807 passed / 6 skipped (2026-02-11) |
 
 > 注：7.8 的“测试全绿”在功能实现层面已满足，但**验证链**仍受 P0-NEW-5/6/7 影响（可复现性/覆盖范围需补齐）。
 
