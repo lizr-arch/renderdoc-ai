@@ -2,7 +2,7 @@
 
 
 
-> **更新日期**: 2025-02-06 | **版本**: 2.6.2 | **维护**: Codex Agent
+> **更新日期**: 2026-02-11 | **版本**: 2.6.3 | **维护**: Codex Agent
 
 
 
@@ -36,7 +36,7 @@
 
 |------|------|--------|
 
-| [EXPORT_ROUTES.md](EXPORT_ROUTES.md) | **RDC 报告导出路线图** - 三条导出路线 + 新组件（v2.2.0）⭐ | 导出路线, Bundle, XML, 无GPU, RdcAdapter, JsonRenderer |
+| [EXPORT_ROUTES.md](EXPORT_ROUTES.md) | **RDC 报告导出路线图** - 新增 one_click 一键导出（zip.xml 优先 + xml 回退 + headless smoke）⭐ | 导出路线, one-click, Bundle, zip.xml, 无GPU |
 | [UI_XML_BUNDLE_UPDATE_2026-02-08.md](UI_XML_BUNDLE_UPDATE_2026-02-08.md) | **UI + xml_to_bundle 更新记录**（v2.6.1）- 仪表盘 UI 统一 + ZIP 缩略图 + Vulkan Shader 提取 | UI, dashboard, xml_to_bundle, zip, rdc, spirv-cross |
 | [VISUAL_ACCEPTANCE_CHECKLIST.md](VISUAL_ACCEPTANCE_CHECKLIST.md) | **一页式视觉验收清单**（v1.0.0）- 专业仪表盘验收评分 + 缺陷分级模板 | 验收, 视觉, dashboard, UX, checklist |
 | [VISUAL_ACCEPTANCE_RESULT_TEMPLATE.md](VISUAL_ACCEPTANCE_RESULT_TEMPLATE.md) | **视觉验收结果填写版**（v1.0.0）- 一页回填评分/缺陷/结论，便于闭环 | 验收, 结果, 模板, checklist |
@@ -212,6 +212,7 @@
 
 | **支持哪些纹理格式？** | [TEXTURE_DECODERS.md](TEXTURE_DECODERS.md) (48种: BC1-7, ASTC, ETC2等) |
 | **如何选择报告导出路线？** | [EXPORT_ROUTES.md](EXPORT_ROUTES.md) ⭐ |
+| **如何一条命令从 RDC 生成 Bundle（含回退）？** | [EXPORT_ROUTES.md](EXPORT_ROUTES.md) (one_click 章节) ⭐ |
 | **如何进行多帧统计对比？** | [MULTI_FRAME_GUIDE.md](MULTI_FRAME_GUIDE.md) ⭐ |
 | **如何集成 CI/CD 回归门禁？** | [MULTI_FRAME_GUIDE.md](MULTI_FRAME_GUIDE.md) (JUnit XML 输出) |
 | **API 接口文档在哪？** | [API_REFERENCE.md](API_REFERENCE.md) |

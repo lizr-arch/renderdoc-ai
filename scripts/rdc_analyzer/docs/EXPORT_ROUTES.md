@@ -1,6 +1,6 @@
 # RDC 报告导出路线图
 
-> **更新日期**: 2025-07-25 | **版本**: 2.2.0
+> **更新日期**: 2026-02-11 | **版本**: 2.3.0
 
 ## 概述
 
@@ -21,7 +21,7 @@
 │                                                                         │
 │  路线 B: XML 中转（无需 GPU）⭐ 推荐                                      │
 │  ════════════════════════════════════                                   │
-│  .rdc ──[renderdoccmd]──> .xml ──[xml_to_bundle.py]──> Bundle 报告 (4页) │
+│  .rdc ──[renderdoccmd]──> .zip.xml + .zip ──[xml_to_bundle.py]──> Bundle 报告 │
 │                                                                         │
 │  路线 C: 简化报告（无需 GPU）                                             │
 │  ══════════════════════════════                                         │
@@ -66,15 +66,37 @@ py -3 -m rdc_analyzer analyze input.rdc -o output_dir/
 
 ### 步骤
 
-#### 步骤 1: RDC → XML
+#### 步骤 1: RDC → ZIP+XML（优先，含纹理资产）
 ```bash
-renderdoccmd.exe convert -c xml -o output.xml input.rdc
+renderdoccmd.exe convert -f input.rdc -o output.zip.xml -c zip.xml
 ```
 
-#### 步骤 2: XML → Bundle 报告
+#### 步骤 2: ZIP+XML → Bundle 报告
 ```bash
-py -3 scripts/rdc_analyzer/xml_to_bundle.py output.xml -o bundle_output/
+py -3 scripts/rdc_analyzer/xml_to_bundle.py output.zip.xml -o bundle_output/ --zip output.zip --rdc input.rdc
 ```
+
+#### 失败回退（自动化脚本内置）
+```bash
+# 如果 zip.xml 转换失败，回退到纯 XML
+renderdoccmd.exe convert -f input.rdc -o output.xml -c xml
+py -3 scripts/rdc_analyzer/xml_to_bundle.py output.xml -o bundle_output/ --rdc input.rdc
+```
+
+### 一键自动化（推荐，无手动串联）
+```bash
+# Python 入口（推荐）
+py -3 scripts/rdc_analyzer/one_click_bundle_report.py input.rdc -o bundle_output/ --smoke-no-fail --smoke-no-screenshots
+
+# Windows 包装（等价）
+scripts\rdc_analyzer\one_click_bundle_report.bat input.rdc -o bundle_output/ --smoke-no-fail --smoke-no-screenshots
+```
+
+脚本行为：
+- 自动探测 `renderdoccmd.exe`
+- 先尝试 `zip.xml`（带缩略图资产），失败自动回退 `xml`
+- 自动拼接 `xml_to_bundle.py` 参数（`--zip` / `--rdc`）
+- 可选执行 `ui_headless_smoke.py` 做无 GUI 验收
 
 ### 输出（与路线 A 相同）
 - `index.html` - 仪表盘
@@ -130,7 +152,7 @@ py -3 -m rdc_analyzer report input.xml -o report.html
 | **需要 renderdoc 模块** | ✅ 是 | ❌ 否 | ❌ 否 |
 | **报告样式** | Bundle (4页) | Bundle (4页) | 单页 HTML |
 | **Shader 源码** | ✅ 完整 | ⚠️ 仅名称 | ⚠️ 仅名称 |
-| **纹理缩略图** | ✅ 有 | ❌ 无 | ❌ 无 |
+| **纹理缩略图** | ✅ 有 | ✅ 有（zip.xml + --zip，默认前 50 张） | ❌ 无 |
 | **适合 CI/CD** | ⚠️ 需配置 | ✅ 推荐 | ✅ 可用 |
 | **处理速度** | 慢（需回放） | 快（仅解析） | 最快 |
 
@@ -152,7 +174,8 @@ py -3 -m rdc_analyzer report input.xml -o report.html
 
 | 工具 | 路径 | 说明 |
 |------|------|------|
-| `xml_to_bundle.py` | `scripts/rdc_analyzer/xml_to_bundle.py` | XML → Bundle 转换器 |
+| `one_click_bundle_report.py` | `scripts/rdc_analyzer/one_click_bundle_report.py` | RDC 一键导出（含回退与 smoke） |
+| `xml_to_bundle.py` | `scripts/rdc_analyzer/xml_to_bundle.py` | XML / ZIP+XML → Bundle 转换器 |
 | `rdc_analyzer` CLI | `scripts/rdc_analyzer/` | 主分析工具包 |
 | `report_bundle_generator.py` | `scripts/rdc_analyzer/report_bundle_generator.py` | Bundle 生成引擎 |
 
@@ -202,6 +225,19 @@ renderer.render_to_file(contract, "report.json")
 
 **解决**: 升级到 v1.6.0+ 版本，或手动检查 `parsers/rdc_xml_parser.py` 是否包含 Vulkan 映射
 
+### 问题: renderdoccmd 提示 `Need an input filename (-f)`
+
+**原因**: 当前 RenderDoc CLI 要求显式传入 `-f <input.rdc>`，旧命令把输入文件放在末尾会失败。
+
+**解决**:
+```bash
+# ✅ 正确
+renderdoccmd.exe convert -f input.rdc -o output.zip.xml -c zip.xml
+
+# ❌ 旧写法（可能失败）
+# renderdoccmd.exe convert -c xml -o output.xml input.rdc
+```
+
 ### 问题: xml_to_bundle.py 报 ImportError
 
 **原因**: 相对导入路径问题
@@ -233,5 +269,6 @@ py -3 scripts/rdc_analyzer/xml_to_bundle.py ...
 
 | 版本 | 日期 | 变更 |
 |------|------|------|
+| 2.3.0 | 2026-02-11 | 新增 one_click_bundle_report 一键导出（zip.xml 优先 + xml 回退 + headless smoke） |
 | 2.2.0 | 2025-07-25 | 新增 RdcAdapter、JsonRenderer、Schemas 组件说明 |
 | 1.0.0 | 2025-01-31 | 初始版本：三条导出路线 |
