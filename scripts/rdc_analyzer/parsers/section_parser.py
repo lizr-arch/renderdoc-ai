@@ -156,11 +156,11 @@ class SectionParser:
         sections = self._parse_all_sections()
         
         self._rdc_info = RDCFileInfo(
-            filepath=self._filepath,
+            file_path=self._filepath,
             file_size=self._file_size,
             header=file_header,
             thumbnail=thumbnail,
-            metadata=metadata,
+            capture_meta=metadata,
             time_base=time_base,
             sections=sections
         )

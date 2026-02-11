@@ -218,9 +218,11 @@ class ChunkParser:
         """
         counts = Counter(chunk.chunk_id for chunk in chunks)
         
+        create_shaders_ext = getattr(VulkanChunk, "vkCreateShadersEXT", None)
+
         return {
             "vkCreateShaderModule": counts.get(VulkanChunk.vkCreateShaderModule, 0),
-            "vkCreateShadersEXT": counts.get(VulkanChunk.vkCreateShadersEXT, 0),
+            "vkCreateShadersEXT": counts.get(create_shaders_ext, 0) if create_shaders_ext is not None else 0,
             "vkCreateImage": counts.get(VulkanChunk.vkCreateImage, 0),
         }
     

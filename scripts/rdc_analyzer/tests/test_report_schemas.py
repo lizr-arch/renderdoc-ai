@@ -12,6 +12,52 @@ sys.path.insert(0, str(SCRIPT_DIR))
 from report_bundle_generator import ReportBundleGenerator  # noqa: E402
 
 
+def _extract_embedded_json(html: str, candidates):
+    for name in candidates:
+        match = re.search(rf"(?:const|let)\s+{name}\s*=\s*", html)
+        if not match:
+            continue
+
+        idx = match.end()
+        while idx < len(html) and html[idx].isspace():
+            idx += 1
+
+        if idx >= len(html) or html[idx] not in "[{":
+            continue
+
+        opening = html[idx]
+        closing = "]" if opening == "[" else "}"
+        depth = 1
+        pos = idx + 1
+        in_string = None
+        escaping = False
+
+        while pos < len(html) and depth > 0:
+            ch = html[pos]
+            if in_string:
+                if escaping:
+                    escaping = False
+                elif ch == "\\":
+                    escaping = True
+                elif ch == in_string:
+                    in_string = None
+            else:
+                if ch in ('"', "'"):
+                    in_string = ch
+                elif ch == opening:
+                    depth += 1
+                elif ch == closing:
+                    depth -= 1
+            pos += 1
+
+        if depth != 0:
+            continue
+
+        return json.loads(html[idx:pos])
+
+    raise AssertionError(f"missing embedded json: {candidates}")
+
+
 def test_report_schema_files_exist():
     schema_dir = SCRIPT_DIR / "schema"
     assert (schema_dir / "report_heatmap_data.schema.json").exists()
@@ -32,7 +78,13 @@ def test_generate_shaders_validates_schema(tmp_path):
         ],
         mali_data={
             "shader_001": {
-                "cycles": {"total": 10.0, "arithmetic": 5.0, "load_store": 2.0, "texture": 3.0, "varying": 1.0},
+                "cycles": {
+                    "total": 10.0,
+                    "arithmetic": 5.0,
+                    "load_store": 2.0,
+                    "texture": 3.0,
+                    "varying": 1.0,
+                },
                 "bound": "T",
                 "work_registers": 20,
                 "uniform_registers": 8,
@@ -48,10 +100,7 @@ def test_generate_shaders_validates_schema(tmp_path):
     )
 
     html = gen.generate_shaders()
-    match = re.search(r"const shaderData = (\[.*?\]);", html, re.DOTALL)
-    assert match
-
-    shader_data = json.loads(match.group(1))
+    shader_data = _extract_embedded_json(html, ["embeddedData", "shaderData"])
     assert shader_data and shader_data[0]["dynamicMetrics"]["drawCount"] == 1
 
 
@@ -98,4 +147,6 @@ def test_generate_events_validates_heatmap_schema(tmp_path):
     )
 
     html = gen.generate_events()
-    assert "const heatmapData" in html
+    heatmap = _extract_embedded_json(html, ["embeddedHeatmap", "heatmapData"])
+    assert isinstance(heatmap, dict)
+    assert "textures" in heatmap and "shaders" in heatmap

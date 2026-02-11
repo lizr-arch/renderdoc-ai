@@ -200,6 +200,8 @@ class RDCParser:
         self._draw_event_parser: Optional[DrawEventParser] = None
         self._rdc_info: Optional[RDCFileInfo] = None
         self._chunks: Optional[List[ChunkInfo]] = None
+        self._frame_data: Optional[bytes] = None
+        self._file = None
         
         # 发出废弃警告
         warnings.warn(
@@ -211,14 +213,16 @@ class RDCParser:
     
     def __enter__(self):
         """上下文管理器入口"""
-        self._section_parser = SectionParser(self.filepath)
+        self._file = open(self.filepath, 'rb')
+        self._section_parser = SectionParser(self._file, self.filepath)
         return self
-    
+
     def __exit__(self, exc_type, exc_val, exc_tb):
         """上下文管理器退出"""
-        if self._section_parser:
-            self._section_parser.close()
-            self._section_parser = None
+        self._section_parser = None
+        if self._file is not None:
+            self._file.close()
+            self._file = None
     
     # ========================================================================
     # 文件头解析（委托给 SectionParser）
@@ -270,10 +274,20 @@ class RDCParser:
         if frame_section is None:
             return []
         
-        section_data = self.read_section_data(frame_section)
-        self._chunk_parser = ChunkParser(section_data)
-        self._chunks = self._chunk_parser.parse_all()
+        self._frame_data = self.read_section_data(frame_section)
+        self._chunk_parser = ChunkParser()
+        self._chunks = self._chunk_parser.parse_chunks(self._frame_data)
         return self._chunks
+
+    def count_vulkan_chunks(self) -> Dict[str, int]:
+        """Count key Vulkan chunk types (legacy-compatible helper)."""
+        if self._chunks is None:
+            self.parse_frame_chunks()
+
+        if self._chunk_parser is None:
+            self._chunk_parser = ChunkParser()
+
+        return self._chunk_parser.count_vulkan_chunks(self._chunks)
     
     # ========================================================================
     # Shader 提取（委托给 ShaderExtractor）
@@ -289,8 +303,11 @@ class RDCParser:
         if self._chunks is None:
             self.parse_frame_chunks()
         
-        self._shader_extractor = ShaderExtractor(self._chunks)
-        return self._shader_extractor.extract_all()
+        if self._frame_data is None:
+            self.parse_frame_chunks()
+
+        self._shader_extractor = ShaderExtractor()
+        return self._shader_extractor.extract_from_chunks(self._frame_data, self._chunks)
     
     # ========================================================================
     # 纹理提取（委托给 TextureExtractor）
@@ -306,24 +323,30 @@ class RDCParser:
         if self._chunks is None:
             self.parse_frame_chunks()
         
-        self._texture_extractor = TextureExtractor(self._chunks)
+        if self._frame_data is None:
+            self.parse_frame_chunks()
+
+        self._texture_extractor = TextureExtractor(self._frame_data, self._chunks)
         return self._texture_extractor.extract_all()
     
     # ========================================================================
     # Draw 事件解析（委托给 DrawEventParser）
     # ========================================================================
     
-    def extract_draw_events(self) -> List[DrawEventContext]:
+    def extract_draw_events(self) -> Any:
         """
         提取所有 Draw/Dispatch 事件及其上下文
         
         Returns:
-            List[DrawEventContext]: Draw 事件列表
+            Tuple[List[DrawEventContext], Dict[int, PipelineInfo]]: Draw 事件和 Pipeline 映射
         """
         if self._chunks is None:
             self.parse_frame_chunks()
         
-        self._draw_event_parser = DrawEventParser(self._chunks)
+        if self._frame_data is None:
+            self.parse_frame_chunks()
+
+        self._draw_event_parser = DrawEventParser(self._frame_data, self._chunks)
         return self._draw_event_parser.extract_all()
     
     # ========================================================================
@@ -388,7 +411,8 @@ def extract_shaders(filepath: str) -> List[ShaderInfo]:
         DeprecationWarning,
         stacklevel=2
     )
-    return extract_vulkan_shaders(filepath)
+    with RDCParser(filepath) as parser:
+        return parser.extract_vulkan_shaders()
 
 
 def extract_textures(filepath: str) -> List[TextureInfo]:
@@ -408,7 +432,8 @@ def extract_textures(filepath: str) -> List[TextureInfo]:
         DeprecationWarning,
         stacklevel=2
     )
-    return extract_vulkan_textures(filepath)
+    with RDCParser(filepath) as parser:
+        return parser.extract_vulkan_textures()
 
 
 def extract_resource_renames(filepath: str) -> Dict[int, str]:
@@ -424,8 +449,9 @@ def extract_resource_renames(filepath: str) -> Dict[int, str]:
     Returns:
         Dict[int, str]: ResourceID 到自定义名称的映射
     """
-    parser = SectionParser(filepath)
-    return parser.parse_resource_renames()
+    with open(filepath, "rb") as f:
+        parser = SectionParser(f, filepath)
+        return parser.parse_resource_renames()
 
 
 # ============================================================================
@@ -483,49 +509,51 @@ __all__ = [
 # 主函数（测试/演示）
 # ============================================================================
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     import sys
-    
+
     if len(sys.argv) < 2:
-        print("用法: python rdc_parser.py <rdc_file>")
+        print("用法: python rdc_parser.py <rdc_file> [--chunk-counts]")
         print("\n推荐使用新 API:")
         print("  from parsers import parse_rdc_file, extract_vulkan_shaders")
-        print("  info = parse_rdc_file('capture.rdc')")
+        print("  info = parse_rdc_file(\"capture.rdc\")")
         sys.exit(1)
-    
+
+    chunk_counts_only = "--chunk-counts" in sys.argv
+    if chunk_counts_only:
+        sys.argv.remove("--chunk-counts")
+
     filepath = sys.argv[1]
-    
+
     print(f"解析 RDC 文件: {filepath}")
     print("=" * 60)
-    
-    # 使用新 API 演示
+
     print("\n[使用新 API - parsers 包]")
-    
+
     info = parse_rdc_file(filepath)
     print(f"  Driver: {info.driver_name}")
     print(f"  Version: {info.header.prog_version}")
     print(f"  Sections: {len(info.sections)}")
-    
-    # 提取 chunks
-    frame_section = info.frame_capture_section
-    if frame_section:
-        parser = SectionParser(filepath)
-        try:
-            parser.parse()
-            section_data = parser.read_section_data(frame_section)
-            chunks = parse_frame_chunks(section_data)
-            print(f"  Chunks: {len(chunks)}")
-            
-            # 提取各类数据
-            shaders = extract_vulkan_shaders(filepath)
-            print(f"  Shaders: {len(shaders)}")
-            
-            textures = extract_vulkan_textures(filepath)
-            print(f"  Textures: {len(textures)}")
-            
-            events = extract_draw_events(filepath)
-            print(f"  Draw Events: {len(events)}")
-        finally:
-            parser.close()
-    
-    print("\n✅ 解析完成")
+
+    with RDCParser(filepath) as parser:
+        parser.parse_header()
+        chunks = parser.parse_frame_chunks()
+        print(f"  Chunks: {len(chunks)}")
+
+        if chunk_counts_only:
+            counts = parser.count_vulkan_chunks()
+            print("Chunk Counts:")
+            for key, value in counts.items():
+                print(f"  {key}: {value}")
+            sys.exit(0)
+
+        shaders = parser.extract_vulkan_shaders()
+        print(f"  Shaders: {len(shaders)}")
+
+        textures = parser.extract_vulkan_textures()
+        print(f"  Textures: {len(textures)}")
+
+        events, _ = parser.extract_draw_events()
+        print(f"  Draw Events: {len(events)}")
+
+    print("✅ 解析完成")

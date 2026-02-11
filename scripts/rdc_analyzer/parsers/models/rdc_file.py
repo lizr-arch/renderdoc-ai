@@ -14,6 +14,7 @@ from .base import (
     FileHeader, Thumbnail, CaptureMetaData, TimeBase,
     SectionInfo, ChunkInfo, DrawEventContext, PipelineInfo
 )
+from ..enums import RDCDriver, SectionType
 from .shader import ShaderInfo
 from .texture import TextureInfo
 
@@ -139,3 +140,51 @@ class RDCFileInfo:
                 f"shaders={self.shader_count}, "
                 f"textures={self.texture_count}, "
                 f"draw_calls={self.draw_call_count})")
+
+    # ------------------------------------------------------------------
+    # Legacy compatibility aliases
+    # ------------------------------------------------------------------
+
+    @property
+    def filepath(self) -> str:
+        """Backward-compatible alias for file_path."""
+        return self.file_path
+
+    @filepath.setter
+    def filepath(self, value: str) -> None:
+        self.file_path = value
+
+    @property
+    def metadata(self) -> Optional[CaptureMetaData]:
+        """Backward-compatible alias for capture_meta."""
+        return self.capture_meta
+
+    @metadata.setter
+    def metadata(self, value: Optional[CaptureMetaData]) -> None:
+        self.capture_meta = value
+
+    @property
+    def is_vulkan(self) -> bool:
+        return bool(self.capture_meta and self.capture_meta.driver_id == RDCDriver.Vulkan)
+
+    @property
+    def is_d3d11(self) -> bool:
+        return bool(self.capture_meta and self.capture_meta.driver_id == RDCDriver.D3D11)
+
+    @property
+    def is_d3d12(self) -> bool:
+        return bool(self.capture_meta and self.capture_meta.driver_id == RDCDriver.D3D12)
+
+    @property
+    def frame_capture_section(self) -> Optional[SectionInfo]:
+        for section in self.sections:
+            if section.section_type == SectionType.FrameCapture:
+                return section
+        return None
+
+    @property
+    def resource_renames_section(self) -> Optional[SectionInfo]:
+        for section in self.sections:
+            if section.section_type == SectionType.ResourceRenames:
+                return section
+        return None

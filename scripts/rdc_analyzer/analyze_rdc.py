@@ -304,6 +304,29 @@ def resolve_full_report_json(rdc_path: str, explicit_json: str) -> str:
     return ""
 
 
+def normalize_full_report_json(json_path: str) -> str:
+    """Ensure full report input is a single capture dict, not a list wrapper."""
+    path = Path(json_path)
+
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            payload = json.load(f)
+    except (OSError, json.JSONDecodeError):
+        return json_path
+
+    if not isinstance(payload, list):
+        return json_path
+
+    if len(payload) != 1 or not isinstance(payload[0], dict):
+        raise ValueError("Full report requires JSON object or single-item result list")
+
+    normalized_path = path.with_name(f"{path.stem}_single.json")
+    with open(normalized_path, "w", encoding="utf-8") as f:
+        json.dump(payload[0], f, indent=2, ensure_ascii=False)
+
+    return str(normalized_path)
+
+
 def resolve_textures_dir(rdc_path: str, explicit_dir: str) -> str:
     """Resolve textures directory that contains manifest.json or textures.json."""
     if explicit_dir:
@@ -1315,6 +1338,12 @@ def main():
         textures_dir = resolve_textures_dir(args.rdc_files[0], args.textures)
         if not textures_dir:
             print("[WARN] Texture manifest missing. Run export_textures_rdoc.py first.")
+
+        try:
+            json_path = normalize_full_report_json(json_path)
+        except ValueError as e:
+            print(f"[ERROR] {e}")
+            return 1
 
         report_script = Path(__file__).parent / "generate_real_report.py"
         cmd = [sys.executable, str(report_script), json_path, args.output]

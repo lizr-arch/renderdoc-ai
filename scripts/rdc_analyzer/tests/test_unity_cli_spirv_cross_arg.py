@@ -22,13 +22,13 @@ def test_cli_parses_spirv_cross_arg():
             "--out",
             "out",
             "--spirv-cross",
-            "C:\\tools\\spirv-cross.exe",
+            "C:\tools\spirv-cross.exe",
         ]
     )
-    assert args.spirv_cross == "C:\\tools\\spirv-cross.exe"
+    assert args.spirv_cross == "C:\tools\spirv-cross.exe"
 
 
-def test_vulkan_requires_spirv_cross():
+def test_vulkan_requires_spirv_cross(monkeypatch):
     args = cli.parse_args(
         [
             "--rdc",
@@ -41,5 +41,6 @@ def test_vulkan_requires_spirv_cross():
             "out",
         ]
     )
+    monkeypatch.setattr(cli, "resolve_spirv_cross_path", lambda _path: None)
     with pytest.raises(SystemExit):
         cli.validate_args(args)

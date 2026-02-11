@@ -64,13 +64,14 @@ class ShaderExtractor:
             List[ShaderInfo]: 提取的 Shader 列表
         """
         shaders = []
-        
+        create_shaders_ext = getattr(VulkanChunk, "vkCreateShadersEXT", None)
+
         for chunk in chunks:
             if chunk.chunk_id == VulkanChunk.vkCreateShaderModule:
                 shader = self._extract_from_shader_module(data, chunk)
                 if shader and shader.is_valid_spirv:
                     shaders.append(shader)
-            elif chunk.chunk_id == VulkanChunk.vkCreateShadersEXT:
+            elif create_shaders_ext is not None and chunk.chunk_id == create_shaders_ext:
                 shaders.extend(self._extract_spirv_blobs(data, chunk))
         
         if self._deduplicate:
