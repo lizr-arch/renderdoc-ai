@@ -270,3 +270,6 @@ rg -n "passed|skipped|warnings|pytest|最后更新|更新日期" \
 - Gate 判定：
   - Gate-1 = pass_core_logic（texture manifest 缺失属于数据可得性，不归类为逻辑阻塞）。
   - Gate-2/3/4/5 = pass。
+
+- 验收归档：
+  - docs/analysis/codex_rdc_analyzer/GATE_ACCEPTANCE_REPORT_2026-02-11.md（5 Gate 最终验收报告，含命令级证据与风险边界）。
