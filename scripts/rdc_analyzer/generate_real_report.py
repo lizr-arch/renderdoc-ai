@@ -55,9 +55,27 @@ except ImportError as e:
 
 
 def load_rdc_data(json_path):
-    """加载解析后的 RDC JSON 数据"""
-    with open(json_path, 'r', encoding='utf-8') as f:
-        return json.load(f)
+    """Load capture JSON for report generation.
+
+    Accepts either a single dict payload, or a single-item list wrapper: `[ {...} ]`.
+    """
+    with open(json_path, "r", encoding="utf-8") as f:
+        payload = json.load(f)
+
+    # Some tools emit `[ { ... } ]` wrappers for single captures.
+    if isinstance(payload, list):
+        if len(payload) != 1 or not isinstance(payload[0], dict):
+            raise ValueError(
+                f"Unsupported capture JSON format: expected dict or single-item list, got list({len(payload)})"
+            )
+        payload = payload[0]
+
+    if not isinstance(payload, dict):
+        raise ValueError(
+            f"Unsupported capture JSON format: expected dict, got {type(payload).__name__}"
+        )
+
+    return payload
 
 
 def convert_mesh_info_to_mesh_data(mesh_info, event):

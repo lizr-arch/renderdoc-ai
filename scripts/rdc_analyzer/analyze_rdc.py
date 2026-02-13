@@ -349,6 +349,84 @@ def resolve_textures_dir(rdc_path: str, explicit_dir: str) -> str:
     return ""
 
 
+def _normalize_report_event_type(event_type: str) -> str:
+    """Normalize parser event subtype into report event type buckets."""
+    if not event_type:
+        return "unknown"
+    if event_type.startswith("draw"):
+        return "draw"
+    if event_type.startswith("dispatch"):
+        return "dispatch"
+    return event_type
+
+
+def convert_pipelines_to_capture_pipelines(pipelines: Dict[int, PipelineInfo]) -> List[Dict[str, Any]]:
+    """Convert parser PipelineInfo map into JSON-safe capture schema."""
+    pipeline_details: List[Dict[str, Any]] = []
+    for pipeline_id in sorted(pipelines.keys()):
+        pipeline_info = pipelines[pipeline_id]
+        shader_stages: Dict[str, int] = {}
+        for stage, shader_id in pipeline_info.shader_stages.items():
+            stage_name = str(stage).upper()
+            if stage_name == "FS":
+                stage_name = "PS"
+            shader_stages[stage_name] = int(shader_id)
+
+        pipeline_details.append(
+            {
+                "resourceId": int(pipeline_info.resource_id),
+                "pipelineType": pipeline_info.pipeline_type,
+                "shaderStages": shader_stages,
+            }
+        )
+
+    return pipeline_details
+
+
+def convert_draw_events_to_capture_events(
+    draw_events: List[DrawEventContext],
+    pipelines: Dict[int, PipelineInfo],
+) -> List[Dict[str, Any]]:
+    """Convert DrawEventContext list into capture-event records for full report input."""
+    capture_events: List[Dict[str, Any]] = []
+
+    for draw_event in draw_events:
+        raw_type = draw_event.event_type
+        event_type = _normalize_report_event_type(raw_type)
+        pipeline_id = int(draw_event.pipeline_resource_id)
+
+        event_payload: Dict[str, Any] = {
+            "eventId": int(draw_event.chunk_index),
+            "chunkId": int(draw_event.chunk_id),
+            "name": draw_event.event_name,
+            "type": event_type,
+            "subtype": raw_type,
+            "pipeline": pipeline_id,
+            "markerPath": draw_event.marker_path,
+            "flags": [],
+            "params": [],
+        }
+
+        pipeline_info = pipelines.get(pipeline_id)
+        if pipeline_info is not None:
+            shader_stage_payload: Dict[str, Dict[str, int]] = {}
+            for stage, shader_id in pipeline_info.shader_stages.items():
+                stage_name = str(stage).upper()
+                if stage_name == "FS":
+                    stage_name = "PS"
+                shader_stage_payload[stage_name] = {"resourceId": int(shader_id)}
+
+            event_payload["pipelineState"] = {
+                "resourceId": int(pipeline_info.resource_id),
+                "pipelineType": pipeline_info.pipeline_type,
+                "shaders": shader_stage_payload,
+            }
+
+        capture_events.append(event_payload)
+
+    return capture_events
+
+
 def analyze_rdc_file(
     rdc_path: str,
     gpu_core: str = "Mali-G715",
@@ -697,10 +775,24 @@ def analyze_rdc_file(
             reconcile["texture_chunk_total_raw"] = chunk_counts.get("vkCreateImage", 0)
         summary["reconcile_chunks"] = reconcile
     
+    event_details = convert_draw_events_to_capture_events(draw_events, pipelines)
+    pipeline_details = convert_pipelines_to_capture_pipelines(pipelines)
+
+    api_type = driver_name
+    if is_vulkan:
+        api_type = "Vulkan"
+    elif is_d3d11:
+        api_type = "D3D11"
+    elif is_d3d12:
+        api_type = "D3D12"
+
     return {
+        "apiType": api_type,
         "summary": summary,
         "shaders": shader_details,
-        "textures": texture_details
+        "textures": texture_details,
+        "events": event_details,
+        "pipelines": pipeline_details,
     }
 
 
@@ -813,7 +905,18 @@ def generate_html_report(analysis_results: List[Dict], output_path: str):
 
     
     # 准备 JavaScript 数据
-    all_shaders_json = json.dumps(analysis_results, ensure_ascii=False)
+    results_for_html = []
+    for r in analysis_results:
+        if isinstance(r, dict):
+            r2 = dict(r)
+            r2.pop("events", None)
+            r2.pop("draw_events", None)
+            r2.pop("pipelines", None)
+            results_for_html.append(r2)
+        else:
+            results_for_html.append(r)
+
+    all_shaders_json = json.dumps(results_for_html, ensure_ascii=False)
     
     # 计算汇总统计
     total_shaders = sum(r["summary"]["analyzed_shaders"] for r in analysis_results)
