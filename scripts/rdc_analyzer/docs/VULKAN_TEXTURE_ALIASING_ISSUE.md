@@ -1,7 +1,7 @@
 # Vulkan 纹理别名问题诊断与解决方案
 
-> **版本**: 1.0.0 | **创建日期**: 2026-02-13 | **状态**: 进行中  
-> **关键词**: Vulkan, 内存别名, SaveTexture, ThumbnailGenerator, ef_r8, 缩略图错误
+> **版本**: 1.1.0 | **创建日期**: 2026-02-13 | **更新日期**: 2026-02-13 | **状态**: 已验证  
+> **关键词**: Vulkan, 内存别名, Optimal Tiling, Initial Contents, eResImage, eResDeviceMemory, SaveTexture, ThumbnailGenerator
 
 ---
 
@@ -256,3 +256,76 @@ if res_id == xml_id:  # 正确比较
 | 日期 | 版本 | 变更 |
 |------|------|------|
 | 2026-02-13 | 1.0.0 | 初始文档，记录问题诊断与解决方案 |
+
+---
+
+## 8. 补充根因：Optimal Tiling 导致离线缩略图 花屏/条纹
+
+除了内存别名（offset）导致的 错图 之外，我们还确认了另一类在离线 ZIP+XML 路线中非常常见的根因：
+
+- ZIP+XML 的 Internal::Initial Contents 可能来自两种资源：
+  - eResImage：每个 VkImage 自己的初始内容（更可能已经线性化，可离线解码）
+  - eResDeviceMemory：整段 VkDeviceMemory dump（对 VK_IMAGE_TILING_OPTIMAL 往往是 GPU 平铺/Swizzle 布局）
+
+当缩略图生成逻辑 只要能拿到 memory 就优先用 memory 时：
+- 如果纹理是 optimal tiling，直接按线性布局解码会得到 条纹/噪点/不可读
+
+### 8.1 缺少 拼图规则 是什么意思（给程序新人）
+
+把纹理 bytes 解码成图片，本质上是把一维数组映射回二维像素。
+
+- 线性布局（CPU 视角）：按 Row0/Row1/Row2 顺序平铺，规则简单
+- optimal tiling（GPU 视角）：为了 cache 命中，像素会按 tile 分块并重排存放
+
+你可以把 optimal tiling 理解成：
+- 你拿到的是 一堆被打散顺序的拼图块数据
+- 但你缺少 拼图规则（tile 尺寸、tile 顺序、swizzle 规则、厂商/驱动细节）
+
+没有这套规则，你再怎么写 Python 代码，也只能把 bytes 按错规则 铺成图，自然就像乱码。
+
+### 8.2 为什么不能靠 Python 离线通用修复，只能依赖 GPU replay 或 eResImage？
+
+- tiling 规则强依赖 GPU/驱动/代际（跨厂商差异大）
+- XML/ZIP 通常不包含完整的还原参数
+- 要在 Python 里做 跨厂商、跨平台、跨格式 的 tiling 还原，成本极高且很难维护
+
+因此更现实的策略是：
+1) 优先使用 eResImage（RenderDoc 已给出更可离线解码的内容）
+2) 若只能用 eResDeviceMemory，则仅把它当作 fallback，并接受 可能不可读 的限制
+3) 需要 100% 正确时，走 GPU replay 让 GPU 帮忙做线性化 readback
+
+---
+
+## 9. 已落地修复：ThumbnailGenerator 优先 eResImage
+
+实现位置：scripts/rdc_analyzer/thumbnail_generator.py
+
+规则：
+1. 如果 initial_contents[image_id] 存在且类型是 eResImage，优先使用（offset=0）
+2. 否则才回退到 eResDeviceMemory + vkBindImageMemory.memoryOffset
+
+回归测试：scripts/rdc_analyzer/tests/test_thumbnail_generator_prefers_image_ic.py
+
+---
+
+## 10. ZIP 条目命名纠正（很关键）
+
+Internal::Initial Contents 里的 buffer 数字（例如 Contents=197），通常对应 ZIP 内的条目名是 6 位补零：
+
+- 197 -> 000197
+
+对应代码：
+
+    buffer_name = f"{ic.buffer_index:06d}"
+    raw = zf.read(buffer_name)
+
+（之前文档中的 buffer_{index:04d} 写法属于过时示例，容易误导，请以代码实现为准。）
+
+---
+
+## 更新历史（补充）
+
+| 日期 | 版本 | 变更 |
+|------|------|------|
+| 2026-02-13 | 1.1.0 | 补充 Optimal Tiling 花屏根因；修复 ThumbnailGenerator 选择顺序（优先 eResImage） |
+

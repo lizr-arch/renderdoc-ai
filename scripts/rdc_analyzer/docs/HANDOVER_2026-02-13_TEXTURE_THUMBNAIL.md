@@ -65,9 +65,9 @@ Step 4 (新增): 输出统计
 | 验证项 | 状态 |
 |--------|------|
 | 语法检查 (`py_compile`) | ✅ 通过 |
-| 单元测试 | ❌ 未执行 |
-| 集成测试（RenderDoc Shell） | ❌ 未执行 |
-| 用户验收 | ❌ 未执行 |
+| 单元测试 | ✅ 通过（pytest: 819 passed, 6 skipped） |
+| 集成测试（headless xml_to_bundle） | ✅ 通过（Endfield sidecar，50/154 thumbnails） |
+| 用户验收 | ⏳ 待用户视觉确认 |
 
 ---
 
@@ -130,12 +130,14 @@ gen = ThumbnailGenerator(xml_path, zip_path)
 
 # 检查解析结果
 print(f"Images: {len(gen.images)}")
-print(f"Bindings: {len(gen.memory_bindings)}")
+print(f"Bindings: {len(gen.bindings)}")
+
+image_to_binding = {b.image_id: b for b in gen.bindings}
 print(f"InitialContents: {len(gen.initial_contents)}")
 
 # 尝试生成单个缩略图
 for img_id, img_info in list(gen.images.items())[:3]:
-    binding = gen.memory_bindings.get(img_id)
+    binding = image_to_binding.get(img_id)
     if binding:
         ic = gen.initial_contents.get(binding.memory_id)
         if ic:
@@ -240,3 +242,29 @@ D:\RDC\
 ---
 
 **祝顺利！** 🚀
+
+## 8. 2026-02-13 后续进展（方向3，已完成）
+
+### 8.1 新发现的根因补充
+在 zip.xml 导出里，Internal::Initial Contents 同时可能包含两类数据：
+- eResImage：每个 VkImage 自己的初始内容（通常可离线解码）
+- eResDeviceMemory：整段 VkDeviceMemory dump（对 VK_IMAGE_TILING_OPTIMAL 往往是 GPU 平铺布局）
+
+旧逻辑只要拿到 memory 就优先用 memory，会导致两类问题：
+- 错图：memory aliasing offset 用错或未命中
+- 花屏条纹：把 optimal tiling 的 memory 当线性布局解码
+
+### 8.2 已落地修复
+- 文件：scripts/rdc_analyzer/thumbnail_generator.py
+- 规则：优先 eResImage；缺失时再回退 eResDeviceMemory + binding offset
+- 回归测试：scripts/rdc_analyzer/tests/test_thumbnail_generator_prefers_image_ic.py
+
+### 8.3 Headless 验证结果（本机）
+- py -3 -m pytest scripts/rdc_analyzer/tests/test_thumbnail_generator_prefers_image_ic.py -v --tb=short：通过
+- py -3 -m pytest scripts/rdc_analyzer/tests -q：通过（819 passed, 6 skipped）
+- 重新生成报告后，D:\backup\endfield_report\textures_data.json 中缩略图数量为 50/154（使用 --max-thumbnails 50）
+
+### 8.4 视觉验收路径
+- 打开 file:///D:/backup/endfield_report/textures.html
+- 建议重点抽查：Texture_69 / Texture_70 及大尺寸 BC7 纹理
+
