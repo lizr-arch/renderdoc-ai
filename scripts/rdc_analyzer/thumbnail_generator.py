@@ -291,27 +291,53 @@ class ThumbnailGenerator:
     def get_extractable_textures(self) -> List[Tuple[ImageInfo, MemoryBinding, InitialContents]]:
         """
         获取所有可提取的纹理
-        
+
+        注意：ZIP+XML 导出里可能同时存在两种 Initial Contents：
+          - eResImage：每个 VkImage 自己的一份内容（通常已线性化，更适合离线解码）
+          - eResDeviceMemory：整段 VkDeviceMemory 的内容（可能是 GPU 的 optimal tiling 原始布局）
+
+        为了提升缩略图的可读性与正确性：
+          1) 优先使用 eResImage（offset=0）
+          2) 若缺失，再回退到 eResDeviceMemory + vkBindImageMemory.offset（用于内存别名场景）
+
         Returns:
             [(ImageInfo, MemoryBinding, InitialContents), ...]
         """
         if not self._parsed:
             self.parse()
-        
+
+        def is_image_ic(ic: InitialContents) -> bool:
+            return 'IMAGE' in (ic.resource_type or '').upper()
+
+        def is_memory_ic(ic: InitialContents) -> bool:
+            return 'MEMORY' in (ic.resource_type or '').upper()
+
         # 建立 image -> memory 映射
-        image_to_memory = {b.image_id: b for b in self.bindings}
-        
-        extractable = []
+        image_to_binding = {b.image_id: b for b in self.bindings}
+
+        extractable: List[Tuple[ImageInfo, MemoryBinding, InitialContents]] = []
         for img_id, img in self.images.items():
-            binding = image_to_memory.get(img_id)
-            if binding:
-                ic = self.initial_contents.get(binding.memory_id)
-                if ic:
-                    extractable.append((img, binding, ic))
-        
+            # 优先使用 per-image 的 Initial Contents（更容易离线解码，避免 raw memory 的 tiling 布局）
+            ic_img = self.initial_contents.get(img_id)
+            if ic_img and is_image_ic(ic_img):
+                extractable.append((
+                    img,
+                    MemoryBinding(image_id=img_id, memory_id=img_id, offset=0),
+                    ic_img,
+                ))
+                continue
+
+            binding = image_to_binding.get(img_id)
+            if not binding:
+                continue
+
+            ic_mem = self.initial_contents.get(binding.memory_id)
+            if ic_mem and is_memory_ic(ic_mem):
+                extractable.append((img, binding, ic_mem))
+
         # 按尺寸排序（大的优先）
         extractable.sort(key=lambda x: x[0].width * x[0].height, reverse=True)
-        
+
         return extractable
     
     def generate_thumbnail(
