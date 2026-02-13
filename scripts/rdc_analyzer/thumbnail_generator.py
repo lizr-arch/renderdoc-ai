@@ -33,13 +33,23 @@ logger = logging.getLogger(__name__)
 # 尝试导入解码器模块
 try:
     from decoders import decode_texture, get_supported_formats, TextureDecodeError
+    try:
+        # Used to slice memory-aliasing buffers to the exact expected size.
+        from decoders.texture_decoder import calculate_compressed_size
+    except Exception:  # pragma: no cover
+        calculate_compressed_size = None
     DECODER_AVAILABLE = True
 except ImportError:
     try:
         from .decoders import decode_texture, get_supported_formats, TextureDecodeError
+        try:
+            from .decoders.texture_decoder import calculate_compressed_size
+        except Exception:  # pragma: no cover
+            calculate_compressed_size = None
         DECODER_AVAILABLE = True
     except ImportError:
         DECODER_AVAILABLE = False
+        calculate_compressed_size = None
         logger.warning("Decoder module not available - thumbnails will be disabled")
 
 # 尝试导入 Pillow
@@ -128,16 +138,28 @@ class ThumbnailGenerator:
     
     def _find_zip_path(self) -> Path:
         """推断 ZIP 文件路径"""
-        candidates = [
-            self.xml_path.parent / self.xml_path.name.replace('.xml', ''),
-            self.xml_path.with_suffix('.zip'),
-            self.xml_path.with_suffix(''),
-        ]
+        parent = self.xml_path.parent
+        name = self.xml_path.name
+
+        candidates = []
+
+        # zip.xml export: capture.zip.xml -> capture.zip
+        if name.endswith('.zip.xml'):
+            base = name[:-len('.zip.xml')]
+            candidates.append(parent / (base + '.zip'))
+
+        # plain xml export: capture.xml -> capture.zip
+        candidates.append(self.xml_path.with_suffix('.zip'))
+
+        # common alternate naming
+        candidates.append(parent / (self.xml_path.stem + '.zip'))
+
         for candidate in candidates:
             if candidate.exists():
                 return candidate
-        return candidates[0]  # 默认返回第一个（用于错误信息）
-    
+
+        return candidates[0] if candidates else (parent / (name + '.zip'))
+
     def is_available(self) -> Tuple[bool, str]:
         """
         检查生成器是否可用
@@ -331,7 +353,20 @@ class ThumbnailGenerator:
             )
         
         # 提取纹理数据（从 offset 开始）
-        texture_data = data[binding.offset:] if binding.offset > 0 else data
+        #
+        # Vulkan memory aliasing can place multiple images inside one VkDeviceMemory blob.
+        # Slicing to the exact expected size avoids copying huge tails of the buffer.
+        start = binding.offset if binding.offset > 0 else 0
+        end = None
+        if calculate_compressed_size is not None:
+            try:
+                expected = calculate_compressed_size(image_info.width, image_info.height, image_info.format)
+                if expected > 0:
+                    end = start + expected
+            except Exception:
+                end = None
+
+        texture_data = data[start:end] if end is not None else data[start:]
         
         # 解码纹理
         try:

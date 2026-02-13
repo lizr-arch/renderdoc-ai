@@ -117,44 +117,63 @@ if controller is None:
 thumb_gen = None
 thumb_gen_extractable = {}  # {resource_id: (ImageInfo, MemoryBinding, InitialContents)}
 
-# 检测同目录下是否有 ZIP 文件
-potential_zips = [
-    cap_path.with_suffix('.zip'),  # same_name.zip
-    cap_path.parent / 'frame.zip',  # frame.zip (常见导出名)
-    cap_path.parent / f'{cap_path.stem}.zip',  # capture_name.zip
-]
 
+# 检测同目录下是否有 ZIP + XML 导出文件
 zip_path = None
 xml_path = None
+tried_pairs = []
 
-for zp in potential_zips:
-    if zp.exists():
-        # 检查对应的 XML 文件
-        xp = zp.with_suffix('.zip.xml')
-        if not xp.exists():
-            xp = zp.with_suffix('.xml')
-        if xp.exists():
-            zip_path = zp
-            xml_path = xp
-            break
+# 允许在 RenderDoc Python Shell 中手动指定 sidecar
+#   ZIP_PATH = r"D:\RDC\ef_r8_export.zip"
+#   XML_PATH = r"D:\RDC\ef_r8.xml"
+zip_hint = Path(ZIP_PATH) if 'ZIP_PATH' in dir() and ZIP_PATH else None
+xml_hint = Path(XML_PATH) if 'XML_PATH' in dir() and XML_PATH else None
+if zip_hint or xml_hint:
+    print(f"[INFO] Using sidecar hints: ZIP_PATH={zip_hint}, XML_PATH={xml_hint}")
+
+try:
+    from zipxml_locator import find_zipxml_sidecar
+    zip_path, xml_path, tried_pairs = find_zipxml_sidecar(
+        cap_path,
+        zip_hint=zip_hint,
+        xml_hint=xml_hint,
+    )
+except Exception as e:
+    print(f"[WARN] zipxml_locator failed: {e}")
+    zip_path = None
+    xml_path = None
+
+if (not zip_path or not xml_path) and tried_pairs:
+    print("[INFO] ZIP+XML candidates tried (top 8):")
+    for t in tried_pairs[:8]:
+        print(f"       - {t}")
+    if len(tried_pairs) > 8:
+        print(f"       ... ({len(tried_pairs)} candidates total)")
 
 if zip_path and xml_path:
     print(f"[INFO] Found ZIP export: {zip_path.name}")
     print(f"[INFO] Found XML export: {xml_path.name}")
-    
+
     try:
         from thumbnail_generator import ThumbnailGenerator
-        
+
         thumb_gen = ThumbnailGenerator(str(xml_path), str(zip_path))
-        thumb_gen.parse()
-        
-        # 构建可提取纹理的映射
-        extractable = thumb_gen.get_extractable_textures()
-        for img, binding, ic in extractable:
-            thumb_gen_extractable[img.resource_id] = (img, binding, ic)
-        
-        print(f"[INFO] ThumbnailGenerator ready: {len(thumb_gen_extractable)} extractable textures")
-        print(f"[INFO] Will use offset-aware extraction for Vulkan memory aliasing")
+        if not thumb_gen.parse():
+            print("[WARN] ThumbnailGenerator parse failed, using SaveTexture fallback")
+            thumb_gen = None
+        else:
+            # 构建可提取纹理的映射
+            extractable = thumb_gen.get_extractable_textures()
+            for img, binding, ic in extractable:
+                thumb_gen_extractable[int(img.resource_id)] = (img, binding, ic)
+
+            print(
+                f"[INFO] ThumbnailGenerator parse stats: "
+                f"images={len(thumb_gen.images)}, bindings={len(thumb_gen.bindings)}, "
+                f"initial_contents={len(thumb_gen.initial_contents)}"
+            )
+            print(f"[INFO] ThumbnailGenerator ready: {len(thumb_gen_extractable)} extractable textures")
+            print("[INFO] Will use offset-aware extraction for Vulkan memory aliasing")
     except ImportError:
         print("[WARN] ThumbnailGenerator module not available, using SaveTexture fallback")
         thumb_gen = None

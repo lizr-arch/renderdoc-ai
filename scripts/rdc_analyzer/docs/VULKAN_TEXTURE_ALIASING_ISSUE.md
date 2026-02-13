@@ -116,6 +116,7 @@ Step 4: 输出统计
 - [x] 问题根因确认（Vulkan 内存别名）
 - [x] 解决方案设计（ThumbnailGenerator 集成）
 - [x] 代码实现（`rdc_to_bundle_report.py` 修改）
+- [x] sidecar 自动定位增强（支持 `*_export.zip + <capture>.xml` 组合）
 - [x] 语法验证通过
 
 ### 4.2 待验证
@@ -136,6 +137,23 @@ Step 4: 输出统计
 ---
 
 ## 5. 验证步骤
+
+### 5.0 Sidecar 定位说明（新增）
+
+`rdc_to_bundle_report.py` 会优先自动查找以下组合：
+
+1. `<capture>.zip + <capture>.zip.xml`
+2. `<capture>.zip + <capture>.xml`
+3. `<capture>_export.zip + <capture>.xml`（本次重点修复）
+4. `frame.zip + frame.zip.xml`
+
+如自动识别失败，可在 RenderDoc Python Shell 中手动指定：
+
+```python
+ZIP_PATH = r"D:\\RDC\\ef_r8_export.zip"
+XML_PATH = r"D:\\RDC\\ef_r8.xml"
+exec(open(r"D:\\Code\\git\\renderdoc\\scripts\\rdc_analyzer\\rdc_to_bundle_report.py").read())
+```
 
 ### 5.1 重新生成报告
 
