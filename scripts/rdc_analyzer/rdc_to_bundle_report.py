@@ -111,6 +111,61 @@ if controller is None:
     raise SystemExit
 
 # ============================================================================
+# Step 0.5: 检测 ZIP+XML 导出文件（用于 Vulkan 内存别名场景的正确缩略图提取）
+# ============================================================================
+
+thumb_gen = None
+thumb_gen_extractable = {}  # {resource_id: (ImageInfo, MemoryBinding, InitialContents)}
+
+# 检测同目录下是否有 ZIP 文件
+potential_zips = [
+    cap_path.with_suffix('.zip'),  # same_name.zip
+    cap_path.parent / 'frame.zip',  # frame.zip (常见导出名)
+    cap_path.parent / f'{cap_path.stem}.zip',  # capture_name.zip
+]
+
+zip_path = None
+xml_path = None
+
+for zp in potential_zips:
+    if zp.exists():
+        # 检查对应的 XML 文件
+        xp = zp.with_suffix('.zip.xml')
+        if not xp.exists():
+            xp = zp.with_suffix('.xml')
+        if xp.exists():
+            zip_path = zp
+            xml_path = xp
+            break
+
+if zip_path and xml_path:
+    print(f"[INFO] Found ZIP export: {zip_path.name}")
+    print(f"[INFO] Found XML export: {xml_path.name}")
+    
+    try:
+        from thumbnail_generator import ThumbnailGenerator
+        
+        thumb_gen = ThumbnailGenerator(str(xml_path), str(zip_path))
+        thumb_gen.parse()
+        
+        # 构建可提取纹理的映射
+        extractable = thumb_gen.get_extractable_textures()
+        for img, binding, ic in extractable:
+            thumb_gen_extractable[img.resource_id] = (img, binding, ic)
+        
+        print(f"[INFO] ThumbnailGenerator ready: {len(thumb_gen_extractable)} extractable textures")
+        print(f"[INFO] Will use offset-aware extraction for Vulkan memory aliasing")
+    except ImportError:
+        print("[WARN] ThumbnailGenerator module not available, using SaveTexture fallback")
+        thumb_gen = None
+    except Exception as e:
+        print(f"[WARN] ThumbnailGenerator init failed: {e}, using SaveTexture fallback")
+        thumb_gen = None
+else:
+    print("[INFO] No ZIP+XML export found, using standard SaveTexture API")
+    print("[INFO] To enable offset-aware extraction, export capture as ZIP+XML first")
+
+# ============================================================================
 # Step 1: 提取纹理信息和缩略图
 # ============================================================================
 
@@ -123,6 +178,8 @@ print(f"  Found {len(textures_desc)} textures")
 temp_dir = Path(tempfile.mkdtemp(prefix="rdoc_bundle_"))
 textures_data = []
 total_vram = 0
+thumb_from_gen = 0  # 从 ThumbnailGenerator 提取的缩略图数
+thumb_from_api = 0  # 从 SaveTexture API 提取的缩略图数
 
 for i, tex in enumerate(textures_desc):
     if tex.resourceId == rd.ResourceId.Null():
@@ -181,35 +238,53 @@ for i, tex in enumerate(textures_desc):
         "thumbnail": None,  # 待填充
     }
     
-    # 提取缩略图
-    temp_file = temp_dir / f"thumb_{res_id}.png"
+    # 提取缩略图 - 优先使用 ThumbnailGenerator（解决 Vulkan 内存别名问题）
+    thumb_extracted = False
     
-    try:
-        save_data = rd.TextureSave()
-        save_data.resourceId = tex.resourceId
-        save_data.destType = rd.FileType.PNG
-        save_data.alpha = rd.AlphaMapping.Preserve
+    # 方法1: ThumbnailGenerator（offset-aware，适用于 Vulkan 内存别名）
+    if thumb_gen and res_id in thumb_gen_extractable:
+        try:
+            img_info, binding, ic = thumb_gen_extractable[res_id]
+            result = thumb_gen.generate_thumbnail(img_info, binding, ic, max_size=THUMBNAIL_MAX_SIZE)
+            if result.success and result.base64_data:
+                tex_info["thumbnail"] = result.base64_data
+                thumb_extracted = True
+                thumb_from_gen += 1
+        except Exception as e:
+            pass  # 回退到 SaveTexture
+    
+    # 方法2: RenderDoc SaveTexture API（回退方案）
+    if not thumb_extracted:
+        temp_file = temp_dir / f"thumb_{res_id}.png"
         
-        # 选择合适的 mip level
-        mip_to_use = 0
-        w, h = width, height
-        while (w > THUMBNAIL_MAX_SIZE * 2 or h > THUMBNAIL_MAX_SIZE * 2) and mip_to_use < tex.mips - 1:
-            w = max(1, w // 2)
-            h = max(1, h // 2)
-            mip_to_use += 1
-        
-        save_data.mip = mip_to_use
-        
-        result = controller.SaveTexture(save_data, str(temp_file))
-        
-        if result == rd.ResultCode.Succeeded and temp_file.exists():
-            with open(temp_file, 'rb') as f:
-                img_data = f.read()
-            b64_data = base64.b64encode(img_data).decode('ascii')
-            tex_info["thumbnail"] = f"data:image/png;base64,{b64_data}"
-            temp_file.unlink()
-    except Exception as e:
-        pass  # 缩略图提取失败，保持 None
+        try:
+            save_data = rd.TextureSave()
+            save_data.resourceId = tex.resourceId
+            save_data.destType = rd.FileType.PNG
+            save_data.alpha = rd.AlphaMapping.Preserve
+            
+            # 选择合适的 mip level
+            mip_to_use = 0
+            w, h = width, height
+            while (w > THUMBNAIL_MAX_SIZE * 2 or h > THUMBNAIL_MAX_SIZE * 2) and mip_to_use < tex.mips - 1:
+                w = max(1, w // 2)
+                h = max(1, h // 2)
+                mip_to_use += 1
+            
+            save_data.mip = mip_to_use
+            
+            result = controller.SaveTexture(save_data, str(temp_file))
+            
+            if result == rd.ResultCode.Succeeded and temp_file.exists():
+                with open(temp_file, 'rb') as f:
+                    img_data = f.read()
+                b64_data = base64.b64encode(img_data).decode('ascii')
+                tex_info["thumbnail"] = f"data:image/png;base64,{b64_data}"
+                temp_file.unlink()
+                thumb_extracted = True
+                thumb_from_api += 1
+        except Exception as e:
+            pass  # 缩略图提取失败，保持 None
     
     textures_data.append(tex_info)
     
@@ -222,6 +297,9 @@ print(f"  [OK] Total VRAM: {total_vram / (1024*1024):.2f} MB")
 # 统计有缩略图的纹理
 thumb_count = sum(1 for t in textures_data if t.get('thumbnail'))
 print(f"  [OK] Thumbnails: {thumb_count}/{len(textures_data)}")
+if thumb_from_gen > 0 or thumb_from_api > 0:
+    print(f"       - ThumbnailGenerator (offset-aware): {thumb_from_gen}")
+    print(f"       - SaveTexture API (fallback): {thumb_from_api}")
 
 # ============================================================================
 # Step 2: 提取 Shader 信息和源码

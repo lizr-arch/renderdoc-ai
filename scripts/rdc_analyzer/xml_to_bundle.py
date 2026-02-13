@@ -234,6 +234,10 @@ class SimpleXmlParser:
                         tex["width"] = int(text) if text.isdigit() else 0
                     elif ext_name == "height":
                         tex["height"] = int(text) if text.isdigit() else 0
+            
+            # 提取 ResourceId (Vulkan Image ID)
+            elif child.tag == "ResourceId" and child_name == "Image":
+                tex["resource_id"] = child.text or ""
         
         return tex if tex["width"] > 0 else None
     
@@ -433,16 +437,19 @@ def generate_thumbnails_from_zip(
     if not results:
         return 0
     
-    # 构建 resource_id → base64 映射
+    # 构建 resource_id → base64 映射 (key 统一为字符串)
     thumbnail_map = {}
     for r in results:
         if r.success and r.base64_data:
-            thumbnail_map[r.resource_id] = r.base64_data
+            thumbnail_map[str(r.resource_id)] = r.base64_data
+    
+    if verbose:
+        print(f"      [INFO] thumbnail_map has {len(thumbnail_map)} entries")
     
     # 合并到纹理列表
     count = 0
     for tex in textures:
-        tex_id = tex.get("id", "")
+        tex_id = str(tex.get("id", ""))
         if tex_id in thumbnail_map:
             tex["thumbnail"] = thumbnail_map[tex_id]
             count += 1

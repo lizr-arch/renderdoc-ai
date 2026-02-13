@@ -2,7 +2,7 @@
 
 
 
-> **更新日期**: 2026-02-11 | **版本**: 2.6.3 | **维护**: Codex Agent
+> **更新日期**: 2026-02-13 | **版本**: 2.6.4 | **维护**: Codex Agent
 
 
 
@@ -116,7 +116,13 @@
 - 📁 Pass 分组 按钮（events.html 底部）
 - `--external-data` CLI 标志
 
-### �📝 格式与规范
+### 🐛 问题诊断与调试
+
+| 文档 | 说明 | 关键词 |
+|------|------|--------|
+| [VULKAN_TEXTURE_ALIASING_ISSUE.md](VULKAN_TEXTURE_ALIASING_ISSUE.md) | **Vulkan 纹理别名问题**：SaveTexture API 在内存别名场景下返回错误数据的诊断与修复 ⭐ | Vulkan, 内存别名, SaveTexture, ThumbnailGenerator, ef_r8 |
+
+### 📝 格式与规范
 
 | 文档 | 说明 | 关键词 |
 
@@ -227,6 +233,8 @@
 | **如何使用热力图功能？** | [UI_FEATURES_GUIDE.md](UI_FEATURES_GUIDE.md) (M4.1 章节) ⭐ |
 | **如何使用 Pass 分组？** | [UI_FEATURES_GUIDE.md](UI_FEATURES_GUIDE.md) (M4.2 章节) ⭐ |
 | **如何启用外部数据加载？** | [UI_FEATURES_GUIDE.md](UI_FEATURES_GUIDE.md) (Phase 7C 章节) |
+| **Vulkan 缩略图显示错误？** | [VULKAN_TEXTURE_ALIASING_ISSUE.md](VULKAN_TEXTURE_ALIASING_ISSUE.md) ⭐ |
+| **SaveTexture 返回错误数据？** | [VULKAN_TEXTURE_ALIASING_ISSUE.md](VULKAN_TEXTURE_ALIASING_ISSUE.md) (内存别名章节) |
 
 
 
