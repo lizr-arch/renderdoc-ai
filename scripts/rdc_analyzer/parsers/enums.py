@@ -144,6 +144,16 @@ class VulkanChunk(IntEnum):
     vkCmdInsertDebugUtilsLabelEXT = FIRST_DRIVER_CHUNK + 111 # = 1111 单点 Marker
 
 
+    # Draw variants (values verified against renderdoc/driver/vulkan/vk_common.h)
+    vkCmdDrawIndirectCount = FIRST_DRIVER_CHUNK + 116  # = 1116
+    vkCmdDrawIndexedIndirectCount = FIRST_DRIVER_CHUNK + 117  # = 1117
+
+    # Mesh shader draws (VK_EXT_mesh_shader)
+    vkCmdDrawMeshTasksEXT = FIRST_DRIVER_CHUNK + 198  # = 1198
+    vkCmdDrawMeshTasksIndirectEXT = FIRST_DRIVER_CHUNK + 199  # = 1199
+    vkCmdDrawMeshTasksIndirectCountEXT = FIRST_DRIVER_CHUNK + 200  # = 1200
+
+
 # ============================================================================
 # Chunk ID 集合 (用于快速判断)
 # ============================================================================
@@ -153,6 +163,11 @@ VULKAN_DRAW_CHUNK_IDS = {
     VulkanChunk.vkCmdDrawIndirect,
     VulkanChunk.vkCmdDrawIndexed,
     VulkanChunk.vkCmdDrawIndexedIndirect,
+    VulkanChunk.vkCmdDrawIndirectCount,
+    VulkanChunk.vkCmdDrawIndexedIndirectCount,
+    VulkanChunk.vkCmdDrawMeshTasksEXT,
+    VulkanChunk.vkCmdDrawMeshTasksIndirectEXT,
+    VulkanChunk.vkCmdDrawMeshTasksIndirectCountEXT,
 }
 
 VULKAN_DISPATCH_CHUNK_IDS = {

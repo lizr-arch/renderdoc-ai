@@ -143,6 +143,11 @@ class DrawEventContext:
             'draw_indexed': 'DrawIndexed',
             'draw_indirect': 'DrawIndirect',
             'draw_indexed_indirect': 'DrawIndexedIndirect',
+            'draw_indirect_count': 'DrawIndirectCount',
+            'draw_indexed_indirect_count': 'DrawIndexedIndirectCount',
+            'draw_mesh_tasks': 'DrawMeshTasks',
+            'draw_mesh_tasks_indirect': 'DrawMeshTasksIndirect',
+            'draw_mesh_tasks_indirect_count': 'DrawMeshTasksIndirectCount',
             'dispatch': 'Dispatch',
             'dispatch_indirect': 'DispatchIndirect',
         }

@@ -702,7 +702,9 @@ def parse_rdc_xml(xml_path):
     # Vulkan draw/dispatch calls (真正的渲染调用，会清空 binding_records)
     vk_draw_calls = [
         "vkCmdDraw", "vkCmdDrawIndexed", "vkCmdDrawIndirect", "vkCmdDrawIndexedIndirect",
-        "vkCmdDrawMeshTasksEXT", "vkCmdDispatch", "vkCmdDispatchIndirect",
+        "vkCmdDrawIndirectCount", "vkCmdDrawIndexedIndirectCount",
+        "vkCmdDrawMeshTasksEXT", "vkCmdDrawMeshTasksIndirectEXT", "vkCmdDrawMeshTasksIndirectCountEXT",
+        "vkCmdDispatch", "vkCmdDispatchIndirect",
     ]
     
     # D3D11 draw/dispatch calls (真正的渲染调用，会清空 binding_records)

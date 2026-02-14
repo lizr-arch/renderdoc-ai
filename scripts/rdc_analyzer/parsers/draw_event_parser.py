@@ -39,6 +39,11 @@ DRAW_CHUNK_IDS: Set[int] = {
     VulkanChunk.vkCmdDrawIndirect,
     VulkanChunk.vkCmdDrawIndexed,
     VulkanChunk.vkCmdDrawIndexedIndirect,
+    VulkanChunk.vkCmdDrawIndirectCount,
+    VulkanChunk.vkCmdDrawIndexedIndirectCount,
+    VulkanChunk.vkCmdDrawMeshTasksEXT,
+    VulkanChunk.vkCmdDrawMeshTasksIndirectEXT,
+    VulkanChunk.vkCmdDrawMeshTasksIndirectCountEXT,
 }
 
 # Dispatch 调用 Chunk IDs
@@ -53,6 +58,11 @@ DRAW_TYPE_MAP: Dict[int, str] = {
     VulkanChunk.vkCmdDrawIndirect: 'draw_indirect',
     VulkanChunk.vkCmdDrawIndexed: 'draw_indexed',
     VulkanChunk.vkCmdDrawIndexedIndirect: 'draw_indexed_indirect',
+    VulkanChunk.vkCmdDrawIndirectCount: 'draw_indirect_count',
+    VulkanChunk.vkCmdDrawIndexedIndirectCount: 'draw_indexed_indirect_count',
+    VulkanChunk.vkCmdDrawMeshTasksEXT: 'draw_mesh_tasks',
+    VulkanChunk.vkCmdDrawMeshTasksIndirectEXT: 'draw_mesh_tasks_indirect',
+    VulkanChunk.vkCmdDrawMeshTasksIndirectCountEXT: 'draw_mesh_tasks_indirect_count',
 }
 
 

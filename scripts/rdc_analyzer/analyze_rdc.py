@@ -375,6 +375,11 @@ VULKAN_EID_EVENT_CHUNK_IDS: set[int] = {
     int(VulkanChunk.vkCmdDrawIndirect),
     int(VulkanChunk.vkCmdDrawIndexed),
     int(VulkanChunk.vkCmdDrawIndexedIndirect),
+    int(VulkanChunk.vkCmdDrawIndirectCount),
+    int(VulkanChunk.vkCmdDrawIndexedIndirectCount),
+    int(VulkanChunk.vkCmdDrawMeshTasksEXT),
+    int(VulkanChunk.vkCmdDrawMeshTasksIndirectEXT),
+    int(VulkanChunk.vkCmdDrawMeshTasksIndirectCountEXT),
     # Dispatch
     int(VulkanChunk.vkCmdDispatch),
     int(VulkanChunk.vkCmdDispatchIndirect),

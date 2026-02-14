@@ -26,13 +26,13 @@ Make `analyze_rdc.py --json` export `events[].eventId` that matches RenderDoc EI
   - [x] Update `analyze_rdc.py` `VULKAN_EID_EVENT_CHUNK_IDS` to match
   - [x] Add/adjust unit test to prove new chunk IDs shift EID as expected
 
-- [ ] Step 2: Add Vulkan draw variants (mesh + indirect-count)
-  - [ ] Update `parsers/enums.py` `VULKAN_DRAW_CHUNK_IDS` to include indirect-count + mesh draws
-  - [ ] Update `parsers/draw_event_parser.py` to treat these chunk IDs as draw events
-  - [ ] Update `parsers/models/base.py` `DrawEventContext.event_name` mapping for readable names
-  - [ ] Update `parse_rdc_xml.py` `vk_draw_calls` to include matching call names
-  - [ ] Update `analyze_rdc.py` EID-event chunk set to include these draw chunks
-  - [ ] Add unit tests for recognition + mapping
+- [x] Step 2: Add Vulkan draw variants (mesh + indirect-count)
+  - [x] Update `parsers/enums.py` `VULKAN_DRAW_CHUNK_IDS` to include indirect-count + mesh draws
+  - [x] Update `parsers/draw_event_parser.py` to treat these chunk IDs as draw events
+  - [x] Update `parsers/models/base.py` `DrawEventContext.event_name` mapping for readable names
+  - [x] Update `parse_rdc_xml.py` `vk_draw_calls` to include matching call names
+  - [x] Update `analyze_rdc.py` EID-event chunk set to include these draw chunks
+  - [x] Add unit tests for recognition + mapping
 
 - [ ] Step 3: Integration test (scientific oracle)
   - [ ] Create a synthetic XML chunk stream with a mix of binding + auxiliary + marker + draw + resolve + mesh
@@ -70,3 +70,11 @@ Make `analyze_rdc.py --json` export `events[].eventId` that matches RenderDoc EI
   - Ran:
     - `py -3 -m pytest scripts/rdc_analyzer/tests/test_eventid_eid_mapping.py -q --tb=short`
     - `py -3 -m pytest scripts/rdc_analyzer/tests/test_analyze_rdc_event_export.py -q --tb=short`
+- 2026-02-14: Step2 done
+  - Added Vulkan draw chunk enums: vkCmdDrawIndirectCount(1116), vkCmdDrawIndexedIndirectCount(1117), vkCmdDrawMeshTasks*(1198-1200).
+  - Updated parsers to recognize these chunk IDs as draw events and provide readable names.
+  - Updated XML `vk_draw_calls` and JSON EID mapping set to include these draw variants.
+  - Added unit tests: `scripts/rdc_analyzer/tests/test_vulkan_draw_variants.py`.
+  - Ran:
+    - `py -3 -m pytest scripts/rdc_analyzer/tests/test_vulkan_draw_variants.py -q --tb=short`
+    - `py -3 -m pytest scripts/rdc_analyzer/tests/test_eventid_eid_mapping.py scripts/rdc_analyzer/tests/test_analyze_rdc_event_export.py -q --tb=short`
