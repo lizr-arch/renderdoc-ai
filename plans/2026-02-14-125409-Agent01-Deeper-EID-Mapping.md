@@ -34,9 +34,9 @@ Make `analyze_rdc.py --json` export `events[].eventId` that matches RenderDoc EI
   - [x] Update `analyze_rdc.py` EID-event chunk set to include these draw chunks
   - [x] Add unit tests for recognition + mapping
 
-- [ ] Step 3: Integration test (scientific oracle)
-  - [ ] Create a synthetic XML chunk stream with a mix of binding + auxiliary + marker + draw + resolve + mesh
-  - [ ] Assert `parse_rdc_xml.parse_rdc_xml()` eventId sequence matches `build_vulkan_chunk_index_to_eid()` for corresponding chunkIndex
+- [x] Step 3: Integration test (scientific oracle)
+  - [x] Create a synthetic XML chunk stream with a mix of binding + auxiliary + marker + draw + resolve + mesh
+  - [x] Assert `parse_rdc_xml.parse_rdc_xml()` eventId sequence matches `build_vulkan_chunk_index_to_eid()` for corresponding chunkIndex
 
 ## Impact Analysis
 - JSON route: some Vulkan captures will see different `eventId` values (closer to real EID). `chunkIndex` remains stable.
@@ -78,3 +78,9 @@ Make `analyze_rdc.py --json` export `events[].eventId` that matches RenderDoc EI
   - Ran:
     - `py -3 -m pytest scripts/rdc_analyzer/tests/test_vulkan_draw_variants.py -q --tb=short`
     - `py -3 -m pytest scripts/rdc_analyzer/tests/test_eventid_eid_mapping.py scripts/rdc_analyzer/tests/test_analyze_rdc_event_export.py -q --tb=short`
+- 2026-02-14: Step3 done
+  - Added integration test: `scripts/rdc_analyzer/tests/test_xml_oracle_eid_alignment.py`
+    - Ensures XML oracle (`parse_rdc_xml.py`) eventId sequence matches `build_vulkan_chunk_index_to_eid()` keys/order.
+  - Ran:
+    - `py -3 -m pytest scripts/rdc_analyzer/tests/test_xml_oracle_eid_alignment.py -q --tb=short`
+    - `py -3 -m pytest scripts/rdc_analyzer/tests -q --tb=short` (result: 824 passed, 6 skipped)
