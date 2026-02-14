@@ -385,10 +385,15 @@ VULKAN_EID_EVENT_CHUNK_IDS: set[int] = {
     # Auxiliary (clear/copy) — keep in sync with parse_rdc_xml.py
     int(VulkanChunk.vkCmdClearColorImage),
     int(VulkanChunk.vkCmdClearDepthStencilImage),
+    int(VulkanChunk.vkCmdClearAttachments),
     int(VulkanChunk.vkCmdBlitImage),
     int(VulkanChunk.vkCmdCopyBuffer),
     int(VulkanChunk.vkCmdCopyImage),
     int(VulkanChunk.vkCmdCopyBufferToImage),
+    int(VulkanChunk.vkCmdCopyImageToBuffer),
+    int(VulkanChunk.vkCmdResolveImage),
+    int(VulkanChunk.vkCmdUpdateBuffer),
+    int(VulkanChunk.vkCmdFillBuffer),
 }
 
 

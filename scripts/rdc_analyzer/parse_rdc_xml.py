@@ -754,8 +754,11 @@ def parse_rdc_xml(xml_path):
     # 因为这些调用不需要完整的 pipeline state，而且 binding 应该延续到下一个 Draw
     auxiliary_calls = [
         # Vulkan
-        "vkCmdClearColorImage", "vkCmdClearDepthStencilImage", "vkCmdBlitImage",
-        "vkCmdCopyBuffer", "vkCmdCopyImage", "vkCmdCopyBufferToImage",
+        "vkCmdClearColorImage", "vkCmdClearDepthStencilImage", "vkCmdClearAttachments",
+        "vkCmdBlitImage",
+        "vkCmdCopyBuffer", "vkCmdCopyImage", "vkCmdCopyBufferToImage", "vkCmdCopyImageToBuffer",
+        "vkCmdResolveImage",
+        "vkCmdUpdateBuffer", "vkCmdFillBuffer",
         # D3D11
         "ID3D11DeviceContext::CopyResource",
         "ID3D11DeviceContext::CopySubresourceRegion",
