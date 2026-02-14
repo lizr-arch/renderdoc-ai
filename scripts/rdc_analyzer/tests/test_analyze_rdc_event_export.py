@@ -23,12 +23,13 @@ def test_convert_draw_events_to_capture_events_minimal():
         )
     }
 
-    events = _analyze_rdc.convert_draw_events_to_capture_events(draw_events, pipelines)
+    events = _analyze_rdc.convert_draw_events_to_capture_events(draw_events, pipelines, {5: 2})
 
     assert len(events) == 1
 
     evt = events[0]
-    assert evt["eventId"] == 5
+    assert evt["eventId"] == 2
+    assert evt["chunkIndex"] == 5
     assert evt["type"] == "draw"
     assert evt["name"] == "DrawIndexed"
     assert evt["markerPath"] == "PassA/ObjB"

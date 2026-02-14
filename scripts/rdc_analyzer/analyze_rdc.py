@@ -23,7 +23,7 @@ from typing import List, Dict, Any, Tuple
 # 添加模块路径
 sys.path.insert(0, str(Path(__file__).parent))
 
-from rdc_parser import RDCParser, ShaderInfo, extract_shaders, extract_textures, extract_resource_renames, TextureInfo, VK_FORMAT_NAMES, DrawEventContext, PipelineInfo
+from rdc_parser import RDCParser, ShaderInfo, extract_shaders, extract_textures, extract_resource_renames, TextureInfo, VK_FORMAT_NAMES, DrawEventContext, PipelineInfo, ChunkInfo, VulkanChunk
 from mali_analyzer import MaliOfflineCompiler, ShaderAnalysisResult, MaliPerformanceMetrics
 from schema import rdc_manifest
 from tools import report_linking
@@ -360,6 +360,55 @@ def _normalize_report_event_type(event_type: str) -> str:
     return event_type
 
 
+# ============================================================================
+# EventId (EID) mapping
+# ============================================================================
+
+# NOTE: We intentionally align this definition with `parse_rdc_xml.py` semantics:
+# - draw/dispatch calls increment eventId
+# - marker/auxiliary calls increment eventId
+# - binding/state-setting calls do NOT increment eventId
+
+VULKAN_EID_EVENT_CHUNK_IDS: set[int] = {
+    # Draw
+    int(VulkanChunk.vkCmdDraw),
+    int(VulkanChunk.vkCmdDrawIndirect),
+    int(VulkanChunk.vkCmdDrawIndexed),
+    int(VulkanChunk.vkCmdDrawIndexedIndirect),
+    # Dispatch
+    int(VulkanChunk.vkCmdDispatch),
+    int(VulkanChunk.vkCmdDispatchIndirect),
+    # Markers (VK_EXT_debug_utils)
+    int(VulkanChunk.vkCmdBeginDebugUtilsLabelEXT),
+    int(VulkanChunk.vkCmdEndDebugUtilsLabelEXT),
+    int(VulkanChunk.vkCmdInsertDebugUtilsLabelEXT),
+    # Auxiliary (clear/copy) — keep in sync with parse_rdc_xml.py
+    int(VulkanChunk.vkCmdClearColorImage),
+    int(VulkanChunk.vkCmdClearDepthStencilImage),
+    int(VulkanChunk.vkCmdBlitImage),
+    int(VulkanChunk.vkCmdCopyBuffer),
+    int(VulkanChunk.vkCmdCopyImage),
+    int(VulkanChunk.vkCmdCopyBufferToImage),
+}
+
+
+def build_vulkan_chunk_index_to_eid(chunks: list[ChunkInfo]) -> dict[int, int]:
+    """Build mapping from FrameCapture chunkIndex -> EID (eventId).
+
+    This aligns the JSON export with `parse_rdc_xml.py` EID semantics: only
+    *events* consume an EID; binding/state changes do not.
+    """
+    eid = 0
+    mapping: dict[int, int] = {}
+
+    for chunk_index, chunk in enumerate(chunks):
+        if int(chunk.chunk_id) in VULKAN_EID_EVENT_CHUNK_IDS:
+            mapping[chunk_index] = eid
+            eid += 1
+
+    return mapping
+
+
 def convert_pipelines_to_capture_pipelines(pipelines: Dict[int, PipelineInfo]) -> List[Dict[str, Any]]:
     """Convert parser PipelineInfo map into JSON-safe capture schema."""
     pipeline_details: List[Dict[str, Any]] = []
@@ -386,6 +435,7 @@ def convert_pipelines_to_capture_pipelines(pipelines: Dict[int, PipelineInfo]) -
 def convert_draw_events_to_capture_events(
     draw_events: List[DrawEventContext],
     pipelines: Dict[int, PipelineInfo],
+    chunk_index_to_eid: Dict[int, int] | None = None,
 ) -> List[Dict[str, Any]]:
     """Convert DrawEventContext list into capture-event records for full report input."""
     capture_events: List[Dict[str, Any]] = []
@@ -395,8 +445,16 @@ def convert_draw_events_to_capture_events(
         event_type = _normalize_report_event_type(raw_type)
         pipeline_id = int(draw_event.pipeline_resource_id)
 
+        chunk_index = int(draw_event.chunk_index)
+        eid = chunk_index
+        if chunk_index_to_eid is not None:
+            eid = int(chunk_index_to_eid.get(chunk_index, chunk_index))
+
         event_payload: Dict[str, Any] = {
-            "eventId": int(draw_event.chunk_index),
+            # `eventId` is the primary key consumed as `eid` by full report.
+            "eventId": eid,
+            # Keep the original FrameCapture position for debugging / backtrace.
+            "chunkIndex": chunk_index,
             "chunkId": int(draw_event.chunk_id),
             "name": draw_event.event_name,
             "type": event_type,
@@ -447,6 +505,7 @@ def analyze_rdc_file(
     print(f"{'='*60}")
 
     chunk_counts = {}
+    chunk_index_to_eid = None
     # 1. 解析 RDC 文件头
     print("\n[1/5] Parsing RDC file...")
     with RDCParser(rdc_path) as parser:
@@ -466,6 +525,7 @@ def analyze_rdc_file(
             shaders = parser.extract_vulkan_shaders()
             print("\n[2/5] Extracting draw events and pipelines...")
             draw_events, pipelines = parser.extract_draw_events()
+            chunk_index_to_eid = build_vulkan_chunk_index_to_eid(parser.chunks or [])
         elif is_d3d11 or is_d3d12:
             # D3D11/D3D12: 基础分析（无 Mali）
             print(f"  [INFO] {driver_name} capture detected - Mali analysis not applicable")
@@ -775,7 +835,7 @@ def analyze_rdc_file(
             reconcile["texture_chunk_total_raw"] = chunk_counts.get("vkCreateImage", 0)
         summary["reconcile_chunks"] = reconcile
     
-    event_details = convert_draw_events_to_capture_events(draw_events, pipelines)
+    event_details = convert_draw_events_to_capture_events(draw_events, pipelines, chunk_index_to_eid)
     pipeline_details = convert_pipelines_to_capture_pipelines(pipelines)
 
     api_type = driver_name
