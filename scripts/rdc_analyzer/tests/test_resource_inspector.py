@@ -240,8 +240,9 @@ def run_replay_tests(rdc_path=None):
         print(f"[ERROR] Failed to open file: {status}")
         return False
     
-    if not cap.LocalReplaySupport():
-        print("[ERROR] Capture does not support local replay")
+    support = cap.LocalReplaySupport()
+    if support != rd.ReplaySupport.Supported:
+        print(f"[ERROR] Capture is not locally replayable on this machine: {support}")
         cap.Shutdown()
         return False
     
@@ -274,6 +275,10 @@ def run_replay_tests(rdc_path=None):
 
 import pytest
 
+import json
+import subprocess
+from pathlib import Path
+
 
 class TestBufferFormatParser:
     """pytest wrapper for BufferFormatParser tests."""
@@ -285,13 +290,86 @@ class TestBufferFormatParser:
 
 
 class TestResourceInspectorReplay:
-    """pytest wrapper for replay-dependent tests (skipped by default)."""
-    
-    @pytest.mark.skip(reason="Requires RenderDoc Python environment with live controller")
-    def test_resource_inspector_with_replay(self):
-        """This test requires a real RenderDoc controller, skip in CI."""
-        pass
+    """pytest wrapper for replay-dependent tests (opt-in)."""
 
+    @pytest.mark.routeb_live
+    def test_route_b_live_preflight(self, tmp_path):
+        """
+        Opt-in smoke test for Route-B live replay.
+
+        Enable by setting: RDC_ROUTE_B_LIVE=1
+        Required: RDC_ROUTE_B_SAMPLE_PATH=<existing .rdc path>
+        Optional: RDC_ROUTE_B_MODE=auto|local|software|remote
+                  RDC_ROUTE_B_REMOTE_URL=<host:port>
+                  RDC_ROUTE_B_COPY_TO_REMOTE=1|0
+                  RDC_ROUTE_B_TRY_SOFTWARE=1|0
+        """
+        if os.environ.get("RDC_ROUTE_B_LIVE", "") != "1":
+            pytest.skip("Set RDC_ROUTE_B_LIVE=1 to enable Route-B live replay tests")
+
+        rdc_path = os.environ.get("RDC_ROUTE_B_SAMPLE_PATH", "")
+        if not rdc_path or not os.path.exists(rdc_path):
+            pytest.fail("RDC_ROUTE_B_SAMPLE_PATH must point to an existing .rdc file")
+
+        mode = os.environ.get("RDC_ROUTE_B_MODE", "auto")
+        remote_url = os.environ.get("RDC_ROUTE_B_REMOTE_URL", "")
+        copy_to_remote = os.environ.get("RDC_ROUTE_B_COPY_TO_REMOTE", "1").strip().lower() in ("1", "true", "yes")
+        try_software = os.environ.get("RDC_ROUTE_B_TRY_SOFTWARE", "0").strip().lower() in ("1", "true", "yes")
+
+        repo_root = Path(__file__).resolve().parents[3]
+        tool_path = repo_root / "scripts" / "rdc_analyzer" / "route_b_live_check.py"
+        json_out = tmp_path / "route_b_live_report.json"
+
+        cmd = [
+            "py",
+            "-3.6",
+            str(tool_path),
+            rdc_path,
+            "--quiet",
+            "--json-out",
+            str(json_out),
+            "--mode",
+            mode,
+        ]
+
+        if remote_url:
+            cmd += ["--remote-url", remote_url]
+        if copy_to_remote:
+            cmd += ["--copy-to-remote"]
+        if try_software:
+            cmd += ["--try-software"]
+
+        try:
+            proc = subprocess.run(cmd, capture_output=True, text=True, check=False)
+        except FileNotFoundError as exc:
+            pytest.fail(f"Failed to execute {cmd[0]} (py launcher missing?): {exc}")
+
+        if not json_out.exists():
+            pytest.fail(
+                "route_b_live_check did not produce --json-out file. Stdout/err:\n"
+                + (proc.stdout or "")
+                + "\n"
+                + (proc.stderr or "")
+            )
+
+        report = json.loads(json_out.read_text(encoding="utf-8"))
+        final = report.get("final", {})
+        status = final.get("status", "unknown")
+        recs = final.get("recommended_actions", [])
+
+        if proc.returncode != 0:
+            rec_text = ("\n".join(f"  - {r}" for r in recs) if recs else "  (no recommendations)")
+            pytest.fail(
+                "Route-B live replay preflight failed.\n"
+                f"exit_code: {proc.returncode}\n"
+                f"status: {status}\n"
+                "recommended_actions:\n"
+                f"{rec_text}\n"
+                "stdout:\n"
+                + (proc.stdout or "")[-4000:]
+                + "\nstderr:\n"
+                + (proc.stderr or "")[-4000:]
+            )
 
 # =============================================================================
 # Standalone execution entry point

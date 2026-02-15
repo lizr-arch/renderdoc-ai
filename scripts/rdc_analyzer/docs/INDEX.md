@@ -146,6 +146,8 @@
 
 | [PROGRESS_REPORT.md](PROGRESS_REPORT.md) | 进度报告 | 进度, 报告 |
 
+| [ROUTE_B_LIVE_REPLAY.md](ROUTE_B_LIVE_REPLAY.md) | Route-B live replay preflight runbook | Route-B, replay, preflight, remote, software |
+
 
 
 ### � 统计对比与 CI (v2.5.0 新增)
