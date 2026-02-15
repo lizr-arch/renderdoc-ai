@@ -44,6 +44,7 @@ def build_bundle_command(
     output_dir: Path,
     rdc_path: Path,
     zip_path: Optional[Path],
+    texture_dir: Optional[Path],
     spirv_cross: Optional[str],
     verbose: bool,
 ) -> List[str]:
@@ -58,6 +59,8 @@ def build_bundle_command(
     ]
     if zip_path is not None:
         cmd.extend(["--zip", str(zip_path)])
+    if texture_dir is not None:
+        cmd.extend(["--texture-dir", str(texture_dir)])
     if spirv_cross:
         cmd.extend(["--spirv-cross", spirv_cross])
     if verbose:
@@ -113,6 +116,72 @@ def run_checked(cmd: Sequence[str], stage: str) -> None:
     print(f"[RUN] {stage}: {' '.join(cmd)}")
     subprocess.run(list(cmd), check=True)
 
+def build_export_command(
+    renderdoccmd: str,
+    rdc_path: Path,
+    output_dir: Path,
+    max_size: int,
+) -> List[str]:
+    return [
+        renderdoccmd,
+        "export",
+        "--out",
+        str(output_dir),
+        "--format",
+        "png",
+        "--metadata",
+        "--max-size",
+        str(max_size),
+        str(rdc_path),
+    ]
+
+
+def resolve_export_renderdoccmd_candidates(renderdoccmd: str, script_dir: Path) -> List[str]:
+    repo_candidate = script_dir.parent.parent / "x64" / "Development" / "renderdoccmd.exe"
+    candidates = [renderdoccmd]
+    if repo_candidate.exists():
+        candidates.append(str(repo_candidate))
+
+    deduped: List[str] = []
+    seen = set()
+    for candidate in candidates:
+        key = candidate.lower()
+        if key in seen:
+            continue
+        seen.add(key)
+        deduped.append(candidate)
+    return deduped
+
+
+def try_export_textures(
+    renderdoccmd: str,
+    script_dir: Path,
+    rdc_path: Path,
+    export_dir: Path,
+    max_size: int,
+    force: bool,
+) -> Optional[Path]:
+    textures_json = export_dir / "textures.json"
+    if textures_json.exists() and not force:
+        print(f"[INFO] Reuse exported textures: {textures_json}")
+        return export_dir
+
+    export_dir.mkdir(parents=True, exist_ok=True)
+    for idx, candidate in enumerate(resolve_export_renderdoccmd_candidates(renderdoccmd, script_dir), start=1):
+        try:
+            run_checked(
+                build_export_command(candidate, rdc_path, export_dir, max_size),
+                f"export-textures[{idx}]",
+            )
+        except subprocess.CalledProcessError as exc:
+            print(f"[WARN] renderdoccmd export failed ({candidate}, code {exc.returncode})")
+            continue
+
+        if textures_json.exists():
+            return export_dir
+
+    return export_dir if textures_json.exists() else None
+
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
@@ -154,6 +223,22 @@ def parse_args() -> argparse.Namespace:
         "--no-smoke",
         action="store_true",
         help="Skip headless UI smoke verification",
+    )
+    parser.add_argument(
+        "--no-texture-export",
+        action="store_true",
+        help="Skip renderdoccmd export texture thumbnails",
+    )
+    parser.add_argument(
+        "--texture-max-size",
+        type=int,
+        default=256,
+        help="Max texture export dimension in pixels (default: 256)",
+    )
+    parser.add_argument(
+        "--force-texture-export",
+        action="store_true",
+        help="Force rerun renderdoccmd export even when textures.json exists",
     )
     parser.add_argument(
         "--smoke-out",
@@ -245,6 +330,24 @@ def main() -> int:
     else:
         print(f"[INFO] ZIP sidecar: {zip_path}")
 
+    texture_dir: Optional[Path] = None
+    if args.no_texture_export:
+        print("[INFO] Texture export disabled by --no-texture-export")
+    else:
+        export_dir = output_dir / "textures"
+        texture_dir = try_export_textures(
+            renderdoccmd=renderdoccmd,
+            script_dir=script_dir,
+            rdc_path=rdc_path,
+            export_dir=export_dir,
+            max_size=args.texture_max_size,
+            force=args.force_texture_export,
+        )
+        if texture_dir is None:
+            print("[WARN] Texture export unavailable; fallback to ZIP thumbnail generation")
+        else:
+            print(f"[INFO] Texture export metadata: {texture_dir / 'textures.json'}")
+
     bundle_cmd = build_bundle_command(
         python_exec=sys.executable,
         xml_to_bundle_script=xml_to_bundle_script,
@@ -252,6 +355,7 @@ def main() -> int:
         output_dir=output_dir,
         rdc_path=rdc_path,
         zip_path=zip_path,
+        texture_dir=texture_dir,
         spirv_cross=args.spirv_cross,
         verbose=args.verbose,
     )

@@ -275,6 +275,9 @@ def parse_args():
                         help='Capture name for report title')
     parser.add_argument('--zip', dest='zip_file', default=None,
                         help='Path to ZIP file with texture data (for thumbnails)')
+    parser.add_argument('--texture-dir', dest='texture_dir', default=None,
+                        help=("Directory produced by renderdoccmd export (contains textures.json + PNG). "
+                              "When provided, thumbnails are mapped to PNG paths and ZIP-based base64 thumbnails are skipped by default."))
     parser.add_argument('--rdc', dest='rdc_file', default=None,
                         help='Path to RDC file for Vulkan shader extraction (SPIR-V → GLSL)')
     parser.add_argument('--spirv-cross', dest='spirv_cross', default=None,
@@ -355,6 +358,101 @@ def xml_to_bundle_textures_dict(textures_raw: List[Dict]) -> List[Dict]:
         textures.append(tex)
     
     return textures
+
+
+def _quote_url_path(path: str) -> str:
+    # Encode spaces/special chars for browser-friendly URLs (file:/// and relative).
+    from urllib.parse import quote
+
+    parts = path.replace('\\', '/').split('/')
+    return '/'.join(quote(p) for p in parts)
+
+
+def _id_variants(value: Any) -> List[str]:
+    s = '' if value is None else str(value)
+    variants = {s}
+    try:
+        import re
+        m = re.search(r'(\d+)$', s)
+        if m:
+            variants.add(m.group(1))
+    except Exception:
+        pass
+    return list(variants)
+
+
+def apply_exported_texture_thumbnails(
+    textures: List[Dict],
+    texture_dir: Path,
+    output_dir: Path,
+    verbose: bool = False,
+) -> int:
+    """Apply renderdoccmd export thumbnails (PNG files) onto the textures list.
+
+    Expects <texture_dir>/textures.json + referenced PNG files to exist.
+    Sets tex['thumbnail'] to a relative URL when texture_dir is inside output_dir.
+    """
+    import json
+
+    textures_json = texture_dir / 'textures.json'
+    if not textures_json.exists():
+        if verbose:
+            print(f"      [INFO] export textures.json not found: {textures_json}")
+        return 0
+
+    try:
+        payload = json.loads(textures_json.read_text(encoding='utf-8'))
+        entries = payload.get('textures', []) if isinstance(payload, dict) else []
+    except Exception as e:
+        if verbose:
+            print(f"      [WARN] Failed to read textures.json: {e}")
+        return 0
+
+    try:
+        rel_prefix = texture_dir.resolve().relative_to(output_dir.resolve()).as_posix()
+    except Exception:
+        # Not under report dir; fallback to absolute file URI.
+        rel_prefix = texture_dir.resolve().as_uri()
+
+    id_to_file: Dict[str, str] = {}
+    for e in entries:
+        if not isinstance(e, dict):
+            continue
+        tid = e.get('id')
+        fname = e.get('file')
+        if tid is None or not fname:
+            continue
+        if not (texture_dir / fname).exists():
+            continue
+        for key in _id_variants(tid):
+            if key and key not in id_to_file:
+                id_to_file[key] = fname
+
+    updated = 0
+    for tex in textures:
+        if not isinstance(tex, dict):
+            continue
+        fname = None
+        for key in _id_variants(tex.get('id')):
+            fname = id_to_file.get(key)
+            if fname:
+                break
+        if not fname:
+            continue
+
+        # Use browser-friendly, portable URL.
+        rel_prefix_norm = rel_prefix
+        if rel_prefix_norm in ('', '.'):
+            thumb = _quote_url_path(Path(fname).as_posix())
+        else:
+            thumb = rel_prefix_norm.rstrip('/') + '/' + _quote_url_path(Path(fname).as_posix())
+
+        tex['thumbnail'] = thumb
+        updated += 1
+
+    if verbose:
+        print(f"      [INFO] Mapped {updated} thumbnails from renderdoccmd export")
+    return updated
 
 
 def generate_thumbnails_from_zip(
@@ -684,23 +782,38 @@ def main():
     # ========================================================================
     
     zip_path = Path(args.zip_file) if args.zip_file else None
-    thumbnail_count = generate_thumbnails_from_zip(
-        xml_path=xml_path,
-        zip_path=zip_path,
-        textures=textures,
-        max_count=args.max_thumbnails,
-        max_size=args.thumbnail_size,
-        verbose=args.verbose
-    )
-    
+
+    exported_count = 0
+    if args.texture_dir:
+        exported_count = apply_exported_texture_thumbnails(
+            textures=textures,
+            texture_dir=Path(args.texture_dir),
+            output_dir=output_dir,
+            verbose=args.verbose,
+        )
+
+    if exported_count > 0:
+        thumbnail_count = exported_count
+    else:
+        thumbnail_count = generate_thumbnails_from_zip(
+            xml_path=xml_path,
+            zip_path=zip_path,
+            textures=textures,
+            max_count=args.max_thumbnails,
+            max_size=args.thumbnail_size,
+            verbose=args.verbose
+        )
+
     if thumbnail_count > 0:
         print(f"      Thumbnails: {thumbnail_count} generated")
     else:
         print("      [INFO] Thumbnails: 0 (textures page will show placeholder previews)")
-        if args.zip_file:
+        if args.texture_dir:
+            print("      [HINT] Check --texture-dir and textures.json output from renderdoccmd export")
+        elif args.zip_file:
             print("      [HINT] Check ZIP contents and thumbnail_generator availability")
         else:
-            print("      [HINT] Provide --zip <capture.zip> to enable thumbnail extraction")
+            print("      [HINT] Provide --texture-dir <dir> or --zip <capture.zip> to enable thumbnails")
     
     # ========================================================================
     # 提取 Vulkan Shaders (可选)

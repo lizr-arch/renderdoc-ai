@@ -47,6 +47,7 @@ def test_build_bundle_command_with_optional_args():
         output_dir=Path("out_dir"),
         rdc_path=Path("capture.rdc"),
         zip_path=Path("capture.zip"),
+        texture_dir=Path("textures"),
         spirv_cross="spirv-cross.exe",
         verbose=True,
     )
@@ -60,6 +61,8 @@ def test_build_bundle_command_with_optional_args():
         "capture.rdc",
         "--zip",
         "capture.zip",
+        "--texture-dir",
+        "textures",
         "--spirv-cross",
         "spirv-cross.exe",
         "-v",
