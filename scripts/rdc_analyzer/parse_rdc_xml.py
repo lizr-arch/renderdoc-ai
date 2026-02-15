@@ -757,9 +757,12 @@ def parse_rdc_xml(xml_path):
     auxiliary_calls = [
         # Vulkan
         "vkCmdClearColorImage", "vkCmdClearDepthStencilImage", "vkCmdClearAttachments",
-        "vkCmdBlitImage",
-        "vkCmdCopyBuffer", "vkCmdCopyImage", "vkCmdCopyBufferToImage", "vkCmdCopyImageToBuffer",
-        "vkCmdResolveImage",
+        "vkCmdBlitImage", "vkCmdBlitImage2",
+        "vkCmdCopyBuffer", "vkCmdCopyBuffer2",
+        "vkCmdCopyImage", "vkCmdCopyImage2",
+        "vkCmdCopyBufferToImage", "vkCmdCopyBufferToImage2",
+        "vkCmdCopyImageToBuffer", "vkCmdCopyImageToBuffer2",
+        "vkCmdResolveImage", "vkCmdResolveImage2",
         "vkCmdUpdateBuffer", "vkCmdFillBuffer",
         # D3D11
         "ID3D11DeviceContext::CopyResource",

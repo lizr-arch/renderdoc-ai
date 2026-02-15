@@ -154,6 +154,15 @@ class VulkanChunk(IntEnum):
     vkCmdDrawMeshTasksIndirectCountEXT = FIRST_DRIVER_CHUNK + 200  # = 1200
 
 
+    # Copy/Blit/Resolve v2 variants (values verified against renderdoc/driver/vulkan/vk_common.h)
+    vkCmdCopyBuffer2 = FIRST_DRIVER_CHUNK + 153  # = 1153
+    vkCmdCopyImage2 = FIRST_DRIVER_CHUNK + 154  # = 1154
+    vkCmdCopyBufferToImage2 = FIRST_DRIVER_CHUNK + 155  # = 1155
+    vkCmdCopyImageToBuffer2 = FIRST_DRIVER_CHUNK + 156  # = 1156
+    vkCmdBlitImage2 = FIRST_DRIVER_CHUNK + 157  # = 1157
+    vkCmdResolveImage2 = FIRST_DRIVER_CHUNK + 158  # = 1158
+
+
 # ============================================================================
 # Chunk ID 集合 (用于快速判断)
 # ============================================================================
