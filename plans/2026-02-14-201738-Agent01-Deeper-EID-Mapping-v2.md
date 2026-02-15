@@ -47,13 +47,13 @@ Legacy marker call names (already present as chunks):
   - [x] Tests
     - [x] New/updated test to assert enum values are correct and `build_vulkan_chunk_index_to_eid()` counts them.
 
-- [ ] Step 2: Add legacy Vulkan markers (VK_EXT_debug_marker)
-  - [ ] Update `scripts/rdc_analyzer/parse_rdc_xml.py`
+- [x] Step 2: Add legacy Vulkan markers (VK_EXT_debug_marker)
+  - [x] Update `scripts/rdc_analyzer/parse_rdc_xml.py`
     - Extend `vk_marker_names` to include `vkCmdDebugMarkerBeginEXT`, `vkCmdDebugMarkerInsertEXT`, `vkCmdDebugMarkerEndEXT`.
-  - [ ] Update `scripts/rdc_analyzer/analyze_rdc.py`
+  - [x] Update `scripts/rdc_analyzer/analyze_rdc.py`
     - Count these marker chunks as EID-consuming events.
-  - [ ] Tests
-    - [ ] Extend `test_eventid_eid_mapping.py` to include at least one legacy marker chunk and assert it consumes EID.
+  - [x] Tests
+    - [x] Extend `test_eventid_eid_mapping.py` to include at least one legacy marker chunk and assert it consumes EID.
 
 - [ ] Step 3: Oracle-alignment integration test extension
   - [ ] Extend `scripts/rdc_analyzer/tests/test_xml_oracle_eid_alignment.py`
@@ -87,3 +87,10 @@ Legacy marker call names (already present as chunks):
   - Ran:
     - `py -3 -m pytest scripts/rdc_analyzer/tests/test_vulkan_draw_variants.py -q --tb=short` (5 passed)
     - `py -3 -m pytest scripts/rdc_analyzer/tests/test_eventid_eid_mapping.py -q --tb=short` (1 passed)
+- 2026-02-15: Step2 done
+  - Extended Vulkan marker name list in `scripts/rdc_analyzer/parse_rdc_xml.py` to include VK_EXT_debug_marker calls.
+  - Counted `vkCmdDebugMarker*EXT` chunks as EID-consuming events in `scripts/rdc_analyzer/analyze_rdc.py`.
+  - Extended `scripts/rdc_analyzer/tests/test_eventid_eid_mapping.py` to ensure legacy markers consume EID.
+  - Ran:
+    - `py -3 -m pytest scripts/rdc_analyzer/tests/test_eventid_eid_mapping.py -q --tb=short` (1 passed)
+

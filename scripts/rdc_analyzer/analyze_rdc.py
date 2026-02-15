@@ -383,10 +383,13 @@ VULKAN_EID_EVENT_CHUNK_IDS: set[int] = {
     # Dispatch
     int(VulkanChunk.vkCmdDispatch),
     int(VulkanChunk.vkCmdDispatchIndirect),
-    # Markers (VK_EXT_debug_utils)
+    # Markers (VK_EXT_debug_utils + VK_EXT_debug_marker)
     int(VulkanChunk.vkCmdBeginDebugUtilsLabelEXT),
     int(VulkanChunk.vkCmdEndDebugUtilsLabelEXT),
     int(VulkanChunk.vkCmdInsertDebugUtilsLabelEXT),
+    int(VulkanChunk.vkCmdDebugMarkerBeginEXT),
+    int(VulkanChunk.vkCmdDebugMarkerEndEXT),
+    int(VulkanChunk.vkCmdDebugMarkerInsertEXT),
     # Auxiliary (clear/copy) — keep in sync with parse_rdc_xml.py
     int(VulkanChunk.vkCmdClearColorImage),
     int(VulkanChunk.vkCmdClearDepthStencilImage),

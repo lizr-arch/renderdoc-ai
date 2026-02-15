@@ -789,8 +789,10 @@ def parse_rdc_xml(xml_path):
     draw_call_names = vk_draw_calls + d3d11_draw_calls + d3d12_draw_calls + gl_draw_calls
     
     # Vulkan markers
-    vk_marker_names = ["vkCmdBeginDebugUtilsLabelEXT", "vkCmdEndDebugUtilsLabelEXT", 
-                       "vkCmdInsertDebugUtilsLabelEXT"]
+    vk_marker_names = ["vkCmdBeginDebugUtilsLabelEXT", "vkCmdEndDebugUtilsLabelEXT",
+                       "vkCmdInsertDebugUtilsLabelEXT",
+                       "vkCmdDebugMarkerBeginEXT", "vkCmdDebugMarkerEndEXT",
+                       "vkCmdDebugMarkerInsertEXT"]
     
     # D3D11/D3D12 markers (PIX events)
     d3d_marker_names = [
