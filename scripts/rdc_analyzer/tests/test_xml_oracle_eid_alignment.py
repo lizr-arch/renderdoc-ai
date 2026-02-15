@@ -44,17 +44,20 @@ def _mk_xml(chunks: list[tuple[int, str]]) -> str:
 
 
 def test_xml_oracle_eventid_matches_chunk_index_to_eid_mapping(tmp_path):
-    # A mixed stream: bindings (skip) + markers + auxiliary + draw variants.
+    # A mixed stream: bindings (skip) + legacy/modern markers + auxiliary + draw variants.
     chunk_stream: list[tuple[int, str]] = [
         (int(VulkanChunk.vkCmdBindPipeline), "vkCmdBindPipeline"),
+        (int(VulkanChunk.vkCmdDebugMarkerBeginEXT), "vkCmdDebugMarkerBeginEXT"),
         (int(VulkanChunk.vkCmdBeginDebugUtilsLabelEXT), "vkCmdBeginDebugUtilsLabelEXT"),
         (int(VulkanChunk.vkCmdClearAttachments), "vkCmdClearAttachments"),
         (int(VulkanChunk.vkCmdDrawMeshTasksEXT), "vkCmdDrawMeshTasksEXT"),
         (int(VulkanChunk.vkCmdBindDescriptorSets), "vkCmdBindDescriptorSets"),
-        (int(VulkanChunk.vkCmdResolveImage), "vkCmdResolveImage"),
+        (int(VulkanChunk.vkCmdCopyImageToBuffer2), "vkCmdCopyImageToBuffer2"),
+        (int(VulkanChunk.vkCmdDebugMarkerInsertEXT), "vkCmdDebugMarkerInsertEXT"),
+        (int(VulkanChunk.vkCmdResolveImage2), "vkCmdResolveImage2"),
         (int(VulkanChunk.vkCmdDrawIndirectCount), "vkCmdDrawIndirectCount"),
         (int(VulkanChunk.vkCmdInsertDebugUtilsLabelEXT), "vkCmdInsertDebugUtilsLabelEXT"),
-        (int(VulkanChunk.vkCmdCopyImageToBuffer), "vkCmdCopyImageToBuffer"),
+        (int(VulkanChunk.vkCmdDebugMarkerEndEXT), "vkCmdDebugMarkerEndEXT"),
         (int(VulkanChunk.vkCmdEndDebugUtilsLabelEXT), "vkCmdEndDebugUtilsLabelEXT"),
         (int(VulkanChunk.vkCmdDrawIndexedIndirectCount), "vkCmdDrawIndexedIndirectCount"),
     ]
@@ -72,6 +75,9 @@ def test_xml_oracle_eventid_matches_chunk_index_to_eid_mapping(tmp_path):
 
     assert len(event_chunk_indices) == len(xml_events)
 
+    expected_event_names = [chunk_stream[idx][1] for idx in event_chunk_indices]
+    actual_event_names = [event["name"] for event in xml_events]
+    assert actual_event_names == expected_event_names
+
     for i, chunk_index in enumerate(event_chunk_indices):
         assert xml_events[i]["eventId"] == mapping[chunk_index]
-        assert xml_events[i]["name"] == chunk_stream[chunk_index][1]

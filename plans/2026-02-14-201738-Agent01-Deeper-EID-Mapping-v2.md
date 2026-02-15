@@ -55,8 +55,8 @@ Legacy marker call names (already present as chunks):
   - [x] Tests
     - [x] Extend `test_eventid_eid_mapping.py` to include at least one legacy marker chunk and assert it consumes EID.
 
-- [ ] Step 3: Oracle-alignment integration test extension
-  - [ ] Extend `scripts/rdc_analyzer/tests/test_xml_oracle_eid_alignment.py`
+- [x] Step 3: Oracle-alignment integration test extension
+  - [x] Extend `scripts/rdc_analyzer/tests/test_xml_oracle_eid_alignment.py`
     - Add `*2` auxiliary chunks + legacy marker chunks into the synthetic XML stream.
     - Assert XML oracle eventId sequence still matches `build_vulkan_chunk_index_to_eid()`.
 
@@ -93,4 +93,13 @@ Legacy marker call names (already present as chunks):
   - Extended `scripts/rdc_analyzer/tests/test_eventid_eid_mapping.py` to ensure legacy markers consume EID.
   - Ran:
     - `py -3 -m pytest scripts/rdc_analyzer/tests/test_eventid_eid_mapping.py -q --tb=short` (1 passed)
+- 2026-02-15: Step3 done
+  - Extended `scripts/rdc_analyzer/tests/test_xml_oracle_eid_alignment.py` with mixed stream containing:
+    - legacy markers (`vkCmdDebugMarker*EXT`)
+    - modern markers (`vkCmd*DebugUtilsLabelEXT`)
+    - `*2` auxiliary events (`vkCmdCopyImageToBuffer2`, `vkCmdResolveImage2`)
+  - Verified XML oracle event order and eventId values match JSON `build_vulkan_chunk_index_to_eid()` mapping.
+  - Ran:
+    - `py -3 -m pytest scripts/rdc_analyzer/tests/test_xml_oracle_eid_alignment.py -q --tb=short` (1 passed)
+    - `py -3 -m pytest scripts/rdc_analyzer/tests -q --tb=short` (826 passed, 6 skipped)
 
