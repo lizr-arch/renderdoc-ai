@@ -750,6 +750,25 @@
             text-align: center;
             padding: 4px;
         }
+
+        .output-fallback-badge {
+            position: absolute;
+            top: 14px;
+            left: 14px;
+            z-index: 12;
+            padding: 6px 10px;
+            border-radius: 8px;
+            background: rgba(14, 22, 34, 0.9);
+            border: 1px solid rgba(88, 166, 255, 0.35);
+            color: #cfe4ff;
+            font-size: 10px;
+            letter-spacing: 0.2px;
+            box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
+        }
+
+        .output-fallback-badge.hidden {
+            display: none;
+        }
         
         /* 问题指示器 */
         .issue-badge {
@@ -1525,6 +1544,7 @@
                             <div class="canvas-empty-subtext" id="outputEmptySubtext">若无预导出快照，可点击下方“从 RDC 加载快照”</div>
                         </div>
                         <img class="preview-img hidden" id="outputImg" src="" alt="Output Preview">
+                        <div class="output-fallback-badge hidden" id="outputFallbackBadge">资源缩略图（非事件快照）</div>
                         <!-- 懒加载按钮区域 -->
                         <div class="rt-lazy-load-panel" id="rtLazyLoadPanel">
                             <button class="rt-load-btn" id="rtLoadBtn" onclick="loadRTFromServer()">
@@ -1688,6 +1708,7 @@
         let currentEvent = null;
         let currentZoom = 1;
         let outputFlipVertical = false;
+        let currentOutputKey = 'color0';
         let eventIndex = 0;
         
         // ========== 事件数据 (P7C.4: 支持异步加载) ==========
@@ -2350,7 +2371,7 @@
             if (rtLoadingCache[eid]) {
                 displayRTSnapshot(rtLoadingCache[eid]);
             } else {
-                updateOutputPreview(event);
+                updateOutputPreview(event, currentOutputKey);
                 resetRTLoadPanel();  // 重置懒加载面板
             }
             
@@ -2386,14 +2407,30 @@
             }
         }
 
-        function updateOutputPreview(event) {
+        function setOutputFallbackBadge(visible, text) {
+            const badge = document.getElementById('outputFallbackBadge');
+            if (!badge) return;
+            if (text) badge.textContent = text;
+            badge.classList.toggle('hidden', !visible);
+        }
+
+        function getFallbackRenderTarget(event, outputKey) {
+            if (!event || !Array.isArray(event.renderTargets)) return null;
+            if (outputKey === 'color0') return event.renderTargets[0] || null;
+            if (outputKey === 'color1') return event.renderTargets[1] || null;
+            return null;
+        }
+
+        function updateOutputPreview(event, outputKey) {
+            const key = outputKey || currentOutputKey || 'color0';
             const img = document.getElementById('outputImg');
             const empty = document.getElementById('outputEmpty');
             const viewport = document.getElementById('outputViewport');
             const lazyPanel = document.getElementById('rtLazyLoadPanel');
+            setOutputFallbackBadge(false);
             
             // 优先使用预导出的 RT 快照（离线模式）
-            if (event.rtSnapshot) {
+            if (event.rtSnapshot && key === 'color0') {
                 img.src = event.rtSnapshot;
                 img.classList.remove('hidden');
                 empty.classList.add('hidden');
@@ -2401,17 +2438,33 @@
                 viewport.classList.add('has-preview');
                 lazyPanel.style.display = 'none';  // 隐藏懒加载按钮
                 setRTLoadStatus('', '');
+                applyZoom();
                 return;
             }
             
             // 其次使用 output 中的颜色附件
-            if (event.output && event.output.color0) {
-                img.src = event.output.color0;
+            if (event.output && event.output[key]) {
+                img.src = event.output[key];
                 img.classList.remove('hidden');
                 empty.classList.add('hidden');
                 empty.classList.remove('no-preview');
                 viewport.classList.add('has-preview');
                 lazyPanel.style.display = 'none';
+                applyZoom();
+                return;
+            }
+
+            // fallback：使用 renderTargets 的缩略图（Color0/Color1 对应 Slot 0/1）
+            const fallback = getFallbackRenderTarget(event, key);
+            if (fallback && fallback.thumbnail) {
+                img.src = fallback.thumbnail;
+                img.classList.remove('hidden');
+                empty.classList.add('hidden');
+                empty.classList.remove('no-preview');
+                viewport.classList.remove('has-preview');  // 保持懒加载按钮可用
+                lazyPanel.style.display = '';
+                setOutputFallbackBadge(true, '资源缩略图（非事件快照）');
+                applyZoom();
                 return;
             }
             
@@ -2697,18 +2750,12 @@
         
         // ========== 输出切换 ==========
         function selectOutput(output) {
+            currentOutputKey = output;
             document.querySelectorAll('.output-tab').forEach(tab => {
                 tab.classList.toggle('active', tab.dataset.output === output);
             });
-            
-            if (currentEvent && currentEvent.output && currentEvent.output[output]) {
-                document.getElementById('outputImg').src = currentEvent.output[output];
-                document.getElementById('outputImg').classList.remove('hidden');
-                document.getElementById('outputEmpty').classList.add('hidden');
-                applyZoom();
-            } else {
-                document.getElementById('outputImg').classList.add('hidden');
-                document.getElementById('outputEmpty').classList.remove('hidden');
+            if (currentEvent) {
+                updateOutputPreview(currentEvent, output);
             }
         }
         
@@ -3135,6 +3182,7 @@
             img.classList.remove('hidden');
             empty.classList.add('hidden');
             viewport.classList.add('has-preview');
+            setOutputFallbackBadge(false);
             applyZoom();
         }
         
