@@ -93,7 +93,10 @@ class SimpleXmlParser:
                         for slot, image_id in enumerate(active_rt_state["color"])
                     ]
                     if active_rt_state.get("depth"):
-                        dc["depth_target"] = active_rt_state["depth"]
+                        dc["depth_target"] = {
+                            "id": active_rt_state["depth"],
+                            "aspect": active_rt_state.get("depth_aspect", ""),
+                        }
                 if dc:
                     draw_calls.append(dc)
             elif name in self.VK_DISPATCH_CALLS:
@@ -383,6 +386,7 @@ class SimpleXmlParser:
         view_ids = framebuffer_to_views.get(framebuffer_id, [])
         color_images: List[str] = []
         depth_image: Optional[str] = None
+        depth_aspect: str = ""
 
         for view_id in view_ids:
             info = image_view_to_image.get(view_id)
@@ -399,12 +403,14 @@ class SimpleXmlParser:
             if is_depth:
                 if depth_image is None:
                     depth_image = image_id
+                    depth_aspect = aspect
             elif image_id not in color_images:
                 color_images.append(image_id)
 
         return {
             "color": color_images,
             "depth": depth_image,
+            "depth_aspect": depth_aspect,
         }
 
     def _parse_vk_buffer(self, chunk) -> Optional[Dict]:
@@ -514,11 +520,16 @@ def xml_to_bundle_events_dict(draw_calls: List[Dict]) -> List[Dict]:
         if depth_target:
             if isinstance(depth_target, dict):
                 depth_id = depth_target.get("id", depth_target.get("resourceId", ""))
+                depth_aspect = depth_target.get("aspect", "")
             else:
                 depth_id = depth_target
+                depth_aspect = ""
 
             if depth_id not in (None, ""):
-                event["depthTarget"] = {"id": str(depth_id)}
+                payload = {"id": str(depth_id)}
+                if depth_aspect:
+                    payload["aspect"] = str(depth_aspect)
+                event["depthTarget"] = payload
 
         events.append(event)
 

@@ -974,6 +974,12 @@
             color: var(--accent-blue);
             border-bottom-color: var(--accent-blue);
         }
+
+        .output-tab.disabled {
+            opacity: 0.45;
+            cursor: default;
+            pointer-events: none;
+        }
         
         .output-content {
             flex: 1;
@@ -1527,13 +1533,8 @@
                     </div>
                 </div>
                 
-                <!-- 输出标签页 -->
-                <div class="output-tabs">
-                    <div class="output-tab active" data-output="color0" onclick="selectOutput('color0')">Color 0</div>
-                    <div class="output-tab" data-output="color1" onclick="selectOutput('color1')">Color 1</div>
-                    <div class="output-tab" data-output="depth" onclick="selectOutput('depth')">Depth</div>
-                    <div class="output-tab" data-output="stencil" onclick="selectOutput('stencil')">Stencil</div>
-                </div>
+                <!-- 输出标签页（动态生成） -->
+                <div class="output-tabs" id="outputTabs"></div>
                 
                 <!-- 输出内容 -->
                 <div class="output-preview-container">
@@ -2467,6 +2468,21 @@
                 applyZoom();
                 return;
             }
+
+            // Depth / Stencil 预览（若存在 depthTarget 或 depthTarget.thumbnail）
+            if ((key === 'depth' || key === 'stencil') && event.depthTarget) {
+                if (event.depthTarget.thumbnail) {
+                    img.src = event.depthTarget.thumbnail;
+                    img.classList.remove('hidden');
+                    empty.classList.add('hidden');
+                    empty.classList.remove('no-preview');
+                    viewport.classList.remove('has-preview');
+                    lazyPanel.style.display = '';
+                    setOutputFallbackBadge(true, '资源缩略图（非事件快照）');
+                    applyZoom();
+                    return;
+                }
+            }
             
             // 无预导出数据，显示懒加载面板
             img.classList.add('hidden');
@@ -2476,6 +2492,61 @@
             viewport.classList.remove('has-preview');
             lazyPanel.style.display = '';  // 显示懒加载按钮
             resetRTLoadPanel();
+        }
+
+        function buildOutputTabs(event) {
+            const tabs = document.getElementById('outputTabs');
+            if (!tabs) return;
+            tabs.innerHTML = '';
+
+            const rtCount = Array.isArray(event?.renderTargets) ? event.renderTargets.length : 0;
+            const colorCount = Math.max(1, rtCount);
+            for (let i = 0; i < colorCount; i++) {
+                const key = `color${i}`;
+                const tab = document.createElement('div');
+                tab.className = 'output-tab';
+                tab.dataset.output = key;
+                tab.textContent = `Color ${i}`;
+                tab.addEventListener('click', () => selectOutput(key));
+                tabs.appendChild(tab);
+            }
+
+            const depthTab = document.createElement('div');
+            depthTab.className = 'output-tab';
+            depthTab.dataset.output = 'depth';
+            depthTab.textContent = 'Depth';
+            depthTab.addEventListener('click', () => selectOutput('depth'));
+            tabs.appendChild(depthTab);
+
+            const stencilTab = document.createElement('div');
+            stencilTab.className = 'output-tab';
+            stencilTab.dataset.output = 'stencil';
+            stencilTab.textContent = 'Stencil';
+            stencilTab.addEventListener('click', () => selectOutput('stencil'));
+            tabs.appendChild(stencilTab);
+
+            updateDepthStencilTabLabels(event);
+            const defaultKey = currentOutputKey || 'color0';
+            if (tabs.querySelector(`.output-tab[data-output="${defaultKey}"]`)) {
+                selectOutput(defaultKey);
+            } else {
+                selectOutput('color0');
+            }
+        }
+
+        function updateDepthStencilTabLabels(event) {
+            const aspect = (event?.depthTarget?.aspect || '').toUpperCase();
+            const hasDepth = aspect.includes('DEPTH');
+            const hasStencil = aspect.includes('STENCIL');
+            const depthTab = document.querySelector('.output-tab[data-output="depth"]');
+            const stencilTab = document.querySelector('.output-tab[data-output="stencil"]');
+            if (depthTab) {
+                depthTab.textContent = hasStencil ? 'Depth (D/S)' : (hasDepth ? 'Depth' : 'Depth');
+            }
+            if (stencilTab) {
+                stencilTab.textContent = hasStencil ? 'Stencil' : 'Stencil (无)';
+                stencilTab.classList.toggle('disabled', !hasStencil);
+            }
         }
         
         function updatePipelineState(event) {
@@ -2503,6 +2574,9 @@
             
             // Render Targets
             updateRenderTargets(event);
+
+            // 输出 tabs
+            buildOutputTabs(event);
             
             // 分析建议
             updateEventAnalysis(event);
@@ -3081,15 +3155,24 @@
             
             const dot = statusEl.querySelector('.server-status-dot');
             const text = statusEl.querySelector('.server-status-text');
+            const btn = document.getElementById('rtLoadBtn');
             
             if (online) {
                 dot.classList.add('online');
                 dot.classList.remove('offline');
                 text.textContent = 'RT 服务已连接';
+                if (btn) {
+                    btn.disabled = false;
+                    btn.title = '从 RDC 加载快照';
+                }
             } else {
                 dot.classList.remove('online');
                 dot.classList.add('offline');
                 text.textContent = 'RT 服务离线';
+                if (btn) {
+                    btn.disabled = true;
+                    btn.title = 'RT 服务离线，无法加载快照';
+                }
             }
         }
         
