@@ -1,4 +1,8 @@
-cmake_minimum_required(VERSION 2.8.12)
+if (NOT CMAKE_VERSION VERSION_LESS "4.0")
+  cmake_minimum_required(VERSION 3.5)
+else()
+  cmake_minimum_required(VERSION 2.8.12)
+endif()
 
 if(APPLE)
     set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/../bin")
@@ -310,7 +314,7 @@ if(APPLE)
     find_library(QUARTZCORE_LIBRARY QuartzCore)
     find_library(METAL_LIBRARY Metal)
     target_compile_definitions(demos PRIVATE
-        -DVK_USE_PLATFORM_MACOS_MVK=1)
+        -DVK_USE_PLATFORM_METAL_EXT=1)
     set(LIBS ${COCOA_LIBRARY} ${QUARTZCORE_LIBRARY} ${METAL_LIBRARY})
 elseif(BUILD_ANDROID)
     target_compile_definitions(demos PRIVATE -DVK_USE_PLATFORM_ANDROID_KHR=1)
@@ -349,6 +353,11 @@ if(ANDROID)
 
     if(${Java_VERSION} VERSION_LESS 1.8)
         message(FATAL_ERROR "Building Android requires the 'java' program in your PATH to be at least Java 8 (1.8)")
+    elseif(${Java_VERSION} VERSION_LESS 20.0)
+        set(JAVA_TARGET "1.7")
+    else()
+        message(WARNING "Building with JDK ${Java_VERSION} may cause broken Android binaries, it is recommended to build with JDK 17 or earlier")
+        set(JAVA_TARGET "8")
     endif()
     message(STATUS "Using Java of version ${Java_VERSION}")
 
@@ -464,7 +473,7 @@ if(ANDROID)
     add_custom_command(OUTPUT ${APK_FILE} APPEND
                        COMMAND ${CMAKE_COMMAND} -E remove ${APK_FILE} # Don't package any existing artifact into the new one
                        COMMAND ${BUILD_TOOLS}/aapt package -f -m -S res -J src -M AndroidManifest.xml -I ${ANDROID_JAR}
-                       COMMAND ${JAVA_BIN}/javac -d ./obj -source 1.7 -target 1.7 -bootclasspath ${RT_JAR} -classpath "${CLASS_PATH}" -sourcepath src src/renderdoc/org/demos/*.java
+		       COMMAND ${JAVA_BIN}/javac -d ./obj -source ${JAVA_TARGET} -target ${JAVA_TARGET} -bootclasspath ${RT_JAR} -classpath "${CLASS_PATH}" -sourcepath src src/renderdoc/org/demos/*.java
                        COMMAND ${DEX_COMMAND}
                        COMMAND ${BUILD_TOOLS}/aapt package -f -M AndroidManifest.xml --version-code ${APK_VERSION_CODE} --version-name ${APK_VERSION_NAME} -S res -I ${ANDROID_JAR} -F demos-unaligned.apk bin libs
                        COMMAND ${BUILD_TOOLS}/zipalign -f 4 demos-unaligned.apk demos.apk

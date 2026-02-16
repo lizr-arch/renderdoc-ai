@@ -527,6 +527,17 @@ void WrappedVulkan::FlushQ()
   }
 }
 
+void WrappedVulkan::ReloadShaderDebugInformation()
+{
+  // Reload the shader module debug information
+  for(auto it = m_CreationInfo.m_ShaderModule.begin(); it != m_CreationInfo.m_ShaderModule.end(); ++it)
+  {
+    if(ResourceIDGen::IsReplayOnlyID(it->first))
+      continue;
+    it->second.Reload(m_ResourceManager, m_CreationInfo, it->first);
+  }
+}
+
 VkCommandBuffer WrappedVulkan::GetExtQueueCmd(uint32_t queueFamilyIdx) const
 {
   if(queueFamilyIdx >= m_ExternalQueues.size())
@@ -1245,6 +1256,10 @@ static const VkExtensionProperties supportedExtensions[] = {
     {
         VK_EXT_IMAGE_COMPRESSION_CONTROL_SWAPCHAIN_EXTENSION_NAME,
         VK_EXT_IMAGE_COMPRESSION_CONTROL_SWAPCHAIN_SPEC_VERSION,
+    },
+    {
+        VK_EXT_IMAGE_DRM_FORMAT_MODIFIER_EXTENSION_NAME,
+        VK_EXT_IMAGE_DRM_FORMAT_MODIFIER_SPEC_VERSION,
     },
     {
         VK_EXT_IMAGE_ROBUSTNESS_EXTENSION_NAME,
@@ -2067,6 +2082,10 @@ static const VkExtensionProperties supportedExtensions[] = {
     {
         VK_QCOM_FRAGMENT_DENSITY_MAP_OFFSET_EXTENSION_NAME,
         VK_QCOM_FRAGMENT_DENSITY_MAP_OFFSET_SPEC_VERSION,
+    },
+    {
+        VK_QCOM_MULTIVIEW_PER_VIEW_VIEWPORTS_EXTENSION_NAME,
+        VK_QCOM_MULTIVIEW_PER_VIEW_VIEWPORTS_SPEC_VERSION,
     },
     {
         VK_QCOM_RENDER_PASS_SHADER_RESOLVE_EXTENSION_NAME,
@@ -5044,6 +5063,16 @@ void WrappedVulkan::ReplayLog(uint32_t startEventID, uint32_t endEventID, Replay
   {
     startEventID = 1;
     partial = false;
+
+    AddPendingObjectCleanup([this]() {
+      for(const rdcpair<VkCommandPool, VkCommandBuffer> &rerecord : m_RerecordCmdList)
+      {
+        m_commandQueueFamilies.erase(GetResID(rerecord.second));
+        vkFreeCommandBuffers(GetDev(), rerecord.first, 1, &rerecord.second);
+      }
+
+      m_RerecordCmdList.clear();
+    });
   }
 
   if(!partial)
@@ -5233,14 +5262,6 @@ void WrappedVulkan::ReplayLog(uint32_t startEventID, uint32_t endEventID, Replay
         ObjDisp(GetDev())->DestroyEvent(Unwrap(GetDev()), m_CleanupEvents[i], NULL);
 
       m_CleanupEvents.clear();
-
-      for(const rdcpair<VkCommandPool, VkCommandBuffer> &rerecord : m_RerecordCmdList)
-      {
-        m_commandQueueFamilies.erase(GetResID(rerecord.second));
-        vkFreeCommandBuffers(GetDev(), rerecord.first, 1, &rerecord.second);
-      }
-
-      m_RerecordCmdList.clear();
     });
   }
 
@@ -5441,8 +5462,9 @@ rdcstr WrappedVulkan::GetPhysDeviceCompatString(bool externalResource, bool orig
   if(externalResource)
   {
     ret =
-        "This resource was externally imported, which cannot happen at replay time.\n"
-        "Some drivers do not allow externally-imported resources to be bound to non-external "
+        "This resource was externally imported or had external API properties, which does not "
+        "happen at replay time.\n"
+        "Some drivers do not allow externally-interacting resources to be bound to non-external "
         "memory, meaning that captures using resources like this can't be replayed.\n\n";
   }
 

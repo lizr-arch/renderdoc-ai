@@ -580,6 +580,7 @@ private:
   bool m_DynVertexInput = false;
   bool m_DynAttachmentLoop = false;
   bool m_MultiView = false;
+  bool m_MultiViewGeometryShaders = false;
   bool m_MeshQueries = false;
   bool m_MeshShaders = false;
   bool m_TaskShaders = false;
@@ -590,6 +591,7 @@ private:
   bool m_Maintenance6 = false;
   bool m_Maintenance9 = false;
   bool m_DescriptorBuffers = false;
+  bool m_MultiviewPerViewViewports = false;
 
   uint32_t m_RTCaptureReplayHandleSize = 0;
 
@@ -1505,6 +1507,7 @@ public:
   VkSemaphore GetNextSemaphore();
   void SubmitSemaphores();
   void FlushQ();
+  void ReloadShaderDebugInformation();
 
   bool SelectGraphicsComputeQueue(const rdcarray<VkQueueFamilyProperties> &queueProps,
                                   VkDeviceCreateInfo &createInfo, uint32_t &queueFamilyIndex);
@@ -1570,6 +1573,8 @@ public:
   bool Maintenance6() const { return m_Maintenance6; }
   bool Maintenance9() const { return m_Maintenance9; }
   bool DescriptorBuffers() const { return m_DescriptorBuffers; }
+  bool MultiViewGeometryShaders() const { return m_MultiViewGeometryShaders; }
+  bool MultiviewPerViewViewports() const { return m_MultiviewPerViewViewports; }
   VulkanRenderState &GetRenderState() { return m_RenderState; }
   void SetActionCB(VulkanActionCallback *cb) { m_ActionCallback = cb; }
   void SetSubmitChain(void *submitChain) { m_SubmitChain = submitChain; }
@@ -3024,7 +3029,7 @@ public:
 
   IMPLEMENT_FUNCTION_SERIALISED(void, vkCmdEndRendering, VkCommandBuffer commandBuffer);
   IMPLEMENT_FUNCTION_SERIALISED(void, vkCmdEndRendering2EXT, VkCommandBuffer commandBuffer,
-                                const VkRenderingEndInfoEXT *pRenderingEndInfo);
+                                const VkRenderingEndInfoKHR *pRenderingEndInfo);
 
   // VK_KHR_dynamic_rendering_local_read
 
@@ -3350,4 +3355,8 @@ public:
   IMPLEMENT_FUNCTION_SERIALISED(
       void, vkCmdPushDescriptorSetWithTemplate2, VkCommandBuffer commandBuffer,
       const VkPushDescriptorSetWithTemplateInfo *pPushDescriptorSetWithTemplateInfo);
+
+  // VK_EXT_image_drm_format_modifier
+  VkResult vkGetImageDrmFormatModifierPropertiesEXT(VkDevice device, VkImage image,
+                                                    VkImageDrmFormatModifierPropertiesEXT *pProperties);
 };
