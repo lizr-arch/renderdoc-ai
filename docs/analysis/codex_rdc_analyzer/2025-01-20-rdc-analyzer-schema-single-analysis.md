@@ -135,6 +135,57 @@
 
   },
 
+  "data_richness": {
+
+    "baseline": {
+
+      "events": ["eventId", "outputs", "children"],
+
+      "textures": ["resourceId", "byteSize", "msSamp"],
+
+      "pipeline_state": ["PipeState", "API-specific state"]
+
+    },
+
+    "routes": {
+
+      "A": {
+
+        "source": "xml",
+
+        "coverage": "partial",
+
+        "events": { "present": [], "partial": [], "missing": [] },
+
+        "textures": { "present": [], "partial": [], "missing": [] },
+
+        "pipeline_state": { "status": "requires_replay" }
+
+      },
+
+      "C": {
+
+        "source": "compare",
+
+        "coverage": "summary_only",
+
+        "events": { "status": "summary_only" },
+
+        "textures": { "status": "summary_only" },
+
+        "pipeline_state": { "status": "summary_only" }
+
+      }
+
+    },
+
+    "notes": ["A/C 不伪造字段，仅声明缺口"],
+
+    "baseline_source": "docs/analysis/codex_rdc_analyzer/2025-01-31-rdc-analyzer-data-richness-baseline.md"
+
+  },
+
+
 
   "events": [],
 
@@ -217,6 +268,12 @@
 - WHY：明确哪些字段无法从 XML 获取，避免“近似值”误导；与数据丰富度基线对齐。
 - HOW：在 `analyze_xml_report.py` 中调用 `compute_field_coverage` 生成 coverage；
   对缺失字段统一使用原因 `Not in XML / requires replay`，不做近似或估算。
+
+### 1.1.3 Data Richness（A/C 汇总缺口）
+
+- WHAT：顶层 `data_richness` 汇总 A/C 路线的数据覆盖边界（基线字段 + 缺口原因）。
+- WHY：避免把 A/C 输出误认为“完整 RenderDoc 数据”，对外明确缺失字段来源。
+- HOW：基于 `data_richness_baseline` 的字段表聚合统计，缺失字段标记为需要 Replay。
 
 ### 1.2 WHY：它已经能支撑什么？缺什么会卡住目标 1/2？
 

@@ -1304,6 +1304,7 @@ class AnalysisPipeline:
         shader_count = len(shaders_list)
         if shader_count == 0 and self._pipeline_sampling_result:
             shader_count = self._pipeline_sampling_result.unique_shaders
+        data_richness = self._build_data_richness(self._events, textures_list)
 
         # 准备分析数据 - Canonical Schema v1.0
         analysis_data = {
@@ -1346,6 +1347,7 @@ class AnalysisPipeline:
                 'renderTargetSwitches': 0,
             },
             'coverage': coverage,
+            'data_richness': data_richness,
             'events': self._events[:1000],  # 限制大小
             'draw_calls': draw_calls_list,
             'textures': textures_list,
@@ -1686,7 +1688,70 @@ class AnalysisPipeline:
             coverage['overall'] = 'low'
         
         return coverage
-    
+
+    def _build_data_richness(
+        self,
+        events: List[Dict[str, Any]],
+        textures: List[Dict[str, Any]],
+    ) -> Dict[str, Any]:
+        """Build data richness summary for A/C outputs."""
+        from .schema.data_richness_baseline import (
+            ACTION_FIELD_MAP,
+            TEXTURE_FIELD_MAP,
+            MISSING_REASON_REPLAY,
+            summarize_field_coverage,
+        )
+
+        event_summary = summarize_field_coverage(
+            ACTION_FIELD_MAP,
+            events,
+            MISSING_REASON_REPLAY,
+        )
+        texture_summary = summarize_field_coverage(
+            TEXTURE_FIELD_MAP,
+            textures,
+            MISSING_REASON_REPLAY,
+        )
+
+        return {
+            "baseline": {
+                "events": list(ACTION_FIELD_MAP.keys()),
+                "textures": list(TEXTURE_FIELD_MAP.keys()),
+                "pipeline_state": [
+                    "PipeState",
+                    "API-specific state",
+                    "descriptor stores",
+                ],
+            },
+            "routes": {
+                "A": {
+                    "source": "xml",
+                    "coverage": "partial",
+                    "events": event_summary,
+                    "textures": texture_summary,
+                    "pipeline_state": {
+                        "status": "requires_replay",
+                        "reason": "PipeState full details require ReplayController",
+                    },
+                },
+                "C": {
+                    "source": "compare",
+                    "coverage": "summary_only",
+                    "events": {"status": "summary_only"},
+                    "textures": {"status": "summary_only"},
+                    "pipeline_state": {"status": "summary_only"},
+                },
+            },
+            "notes": [
+                "A/C outputs do not fabricate fields; missing fields require replay.",
+                "Field baselines follow RenderDoc API structures.",
+            ],
+            "baseline_source": (
+                "docs/analysis/codex_rdc_analyzer/"
+                "2025-01-31-rdc-analyzer-data-richness-baseline.md"
+            ),
+        }
+
     def _build_preflight(self, coverage: Dict[str, Any]) -> Dict[str, Any]:
         """构建 Preflight 检查结果 (DoD 7.7)
         

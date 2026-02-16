@@ -120,3 +120,48 @@ def compute_field_coverage(
         "missing": missing,
         "standard": "RenderDoc",
     }
+
+
+def summarize_field_coverage(
+    field_map: Dict[str, Dict[str, Any]],
+    samples: List[Dict[str, Any]],
+    missing_reason: str = MISSING_REASON_REPLAY,
+    sample_limit: int = 200,
+) -> Dict[str, Any]:
+    """Aggregate coverage across multiple samples.
+
+    - present: field appears directly in any sample
+    - partial: field appears via mapped key (first mapping kept)
+    - missing: field never appears in samples (reason = missing_reason)
+    """
+    present: List[str] = []
+    partial_details: Dict[str, Dict[str, Any]] = {}
+
+    sample_items = [s for s in samples if isinstance(s, dict)]
+    if sample_limit and len(sample_items) > sample_limit:
+        sample_items = sample_items[:sample_limit]
+
+    for item in sample_items:
+        coverage = compute_field_coverage(field_map, item, missing_reason)
+        for field in coverage.get("present", []):
+            if field not in present:
+                present.append(field)
+        for partial in coverage.get("partial", []):
+            field = partial.get("field")
+            if field and field not in partial_details:
+                partial_details[field] = partial
+
+    missing = [
+        {"field": field, "reason": missing_reason}
+        for field in field_map.keys()
+        if field not in present and field not in partial_details
+    ]
+
+    return {
+        "present": present,
+        "partial": list(partial_details.values()),
+        "missing": missing,
+        "standard": "RenderDoc",
+        "sampled": len(sample_items),
+        "sample_limit": sample_limit,
+    }

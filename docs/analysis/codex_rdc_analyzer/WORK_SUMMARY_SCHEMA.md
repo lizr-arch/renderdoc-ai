@@ -38,6 +38,31 @@
     "confidence_reasons": ["Markers 未启用，Pass 边界使用启发式推断"],
     "sampling_stats": { "pipeline_samples": 15, "total_draw_calls": 1234 }
   },
+  "data_richness": {
+    "baseline": {
+      "events": ["eventId", "outputs", "children"],
+      "textures": ["resourceId", "byteSize", "msSamp"],
+      "pipeline_state": ["PipeState", "API-specific state"]
+    },
+    "routes": {
+      "A": {
+        "source": "xml",
+        "coverage": "partial",
+        "events": { "present": [], "partial": [], "missing": [] },
+        "textures": { "present": [], "partial": [], "missing": [] },
+        "pipeline_state": { "status": "requires_replay" }
+      },
+      "C": {
+        "source": "compare",
+        "coverage": "summary_only",
+        "events": { "status": "summary_only" },
+        "textures": { "status": "summary_only" },
+        "pipeline_state": { "status": "summary_only" }
+      }
+    },
+    "notes": ["A/C 不伪造字段，仅声明缺口"],
+    "baseline_source": "docs/analysis/codex_rdc_analyzer/2025-01-31-rdc-analyzer-data-richness-baseline.md"
+  },
   "events": [...],
   "draw_calls": [...],
   "resources": {
@@ -95,6 +120,7 @@
 **关键代码入口**：
 - `main.py:AnalysisPipeline._export_reports()` — 构建并导出 JSON
 - `main.py:AnalysisPipeline._build_coverage_report()` — 构建 coverage 块
+- `main.py:AnalysisPipeline._build_data_richness()` — 构建 data_richness 块
 - `main.py:AnalysisPipeline._build_preflight()` — 构建 preflight 块
 - `main.py:AnalysisPipeline._build_suggestions()` — 构建 suggestions 块
 

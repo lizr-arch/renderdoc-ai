@@ -88,6 +88,7 @@ from schema.data_richness_baseline import (
     TEXTURE_FIELD_MAP,
 
     compute_field_coverage,
+    summarize_field_coverage,
 
     MISSING_REASON_REPLAY,
 
@@ -2033,6 +2034,60 @@ def run_analysis(
         # 从 XML 数据中提取 Shader 列表（A 路线默认应包含）
 
         shader_data = xml_data.get('shaders', [])
+
+        # ===== 数据丰富度摘要 =====
+        event_samples = performance_data.get("events", [])
+        if not isinstance(event_samples, list):
+            event_samples = []
+        texture_samples = textures if isinstance(textures, list) else []
+
+        data_richness = {
+            "baseline": {
+                "events": list(ACTION_FIELD_MAP.keys()),
+                "textures": list(TEXTURE_FIELD_MAP.keys()),
+                "pipeline_state": [
+                    "PipeState",
+                    "API-specific state",
+                    "descriptor stores",
+                ],
+            },
+            "routes": {
+                "A": {
+                    "source": "xml",
+                    "coverage": "partial",
+                    "events": summarize_field_coverage(
+                        ACTION_FIELD_MAP,
+                        event_samples,
+                        MISSING_REASON_REPLAY,
+                    ),
+                    "textures": summarize_field_coverage(
+                        TEXTURE_FIELD_MAP,
+                        texture_samples,
+                        MISSING_REASON_REPLAY,
+                    ),
+                    "pipeline_state": {
+                        "status": "requires_replay",
+                        "reason": "PipeState full details require ReplayController",
+                    },
+                },
+                "C": {
+                    "source": "compare",
+                    "coverage": "summary_only",
+                    "events": {"status": "summary_only"},
+                    "textures": {"status": "summary_only"},
+                    "pipeline_state": {"status": "summary_only"},
+                },
+            },
+            "notes": [
+                "A/C outputs do not fabricate fields; missing fields require replay.",
+                "Field baselines follow RenderDoc API structures.",
+            ],
+            "baseline_source": (
+                "docs/analysis/codex_rdc_analyzer/"
+                "2025-01-31-rdc-analyzer-data-richness-baseline.md"
+            ),
+        }
+        performance_data["data_richness"] = data_richness
 
         
 

@@ -387,6 +387,57 @@ class TestDOD73DataQuality:
         assert coverage['details']['resource_lifecycle'] == 'partial', \
             f"低采样率时应为 partial，实际为: {coverage['details']['resource_lifecycle']}"
 
+    def test_data_richness_summary_structure(self):
+        """验证 data_richness 结构与路由摘要稳定"""
+        from unittest.mock import MagicMock
+        from rdc_analyzer.main import AnalysisPipeline
+
+        pipeline = MagicMock()
+        events = [{"eventId": 1, "outputs": [1]}]
+        textures = [{"resourceId": "tex1", "width": 1, "height": 1}]
+
+        data_richness = AnalysisPipeline._build_data_richness(pipeline, events, textures)
+
+        required_keys = {"baseline", "routes", "notes", "baseline_source"}
+        assert required_keys.issubset(set(data_richness.keys()))
+
+        assert "A" in data_richness["routes"], "routes 必须包含 A"
+        assert "C" in data_richness["routes"], "routes 必须包含 C"
+        assert "events" in data_richness["routes"]["A"]
+        assert "textures" in data_richness["routes"]["A"]
+
+    def test_data_richness_exported_in_analysis_data(self):
+        """验证 _export_reports 包含 data_richness 输出块"""
+        from rdc_analyzer.main import AnalysisPipeline
+        import inspect
+
+        source = inspect.getsource(AnalysisPipeline._export_reports)
+        assert "data_richness" in source, "analysis_data 应包含 data_richness"
+
+    def test_summarize_field_coverage_aggregates_samples(self):
+        """验证 summarize_field_coverage 聚合样本字段覆盖"""
+        from rdc_analyzer.schema import data_richness_baseline as baseline
+
+        field_map = {
+            "foo": {"keys": ["foo"]},
+            "bar": {"keys": ["bar"], "note": "mapped"},
+            "baz": {"keys": ["baz"]},
+        }
+        samples = [{"foo": 1, "bar": 2}, {"baz": 3}]
+
+        summary = baseline.summarize_field_coverage(
+            field_map,
+            samples,
+            missing_reason="missing",
+            sample_limit=10,
+        )
+
+        assert set(summary["present"]) == {"foo", "baz"}
+        assert any(p.get("field") == "bar" for p in summary["partial"])
+        assert summary["missing"] == []
+        assert summary["sampled"] == 2
+        assert summary["sample_limit"] == 10
+
 
 class TestRuleRunnerIntegration:
     """规则输出统一：_analyze_rules 必须接入 RuleRunner"""
