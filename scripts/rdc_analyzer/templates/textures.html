@@ -183,6 +183,12 @@
             padding: 0 7px;
         }
 
+        .canvas-toolbar .toolbar-btn.active {
+            background: rgba(88, 166, 255, 0.22);
+            border: 1px solid rgba(88, 166, 255, 0.5);
+            color: #e2f0ff;
+        }
+
         .canvas-toolbar .zoom-display {
             min-width: 52px;
             text-align: center;
@@ -774,6 +780,7 @@
                         <span class="zoom-display" id="zoomLevel">100%</span>
                         <button class="toolbar-btn" id="zoomIn" title="放大">➕</button>
                         <button class="toolbar-btn" id="zoomFit" title="适应">⬜</button>
+                        <button class="toolbar-btn" id="flipVerticalBtn" title="上下翻转">↕</button>
                     </div>
                     
                     <div class="toolbar-group">
@@ -935,6 +942,7 @@
         // ========== 状态管理 ==========
         let currentTexture = null;
         let currentZoom = 1;
+        let textureFlipVertical = false;
         let activeChannels = { r: true, g: true, b: true, a: true };
         let currentFilter = 'all';
         let compareSlots = [null, null];
@@ -1165,6 +1173,7 @@
                 emptyEl.classList.remove('no-thumbnail');
                 if (emptyText) emptyText.textContent = '请选择纹理查看预览';
                 if (emptySubtext) emptySubtext.textContent = '支持筛选/排序后快速定位';
+                applyZoom();
                 return true;
             }
 
@@ -1475,9 +1484,16 @@
         
         function applyZoom() {
             const img = document.getElementById('previewImg');
-            img.style.transform = `scale(${currentZoom})`;
+            const flip = textureFlipVertical ? -1 : 1;
+            img.style.transform = `scale(${currentZoom}) scaleY(${flip})`;
             document.getElementById('zoomLevel').textContent = `${Math.round(currentZoom * 100)}%`;
         }
+
+        document.getElementById('flipVerticalBtn').addEventListener('click', () => {
+            textureFlipVertical = !textureFlipVertical;
+            document.getElementById('flipVerticalBtn').classList.toggle('active', textureFlipVertical);
+            applyZoom();
+        });
         
         // ========== Lightbox ==========
         function openLightbox() {

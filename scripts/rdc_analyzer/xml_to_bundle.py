@@ -268,7 +268,8 @@ class SimpleXmlParser:
                             elif ext_name == "depth":
                                 tex["depth"] = int(text) if text.isdigit() else 1
                     elif sub_name == "format":
-                        tex["format"] = sub.text or ""
+                        fmt = sub.get("string") or (sub.text or "")
+                        tex["format"] = fmt.strip()
                     elif sub_name == "mipLevels":
                         tex["mip_levels"] = int(sub.text or "1")
                     elif sub_name == "arrayLayers":
@@ -276,7 +277,8 @@ class SimpleXmlParser:
 
             # 直接子元素（平铺结构）
             elif child_name == "format":
-                tex["format"] = child.text or ""
+                fmt = child.get("string") or (child.text or "")
+                tex["format"] = fmt.strip()
             elif child_name == "extent":
                 for ext in child:
                     ext_name = ext.get("name", "")

@@ -686,6 +686,70 @@
             text-align: center;
             margin-top: 4px;
         }
+
+        .canvas-toolbar .toolbar-btn.active {
+            background: rgba(88, 166, 255, 0.22);
+            border: 1px solid rgba(88, 166, 255, 0.5);
+            color: #e2f0ff;
+        }
+
+        /* 输出区 RT 缩略图条（最后 6 个） */
+        .rt-strip {
+            margin-top: 10px;
+            padding: 8px 10px;
+            border-radius: 12px;
+            border: 1px solid rgba(88, 166, 255, 0.18);
+            background: linear-gradient(180deg, rgba(16, 25, 40, 0.7) 0%, rgba(12, 20, 33, 0.7) 100%);
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .rt-strip-item {
+            width: 120px;
+        }
+
+        .rt-strip-thumb {
+            width: 100%;
+            aspect-ratio: 16/9;
+            background: repeating-conic-gradient(var(--bg-medium) 0% 25%, var(--bg-dark) 0% 50%) 50% / 8px 8px;
+            border-radius: var(--radius-sm);
+            overflow: hidden;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .rt-strip-thumb img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+        }
+
+        .rt-strip-thumb.empty {
+            cursor: default;
+        }
+
+        .rt-strip-label {
+            margin-top: 4px;
+            font-size: 9px;
+            color: var(--text-muted);
+            text-align: center;
+        }
+
+        .rt-strip-empty {
+            color: var(--text-muted);
+            font-size: 11px;
+            padding: 6px;
+        }
+
+        .rt-strip-thumb-empty {
+            color: var(--text-muted);
+            font-size: 9px;
+            text-align: center;
+            padding: 4px;
+        }
         
         /* 问题指示器 */
         .issue-badge {
@@ -1434,6 +1498,7 @@
                         <button class="toolbar-btn" id="zoomOut" title="缩小">➖</button>
                         <span class="zoom-display" id="zoomLevel">100%</span>
                         <button class="toolbar-btn" id="zoomIn" title="放大">➕</button>
+                        <button class="toolbar-btn" id="flipVerticalBtn" title="上下翻转">↕</button>
                     </div>
                     
                     <div style="flex: 1;"></div>
@@ -1469,6 +1534,9 @@
                             <div class="rt-load-status" id="rtLoadStatus"></div>
                         </div>
                     </div>
+                </div>
+                <div class="rt-strip" id="rtStrip">
+                    <div class="rt-strip-empty">当前事件无 Render Target</div>
                 </div>
             </main>
             
@@ -1619,6 +1687,7 @@
         // ========== 状态管理 ==========
         let currentEvent = null;
         let currentZoom = 1;
+        let outputFlipVertical = false;
         let eventIndex = 0;
         
         // ========== 事件数据 (P7C.4: 支持异步加载) ==========
@@ -2465,6 +2534,8 @@
             const preview = document.getElementById('rtPreview');
             const count = document.getElementById('rtCount');
             const empty = document.getElementById('rtEmpty');
+
+            updateRtStrip(event);
             
             // 辅助函数：显示 RT
             function showRT(html, num) {
@@ -2526,6 +2597,35 @@
             // 无数据
             hideRT();
         }
+
+        function updateRtStrip(event) {
+            const strip = document.getElementById('rtStrip');
+            if (!strip) return;
+
+            const list = (event && event.renderTargets) ? event.renderTargets : [];
+            const last = list.slice(-6);
+            const startIndex = list.length - last.length;
+
+            if (!last.length) {
+                strip.innerHTML = '<div class="rt-strip-empty">当前事件无 Render Target</div>';
+                return;
+            }
+
+            strip.innerHTML = last.map((rt, i) => {
+                const slotLabel = (rt && rt.slot !== undefined) ? `Slot ${rt.slot}` : `RT ${startIndex + i}`;
+                const name = (rt && rt.name) ? rt.name : slotLabel;
+                const hasThumb = rt && rt.thumbnail;
+                const click = hasThumb ? `onclick="openLightbox('${rt.thumbnail}', '${name}')"` : '';
+                return `
+                    <div class="rt-strip-item">
+                        <div class="rt-strip-thumb ${hasThumb ? '' : 'empty'}" ${click}>
+                            ${hasThumb ? `<img src="${rt.thumbnail}" alt="">` : '<div class="rt-strip-thumb-empty">无缩略图</div>'}
+                        </div>
+                        <div class="rt-strip-label">${name}</div>
+                    </div>
+                `;
+            }).join('');
+        }
         
         function updateEventAnalysis(event) {
             const content = document.getElementById('eventAnalysis');
@@ -2583,9 +2683,17 @@
         });
         
         function applyZoom() {
-            document.getElementById('outputImg').style.transform = `scale(${currentZoom})`;
+            const img = document.getElementById('outputImg');
+            const flip = outputFlipVertical ? -1 : 1;
+            img.style.transform = `scale(${currentZoom}) scaleY(${flip})`;
             document.getElementById('zoomLevel').textContent = `${Math.round(currentZoom * 100)}%`;
         }
+
+        document.getElementById('flipVerticalBtn').addEventListener('click', () => {
+            outputFlipVertical = !outputFlipVertical;
+            document.getElementById('flipVerticalBtn').classList.toggle('active', outputFlipVertical);
+            applyZoom();
+        });
         
         // ========== 输出切换 ==========
         function selectOutput(output) {
@@ -2597,6 +2705,7 @@
                 document.getElementById('outputImg').src = currentEvent.output[output];
                 document.getElementById('outputImg').classList.remove('hidden');
                 document.getElementById('outputEmpty').classList.add('hidden');
+                applyZoom();
             } else {
                 document.getElementById('outputImg').classList.add('hidden');
                 document.getElementById('outputEmpty').classList.remove('hidden');
@@ -3026,6 +3135,7 @@
             img.classList.remove('hidden');
             empty.classList.add('hidden');
             viewport.classList.add('has-preview');
+            applyZoom();
         }
         
         function setRTLoadStatus(message, type) {
