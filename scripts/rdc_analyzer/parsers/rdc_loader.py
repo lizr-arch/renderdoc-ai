@@ -413,11 +413,10 @@ def load_capture_file(
     elif ext == '.json':
         with open(path, 'r', encoding='utf-8') as f:
             data = json.load(f)
-        # Handle Phase 1 list format
-        if isinstance(data, list) and len(data) > 0:
-            from ..compare_rdc import load_json_data
-            return load_json_data(path)
-        # Handle schema v1.0 format (analyze command output)
+        if isinstance(data, list):
+            raise ValueError("Phase1 列表格式已弃用，请使用 Canonical Schema (dict) 输入")
+        if not isinstance(data, dict):
+            raise ValueError("JSON 顶层必须是 dict (Canonical Schema)")
         if data.get('schema_version') == '1.0':
             return _convert_schema_v1_to_capture_data(data)
         return data

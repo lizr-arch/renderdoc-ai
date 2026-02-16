@@ -154,6 +154,64 @@ class TestLoadCaptureFile:
         
         assert result["summary"]["draw_call_count"] == 10
     
+    def test_load_json_schema_v1_converts(self, tmp_path):
+        """Schema v1.0 JSON should convert to CaptureData."""
+        import json
+
+        json_file = tmp_path / "schema_v1.json"
+        data = {
+            "schema_version": "1.0",
+            "resources": {
+                "textures": {
+                    "tex-001": {
+                        "name": "Diffuse",
+                        "width": 1024,
+                        "height": 1024,
+                        "format": "RGBA8",
+                        "size_bytes": 4194304,
+                        "mips": 3,
+                    }
+                },
+                "buffers": {
+                    "buf-001": {
+                        "name": "VertexBuffer",
+                        "size_bytes": 65536,
+                    }
+                },
+            },
+            "summary": {"draw_call_count": 1},
+        }
+        json_file.write_text(json.dumps(data))
+
+        result = load_capture_file(str(json_file))
+
+        assert result["_source_schema"] == "1.0"
+        tex = result["textures"][0]
+        assert tex["resourceId"] == "tex-001"
+        assert tex["memorySize"] == 4194304
+        assert tex["mipLevels"] == 3
+        buf = result["buffers"][0]
+        assert buf["resourceId"] == "buf-001"
+        assert buf["size"] == 65536
+
+    def test_load_json_list_rejected(self, tmp_path):
+        """Phase1 list JSON should be rejected."""
+        import json
+
+        json_file = tmp_path / "phase1.json"
+        json_file.write_text(json.dumps([{"summary": {"draw_call_count": 1}}]))
+
+        with pytest.raises(ValueError):
+            load_capture_file(str(json_file))
+
+    def test_load_json_scalar_rejected(self, tmp_path):
+        """Non-dict JSON should be rejected."""
+        json_file = tmp_path / "scalar.json"
+        json_file.write_text("true")
+
+        with pytest.raises(ValueError):
+            load_capture_file(str(json_file))
+
     def test_load_xml_file(self, tmp_path):
         """Test loading an XML file directly."""
         # Create a minimal valid XML matching RenderDoc's actual format

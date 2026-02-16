@@ -43,6 +43,7 @@ from diff import (
     DiffHTMLExporter,
     DiffHTMLConfig,
 )
+from parsers.rdc_loader import load_capture_file
 
 
 def _estimate_bytes_per_pixel(format_name: str) -> int:
@@ -116,21 +117,21 @@ def _estimate_bytes_per_pixel(format_name: str) -> int:
 
 
 def load_json_data(file_path: str) -> Dict[str, Any]:
-    """加载 JSON 文件
-    
-    支持两种格式：
-    1. Phase 2 期望的字典格式: {summary, textures, shaders, buffers, draw_calls}
-    2. Phase 1 输出的列表格式: [{summary, shaders, textures}]
-    
+    """Load JSON file.
+
+    Only Canonical Schema dict format is accepted:
+    {summary, textures, shaders, buffers, draw_calls}
+
     Args:
-        file_path: JSON 文件路径
-        
+        file_path: JSON file path.
+
     Returns:
-        解析后的 JSON 数据（统一转换为字典格式）
-        
+        Parsed JSON data as dict.
+
     Raises:
-        FileNotFoundError: 文件不存在
-        json.JSONDecodeError: JSON 解析失败
+        FileNotFoundError: File not found.
+        json.JSONDecodeError: JSON parse error.
+        ValueError: Invalid top-level JSON type.
     """
     path = Path(file_path)
     if not path.exists():
@@ -142,6 +143,8 @@ def load_json_data(file_path: str) -> Dict[str, Any]:
     # Phase 1 列表格式已弃用：强制拒绝
     if isinstance(data, list):
         raise ValueError("Phase1 列表格式已弃用，请使用 Canonical Schema (dict) 输入")
+    if not isinstance(data, dict):
+        raise ValueError("JSON 顶层必须是 dict (Canonical Schema)")
     
     # 已经是字典格式，直接返回
     return data
@@ -530,11 +533,11 @@ def main() -> int:
         # Step 1: 加载数据
         if not args.quiet:
             print(f"[*] 加载基准文件: {args.baseline}")
-        baseline_data = load_json_data(args.baseline)
+        baseline_data = load_capture_file(args.baseline, verbose=not args.quiet)
         
         if not args.quiet:
             print(f"[*] 加载目标文件: {args.target}")
-        target_data = load_json_data(args.target)
+        target_data = load_capture_file(args.target, verbose=not args.quiet)
         
         # Step 2: 配置回归阈值
         # REG001: Draw Call 增加, REG004: Buffer 增加, REG005: 三角形增加
@@ -591,6 +594,9 @@ def main() -> int:
         return 1
     except json.JSONDecodeError as e:
         print(f"[!] JSON 解析错误: {e}")
+        return 1
+    except ValueError as e:
+        print(f"[!] 输入错误: {e}")
         return 1
     except Exception as e:
         print(f"[!] 分析失败: {e}")

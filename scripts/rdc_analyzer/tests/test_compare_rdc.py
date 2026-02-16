@@ -138,6 +138,14 @@ class TestLoadJsonData:
 class TestRunComparison:
     """对比分析测试"""
     
+    def test_non_dict_rejected(self, tmp_path):
+        """Non-dict JSON should be rejected."""
+        path = tmp_path / "scalar.json"
+        path.write_text("42")
+
+        with pytest.raises(ValueError):
+            load_json_data(str(path))
+
     def test_basic_comparison(self, baseline_data, target_data):
         """测试基本对比功能"""
         diff_result, regression_report = run_comparison(
@@ -229,6 +237,10 @@ class TestExport:
         assert "summary" in data
         assert "regressions" in data
         assert data["metadata"]["baseline_file"] == "baseline.json"
+        assert "resource_changes" in data
+        assert "draw_calls" in data["summary"]
+        assert "issues" in data["regressions"]
+        assert "textures" in data["resource_changes"]
     
     def test_export_creates_parent_dirs(self, baseline_data, target_data, tmp_path):
         """测试导出时创建父目录"""
