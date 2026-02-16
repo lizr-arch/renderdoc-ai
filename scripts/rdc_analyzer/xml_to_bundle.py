@@ -36,7 +36,7 @@ from report_bundle_generator import ReportBundleGenerator
 
 class SimpleXmlParser:
     """简化的 XML 解析器，独立于 package 结构"""
-    
+
     # D3D11 Draw Calls
     D3D11_DRAW_CALLS = {
         "ID3D11DeviceContext::DrawIndexed",
@@ -47,10 +47,10 @@ class SimpleXmlParser:
         "ID3D11DeviceContext::DrawIndexedInstancedIndirect",
         "ID3D11DeviceContext::DrawInstancedIndirect",
     }
-    
+
     # Vulkan Draw/Dispatch Calls
     VK_DRAW_CALLS = {
-        "vkCmdDraw", "vkCmdDrawIndexed", "vkCmdDrawIndirect", 
+        "vkCmdDraw", "vkCmdDrawIndexed", "vkCmdDrawIndirect",
         "vkCmdDrawIndexedIndirect", "vkCmdDrawIndirectCount",
         "vkCmdDrawIndexedIndirectCount", "vkCmdDrawMeshTasksEXT",
         "vkCmdDrawMeshTasksIndirectEXT", "vkCmdDrawMeshTasksIndirectCountEXT",
@@ -58,55 +58,99 @@ class SimpleXmlParser:
     VK_DISPATCH_CALLS = {
         "vkCmdDispatch", "vkCmdDispatchIndirect", "vkCmdDispatchBase",
     }
-    
+
+    VK_BEGIN_RENDERPASS = {
+        "vkCmdBeginRenderPass", "vkCmdBeginRenderPass2", "vkCmdBeginRendering",
+    }
+    VK_END_RENDERPASS = {
+        "vkCmdEndRenderPass", "vkCmdEndRenderPass2", "vkCmdEndRendering",
+    }
+
     def parse(self, xml_path: str) -> Dict:
         """解析 XML 文件，返回标准化数据"""
         tree = ET.parse(xml_path)
         root = tree.getroot()
-        
+
         driver = self._detect_driver(root)
         draw_calls = []
         textures = []
         buffers = []
-        
+
+        # Vulkan runtime state used to reconstruct per-draw RT bindings.
+        image_view_to_image: Dict[str, Dict[str, str]] = {}
+        framebuffer_to_views: Dict[str, List[str]] = {}
+        active_rt_state = {"color": [], "depth": None}
+
         for chunk in root.iter("chunk"):
             name = chunk.get("name", "")
-            
+
             # Draw Calls
             if name in self.D3D11_DRAW_CALLS or name in self.VK_DRAW_CALLS:
                 dc = self._parse_draw_call(chunk, name)
+                if dc and name in self.VK_DRAW_CALLS:
+                    dc["render_targets"] = [
+                        {"id": image_id, "slot": slot}
+                        for slot, image_id in enumerate(active_rt_state["color"])
+                    ]
+                    if active_rt_state.get("depth"):
+                        dc["depth_target"] = active_rt_state["depth"]
                 if dc:
                     draw_calls.append(dc)
             elif name in self.VK_DISPATCH_CALLS:
                 dc = self._parse_draw_call(chunk, name, is_dispatch=True)
                 if dc:
                     draw_calls.append(dc)
-            
+
             # D3D11 Textures
             elif name == "ID3D11Device::CreateTexture2D":
                 tex = self._parse_d3d11_texture(chunk)
                 if tex:
                     textures.append(tex)
-            
+
             # Vulkan Images
             elif name == "vkCreateImage":
                 tex = self._parse_vk_image(chunk)
                 if tex:
                     textures.append(tex)
-            
+
+            # Vulkan ImageViews (View -> Image mapping)
+            elif name == "vkCreateImageView":
+                view_info = self._parse_vk_image_view(chunk)
+                if view_info:
+                    image_view_to_image[view_info["view_id"]] = {
+                        "image_id": view_info["image_id"],
+                        "aspect": view_info.get("aspect", ""),
+                    }
+
+            # Vulkan Framebuffers (Framebuffer -> ImageView[] mapping)
+            elif name == "vkCreateFramebuffer":
+                fb_info = self._parse_vk_framebuffer(chunk)
+                if fb_info:
+                    framebuffer_to_views[fb_info["framebuffer_id"]] = fb_info["attachments"]
+
+            # Track active RT state by render-pass boundaries.
+            elif name in self.VK_BEGIN_RENDERPASS:
+                active_rt_state = self._resolve_active_render_targets(
+                    chunk,
+                    framebuffer_to_views,
+                    image_view_to_image,
+                )
+            elif name in self.VK_END_RENDERPASS:
+                active_rt_state = {"color": [], "depth": None}
+
             # Vulkan Buffers
             elif name == "vkCreateBuffer":
                 buf = self._parse_vk_buffer(chunk)
                 if buf:
                     buffers.append(buf)
-        
+
         return {
             "driver": driver,
             "draw_calls": draw_calls,
             "textures": textures,
             "buffers": buffers,
         }
-    
+
     def _detect_driver(self, root) -> str:
         """检测图形 API 驱动类型"""
         for chunk in root.iter("chunk"):
@@ -120,11 +164,18 @@ class SimpleXmlParser:
             if name.startswith("gl"):
                 return "OpenGL"
         return "Unknown"
-    
+
     def _parse_draw_call(self, chunk, name, is_dispatch=False) -> Optional[Dict]:
         """解析 Draw/Dispatch Call"""
+        event_raw = chunk.get("eventId")
+        event_id = int(event_raw) if event_raw and str(event_raw).isdigit() else 0
+        if event_id == 0:
+            chunk_index_raw = chunk.get("chunkIndex")
+            if chunk_index_raw and str(chunk_index_raw).isdigit():
+                event_id = int(chunk_index_raw)
+
         dc = {
-            "event_id": int(chunk.get("eventId", 0)),
+            "event_id": event_id,
             "name": name,
             "index_count": 0,
             "vertex_count": 0,
@@ -132,11 +183,11 @@ class SimpleXmlParser:
             "marker": "",
             "is_dispatch": is_dispatch,
         }
-        
+
         for child in chunk:
             child_name = child.get("name", "")
             text = child.text or ""
-            
+
             # D3D11 style (PascalCase)
             if child_name == "IndexCount":
                 dc["index_count"] = int(text) if text.isdigit() else 0
@@ -144,7 +195,7 @@ class SimpleXmlParser:
                 dc["vertex_count"] = int(text) if text.isdigit() else 0
             elif child_name == "InstanceCount":
                 dc["instance_count"] = int(text) if text.isdigit() else 1
-            
+
             # Vulkan style (camelCase)
             elif child_name == "indexCount":
                 dc["index_count"] = int(text) if text.isdigit() else 0
@@ -152,9 +203,9 @@ class SimpleXmlParser:
                 dc["vertex_count"] = int(text) if text.isdigit() else 0
             elif child_name == "instanceCount":
                 dc["instance_count"] = int(text) if text.isdigit() else 1
-        
+
         return dc
-    
+
     def _parse_d3d11_texture(self, chunk) -> Optional[Dict]:
         """解析 D3D11 纹理"""
         tex = {
@@ -167,11 +218,11 @@ class SimpleXmlParser:
             "mip_levels": 1,
             "array_size": 1,
         }
-        
+
         for child in chunk:
             name = child.get("name", "")
             text = child.text or ""
-            
+
             if name == "Width":
                 tex["width"] = int(text) if text.isdigit() else 0
             elif name == "Height":
@@ -182,9 +233,9 @@ class SimpleXmlParser:
                 tex["mip_levels"] = int(text) if text.isdigit() else 1
             elif name == "ArraySize":
                 tex["array_size"] = int(text) if text.isdigit() else 1
-        
+
         return tex if tex["width"] > 0 else None
-    
+
     def _parse_vk_image(self, chunk) -> Optional[Dict]:
         """解析 Vulkan Image"""
         tex = {
@@ -197,11 +248,11 @@ class SimpleXmlParser:
             "mip_levels": 1,
             "array_size": 1,
         }
-        
+
         # 查找 pCreateInfo 或直接的子元素
         for child in chunk:
             child_name = child.get("name", "")
-            
+
             if child_name in ("pCreateInfo", "CreateInfo"):
                 # 嵌套结构
                 for sub in child:
@@ -222,7 +273,7 @@ class SimpleXmlParser:
                         tex["mip_levels"] = int(sub.text or "1")
                     elif sub_name == "arrayLayers":
                         tex["array_size"] = int(sub.text or "1")
-            
+
             # 直接子元素（平铺结构）
             elif child_name == "format":
                 tex["format"] = child.text or ""
@@ -234,13 +285,126 @@ class SimpleXmlParser:
                         tex["width"] = int(text) if text.isdigit() else 0
                     elif ext_name == "height":
                         tex["height"] = int(text) if text.isdigit() else 0
-            
+
             # 提取 ResourceId (Vulkan Image ID)
             elif child.tag == "ResourceId" and child_name == "Image":
                 tex["resource_id"] = child.text or ""
-        
+
         return tex if tex["width"] > 0 else None
-    
+
+    def _parse_vk_image_view(self, chunk) -> Optional[Dict[str, str]]:
+        """解析 Vulkan ImageView，返回 view_id/image_id/aspect。"""
+        view_id = ""
+        image_id = ""
+        aspect = ""
+
+        for child in chunk:
+            child_name = child.get("name", "")
+
+            if child.tag == "ResourceId" and child_name in ("View", "view"):
+                view_id = (child.text or "").strip()
+
+            if child_name in ("CreateInfo", "pCreateInfo"):
+                for sub in child:
+                    sub_name = sub.get("name", "")
+                    if sub.tag == "ResourceId" and sub_name in ("image", "Image"):
+                        image_id = (sub.text or "").strip()
+                    elif sub_name == "subresourceRange":
+                        for sub_range in sub:
+                            if sub_range.get("name", "") == "aspectMask":
+                                aspect = sub_range.get("string", "") or (sub_range.text or "")
+
+            if not image_id and child.tag == "ResourceId" and child_name in ("image", "Image"):
+                image_id = (child.text or "").strip()
+
+        if not view_id or not image_id:
+            return None
+
+        return {
+            "view_id": view_id,
+            "image_id": image_id,
+            "aspect": aspect,
+        }
+
+    def _parse_vk_framebuffer(self, chunk) -> Optional[Dict[str, Any]]:
+        """解析 Vulkan Framebuffer，返回 framebuffer_id + 附件 view 列表。"""
+        framebuffer_id = ""
+        attachments: List[str] = []
+
+        for child in chunk:
+            child_name = child.get("name", "")
+            if child.tag == "ResourceId" and child_name == "Framebuffer":
+                framebuffer_id = (child.text or "").strip()
+            elif child_name in ("CreateInfo", "pCreateInfo"):
+                for sub in child:
+                    if sub.get("name", "") == "pAttachments":
+                        for rid in sub.findall("./ResourceId"):
+                            rid_text = (rid.text or "").strip()
+                            if rid_text:
+                                attachments.append(rid_text)
+
+        if not framebuffer_id:
+            return None
+
+        return {
+            "framebuffer_id": framebuffer_id,
+            "attachments": attachments,
+        }
+
+    def _parse_begin_renderpass_framebuffer(self, chunk) -> str:
+        """从 vkCmdBeginRenderPass/vkCmdBeginRenderPass2 chunk 中提取 framebuffer id。"""
+        # 常见路径：RenderPassBegin.framebuffer
+        for path in (
+            "./ResourceId[@name='framebuffer']",
+            "./struct[@name='RenderPassBegin']/ResourceId[@name='framebuffer']",
+            "./struct[@name='pRenderPassBegin']/ResourceId[@name='framebuffer']",
+            ".//ResourceId[@name='framebuffer']",
+        ):
+            node = chunk.find(path)
+            if node is not None and node.text:
+                fb_id = node.text.strip()
+                if fb_id:
+                    return fb_id
+        return ""
+
+    def _resolve_active_render_targets(
+        self,
+        begin_chunk,
+        framebuffer_to_views: Dict[str, List[str]],
+        image_view_to_image: Dict[str, Dict[str, str]],
+    ) -> Dict[str, Any]:
+        """基于 begin-renderpass 的 framebuffer 解析当前 color/depth RT 集合。"""
+        framebuffer_id = self._parse_begin_renderpass_framebuffer(begin_chunk)
+        if not framebuffer_id:
+            return {"color": [], "depth": None}
+
+        view_ids = framebuffer_to_views.get(framebuffer_id, [])
+        color_images: List[str] = []
+        depth_image: Optional[str] = None
+
+        for view_id in view_ids:
+            info = image_view_to_image.get(view_id)
+            if not info:
+                continue
+
+            image_id = str(info.get("image_id", "")).strip()
+            if not image_id:
+                continue
+
+            aspect = str(info.get("aspect", "")).upper()
+            is_depth = "DEPTH" in aspect or "STENCIL" in aspect
+
+            if is_depth:
+                if depth_image is None:
+                    depth_image = image_id
+            elif image_id not in color_images:
+                color_images.append(image_id)
+
+        return {
+            "color": color_images,
+            "depth": depth_image,
+        }
+
     def _parse_vk_buffer(self, chunk) -> Optional[Dict]:
         """解析 Vulkan Buffer"""
         buf = {
@@ -248,7 +412,7 @@ class SimpleXmlParser:
             "size": 0,
             "usage": "",
         }
-        
+
         for child in chunk:
             child_name = child.get("name", "")
             if child_name in ("pCreateInfo", "CreateInfo"):
@@ -260,7 +424,7 @@ class SimpleXmlParser:
                         buf["usage"] = sub.text or ""
             elif child_name == "size":
                 buf["size"] = int(child.text or "0")
-        
+
         return buf if buf["size"] > 0 else None
 
 
@@ -296,17 +460,17 @@ def xml_to_bundle_events_dict(draw_calls: List[Dict]) -> List[Dict]:
     将 SimpleXmlParser 的 draw_calls (dict 列表) 转换为 ReportBundleGenerator 的 events 格式
     """
     events = []
-    
+
     for dc in draw_calls:
         # 判断事件类型
         event_type = "Draw"
         api_name = dc.get("name", "Unknown")
-        
+
         if dc.get("is_dispatch", False) or 'dispatch' in api_name.lower():
             event_type = "Dispatch"
         elif 'clear' in api_name.lower():
             event_type = "Clear"
-        
+
         # 构建事件数据
         event = {
             "eid": dc.get("event_id", 0),
@@ -318,8 +482,44 @@ def xml_to_bundle_events_dict(draw_calls: List[Dict]) -> List[Dict]:
             "instances": dc.get("instance_count", 1),
             "marker": dc.get("marker", ""),
         }
+
+        render_targets = []
+        for idx, rt in enumerate(dc.get("render_targets", []) or []):
+            if isinstance(rt, dict):
+                rt_id = rt.get("id", rt.get("resourceId", ""))
+                slot = rt.get("slot", idx)
+            else:
+                rt_id = rt
+                slot = idx
+
+            if rt_id in (None, ""):
+                continue
+
+            try:
+                slot_value = int(slot)
+            except (TypeError, ValueError):
+                slot_value = idx
+
+            render_targets.append({
+                "id": str(rt_id),
+                "slot": slot_value,
+            })
+
+        if render_targets:
+            event["renderTargets"] = render_targets
+
+        depth_target = dc.get("depth_target")
+        if depth_target:
+            if isinstance(depth_target, dict):
+                depth_id = depth_target.get("id", depth_target.get("resourceId", ""))
+            else:
+                depth_id = depth_target
+
+            if depth_id not in (None, ""):
+                event["depthTarget"] = {"id": str(depth_id)}
+
         events.append(event)
-    
+
     return events
 
 
