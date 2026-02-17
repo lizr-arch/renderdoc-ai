@@ -115,3 +115,22 @@ function buildOutputTabs(event) {
 
 ## Next Steps
 - 等用户确认进入 /do 后执行修改并更新本计划勾选项。
+
+
+## Addendum: Color2/3/4 空白 & 按钮策略
+
+### Root Cause (Verified)
+- EID 3461 的 renderTargets[2] 缩略图 PNG alpha 全为 0（全透明），因此视觉上看起来“空白”。
+- renderTargets[3]/[4] 有可见像素，但透明覆盖率较低，容易与背景棋盘格混在一起。
+- onerror 诊断仍保留，用于区分真实加载失败与透明/低覆盖率。
+
+### Extra Action Items
+- [x] 为 outputImg 添加 onerror 处理：显示失败信息与 URL
+- [x] 若 fallback.thumbnail 含 %，加载失败时尝试 decodeURIComponent 的路径
+- [x] 当 fallback 缩略图显示时隐藏“从 RDC 加载快照”按钮
+- [x] 增加 Alpha 覆盖率提示（区分全透明/低覆盖率）
+- [x] 重新生成报告并复测 EID 3461 Color2/3/4
+
+
+### Verification Notes
+- EID 3461: Color0/1/3/4 有可见像素；Color2 alpha 覆盖率 0（全透明）。

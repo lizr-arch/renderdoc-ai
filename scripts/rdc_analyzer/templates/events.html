@@ -1011,6 +1011,29 @@
         .output-mapping-hint strong {
             color: var(--text-primary);
         }
+        .output-alpha-hint {
+            font-size: 10px;
+            color: var(--text-muted);
+            padding: 4px 12px 6px;
+            border-bottom: 1px solid var(--border);
+            background: var(--bg-dark);
+        }
+
+        .output-alpha-hint.hidden {
+            display: none;
+        }
+
+        .output-alpha-hint.warning {
+            color: var(--accent-yellow);
+        }
+
+        .output-alpha-hint.ok {
+            color: var(--accent-green);
+        }
+
+        .output-alpha-hint.muted {
+            color: var(--text-muted);
+        }
         
         .output-content {
             flex: 1;
@@ -1567,6 +1590,7 @@
                 <!-- 输出标签页（动态生成） -->
                 <div class="output-tabs" id="outputTabs"></div>
                 <div class="output-mapping-hint" id="outputMappingHint"></div>
+                <div class="output-alpha-hint hidden" id="outputAlphaHint"></div>
                 
                 <!-- 输出内容 -->
                 <div class="output-preview-container">
@@ -2447,6 +2471,57 @@
             badge.classList.toggle('hidden', !visible);
         }
 
+        function setOutputAlphaHint(text, state) {
+            const hint = document.getElementById('outputAlphaHint');
+            if (!hint) return;
+            if (!text) {
+                hint.textContent = '';
+                hint.className = 'output-alpha-hint hidden';
+                return;
+            }
+            hint.textContent = text;
+            hint.className = 'output-alpha-hint ' + (state || '');
+        }
+
+        function analyzeOutputAlpha(img) {
+            if (!img || !img.complete) return;
+            try {
+                const size = 64;
+                const canvas = document.createElement('canvas');
+                canvas.width = size;
+                canvas.height = size;
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(img, 0, 0, size, size);
+                const data = ctx.getImageData(0, 0, size, size).data;
+                let alphaNonZero = 0;
+                let rgbNonZeroWhenAlphaZero = 0;
+                for (let i = 0; i < data.length; i += 4) {
+                    const r = data[i];
+                    const g = data[i + 1];
+                    const b = data[i + 2];
+                    const a = data[i + 3];
+                    if (a > 0) {
+                        alphaNonZero++;
+                    } else if (r || g || b) {
+                        rgbNonZeroWhenAlphaZero++;
+                    }
+                }
+                const total = size * size;
+                const coverage = alphaNonZero / total;
+                if (alphaNonZero === 0) {
+                    const extra = rgbNonZeroWhenAlphaZero > 0 ? '（RGB 有值但 Alpha=0）' : '';
+                    setOutputAlphaHint('Alpha=0：全透明' + extra, 'warning');
+                } else if (coverage < 0.01) {
+                    const pct = Math.round(coverage * 1000) / 10;
+                    setOutputAlphaHint(`可见像素 <1%（约 ${pct}%）`, 'warning');
+                } else {
+                    setOutputAlphaHint(`可见像素约 ${Math.round(coverage * 100)}%`, 'ok');
+                }
+            } catch (e) {
+                setOutputAlphaHint('Alpha分析不可用（跨域/权限限制）', 'muted');
+            }
+        }
+
                 function getFallbackRenderTarget(event, outputKey) {
             if (!event || !Array.isArray(event.renderTargets)) return null;
             if (!outputKey || !outputKey.startsWith('color')) return null;
@@ -2462,9 +2537,12 @@
             const viewport = document.getElementById('outputViewport');
             const lazyPanel = document.getElementById('rtLazyLoadPanel');
             setOutputFallbackBadge(false);
+            setOutputAlphaHint('');
             
             // 优先使用预导出的 RT 快照（离线模式）
             if (event.rtSnapshot && key === 'color0') {
+                img.onload = () => analyzeOutputAlpha(img);
+                img.onerror = null;
                 img.src = event.rtSnapshot;
                 img.classList.remove('hidden');
                 empty.classList.add('hidden');
@@ -2478,6 +2556,8 @@
             
             // 其次使用 output 中的颜色附件
             if (event.output && event.output[key]) {
+                img.onload = () => analyzeOutputAlpha(img);
+                img.onerror = null;
                 img.src = event.output[key];
                 img.classList.remove('hidden');
                 empty.classList.add('hidden');
@@ -2488,15 +2568,35 @@
                 return;
             }
 
-            // fallback：使用 renderTargets 的缩略图（Color0/Color1 对应 Slot 0/1）
+            // fallback：使用 renderTargets 的缩略图（ColorN 对应 Slot N）
             const fallback = getFallbackRenderTarget(event, key);
             if (fallback && fallback.thumbnail) {
-                img.src = fallback.thumbnail;
+                const originalSrc = fallback.thumbnail;
+                img.dataset.src = originalSrc;
+                img.dataset.retried = '0';
+                img.onerror = () => {
+                    if (img.dataset.retried === '0' && originalSrc && originalSrc.includes('%')) {
+                        img.dataset.retried = '1';
+                        const decoded = decodeURIComponent(originalSrc);
+                        img.src = decoded;
+                        return;
+                    }
+                    // 加载失败：显示错误信息
+                    img.classList.add('hidden');
+                    empty.classList.remove('hidden');
+                    empty.classList.add('no-preview');
+                    setOutputEmptyMessage('缩略图加载失败', 'URL: ' + originalSrc);
+                    viewport.classList.remove('has-preview');
+                    setOutputAlphaHint('');
+                };
+                img.onload = () => analyzeOutputAlpha(img);
+                img.src = originalSrc;
                 img.classList.remove('hidden');
                 empty.classList.add('hidden');
                 empty.classList.remove('no-preview');
-                viewport.classList.remove('has-preview');  // 保持懒加载按钮可用
-                lazyPanel.style.display = '';
+                viewport.classList.add('has-preview');
+                // 有缩略图则隐藏“从 RDC 加载快照”按钮
+                lazyPanel.style.display = 'none';
                 setOutputFallbackBadge(true, '资源缩略图（非事件快照）');
                 applyZoom();
                 return;
@@ -2505,6 +2605,8 @@
             // Depth / Stencil 预览（若存在 depthTarget 或 depthTarget.thumbnail）
             if ((key === 'depth' || key === 'stencil') && event.depthTarget) {
                 if (event.depthTarget.thumbnail) {
+                    img.onload = () => analyzeOutputAlpha(img);
+                    img.onerror = null;
                     img.src = event.depthTarget.thumbnail;
                     img.classList.remove('hidden');
                     empty.classList.add('hidden');
@@ -2525,6 +2627,8 @@
             viewport.classList.remove('has-preview');
             lazyPanel.style.display = '';  // 显示懒加载按钮
             resetRTLoadPanel();
+            img.onload = null;
+            img.onerror = null;
         }
 
         function buildOutputTabs(event) {
