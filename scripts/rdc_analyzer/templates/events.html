@@ -954,6 +954,24 @@
             display: flex;
             background: var(--bg-darker);
             border-bottom: 1px solid var(--border);
+            overflow-x: auto;
+            overflow-y: hidden;
+            white-space: nowrap;
+            flex-wrap: nowrap;
+            scrollbar-gutter: stable;
+        }
+
+        .output-tabs::-webkit-scrollbar {
+            height: 6px;
+        }
+
+        .output-tabs::-webkit-scrollbar-thumb {
+            background: var(--border);
+            border-radius: 6px;
+        }
+
+        .output-tabs::-webkit-scrollbar-track {
+            background: transparent;
         }
         
         .output-tab {
@@ -963,6 +981,7 @@
             cursor: pointer;
             border-bottom: 2px solid transparent;
             transition: all 0.15s;
+            flex: 0 0 auto;
         }
         
         .output-tab:hover {
@@ -979,6 +998,18 @@
             opacity: 0.45;
             cursor: default;
             pointer-events: none;
+        }
+
+        .output-mapping-hint {
+            font-size: 11px;
+            color: var(--text-muted);
+            padding: 6px 12px;
+            border-bottom: 1px solid var(--border);
+            background: var(--bg-dark);
+        }
+
+        .output-mapping-hint strong {
+            color: var(--text-primary);
         }
         
         .output-content {
@@ -1535,6 +1566,7 @@
                 
                 <!-- 输出标签页（动态生成） -->
                 <div class="output-tabs" id="outputTabs"></div>
+                <div class="output-mapping-hint" id="outputMappingHint"></div>
                 
                 <!-- 输出内容 -->
                 <div class="output-preview-container">
@@ -2415,11 +2447,12 @@
             badge.classList.toggle('hidden', !visible);
         }
 
-        function getFallbackRenderTarget(event, outputKey) {
+                function getFallbackRenderTarget(event, outputKey) {
             if (!event || !Array.isArray(event.renderTargets)) return null;
-            if (outputKey === 'color0') return event.renderTargets[0] || null;
-            if (outputKey === 'color1') return event.renderTargets[1] || null;
-            return null;
+            if (!outputKey || !outputKey.startsWith('color')) return null;
+            const index = parseInt(outputKey.replace('color', ''), 10);
+            if (Number.isNaN(index)) return null;
+            return event.renderTargets[index] || null;
         }
 
         function updateOutputPreview(event, outputKey) {
@@ -2526,6 +2559,7 @@
             tabs.appendChild(stencilTab);
 
             updateDepthStencilTabLabels(event);
+            updateOutputMappingHint(event);
             const defaultKey = currentOutputKey || 'color0';
             if (tabs.querySelector(`.output-tab[data-output="${defaultKey}"]`)) {
                 selectOutput(defaultKey);
@@ -2549,6 +2583,14 @@
             }
         }
         
+                function updateOutputMappingHint(event) {
+            const hint = document.getElementById("outputMappingHint");
+            if (!hint) return;
+            const rtCount = Array.isArray(event?.renderTargets) ? event.renderTargets.length : 0;
+            hint.textContent = "Color0..N = renderTargets[i]（本事件 RT 数：" + rtCount + "）";
+            hint.title = "RenderDoc 输出顺序：D3D11/12=OM renderTargets；GL=drawBuffers 对应 colorAttachments；Vulkan=RenderPass colorAttachments 后接 resolveAttachments。";
+        }
+
         function updatePipelineState(event) {
             // 基本信息
             document.getElementById('statEid').textContent = event.eid;
