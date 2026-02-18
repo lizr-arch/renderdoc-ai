@@ -2608,6 +2608,9 @@
                 };
                 img.onerror = null;
                 img.src = event.rtSnapshot;
+                if (img.complete) {
+                    applyIgnoreAlphaView(img);
+                }
                 img.classList.remove('hidden');
                 empty.classList.add('hidden');
                 empty.classList.remove('no-preview');
@@ -2626,6 +2629,9 @@
                 };
                 img.onerror = null;
                 img.src = event.output[key];
+                if (img.complete) {
+                    applyIgnoreAlphaView(img);
+                }
                 img.classList.remove('hidden');
                 empty.classList.add('hidden');
                 empty.classList.remove('no-preview');
@@ -2662,6 +2668,9 @@
                     applyIgnoreAlphaView(img);
                 };
                 img.src = originalSrc;
+                if (img.complete) {
+                    applyIgnoreAlphaView(img);
+                }
                 img.classList.remove('hidden');
                 empty.classList.add('hidden');
                 empty.classList.remove('no-preview');
@@ -2682,6 +2691,9 @@
                 };
                     img.onerror = null;
                     img.src = event.depthTarget.thumbnail;
+                    if (img.complete) {
+                        applyIgnoreAlphaView(img);
+                    }
                     img.classList.remove('hidden');
                     empty.classList.add('hidden');
                     empty.classList.remove('no-preview');
@@ -3052,7 +3064,12 @@
                 outputIgnoreAlpha = !outputIgnoreAlpha;
                 ignoreAlphaBtn.classList.toggle('active', outputIgnoreAlpha);
                 if (currentEvent) {
-                    updateOutputPreview(currentEvent, currentOutputKey);
+                    const img = document.getElementById('outputImg');
+                    if (img && img.complete) {
+                        applyIgnoreAlphaView(img);
+                    } else {
+                        updateOutputPreview(currentEvent, currentOutputKey);
+                    }
                 } else if (outputIgnoreAlpha) {
                     setOutputAlphaHint('忽略 Alpha 视图（等待图像加载）', 'warning');
                 } else {
@@ -3507,6 +3524,9 @@
             img.onerror = null;
             hideOutputCanvas();
             img.src = base64Data;
+            if (img.complete) {
+                applyIgnoreAlphaView(img);
+            }
             img.classList.remove('hidden');
             empty.classList.add('hidden');
             viewport.classList.add('has-preview');
