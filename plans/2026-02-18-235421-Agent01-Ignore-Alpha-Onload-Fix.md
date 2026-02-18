@@ -112,7 +112,7 @@ function displayRTSnapshot(...) {
 - [x] 在 displayRTSnapshot 设置 src 后加入 `img.complete` 快速路径
 - [x] 运行 one_click_bundle_report 生成报告
 - [ ] 视觉验证 EID 3461 Color2（点击 A 即时生效）
-- [ ] Git commit（Conventional Commits）
+- [x] Git commit（Conventional Commits）
 
 ## Verification / DoD
 - Color2 在 click A 后无需重选事件即可显示
