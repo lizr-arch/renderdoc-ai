@@ -120,7 +120,7 @@ ignoreAlphaBtn.onclick = () => {
 - [x] 增加提示文案（例如：outputAlphaHint 显示“忽略 Alpha 视图”）
 - [x] 运行 one_click_bundle_report 生成报告
 - [ ] 视觉验证 EID 3461 Color2（关闭/开启对比）
-- [ ] Git commit（Conventional Commits）
+- [x] Git commit（Conventional Commits）
 
 ## Verification / DoD
 - events.html 中 Color2 在 ignoreAlpha=on 可见
