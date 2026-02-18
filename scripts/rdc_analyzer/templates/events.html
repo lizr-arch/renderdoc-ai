@@ -1053,6 +1053,13 @@
             object-fit: contain;
         }
 
+        .preview-canvas {
+            max-width: 100%;
+            max-height: 100%;
+            transform-origin: center center;
+            cursor: grab;
+        }
+
         #outputEmpty {
             padding: 14px 18px;
             border-radius: 12px;
@@ -1578,6 +1585,7 @@
                         <span class="zoom-display" id="zoomLevel">100%</span>
                         <button class="toolbar-btn" id="zoomIn" title="放大">➕</button>
                         <button class="toolbar-btn" id="flipVerticalBtn" title="上下翻转">↕</button>
+                        <button class="toolbar-btn" id="ignoreAlphaBtn" title="忽略 Alpha">A</button>
                     </div>
                     
                     <div style="flex: 1;"></div>
@@ -1601,6 +1609,7 @@
                             <div class="canvas-empty-subtext" id="outputEmptySubtext">若无预导出快照，可点击下方“从 RDC 加载快照”</div>
                         </div>
                         <img class="preview-img hidden" id="outputImg" src="" alt="Output Preview">
+                        <canvas class="preview-canvas hidden" id="outputCanvas"></canvas>
                         <div class="output-fallback-badge hidden" id="outputFallbackBadge">资源缩略图（非事件快照）</div>
                         <!-- 懒加载按钮区域 -->
                         <div class="rt-lazy-load-panel" id="rtLazyLoadPanel">
@@ -1765,6 +1774,7 @@
         let currentEvent = null;
         let currentZoom = 1;
         let outputFlipVertical = false;
+        let outputIgnoreAlpha = false;
         let currentOutputKey = 'color0';
         let eventIndex = 0;
         
@@ -2522,6 +2532,56 @@
             }
         }
 
+        function getOutputCanvas() {
+            return document.getElementById('outputCanvas');
+        }
+
+        function hideOutputCanvas() {
+            const canvas = getOutputCanvas();
+            if (canvas) canvas.classList.add('hidden');
+        }
+
+        function hideIgnoreAlphaView(img) {
+            hideOutputCanvas();
+            if (img) img.classList.remove('hidden');
+        }
+
+        function renderOutputIgnoreAlpha(img) {
+            const canvas = getOutputCanvas();
+            if (!canvas || !img) return false;
+            const ctx = canvas.getContext('2d');
+            if (!ctx) return false;
+            const width = img.naturalWidth || img.width;
+            const height = img.naturalHeight || img.height;
+            if (!width || !height) return false;
+            canvas.width = width;
+            canvas.height = height;
+            ctx.drawImage(img, 0, 0, width, height);
+            const imageData = ctx.getImageData(0, 0, width, height);
+            const data = imageData.data;
+            for (let i = 3; i < data.length; i += 4) {
+                data[i] = 255;
+            }
+            ctx.putImageData(imageData, 0, 0);
+            return true;
+        }
+
+        function applyIgnoreAlphaView(img) {
+            if (!outputIgnoreAlpha) {
+                hideIgnoreAlphaView(img);
+                return;
+            }
+            const ok = renderOutputIgnoreAlpha(img);
+            if (ok) {
+                const canvas = getOutputCanvas();
+                if (canvas) canvas.classList.remove('hidden');
+                if (img) img.classList.add('hidden');
+                setOutputAlphaHint('忽略 Alpha 视图（Alpha 强制为 1）', 'warning');
+            } else {
+                hideIgnoreAlphaView(img);
+            }
+        }
+
                 function getFallbackRenderTarget(event, outputKey) {
             if (!event || !Array.isArray(event.renderTargets)) return null;
             if (!outputKey || !outputKey.startsWith('color')) return null;
@@ -2538,10 +2598,14 @@
             const lazyPanel = document.getElementById('rtLazyLoadPanel');
             setOutputFallbackBadge(false);
             setOutputAlphaHint('');
+            hideOutputCanvas();
             
             // 优先使用预导出的 RT 快照（离线模式）
             if (event.rtSnapshot && key === 'color0') {
-                img.onload = () => analyzeOutputAlpha(img);
+                img.onload = () => {
+                    analyzeOutputAlpha(img);
+                    applyIgnoreAlphaView(img);
+                };
                 img.onerror = null;
                 img.src = event.rtSnapshot;
                 img.classList.remove('hidden');
@@ -2556,7 +2620,10 @@
             
             // 其次使用 output 中的颜色附件
             if (event.output && event.output[key]) {
-                img.onload = () => analyzeOutputAlpha(img);
+                img.onload = () => {
+                    analyzeOutputAlpha(img);
+                    applyIgnoreAlphaView(img);
+                };
                 img.onerror = null;
                 img.src = event.output[key];
                 img.classList.remove('hidden');
@@ -2588,8 +2655,12 @@
                     setOutputEmptyMessage('缩略图加载失败', 'URL: ' + originalSrc);
                     viewport.classList.remove('has-preview');
                     setOutputAlphaHint('');
+                    hideOutputCanvas();
                 };
-                img.onload = () => analyzeOutputAlpha(img);
+                img.onload = () => {
+                    analyzeOutputAlpha(img);
+                    applyIgnoreAlphaView(img);
+                };
                 img.src = originalSrc;
                 img.classList.remove('hidden');
                 empty.classList.add('hidden');
@@ -2605,7 +2676,10 @@
             // Depth / Stencil 预览（若存在 depthTarget 或 depthTarget.thumbnail）
             if ((key === 'depth' || key === 'stencil') && event.depthTarget) {
                 if (event.depthTarget.thumbnail) {
-                    img.onload = () => analyzeOutputAlpha(img);
+                    img.onload = () => {
+                    analyzeOutputAlpha(img);
+                    applyIgnoreAlphaView(img);
+                };
                     img.onerror = null;
                     img.src = event.depthTarget.thumbnail;
                     img.classList.remove('hidden');
@@ -2627,6 +2701,7 @@
             viewport.classList.remove('has-preview');
             lazyPanel.style.display = '';  // 显示懒加载按钮
             resetRTLoadPanel();
+            hideOutputCanvas();
             img.onload = null;
             img.onerror = null;
         }
@@ -2957,8 +3032,11 @@
         
         function applyZoom() {
             const img = document.getElementById('outputImg');
+            const canvas = document.getElementById('outputCanvas');
             const flip = outputFlipVertical ? -1 : 1;
-            img.style.transform = `scale(${currentZoom}) scaleY(${flip})`;
+            const transform = `scale(${currentZoom}) scaleY(${flip})`;
+            if (img) img.style.transform = transform;
+            if (canvas) canvas.style.transform = transform;
             document.getElementById('zoomLevel').textContent = `${Math.round(currentZoom * 100)}%`;
         }
 
@@ -2967,6 +3045,21 @@
             document.getElementById('flipVerticalBtn').classList.toggle('active', outputFlipVertical);
             applyZoom();
         });
+
+        const ignoreAlphaBtn = document.getElementById('ignoreAlphaBtn');
+        if (ignoreAlphaBtn) {
+            ignoreAlphaBtn.addEventListener('click', () => {
+                outputIgnoreAlpha = !outputIgnoreAlpha;
+                ignoreAlphaBtn.classList.toggle('active', outputIgnoreAlpha);
+                if (currentEvent) {
+                    updateOutputPreview(currentEvent, currentOutputKey);
+                } else if (outputIgnoreAlpha) {
+                    setOutputAlphaHint('忽略 Alpha 视图（等待图像加载）', 'warning');
+                } else {
+                    setOutputAlphaHint('');
+                }
+            });
+        }
         
         // ========== 输出切换 ==========
         function selectOutput(output) {
@@ -3407,6 +3500,12 @@
             if (!base64Data.startsWith('data:')) {
                 base64Data = 'data:image/png;base64,' + base64Data;
             }
+            img.onload = () => {
+                analyzeOutputAlpha(img);
+                applyIgnoreAlphaView(img);
+            };
+            img.onerror = null;
+            hideOutputCanvas();
             img.src = base64Data;
             img.classList.remove('hidden');
             empty.classList.add('hidden');
