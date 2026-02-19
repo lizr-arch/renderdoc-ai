@@ -40,7 +40,7 @@ MAX_EVENTS = 500  # 最大提取事件数量
 
 # RT 快照配置
 EXTRACT_RT_SNAPSHOTS = True  # 是否提取 Render Target 快照
-RT_SNAPSHOT_MAX_SIZE = 256   # RT 快照最大尺寸（像素）
+RT_SNAPSHOT_MAX_SIZE = 512   # RT 快照最大尺寸（像素）
 RT_SNAPSHOT_INTERVAL = 1     # 每隔 N 个 Draw Call 提取一次（1=全部）
 
 # 添加脚本目录到 Python 路径
