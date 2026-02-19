@@ -64,12 +64,13 @@ render_targets_list.append({
 - [x] timeline_builder.py 给 renderTargets 附加 format（供新报告写入）
 - [x] events_data.schema.json 增加 renderTargets.format
 - [ ] 生成/更新报告后做视觉验证（RT 标签出现格式）
-- [ ] 更新本计划勾选状态 + 记录风险/决定
-- [ ] Git 提交（Conventional Commits）
+- [x] 更新本计划勾选状态 + 记录风险/决定
+- [x] Git 提交（Conventional Commits）
 
 ## Risks / Blockers
 - `textures_data.json` 若被移除/未生成，会导致格式为空（需安全降级）。
 - 旧报告若未更新 events.html，无法显示 format（需同步产物或重新生成）。
+ - 仍未完成视觉验证（需你打开 events.html 确认 RT 格式显示）。
 
 ## Decisions
 - 前端优先通过 textureMap 补齐格式；后端同时透传 format 作为长期方案。
