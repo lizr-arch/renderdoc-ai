@@ -949,6 +949,23 @@
             flex-direction: column;
             overflow: hidden;
         }
+
+        .output-debug {
+            font-family: var(--font-mono);
+            font-size: 11px;
+            line-height: 1.4;
+            color: var(--text-secondary);
+            background: rgba(0, 0, 0, 0.35);
+            border-top: 1px solid var(--border-color);
+            padding: 8px 10px;
+            max-height: 120px;
+            overflow: auto;
+            white-space: pre-wrap;
+        }
+
+        .output-debug.error {
+            color: var(--accent-red);
+        }
         
         .output-tabs {
             display: flex;
@@ -1620,6 +1637,7 @@
                             <div class="rt-load-status" id="rtLoadStatus"></div>
                         </div>
                     </div>
+                    <pre class="output-debug hidden" id="outputDebug"></pre>
                 </div>
                 <div class="rt-strip" id="rtStrip">
                     <div class="rt-strip-empty">当前事件无 Render Target</div>
@@ -2532,6 +2550,36 @@
             }
         }
 
+        function updateIgnoreAlphaDebug(img, canvas, errorMsg) {
+            const el = document.getElementById('outputDebug');
+            if (!el) return;
+            if (!outputIgnoreAlpha) {
+                el.classList.add('hidden');
+                return;
+            }
+            const imgComplete = !!(img && img.complete);
+            const imgWidth = img ? (img.naturalWidth || img.width || 0) : 0;
+            const imgHeight = img ? (img.naturalHeight || img.height || 0) : 0;
+            const canvasWidth = canvas ? (canvas.width || 0) : 0;
+            const canvasHeight = canvas ? (canvas.height || 0) : 0;
+            const payload = {
+                ignoreAlpha: outputIgnoreAlpha,
+                imgComplete: imgComplete,
+                imgSize: img ? `${imgWidth}x${imgHeight}` : '-',
+                canvasSize: canvas ? `${canvasWidth}x${canvasHeight}` : '-',
+                imgHidden: img ? img.classList.contains('hidden') : '-',
+                canvasHidden: canvas ? canvas.classList.contains('hidden') : '-',
+                error: errorMsg || ''
+            };
+            el.textContent = JSON.stringify(payload, null, 2);
+            el.classList.remove('hidden');
+            if (errorMsg) {
+                el.classList.add('error');
+            } else {
+                el.classList.remove('error');
+            }
+        }
+
         function getOutputCanvas() {
             return document.getElementById('outputCanvas');
         }
@@ -2548,27 +2596,43 @@
 
         function renderOutputIgnoreAlpha(img) {
             const canvas = getOutputCanvas();
-            if (!canvas || !img) return false;
+            if (!canvas || !img) {
+                updateIgnoreAlphaDebug(img, canvas, 'missing canvas or img');
+                return false;
+            }
             const ctx = canvas.getContext('2d');
-            if (!ctx) return false;
+            if (!ctx) {
+                updateIgnoreAlphaDebug(img, canvas, 'no 2d context');
+                return false;
+            }
             const width = img.naturalWidth || img.width;
             const height = img.naturalHeight || img.height;
-            if (!width || !height) return false;
+            if (!width || !height) {
+                updateIgnoreAlphaDebug(img, canvas, 'image size is zero');
+                return false;
+            }
             canvas.width = width;
             canvas.height = height;
-            ctx.drawImage(img, 0, 0, width, height);
-            const imageData = ctx.getImageData(0, 0, width, height);
-            const data = imageData.data;
-            for (let i = 3; i < data.length; i += 4) {
-                data[i] = 255;
+            try {
+                ctx.drawImage(img, 0, 0, width, height);
+                const imageData = ctx.getImageData(0, 0, width, height);
+                const data = imageData.data;
+                for (let i = 3; i < data.length; i += 4) {
+                    data[i] = 255;
+                }
+                ctx.putImageData(imageData, 0, 0);
+                updateIgnoreAlphaDebug(img, canvas, '');
+                return true;
+            } catch (e) {
+                updateIgnoreAlphaDebug(img, canvas, e && e.message ? e.message : String(e));
+                return false;
             }
-            ctx.putImageData(imageData, 0, 0);
-            return true;
         }
 
         function applyIgnoreAlphaView(img) {
             if (!outputIgnoreAlpha) {
                 hideIgnoreAlphaView(img);
+                updateIgnoreAlphaDebug(img, getOutputCanvas(), '');
                 return;
             }
             const ok = renderOutputIgnoreAlpha(img);
@@ -2579,6 +2643,7 @@
                 setOutputAlphaHint('忽略 Alpha 视图（Alpha 强制为 1）', 'warning');
             } else {
                 hideIgnoreAlphaView(img);
+                updateIgnoreAlphaDebug(img, getOutputCanvas(), 'render ignore-alpha failed');
             }
         }
 
@@ -2599,6 +2664,7 @@
             setOutputFallbackBadge(false);
             setOutputAlphaHint('');
             hideOutputCanvas();
+            updateIgnoreAlphaDebug(img, getOutputCanvas(), '');
             
             // 优先使用预导出的 RT 快照（离线模式）
             if (event.rtSnapshot && key === 'color0') {
