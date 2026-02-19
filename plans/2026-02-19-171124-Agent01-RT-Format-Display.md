@@ -16,17 +16,22 @@
 - `scripts/rdc_analyzer/schema/events_data.schema.json:117-145`（renderTargets schema 增加 format）
 
 ## Approach (Pseudo-code / 关键实现片段)
-1) **events.html 加载 textures_data.json 并建索引**
+1) **events.html 无论是否内嵌事件，都加载 textures_data.json 并建索引**
 ```
 let texturesData = [];
 let textureMap = {};
 
-// loadExternalData 内新增
-const texturesRes = await fetch('textures_data.json').catch(() => null);
-if (texturesRes && texturesRes.ok) {
-  texturesData = await texturesRes.json();
-  texturesData.forEach(t => { textureMap[String(t.id)] = t; });
+async function loadTexturesData() {
+  const texturesRes = await fetch('textures_data.json').catch(() => null);
+  if (texturesRes && texturesRes.ok) {
+    texturesData = await texturesRes.json();
+    textureMap = {};
+    texturesData.forEach(t => { textureMap[String(t.id)] = t; });
+  }
 }
+
+// DOMContentLoaded 或 embeddedEvents 分支也调用
+await loadTexturesData();
 ```
 
 2) **RT 列表渲染时显示 format**
@@ -59,7 +64,7 @@ render_targets_list.append({
 - 风险：format 缺失时需优雅降级；格式展示可能过长 → 需适度样式控制（单行裁剪）。
 
 ## Task Checklist (2-5 分钟粒度)
-- [x] 在 events.html 加载 textures_data.json 并创建 textureMap
+- [x] 在 events.html **独立**加载 textures_data.json（即便 embeddedEvents 也执行）
 - [x] 在 RT 列表/条带渲染处显示 format（优先 rt.format，其次 textureMap.format）
 - [x] timeline_builder.py 给 renderTargets 附加 format（供新报告写入）
 - [x] events_data.schema.json 增加 renderTargets.format
@@ -70,19 +75,20 @@ render_targets_list.append({
 ## Risks / Blockers
 - `textures_data.json` 若被移除/未生成，会导致格式为空（需安全降级）。
 - 旧报告若未更新 events.html，无法显示 format（需同步产物或重新生成）。
- - 仍未完成视觉验证（需你打开 events.html 确认 RT 格式显示）。
+- 若 embeddedEvents 存在但未加载 textures_data，会导致 format 缺失（需修正加载流程）。
+- 仍未完成视觉验证（需你打开 events.html 确认 RT 格式显示）。
 
 ## Decisions
 - 前端优先通过 textureMap 补齐格式；后端同时透传 format 作为长期方案。
 - 不改变 RT 的数据结构语义，仅添加可选字段。
 - 为便于立即验证，已同步修改 `D:\backup\endfield_report\events.html`。
+- 格式显示位置：**RT 名称下方**。
 
 ## Verification / DoD
 - events.html 的 RT 列表与条带均显示格式（至少 Color0/Color1 有值）。
 - 无 format 时不报错、不影响缩略图显示。
 
 ## Open Questions
-- 你更偏好在 **RT 名称行** 还是 **新行** 显示格式？
 - 是否需要格式短名（simple_format）与全名切换？
 
 ## Next Steps

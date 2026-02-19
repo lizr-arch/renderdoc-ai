@@ -1889,6 +1889,24 @@
                 console.error('[P7C.4] 数据加载失败:', e);
             }
         }
+
+        // 独立加载纹理数据（即便内嵌事件存在也要执行）
+        async function loadTexturesData() {
+            if (texturesData && texturesData.length > 0) return;
+            try {
+                const texturesRes = await fetch('textures_data.json').catch(() => null);
+                if (texturesRes && texturesRes.ok) {
+                    texturesData = await texturesRes.json();
+                    textureMap = {};
+                    texturesData.forEach(tex => {
+                        const texId = String(tex.id || tex.resourceId || '');
+                        if (texId) textureMap[texId] = tex;
+                    });
+                }
+            } catch (e) {
+                console.error('[P7C.4] 纹理数据加载失败:', e);
+            }
+        }
         
         // ========== 虚拟滚动配置 ==========
         const ITEM_HEIGHT = 32;           // 每行高度 (px)
@@ -2675,7 +2693,7 @@
                 setOutputAlphaHint('忽略 Alpha 视图（Alpha 强制为 1）', 'warning');
             } else {
                 hideIgnoreAlphaView(img);
-                updateIgnoreAlphaDebug(img, getOutputCanvas(), 'render ignore-alpha failed');
+                updateIgnoreAlphaDebug(img, getOutputCanvas(), '');
             }
         }
 
@@ -3668,6 +3686,7 @@
             if (!dataLoaded) {
                 await loadExternalData();
             }
+            await loadTexturesData();
             
             // 初始化虚拟滚动
             initVirtualScroll();

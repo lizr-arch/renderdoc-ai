@@ -64,6 +64,8 @@ function renderOutputIgnoreAlpha(img) {
 }
 ```
 
+补充：当前 `applyIgnoreAlphaView` 失败分支会覆盖真实错误，需改为“仅在无真实 error 时再给默认提示”，以暴露根因。
+
 ## Impact Analysis
 - 正面：明确是否为 `getImageData`/跨域/尺寸为 0/hidden 造成的失败。
 - 负面：Debug UI 可能影响页面美观 → 默认隐藏，仅在 ignore-alpha 时显示。
@@ -74,8 +76,9 @@ function renderOutputIgnoreAlpha(img) {
 - [x] 在 `events.html` 中加入 `outputDebug` 面板与 CSS（默认隐藏）
 - [x] 在 `renderOutputIgnoreAlpha` 中加入 try/catch 与 debug 更新
 - [x] 在 `applyIgnoreAlphaView`/`updateOutputPreview` 中调用 debug 更新
+- [x] 保留真实错误信息（避免被 `render ignore-alpha failed` 覆盖）
 - [ ] 生成报告并用 EID 3461 → Color2 → A 复现，读取 debug 状态
-- [ ] 根据 debug 证据锁定根因，提出最小修复方案
+- [ ] 根据真实 error 锁定根因，提出最小修复方案
 - [ ] 更新本 plan 的 Risks/Decisions，并在 /do 完成后提交
 
 ## TDD 步骤（轻量）
