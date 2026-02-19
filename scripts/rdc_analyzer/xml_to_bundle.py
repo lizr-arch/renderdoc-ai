@@ -456,8 +456,8 @@ def parse_args():
                         help='Path to spirv-cross executable (auto-detected if not provided)')
     parser.add_argument('--max-thumbnails', type=int, default=50,
                         help='Maximum number of thumbnails to generate (default: 50)')
-    parser.add_argument('--thumbnail-size', type=int, default=128,
-                        help='Max thumbnail dimension in pixels (default: 128)')
+    parser.add_argument('--thumbnail-size', type=int, default=512,
+                        help='Max thumbnail dimension in pixels (default: 512)')
     parser.add_argument('-v', '--verbose', action='store_true',
                         help='Verbose output')
     return parser.parse_args()

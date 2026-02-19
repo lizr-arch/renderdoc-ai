@@ -1639,6 +1639,7 @@
                         <button class="toolbar-btn" id="zoomIn" title="放大">➕</button>
                         <button class="toolbar-btn" id="flipVerticalBtn" title="上下翻转">↕</button>
                         <button class="toolbar-btn" id="ignoreAlphaBtn" title="忽略 Alpha">A</button>
+                        <button class="toolbar-btn" id="debugToggleBtn" title="调试面板">DBG</button>
                     </div>
                     
                     <div style="flex: 1;"></div>
@@ -1829,6 +1830,7 @@
         let currentZoom = 1;
         let outputFlipVertical = false;
         let outputIgnoreAlpha = false;
+        let outputDebugPinned = false;
         let currentOutputKey = 'color0';
         let eventIndex = 0;
         
@@ -2619,8 +2621,11 @@
         function updateIgnoreAlphaDebug(img, canvas, errorMsg) {
             const el = document.getElementById('outputDebug');
             if (!el) return;
-            if (!outputIgnoreAlpha) {
+            const hasError = !!errorMsg;
+            const shouldShow = outputIgnoreAlpha && (outputDebugPinned || hasError);
+            if (!shouldShow) {
                 el.classList.add('hidden');
+                el.classList.remove('error');
                 return;
             }
             const imgComplete = !!(img && img.complete);
@@ -2644,7 +2649,7 @@
             };
             el.textContent = JSON.stringify(payload, null, 2);
             el.classList.remove('hidden');
-            if (errorMsg) {
+            if (hasError) {
                 el.classList.add('error');
             } else {
                 el.classList.remove('error');
@@ -3242,6 +3247,15 @@
                 } else {
                     setOutputAlphaHint('');
                 }
+            });
+        }
+
+        const debugToggleBtn = document.getElementById('debugToggleBtn');
+        if (debugToggleBtn) {
+            debugToggleBtn.addEventListener('click', () => {
+                outputDebugPinned = !outputDebugPinned;
+                debugToggleBtn.classList.toggle('active', outputDebugPinned);
+                updateIgnoreAlphaDebug(document.getElementById('outputImg'), getOutputCanvas(), '');
             });
         }
         

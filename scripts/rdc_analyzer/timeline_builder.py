@@ -395,15 +395,15 @@ def prepare_events_for_frontend(
                 rt_id = str(rt.get("id", rt.get("resourceId", "")))
                 if rt_id:
                     tex_info = texture_lookup.get(rt_id, {})
-                    rt_name = tex_info.get("name", f"RT {rt_id}")
-                    thumbnail = tex_info.get("thumbnail", "")
+                    rt_name = rt.get("name") or tex_info.get("name", f"RT {rt_id}")
+                    thumbnail = rt.get("thumbnail") or tex_info.get("thumbnail", "")
                     
                     render_targets_list.append({
                         "id": rt_id,
                         "name": rt_name,
                         "thumbnail": thumbnail,
                         "slot": rt.get("slot", len(render_targets_list)),
-                        "format": tex_info.get("format") or tex_info.get("simple_format", "")
+                        "format": rt.get("format") or tex_info.get("format") or tex_info.get("simple_format", "")
                     })
         
         prepared["renderTargets"] = render_targets_list

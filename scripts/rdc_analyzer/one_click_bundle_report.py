@@ -12,11 +12,65 @@ from __future__ import annotations
 import argparse
 import subprocess
 import sys
+import json
 from datetime import datetime
 from pathlib import Path
 from typing import List, Optional, Sequence, Tuple
 
 from parsers.rdc_loader import find_renderdoccmd
+
+
+def downscale_exported_textures(texture_dir: Path, max_size: int, verbose: bool) -> int:
+    """Downscale exported texture PNGs to max_size (largest edge).
+
+    Returns number of files resized.
+    """
+    textures_json = texture_dir / "textures.json"
+    files: List[str] = []
+    if textures_json.exists():
+        try:
+            payload = json.loads(textures_json.read_text(encoding="utf-8"))
+            entries = payload.get("textures", []) if isinstance(payload, dict) else []
+            for entry in entries:
+                fname = entry.get("file") if isinstance(entry, dict) else None
+                if fname:
+                    files.append(fname)
+        except Exception as exc:
+            if verbose:
+                print(f"[WARN] Failed to parse textures.json for downscale: {exc}")
+
+    if not files:
+        files = [p.name for p in texture_dir.glob("*.png")]
+
+    try:
+        from PIL import Image
+    except Exception as exc:
+        if verbose:
+            print(f"[WARN] PIL not available for downscale: {exc}")
+        return 0
+
+    resized = 0
+    for fname in files:
+        path = texture_dir / fname
+        if not path.exists():
+            continue
+        try:
+            with Image.open(path) as img:
+                width, height = img.size
+                max_dim = max(width, height)
+                if max_dim <= max_size:
+                    continue
+                scale = max_size / float(max_dim)
+                new_size = (max(1, int(width * scale)), max(1, int(height * scale)))
+                img = img.resize(new_size, Image.LANCZOS)
+                img.save(path, format="PNG")
+                resized += 1
+        except Exception as exc:
+            if verbose:
+                print(f"[WARN] Downscale failed for {path}: {exc}")
+            continue
+
+    return resized
 
 
 def build_convert_command(
@@ -136,6 +190,28 @@ def build_export_command(
     ]
 
 
+def build_thumbnail_audit_command(
+    python_exec: str,
+    audit_script: Path,
+    report_dir: Path,
+    texture_dir: Path,
+    sentinel_count: int,
+    verbose: bool,
+) -> List[str]:
+    cmd = [
+        python_exec,
+        str(audit_script),
+        "--report-dir",
+        str(report_dir),
+        "--texture-dir",
+        str(texture_dir),
+        "--count",
+        str(int(sentinel_count)),
+    ]
+    if verbose:
+        cmd.append("-v")
+    return cmd
+
 def resolve_export_renderdoccmd_candidates(renderdoccmd: str, script_dir: Path) -> List[str]:
     repo_candidate = script_dir.parent.parent / "x64" / "Development" / "renderdoccmd.exe"
     candidates = [renderdoccmd]
@@ -232,13 +308,24 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--texture-max-size",
         type=int,
-        default=256,
-        help="Max texture export dimension in pixels (default: 256)",
+        default=512,
+        help="Max texture export dimension in pixels (default: 512)",
     )
     parser.add_argument(
         "--force-texture-export",
         action="store_true",
         help="Force rerun renderdoccmd export even when textures.json exists",
+    )
+    parser.add_argument(
+        "--no-thumbnail-audit",
+        action="store_true",
+        help="Skip thumbnail sentinel audit generation",
+    )
+    parser.add_argument(
+        "--thumbnail-sentinel-count",
+        type=int,
+        default=10,
+        help="Sentinel thumbnail count for audit sheet (default: 10)",
     )
     parser.add_argument(
         "--smoke-out",
@@ -275,6 +362,7 @@ def main() -> int:
     script_dir = Path(__file__).resolve().parent
     xml_to_bundle_script = script_dir / "xml_to_bundle.py"
     smoke_script = script_dir / "tools" / "ui_headless_smoke.py"
+    thumbnail_audit_script = script_dir / "thumbnail_audit.py"
 
     rdc_path = Path(args.rdc_file).resolve()
     if not rdc_path.exists():
@@ -347,6 +435,9 @@ def main() -> int:
             print("[WARN] Texture export unavailable; fallback to ZIP thumbnail generation")
         else:
             print(f"[INFO] Texture export metadata: {texture_dir / 'textures.json'}")
+            resized = downscale_exported_textures(texture_dir, args.texture_max_size, args.verbose)
+            if resized:
+                print(f"[INFO] Downscaled {resized} textures to max {args.texture_max_size}px")
 
     bundle_cmd = build_bundle_command(
         python_exec=sys.executable,
@@ -365,6 +456,27 @@ def main() -> int:
     except subprocess.CalledProcessError as exc:
         print(f"[ERROR] xml_to_bundle failed with code {exc.returncode}")
         return 4
+
+    if args.no_thumbnail_audit:
+        print("[INFO] Thumbnail audit disabled by --no-thumbnail-audit")
+    elif texture_dir is None:
+        print("[WARN] Thumbnail audit skipped: texture export unavailable")
+    elif not thumbnail_audit_script.exists():
+        print(f"[WARN] Thumbnail audit script not found: {thumbnail_audit_script}")
+    else:
+        audit_cmd = build_thumbnail_audit_command(
+            python_exec=sys.executable,
+            audit_script=thumbnail_audit_script,
+            report_dir=output_dir,
+            texture_dir=texture_dir,
+            sentinel_count=args.thumbnail_sentinel_count,
+            verbose=args.verbose,
+        )
+        try:
+            run_checked(audit_cmd, "thumbnail-audit")
+            print(f"[INFO] Thumbnail audit: {output_dir / 'thumbnail_sentinel.html'}")
+        except subprocess.CalledProcessError as exc:
+            print(f"[WARN] Thumbnail audit failed with code {exc.returncode}; continue")
 
     if not args.no_smoke:
         if args.smoke_out:
@@ -401,6 +513,12 @@ def main() -> int:
     print(f"  XML: {produced_xml_path}")
     if zip_path is not None:
         print(f"  ZIP: {zip_path}")
+    sentinel_html = output_dir / "thumbnail_sentinel.html"
+    validation_json = output_dir / "thumbnail_validation.json"
+    if sentinel_html.exists():
+        print(f"  Thumbnail Sentinel: file:///{sentinel_html}")
+    if validation_json.exists():
+        print(f"  Thumbnail Validation JSON: {validation_json}")
     print("=" * 64)
 
     return 0
