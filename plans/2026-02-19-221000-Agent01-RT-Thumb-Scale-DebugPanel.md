@@ -66,7 +66,7 @@ function updateIgnoreAlphaDebug(..., errorText) {
 - [x] timeline_builder 优先使用 rt.thumbnail，避免覆盖
 - [x] events.html debug 面板折叠 + 出错自动展开
 - [x] 更新本计划勾选状态 + 记录风险/决定
-- [ ] Git 提交（Conventional Commits）
+- [x] Git 提交（Conventional Commits）
 
 ## Risks / Blockers
 - renderdoccmd export 的 --max-size 未实际生效（已用 PIL 后处理降采样规避）。
