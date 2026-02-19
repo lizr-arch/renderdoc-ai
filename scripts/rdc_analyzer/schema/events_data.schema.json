@@ -130,6 +130,10 @@
             "thumbnail": {
               "type": "string",
               "description": "Base64 编码的缩略图"
+            },
+            "format": {
+              "type": "string",
+              "description": "RT 格式 (如 VK_FORMAT_...)"
             }
           }
         },

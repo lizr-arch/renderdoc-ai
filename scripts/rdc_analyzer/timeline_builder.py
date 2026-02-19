@@ -402,7 +402,8 @@ def prepare_events_for_frontend(
                         "id": rt_id,
                         "name": rt_name,
                         "thumbnail": thumbnail,
-                        "slot": rt.get("slot", len(render_targets_list))
+                        "slot": rt.get("slot", len(render_targets_list)),
+                        "format": tex_info.get("format") or tex_info.get("simple_format", "")
                     })
         
         prepared["renderTargets"] = render_targets_list

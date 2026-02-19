@@ -687,6 +687,16 @@
             margin-top: 4px;
         }
 
+        .rt-format {
+            font-size: 9px;
+            color: var(--text-secondary);
+            text-align: center;
+            margin-top: 2px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
         .canvas-toolbar .toolbar-btn.active {
             background: rgba(88, 166, 255, 0.22);
             border: 1px solid rgba(88, 166, 255, 0.5);
@@ -736,6 +746,16 @@
             font-size: 9px;
             color: var(--text-muted);
             text-align: center;
+        }
+
+        .rt-strip-format {
+            margin-top: 2px;
+            font-size: 9px;
+            color: var(--text-secondary);
+            text-align: center;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
 
         .rt-strip-empty {
@@ -1801,6 +1821,8 @@
         let eventData = [];
         let drawEvents = [];
         let heatmapData = { textures: {}, shaders: {}, summary: {} };
+        let texturesData = [];
+        let textureMap = {};
         let heatmapEnabled = false;
         let currentHeatmapResource = null;
         let dataLoaded = false;
@@ -1829,9 +1851,10 @@
                 if (loadingEl) loadingEl.classList.add('visible');
                 
                 // 并行加载事件和热力图数据
-                const [eventsRes, heatmapRes] = await Promise.all([
+                const [eventsRes, heatmapRes, texturesRes] = await Promise.all([
                     fetch('events_data.json').catch(() => null),
-                    fetch('heatmap_data.json').catch(() => null)
+                    fetch('heatmap_data.json').catch(() => null),
+                    fetch('textures_data.json').catch(() => null)
                 ]);
                 
                 if (eventsRes && eventsRes.ok) {
@@ -1843,6 +1866,15 @@
                 
                 if (heatmapRes && heatmapRes.ok) {
                     heatmapData = await heatmapRes.json();
+                }
+
+                if (texturesRes && texturesRes.ok) {
+                    texturesData = await texturesRes.json();
+                    textureMap = {};
+                    texturesData.forEach(tex => {
+                        const texId = String(tex.id || tex.resourceId || '');
+                        if (texId) textureMap[texId] = tex;
+                    });
                 }
                 
                 dataLoaded = true;
@@ -2647,12 +2679,19 @@
             }
         }
 
-                function getFallbackRenderTarget(event, outputKey) {
+        function getFallbackRenderTarget(event, outputKey) {
             if (!event || !Array.isArray(event.renderTargets)) return null;
             if (!outputKey || !outputKey.startsWith('color')) return null;
             const index = parseInt(outputKey.replace('color', ''), 10);
             if (Number.isNaN(index)) return null;
             return event.renderTargets[index] || null;
+        }
+
+        function getRtFormat(rt) {
+            if (!rt) return '';
+            const texId = String(rt.id || rt.resourceId || '');
+            const tex = (texId && textureMap) ? (textureMap[texId] || {}) : {};
+            return rt.format || tex.format || tex.simple_format || '';
         }
 
         function updateOutputPreview(event, outputKey) {
@@ -3009,14 +3048,18 @@
             
             // 使用 renderTargets 数组
             if (event.renderTargets && event.renderTargets.length > 0) {
-                showRT(event.renderTargets.map((rt, i) => `
+                showRT(event.renderTargets.map((rt, i) => {
+                    const fmt = getRtFormat(rt);
+                    const fmtLabel = fmt ? `<div class="rt-format">${fmt}</div>` : '';
+                    return `
                     <div class="rt-slot">
                         <div class="rt-thumb" onclick="openLightbox('${rt.thumbnail}', '${rt.name || 'RT ' + i}')">
                             ${rt.thumbnail ? `<img src="${rt.thumbnail}" alt="">` : ''}
                         </div>
                         <div class="rt-label">${rt.name || 'RT ' + i}</div>
+                        ${fmtLabel}
                     </div>
-                `).join(''), event.renderTargets.length);
+                `;}).join(''), event.renderTargets.length);
                 return;
             }
             
@@ -3042,12 +3085,15 @@
                 const name = (rt && rt.name) ? rt.name : slotLabel;
                 const hasThumb = rt && rt.thumbnail;
                 const click = hasThumb ? `onclick="openLightbox('${rt.thumbnail}', '${name}')"` : '';
+                const fmt = getRtFormat(rt);
+                const fmtLabel = fmt ? `<div class="rt-strip-format">${fmt}</div>` : '';
                 return `
                     <div class="rt-strip-item">
                         <div class="rt-strip-thumb ${hasThumb ? '' : 'empty'}" ${click}>
                             ${hasThumb ? `<img src="${rt.thumbnail}" alt="">` : '<div class="rt-strip-thumb-empty">无缩略图</div>'}
                         </div>
                         <div class="rt-strip-label">${name}</div>
+                        ${fmtLabel}
                     </div>
                 `;
             }).join('');
