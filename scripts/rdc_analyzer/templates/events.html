@@ -692,9 +692,8 @@
             color: var(--text-secondary);
             text-align: center;
             margin-top: 2px;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
+            white-space: normal;
+            word-break: break-all;
         }
 
         .canvas-toolbar .toolbar-btn.active {
@@ -753,9 +752,8 @@
             font-size: 9px;
             color: var(--text-secondary);
             text-align: center;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
+            white-space: normal;
+            word-break: break-all;
         }
 
         .rt-strip-empty {
@@ -2612,10 +2610,15 @@
             const imgHeight = img ? (img.naturalHeight || img.height || 0) : 0;
             const canvasWidth = canvas ? (canvas.width || 0) : 0;
             const canvasHeight = canvas ? (canvas.height || 0) : 0;
+            const imgSrc = img ? (img.currentSrc || img.src || '') : '';
+            const naturalWidth = img ? (img.naturalWidth || 0) : 0;
+            const naturalHeight = img ? (img.naturalHeight || 0) : 0;
             const payload = {
                 ignoreAlpha: outputIgnoreAlpha,
                 imgComplete: imgComplete,
                 imgSize: img ? `${imgWidth}x${imgHeight}` : '-',
+                naturalSize: img ? `${naturalWidth}x${naturalHeight}` : '-',
+                imgSrc: imgSrc,
                 canvasSize: canvas ? `${canvasWidth}x${canvasHeight}` : '-',
                 imgHidden: img ? img.classList.contains('hidden') : '-',
                 canvasHidden: canvas ? canvas.classList.contains('hidden') : '-',

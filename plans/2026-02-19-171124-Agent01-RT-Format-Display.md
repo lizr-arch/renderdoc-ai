@@ -61,13 +61,14 @@ render_targets_list.append({
 ## Impact Analysis
 - 正面：事件页 RT 一眼可识别格式（比如 HDR / UNORM / SRGB）。
 - 负面：events.html 增加一次 textures_data.json 请求（本地文件级别，影响可忽略）。
-- 风险：format 缺失时需优雅降级；格式展示可能过长 → 需适度样式控制（单行裁剪）。
+- 风险：format 缺失时需优雅降级；格式展示可能过长 → 需适度样式控制（换行显示）。
 
 ## Task Checklist (2-5 分钟粒度)
 - [x] 在 events.html **独立**加载 textures_data.json（即便 embeddedEvents 也执行）
 - [x] 在 RT 列表/条带渲染处显示 format（优先 rt.format，其次 textureMap.format）
 - [x] timeline_builder.py 给 renderTargets 附加 format（供新报告写入）
 - [x] events_data.schema.json 增加 renderTargets.format
+- [x] 将 RT 格式改为 **换行显示**（不再截断）
 - [ ] 生成/更新报告后做视觉验证（RT 标签出现格式）
 - [x] 更新本计划勾选状态 + 记录风险/决定
 - [x] Git 提交（Conventional Commits）
