@@ -135,3 +135,34 @@ def test_get_capture_filename_falls_back(monkeypatch):
             return "B.rdc"
 
     assert ext.get_capture_filename(Ctx()) == "B.rdc"
+
+
+def test_ensure_webui_server_starts_and_reuses(tmp_path, monkeypatch):
+    _install_dummy_qrenderdoc(monkeypatch)
+    from rdc_analyzer.ui_extension import analyzer_extension as ext
+
+    calls = {"count": 0}
+
+    class DummyThread:
+        def __init__(self, alive=True):
+            self._alive = alive
+
+        def is_alive(self):
+            return self._alive
+
+    def fake_start(root, port, data):
+        calls["count"] += 1
+        calls["args"] = (root, port, data)
+        return object(), DummyThread(), 9001
+
+    webui_server = type("M", (), {"start_server": fake_start})
+    monkeypatch.setitem(sys.modules, "rdc_analyzer.webui.server", webui_server)
+    monkeypatch.setitem(sys.modules, "rdc_analyzer.webui", type("P", (), {"server": webui_server}))
+
+    analysis_file = tmp_path / "analysis.json"
+    url1 = ext.ensure_webui_server(tmp_path, analysis_file, 8765)
+    url2 = ext.ensure_webui_server(tmp_path, analysis_file, 8765)
+
+    assert url1 == "http://127.0.0.1:9001/"
+    assert url2 == "http://127.0.0.1:9001/"
+    assert calls["count"] == 1

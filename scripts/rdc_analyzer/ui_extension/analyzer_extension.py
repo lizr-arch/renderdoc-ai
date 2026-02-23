@@ -71,6 +71,54 @@ def run_analysis(capture_path: str, output_dir: Path) -> Path:
     return shell.run(capture_path, str(output_dir))
 
 
+_webui_server = None
+_webui_thread = None
+_webui_port = None
+_webui_analysis = None
+
+
+def stop_webui_server() -> None:
+    global _webui_server, _webui_thread, _webui_port, _webui_analysis
+    server = _webui_server
+    thread = _webui_thread
+    if server is not None:
+        try:
+            server.shutdown()
+            server.server_close()
+        except Exception:
+            pass
+    if thread is not None:
+        try:
+            thread.join(timeout=1)
+        except Exception:
+            pass
+    _webui_server = None
+    _webui_thread = None
+    _webui_port = None
+    _webui_analysis = None
+
+
+def ensure_webui_server(output_dir: Path, analysis_file: Path, port: int = 8765) -> str:
+    global _webui_server, _webui_thread, _webui_port, _webui_analysis
+
+    analysis_resolved = analysis_file.resolve()
+    if _webui_server is not None and _webui_thread is not None:
+        if _webui_thread.is_alive() and _webui_analysis == analysis_resolved:
+            return f"http://127.0.0.1:{_webui_port}/"
+        stop_webui_server()
+
+    from rdc_analyzer.webui import server as webui_server
+
+    httpd, thread, bound_port = webui_server.start_server(
+        str(output_dir), port, str(analysis_resolved)
+    )
+    _webui_server = httpd
+    _webui_thread = thread
+    _webui_port = bound_port
+    _webui_analysis = analysis_resolved
+    return f"http://127.0.0.1:{bound_port}/"
+
+
 def get_capture_filename(ctx) -> str:
     if hasattr(ctx, "CaptureFilename"):
         try:
