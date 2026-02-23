@@ -92,3 +92,24 @@ def test_derive_output_dir_uses_capture_parent(tmp_path, monkeypatch):
 
     expected = capture_dir / "rdc_analyzer" / "frame42231"
     assert ext.derive_output_dir(str(capture_path)) == expected
+
+
+def test_run_analysis_invokes_shell_run(tmp_path, monkeypatch):
+    _install_dummy_qrenderdoc(monkeypatch)
+    from rdc_analyzer.ui_extension import analyzer_extension as ext
+
+    calls = {}
+
+    def fake_run(rdc_path, output_dir, output_name="analysis.json", overwrite=True):
+        calls["args"] = (rdc_path, output_dir, output_name, overwrite)
+        return Path(output_dir) / output_name
+
+    monkeypatch.setitem(
+        sys.modules, "rdc_analyzer.tools.renderdoc_shell_analyze", type("M", (), {"run": fake_run})
+    )
+
+    capture = r"D:\captures\frame.rdc"
+    out = ext.run_analysis(capture, tmp_path)
+    assert calls["args"][0] == capture
+    assert Path(calls["args"][1]) == tmp_path
+    assert out == tmp_path / "analysis.json"

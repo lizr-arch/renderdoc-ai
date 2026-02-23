@@ -56,6 +56,20 @@ SCRIPT_ROOT = resolve_scripts_root()
 if str(SCRIPT_ROOT) not in sys.path:
     sys.path.insert(0, str(SCRIPT_ROOT))
 
+
+def ensure_scripts_path() -> Path:
+    root = resolve_scripts_root()
+    if str(root) not in sys.path:
+        sys.path.insert(0, str(root))
+    return root
+
+
+def run_analysis(capture_path: str, output_dir: Path) -> Path:
+    ensure_scripts_path()
+    from rdc_analyzer.tools import renderdoc_shell_analyze as shell
+
+    return shell.run(capture_path, str(output_dir))
+
 from rdc_analyzer.providers import QRenderDocProvider
 
 
