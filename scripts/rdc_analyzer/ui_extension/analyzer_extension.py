@@ -9,6 +9,7 @@ from __future__ import annotations
 import json
 import os
 import sys
+import threading
 from pathlib import Path
 from typing import Optional, Tuple
 
@@ -152,6 +153,25 @@ def prepare_webui(ctx, port: int = 8765):
         return None, f"WebUI server failed: {exc}"
 
     return url, None
+
+
+def open_webui_task(ctx, on_ready, on_error, port: int = 8765, run_in_thread: bool = True):
+    def work():
+        url, error = prepare_webui(ctx, port)
+        if error:
+            on_error(error)
+        else:
+            on_ready(url)
+
+    if run_in_thread:
+        thread = threading.Thread(
+            target=work, name="RDCAnalyzerWebUIPrepare", daemon=True
+        )
+        thread.start()
+        return thread
+
+    work()
+    return None
 
 from rdc_analyzer.providers import QRenderDocProvider
 

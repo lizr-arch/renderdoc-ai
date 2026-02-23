@@ -195,3 +195,41 @@ def test_prepare_webui_happy_path(tmp_path, monkeypatch):
     url, error = ext.prepare_webui(Ctx())
     assert error is None
     assert url == "http://127.0.0.1:9001/"
+
+
+def test_open_webui_task_calls_ready(monkeypatch):
+    _install_dummy_qrenderdoc(monkeypatch)
+    from rdc_analyzer.ui_extension import analyzer_extension as ext
+
+    monkeypatch.setattr(ext, "prepare_webui", lambda _ctx, _p=8765: ("http://x", None))
+
+    calls = {}
+
+    def on_ready(url):
+        calls["url"] = url
+
+    def on_error(err):
+        calls["err"] = err
+
+    ext.open_webui_task(object(), on_ready, on_error, run_in_thread=False)
+    assert calls.get("url") == "http://x"
+    assert "err" not in calls
+
+
+def test_open_webui_task_calls_error(monkeypatch):
+    _install_dummy_qrenderdoc(monkeypatch)
+    from rdc_analyzer.ui_extension import analyzer_extension as ext
+
+    monkeypatch.setattr(ext, "prepare_webui", lambda _ctx, _p=8765: (None, "boom"))
+
+    calls = {}
+
+    def on_ready(url):
+        calls["url"] = url
+
+    def on_error(err):
+        calls["err"] = err
+
+    ext.open_webui_task(object(), on_ready, on_error, run_in_thread=False)
+    assert calls.get("err") == "boom"
+    assert "url" not in calls
