@@ -8,6 +8,8 @@ import tempfile
 from pathlib import Path
 import pytest
 import socket
+import time
+import urllib.request
 
 
 def test_resolve_webui_root_requires_analysis_json():
@@ -88,3 +90,30 @@ def test_pick_port_falls_back_when_busy():
         assert fallback > 0
     finally:
         sock.close()
+
+
+def test_start_server_background_serves_analysis(tmp_path):
+    from rdc_analyzer.webui import server
+
+    root = tmp_path / "root"
+    root.mkdir()
+    (root / "analysis.json").write_text("{\"ok\": true}", encoding="utf-8")
+
+    httpd, thread, port = server.start_server(str(root), 0, None)
+    try:
+        assert thread.is_alive()
+        url = f"http://127.0.0.1:{port}/analysis.json"
+        for _ in range(10):
+            try:
+                with urllib.request.urlopen(url, timeout=1) as resp:
+                    body = resp.read().decode("utf-8")
+                assert "\"ok\": true" in body
+                break
+            except Exception:
+                time.sleep(0.1)
+        else:
+            assert False, "server did not respond"
+    finally:
+        httpd.shutdown()
+        httpd.server_close()
+        thread.join(timeout=1)

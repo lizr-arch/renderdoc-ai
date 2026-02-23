@@ -13,6 +13,7 @@ from pathlib import Path
 from typing import Optional
 from urllib.parse import urlsplit
 import socket
+import threading
 
 
 def resolve_webui_root(root: str) -> Path:
@@ -67,6 +68,19 @@ def pick_port(requested: int) -> int:
             return sock.getsockname()[1]
 
 
+def start_server(root: str, port: int = 8765, data: Optional[str] = None):
+    analysis_file = resolve_analysis_file(root, data)
+    assets_root = resolve_assets_dir()
+    handler = partial(WebUIRequestHandler, analysis_file=analysis_file, assets_root=assets_root)
+    bound_port = pick_port(port)
+    httpd = ThreadingHTTPServer(("127.0.0.1", bound_port), handler)
+    thread = threading.Thread(
+        target=httpd.serve_forever, name="RDCAnalyzerWebUI", daemon=True
+    )
+    thread.start()
+    return httpd, thread, bound_port
+
+
 class WebUIRequestHandler(SimpleHTTPRequestHandler):
     def __init__(self, *args, analysis_file: Path, assets_root: Path, **kwargs):
         self._analysis_file = analysis_file
@@ -80,14 +94,11 @@ class WebUIRequestHandler(SimpleHTTPRequestHandler):
 
 def serve(root: str, port: int = 8765, data: Optional[str] = None) -> None:
     analysis_file = resolve_analysis_file(root, data)
-    assets_root = resolve_assets_dir()
-    handler = partial(WebUIRequestHandler, analysis_file=analysis_file, assets_root=assets_root)
-    bound_port = pick_port(port)
-    server = ThreadingHTTPServer(("127.0.0.1", bound_port), handler)
+    server, thread, bound_port = start_server(root, port, data)
     print(
         f"WebUI server started: http://127.0.0.1:{bound_port}/ (analysis={analysis_file})"
     )
-    server.serve_forever()
+    thread.join()
 
 
 def _parse_args() -> argparse.Namespace:
