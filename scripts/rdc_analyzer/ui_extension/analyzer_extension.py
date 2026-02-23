@@ -10,6 +10,7 @@ import json
 import os
 import sys
 import threading
+import webbrowser
 from pathlib import Path
 from typing import Optional, Tuple
 
@@ -76,6 +77,7 @@ _webui_server = None
 _webui_thread = None
 _webui_port = None
 _webui_analysis = None
+_webui_view = None
 
 
 def stop_webui_server() -> None:
@@ -172,6 +174,62 @@ def open_webui_task(ctx, on_ready, on_error, port: int = 8765, run_in_thread: bo
 
     work()
     return None
+
+
+def _try_show_webui_view(ctx: qrd.CaptureContext, url: str) -> bool:
+    global _webui_view
+    try:
+        from PySide2 import QtCore, QtWebEngineWidgets
+    except Exception:
+        return False
+
+    if _webui_view is None:
+        view = QtWebEngineWidgets.QWebEngineView()
+        view.setObjectName("RDCAnalyzerWebUI")
+        _webui_view = view
+        if ctx.HasEventBrowser():
+            ctx.AddDockWindow(
+                _webui_view,
+                qrd.DockReference.TopOf,
+                ctx.GetEventBrowser().Widget(),
+                0.3,
+            )
+        else:
+            ctx.AddDockWindow(_webui_view, qrd.DockReference.MainToolArea, None)
+
+    _webui_view.setUrl(QtCore.QUrl(url))
+    ctx.RaiseDockWindow(_webui_view)
+    return True
+
+
+def open_webui_callback(ctx: qrd.CaptureContext, _data):
+    mqt = ctx.Extensions().GetMiniQtHelper()
+
+    def on_ready(url: str):
+        def show():
+            if _try_show_webui_view(ctx, url):
+                return
+            ctx.Extensions().MessageDialog(
+                "PySide2/QtWebEngine 不可用，已改用外部浏览器打开。",
+                "RDC Analyzer",
+            )
+            webbrowser.open(url)
+
+        try:
+            mqt.InvokeOntoUIThread(show)
+        except Exception:
+            show()
+
+    def on_error(message: str):
+        def show():
+            ctx.Extensions().ErrorDialog(message, "RDC Analyzer")
+
+        try:
+            mqt.InvokeOntoUIThread(show)
+        except Exception:
+            show()
+
+    open_webui_task(ctx, on_ready, on_error, run_in_thread=True)
 
 from rdc_analyzer.providers import QRenderDocProvider
 
@@ -301,6 +359,9 @@ def register(version: str, ctx: qrd.CaptureContext):
     extiface_version = version
     print(f"Registering RDC Analyzer extension for RenderDoc {version}")
     ctx.Extensions().RegisterWindowMenu(qrd.WindowMenu.Window, ["Analyzer"], window_callback)
+    ctx.Extensions().RegisterWindowMenu(
+        qrd.WindowMenu.Tools, ["RDC Analyzer", "Open WebUI"], open_webui_callback
+    )
 
 
 def unregister():

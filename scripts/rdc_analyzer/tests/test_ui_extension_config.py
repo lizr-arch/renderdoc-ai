@@ -233,3 +233,33 @@ def test_open_webui_task_calls_error(monkeypatch):
     ext.open_webui_task(object(), on_ready, on_error, run_in_thread=False)
     assert calls.get("err") == "boom"
     assert "url" not in calls
+
+
+def test_open_webui_callback_invokes_task(monkeypatch):
+    _install_dummy_qrenderdoc(monkeypatch)
+    from rdc_analyzer.ui_extension import analyzer_extension as ext
+
+    calls = {}
+
+    def fake_open_webui_task(ctx, on_ready, on_error, port=8765, run_in_thread=True):
+        calls["args"] = (ctx, on_ready, on_error, port, run_in_thread)
+
+    monkeypatch.setattr(ext, "open_webui_task", fake_open_webui_task)
+
+    class DummyMqt:
+        def InvokeOntoUIThread(self, _fn):
+            pass
+
+    class DummyExt:
+        def GetMiniQtHelper(self):
+            return DummyMqt()
+
+    class DummyCtx:
+        def Extensions(self):
+            return DummyExt()
+
+    ctx = DummyCtx()
+    ext.open_webui_callback(ctx, None)
+
+    assert calls["args"][0] is ctx
+    assert calls["args"][4] is True
