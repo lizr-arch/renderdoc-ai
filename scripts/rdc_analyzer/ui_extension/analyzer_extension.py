@@ -132,6 +132,27 @@ def get_capture_filename(ctx) -> str:
             pass
     return ""
 
+
+def prepare_webui(ctx, port: int = 8765):
+    capture = get_capture_filename(ctx)
+    if not capture:
+        return None, "No capture loaded."
+
+    output_dir = derive_output_dir(capture)
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    try:
+        analysis_file = run_analysis(capture, output_dir)
+    except Exception as exc:
+        return None, f"Analysis failed: {exc}"
+
+    try:
+        url = ensure_webui_server(output_dir, analysis_file, port)
+    except Exception as exc:
+        return None, f"WebUI server failed: {exc}"
+
+    return url, None
+
 from rdc_analyzer.providers import QRenderDocProvider
 
 

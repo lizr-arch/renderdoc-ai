@@ -166,3 +166,32 @@ def test_ensure_webui_server_starts_and_reuses(tmp_path, monkeypatch):
     assert url1 == "http://127.0.0.1:9001/"
     assert url2 == "http://127.0.0.1:9001/"
     assert calls["count"] == 1
+
+
+def test_prepare_webui_requires_capture(monkeypatch):
+    _install_dummy_qrenderdoc(monkeypatch)
+    from rdc_analyzer.ui_extension import analyzer_extension as ext
+
+    class Ctx:
+        pass
+
+    url, error = ext.prepare_webui(Ctx())
+    assert url is None
+    assert "capture" in error.lower()
+
+
+def test_prepare_webui_happy_path(tmp_path, monkeypatch):
+    _install_dummy_qrenderdoc(monkeypatch)
+    from rdc_analyzer.ui_extension import analyzer_extension as ext
+
+    class Ctx:
+        def CaptureFilename(self):
+            return "C:\\caps\\frame.rdc"
+
+    monkeypatch.setattr(ext, "derive_output_dir", lambda _p: tmp_path)
+    monkeypatch.setattr(ext, "run_analysis", lambda _p, _d: tmp_path / "analysis.json")
+    monkeypatch.setattr(ext, "ensure_webui_server", lambda _d, _a, _p=8765: "http://127.0.0.1:9001/")
+
+    url, error = ext.prepare_webui(Ctx())
+    assert error is None
+    assert url == "http://127.0.0.1:9001/"
