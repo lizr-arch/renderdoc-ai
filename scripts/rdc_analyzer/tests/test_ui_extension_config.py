@@ -263,3 +263,9 @@ def test_open_webui_callback_invokes_task(monkeypatch):
 
     assert calls["args"][0] is ctx
     assert calls["args"][4] is True
+
+
+def test_extension_file_avoids_future_annotations():
+    extension_file = Path(__file__).resolve().parents[1] / "ui_extension" / "analyzer_extension.py"
+    content = extension_file.read_text(encoding="utf-8")
+    assert "from __future__ import annotations" not in content
