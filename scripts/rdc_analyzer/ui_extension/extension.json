@@ -1,0 +1,9 @@
+{
+  "extension_api": 1,
+  "name": "RDC Analyzer WebUI",
+  "version": "0.1",
+  "minimum_renderdoc": "1.30",
+  "description": "RDC Analyzer extension for launching WebUI and basic stats.",
+  "author": "rdc-analyzer",
+  "url": ""
+}
