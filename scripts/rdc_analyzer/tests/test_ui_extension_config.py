@@ -113,3 +113,25 @@ def test_run_analysis_invokes_shell_run(tmp_path, monkeypatch):
     assert calls["args"][0] == capture
     assert Path(calls["args"][1]) == tmp_path
     assert out == tmp_path / "analysis.json"
+
+
+def test_get_capture_filename_prefers_new_api(monkeypatch):
+    _install_dummy_qrenderdoc(monkeypatch)
+    from rdc_analyzer.ui_extension import analyzer_extension as ext
+
+    class Ctx:
+        def CaptureFilename(self):
+            return "A.rdc"
+
+    assert ext.get_capture_filename(Ctx()) == "A.rdc"
+
+
+def test_get_capture_filename_falls_back(monkeypatch):
+    _install_dummy_qrenderdoc(monkeypatch)
+    from rdc_analyzer.ui_extension import analyzer_extension as ext
+
+    class Ctx:
+        def CaptureFileName(self):
+            return "B.rdc"
+
+    assert ext.get_capture_filename(Ctx()) == "B.rdc"

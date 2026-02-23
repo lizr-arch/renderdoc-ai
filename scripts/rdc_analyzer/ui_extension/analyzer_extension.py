@@ -70,6 +70,20 @@ def run_analysis(capture_path: str, output_dir: Path) -> Path:
 
     return shell.run(capture_path, str(output_dir))
 
+
+def get_capture_filename(ctx) -> str:
+    if hasattr(ctx, "CaptureFilename"):
+        try:
+            return ctx.CaptureFilename()
+        except Exception:
+            pass
+    if hasattr(ctx, "CaptureFileName"):
+        try:
+            return ctx.CaptureFileName()
+        except Exception:
+            pass
+    return ""
+
 from rdc_analyzer.providers import QRenderDocProvider
 
 
@@ -122,11 +136,7 @@ class AnalyzerWindow(qrd.CaptureViewer):
 
     def _collect_counts(self) -> Tuple[int, int, int]:
         provider = QRenderDocProvider(self.ctx)
-        capture_name = ""
-        if hasattr(self.ctx, "CaptureFilename"):
-            capture_name = self.ctx.CaptureFilename()
-        elif hasattr(self.ctx, "CaptureFileName"):
-            capture_name = self.ctx.CaptureFileName()
+        capture_name = get_capture_filename(self.ctx)
 
         provider.open_capture(capture_name)
 
