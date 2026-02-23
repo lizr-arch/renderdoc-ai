@@ -1,0 +1,191 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+RenderDoc UI extension: RDC Analyzer panel.
+"""
+
+from __future__ import annotations
+
+import json
+import os
+import sys
+from pathlib import Path
+from typing import Optional, Tuple
+
+import qrenderdoc as qrd
+
+CONFIG_FILENAME = "extension_config.json"
+DEFAULT_SCRIPTS_ROOT = Path(__file__).resolve().parents[2]
+
+
+def _config_path() -> Path:
+    return Path(__file__).resolve().parent / CONFIG_FILENAME
+
+
+def _load_config(config_path: Optional[Path] = None) -> dict:
+    path = config_path or _config_path()
+    if not path.exists():
+        return {}
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except Exception:
+        return {}
+
+
+def resolve_scripts_root(config_path: Optional[Path] = None) -> Path:
+    env_root = os.getenv("RDC_ANALYZER_SCRIPTS")
+    if env_root:
+        return Path(env_root).expanduser().resolve()
+
+    config = _load_config(config_path)
+    scripts_root = config.get("scripts_root")
+    if scripts_root:
+        return Path(scripts_root).expanduser().resolve()
+
+    return DEFAULT_SCRIPTS_ROOT
+
+
+SCRIPT_ROOT = resolve_scripts_root()
+if str(SCRIPT_ROOT) not in sys.path:
+    sys.path.insert(0, str(SCRIPT_ROOT))
+
+from rdc_analyzer.providers import QRenderDocProvider
+
+
+class AnalyzerWindow(qrd.CaptureViewer):
+    def __init__(self, ctx: qrd.CaptureContext):
+        super().__init__()
+        self.ctx = ctx
+        self.mqt: qrd.MiniQtHelper = ctx.Extensions().GetMiniQtHelper()
+        self.top_window = self.mqt.CreateToplevelWidget("RDC Analyzer", self._on_closed)
+
+        container = self.mqt.CreateVerticalContainer()
+        self.mqt.AddWidget(self.top_window, container)
+
+        self._title = self.mqt.CreateLabel()
+        self.mqt.SetWidgetText(self._title, "RDC Analyzer")
+        self.mqt.AddWidget(container, self._title)
+
+        self._status = self.mqt.CreateLabel()
+        self.mqt.AddWidget(container, self._status)
+
+        self._shader_label = self.mqt.CreateLabel()
+        self._texture_label = self.mqt.CreateLabel()
+        self._event_label = self.mqt.CreateLabel()
+
+        self.mqt.AddWidget(container, self._shader_label)
+        self.mqt.AddWidget(container, self._texture_label)
+        self.mqt.AddWidget(container, self._event_label)
+
+        self._set_counts("N/A", "N/A", "N/A")
+        self._set_status("No capture loaded.")
+
+        ctx.AddCaptureViewer(self)
+
+    def _on_closed(self, _ctx, _widget, _data):
+        window_closed()
+
+    def _set_status(self, message: str) -> None:
+        self.mqt.SetWidgetText(self._status, message)
+
+    def _set_counts(self, shaders: str, textures: str, events: str) -> None:
+        self.mqt.SetWidgetText(self._shader_label, f"Shaders: {shaders}")
+        self.mqt.SetWidgetText(self._texture_label, f"Textures: {textures}")
+        self.mqt.SetWidgetText(self._event_label, f"Events: {events}")
+
+    def _notify_error(self, message: str) -> None:
+        try:
+            self.ctx.Extensions().MessageDialog(message, "RDC Analyzer")
+        except Exception:
+            pass
+
+    def _collect_counts(self) -> Tuple[int, int, int]:
+        provider = QRenderDocProvider(self.ctx)
+        capture_name = ""
+        if hasattr(self.ctx, "CaptureFilename"):
+            capture_name = self.ctx.CaptureFilename()
+        elif hasattr(self.ctx, "CaptureFileName"):
+            capture_name = self.ctx.CaptureFileName()
+
+        provider.open_capture(capture_name)
+
+        def gather(_controller):
+            return (
+                len(provider.list_shaders()),
+                len(provider.list_textures()),
+                len(provider.list_events()),
+            )
+
+        return self.ctx.Replay().BlockInvoke(gather)
+
+    def OnCaptureLoaded(self):
+        print("RDC Analyzer: capture loaded, collecting counts...")
+        self._set_status("Loading analysis...")
+        try:
+            shader_count, texture_count, event_count = self._collect_counts()
+        except Exception as exc:
+            error_message = f"Error: {exc}"
+            print(f"RDC Analyzer: {error_message}")
+            self._set_status(error_message)
+            self._notify_error(error_message)
+            self._set_counts("N/A", "N/A", "N/A")
+            return
+
+        self._set_status("Ready.")
+        self._set_counts(str(shader_count), str(texture_count), str(event_count))
+        print(
+            "RDC Analyzer: counts ready "
+            f"(shaders={shader_count}, textures={texture_count}, events={event_count})"
+        )
+
+    def OnCaptureClosed(self):
+        self._set_status("No capture loaded.")
+        self._set_counts("N/A", "N/A", "N/A")
+        print("RDC Analyzer: capture closed.")
+
+    def OnSelectedEventChanged(self, _event):
+        pass
+
+
+cur_window: Optional[AnalyzerWindow] = None
+extiface_version = ""
+
+
+def window_closed():
+    global cur_window
+    if cur_window is not None:
+        cur_window.ctx.RemoveCaptureViewer(cur_window)
+    cur_window = None
+
+
+def window_callback(ctx: qrd.CaptureContext, _data):
+    global cur_window
+    if cur_window is None:
+        cur_window = AnalyzerWindow(ctx)
+        if ctx.HasEventBrowser():
+            ctx.AddDockWindow(
+                cur_window.top_window,
+                qrd.DockReference.TopOf,
+                ctx.GetEventBrowser().Widget(),
+                0.25,
+            )
+        else:
+            ctx.AddDockWindow(cur_window.top_window, qrd.DockReference.MainToolArea, None)
+
+    ctx.RaiseDockWindow(cur_window.top_window)
+    print("RDC Analyzer: window opened.")
+
+
+def register(version: str, ctx: qrd.CaptureContext):
+    global extiface_version
+    extiface_version = version
+    print(f"Registering RDC Analyzer extension for RenderDoc {version}")
+    ctx.Extensions().RegisterWindowMenu(qrd.WindowMenu.Window, ["Analyzer"], window_callback)
+
+
+def unregister():
+    print("Unregistering RDC Analyzer extension")
+    global cur_window
+    if cur_window is not None:
+        cur_window.ctx.Extensions().GetMiniQtHelper().CloseToplevelWidget(cur_window.top_window)
+        cur_window = None
