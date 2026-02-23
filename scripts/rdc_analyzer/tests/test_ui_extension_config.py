@@ -81,3 +81,14 @@ def test_resolve_scripts_root_falls_back_to_default(tmp_path, monkeypatch):
     cfg_path = tmp_path / "missing.json"
     resolved = ext.resolve_scripts_root(cfg_path)
     assert resolved == ext.DEFAULT_SCRIPTS_ROOT
+
+
+def test_derive_output_dir_uses_capture_parent(tmp_path, monkeypatch):
+    _install_dummy_qrenderdoc(monkeypatch)
+    from rdc_analyzer.ui_extension import analyzer_extension as ext
+
+    capture_dir = tmp_path / "caps"
+    capture_path = capture_dir / "frame42231.rdc"
+
+    expected = capture_dir / "rdc_analyzer" / "frame42231"
+    assert ext.derive_output_dir(str(capture_path)) == expected

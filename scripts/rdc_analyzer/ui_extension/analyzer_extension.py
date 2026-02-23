@@ -45,6 +45,13 @@ def resolve_scripts_root(config_path: Optional[Path] = None) -> Path:
     return DEFAULT_SCRIPTS_ROOT
 
 
+def derive_output_dir(capture_path: str) -> Path:
+    if not capture_path:
+        raise ValueError("capture_path is required")
+    capture = Path(capture_path).expanduser().resolve()
+    return capture.parent / "rdc_analyzer" / capture.stem
+
+
 SCRIPT_ROOT = resolve_scripts_root()
 if str(SCRIPT_ROOT) not in sys.path:
     sys.path.insert(0, str(SCRIPT_ROOT))
