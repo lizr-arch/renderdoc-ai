@@ -141,15 +141,15 @@ def open_webui_callback(ctx, _data):
 - [x] 写失败测试：`derive_output_dir(capture_path)` 生成稳定目录名
 - [x] 运行测试并确认失败
 - [x] 最小实现：输出目录推导
-- [ ] 最小实现：`renderdoc_shell_analyze.run` 集成
+- [x] 最小实现：`renderdoc_shell_analyze.run` 集成
 - [x] 复跑测试确认通过
 - [ ] **提交（需用户确认）**：`feat(ui-extension): export analysis.json for current capture`
 
-- [ ] UI 集成：菜单项 + 面板/外部浏览器降级逻辑
+- [x] UI 集成：菜单项 + 面板/外部浏览器降级逻辑
 - [ ] 手工验证（见下方“Verification / DoD”）
 - [ ] **提交（需用户确认）**：`feat(ui-extension): add WebUI launcher panel`
 
-- [ ] 更新文档：`WEBUI_AND_UI_EXTENSION.md` 扩展安装/使用说明
+- [x] 更新文档：`WEBUI_AND_UI_EXTENSION.md` 扩展安装/使用说明
 - [ ] **提交（需用户确认）**：`docs(ui-extension): document install and usage`
 
 ## Risks & Blockers
