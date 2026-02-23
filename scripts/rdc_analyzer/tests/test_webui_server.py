@@ -7,6 +7,7 @@ WebUI server tests.
 import tempfile
 from pathlib import Path
 import pytest
+import socket
 
 
 def test_resolve_webui_root_requires_analysis_json():
@@ -64,3 +65,26 @@ def test_resolve_analysis_file_falls_back_to_root(tmp_path):
     (root / "analysis.json").write_text("{}", encoding="utf-8")
 
     assert server.resolve_analysis_file(str(root), None) == (root / "analysis.json").resolve()
+
+
+def test_pick_port_prefers_requested_when_free():
+    from rdc_analyzer.webui import server
+
+    port = server.pick_port(0)
+    assert port > 0
+
+
+def test_pick_port_falls_back_when_busy():
+    from rdc_analyzer.webui import server
+
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    sock.bind(("127.0.0.1", 0))
+    sock.listen(1)
+    busy_port = sock.getsockname()[1]
+
+    try:
+        fallback = server.pick_port(busy_port)
+        assert fallback != busy_port
+        assert fallback > 0
+    finally:
+        sock.close()

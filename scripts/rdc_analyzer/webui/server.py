@@ -12,6 +12,7 @@ from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Optional
 from urllib.parse import urlsplit
+import socket
 
 
 def resolve_webui_root(root: str) -> Path:
@@ -50,6 +51,22 @@ def map_request_path(request_path: str, analysis_file: Path, assets_root: Path) 
     return candidate
 
 
+def pick_port(requested: int) -> int:
+    if requested == 0:
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+            sock.bind(("127.0.0.1", 0))
+            return sock.getsockname()[1]
+
+    try:
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+            sock.bind(("127.0.0.1", requested))
+            return requested
+    except OSError:
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+            sock.bind(("127.0.0.1", 0))
+            return sock.getsockname()[1]
+
+
 class WebUIRequestHandler(SimpleHTTPRequestHandler):
     def __init__(self, *args, analysis_file: Path, assets_root: Path, **kwargs):
         self._analysis_file = analysis_file
@@ -65,8 +82,11 @@ def serve(root: str, port: int = 8765, data: Optional[str] = None) -> None:
     analysis_file = resolve_analysis_file(root, data)
     assets_root = resolve_assets_dir()
     handler = partial(WebUIRequestHandler, analysis_file=analysis_file, assets_root=assets_root)
-    server = ThreadingHTTPServer(("127.0.0.1", port), handler)
-    print(f"WebUI server started: http://127.0.0.1:{port}/ (analysis={analysis_file})")
+    bound_port = pick_port(port)
+    server = ThreadingHTTPServer(("127.0.0.1", bound_port), handler)
+    print(
+        f"WebUI server started: http://127.0.0.1:{bound_port}/ (analysis={analysis_file})"
+    )
     server.serve_forever()
 
 

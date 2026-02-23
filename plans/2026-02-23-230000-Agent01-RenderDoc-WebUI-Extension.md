@@ -130,12 +130,12 @@ def open_webui_callback(ctx, _data):
 - [x] 运行测试并确认失败：`py -3 -m pytest scripts/rdc_analyzer/tests -k ui_extension -v`（期望失败）
 - [x] 最小实现：在 `analyzer_extension.py` 中添加 config 解析与路径解析函数
 - [x] 复跑测试确认通过：`py -3 -m pytest scripts/rdc_analyzer/tests -k ui_extension -v`
-- [ ] **提交（需用户确认）**：`feat(ui-extension): add config-driven scripts path resolution`
+- [x] **提交（需用户确认）**：`feat(ui-extension): add config-driven scripts path resolution`
 
-- [ ] 写失败测试：端口选择逻辑（如 `pick_port`）在被占用时回退
-- [ ] 运行测试并确认失败
-- [ ] 最小实现：后台 WebUI 服务启动 + 端口回退
-- [ ] 复跑测试确认通过
+- [x] 写失败测试：端口选择逻辑（如 `pick_port`）在被占用时回退
+- [x] 运行测试并确认失败
+- [x] 最小实现：后台 WebUI 服务启动 + 端口回退
+- [x] 复跑测试确认通过
 - [ ] **提交（需用户确认）**：`feat(webui): add background server startup with port fallback`
 
 - [ ] 写失败测试：`derive_output_dir(capture_path)` 生成稳定目录名
