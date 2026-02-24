@@ -27,6 +27,7 @@
 | [ARCHITECTURE_V1.md](ARCHITECTURE_V1.md) | 模块架构与数据流 | 架构, 模块, 数据流 |
 
 | [REFACTOR_ANALYSIS.md](REFACTOR_ANALYSIS.md) | 重构分析与优化建议 | 重构, 分析, 优化 |
+| [analysis_report_schema_v1.md](analysis_report_schema_v1.md) | **分析报告 Schema v1**（字段契约 + 页面结构 + 采集路径） | schema, analysis.json, report |
 
 
 
@@ -63,6 +64,7 @@
 | [AI_SCRIPT_BOUNDARY.md](AI_SCRIPT_BOUNDARY.md) | **AI 与脚本职责边界** - 明确哪些必须脚本化、哪些可 AI 增强 | ai, boundary, orchestration |
 | [SKILL_RDC_EVENT_ASSET_ORCHESTRATOR_SPEC.md](SKILL_RDC_EVENT_ASSET_ORCHESTRATOR_SPEC.md) | **Skill 设计规范** - Event 资产编排器输入输出与失败恢复 | skill, orchestrator, artifact_index |
 | [MESSIAH_IMPORT_STATUS.md](MESSIAH_IMPORT_STATUS.md) | **Messiah 导入现状与缺口**（Phase-1 入口） | messiah, import_bundle, repository |
+| [WEBUI_AND_UI_EXTENSION.md](WEBUI_AND_UI_EXTENSION.md) | **WebUI + GUI 扩展说明** - 本地服务 + MiniQtHelper 面板（含 Shader 列表来源/回退） | WebUI, GUI, MiniQtHelper, Analyzer |
 
 | [MALI_INTEGRATION_SUMMARY.md](MALI_INTEGRATION_SUMMARY.md) | Mali GPU 分析集成 | Mali, GPU, 性能分析 |
 
@@ -199,6 +201,7 @@
 | Skill 编排契约在哪里？ | [SKILL_RDC_EVENT_ASSET_ORCHESTRATOR_SPEC.md](SKILL_RDC_EVENT_ASSET_ORCHESTRATOR_SPEC.md) |
 | 如何一键串联 intermediate/bundle/fbx？ | [EVENT_ASSET_ORCHESTRATOR.md](EVENT_ASSET_ORCHESTRATOR.md) |
 | 如何按引擎目标定制导出（unity/unreal/messiah）？ | [EVENT_ASSET_ORCHESTRATOR.md](EVENT_ASSET_ORCHESTRATOR.md) |
+| **为什么 WebUI 的 shader 数量为 0？** | [WEBUI_AND_UI_EXTENSION.md](WEBUI_AND_UI_EXTENSION.md) |
 
 | Mali 分析如何集成？ | [MALI_INTEGRATION_SUMMARY.md](MALI_INTEGRATION_SUMMARY.md) |
 

@@ -50,6 +50,9 @@ scripts/rdc_analyzer/
 4. WebUI 本地服务器优先提供报告包页面（index/events/textures/shaders）  
 5. GUI 内嵌或外部浏览器展示 WebUI  
 
+
+> Schema 参考：docs/analysis/codex_rdc_analyzer/analysis_report_schema_v1.md
+
 ## 3.1) Shader 列表来源与回退
 
 - **首选**：Mali 分析报告中的 Shader 条目（如存在）
