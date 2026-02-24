@@ -1,7 +1,5 @@
-from __future__ import annotations
-
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Set, Tuple
 
 
 @dataclass
@@ -34,7 +32,7 @@ def _extract_shader(binding: Optional[Dict[str, Any]], stage: str) -> Optional[D
 def _record_shader(
     shader: Dict[str, Any],
     shaders: List[Dict[str, Any]],
-    seen: set[Tuple[Any, str, Any]],
+    seen: Set[Tuple[Any, str, Any]],
     shader_usage: Dict[str, List[int]],
     eid: Optional[int],
 ) -> None:
@@ -55,7 +53,7 @@ def analysis_to_bundle(analysis: Dict[str, Any]) -> BundleData:
     textures: List[Dict[str, Any]] = analysis.get("textures") or []
     stats: Dict[str, Any] = {}
     shader_usage: Dict[str, List[int]] = {}
-    seen_shaders: set[Tuple[Any, str, Any]] = set()
+    seen_shaders: Set[Tuple[Any, str, Any]] = set()
 
     summary = analysis.get("summary") or analysis.get("stats") or {}
     if isinstance(summary, dict):

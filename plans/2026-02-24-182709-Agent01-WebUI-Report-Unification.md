@@ -129,6 +129,7 @@ except Exception:
 ## Risks / Blockers
 - Missing fields in `analysis.json` for report templates.
 - Jump endpoint needs GUI thread safety (may require UI thread invoke).
+- **Py3.6 兼容性**：禁止 `from __future__ import annotations` 与 `set[...]` 注解（嵌入 Python 3.6 不支持）。
 
 ## Game Dev: Memory & Resource Budget (Leak Checks)
 - Check report generation memory growth by opening same capture 10x; track output size + RSS.
