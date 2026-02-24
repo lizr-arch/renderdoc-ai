@@ -201,7 +201,8 @@ class AnalysisPipeline:
         self,
         rdc_path: str,
         options: Optional[AnalysisOptions] = None,
-        progress_callback: Optional[ProgressCallback] = None
+        progress_callback: Optional[ProgressCallback] = None,
+        provider: Optional[Any] = None
     ):
         """
         初始化分析管线
@@ -210,10 +211,12 @@ class AnalysisPipeline:
             rdc_path: RDC 文件路径
             options: 分析选项，None 使用默认值
             progress_callback: 进度回调函数
+            provider: 数据提供者（GUI/Headless/Offline），为空时使用默认 renderdoc 打开
         """
         self.rdc_path = rdc_path
         self.options = options or AnalysisOptions()
         self.progress_callback = progress_callback
+        self._provider = provider
         
         # 运行时状态
         self._controller = None
@@ -317,6 +320,14 @@ class AnalysisPipeline:
     
     def _open_capture(self):
         """打开 RDC 捕获文件"""
+        if self._provider is not None:
+            capture, controller, api_name = self._provider.open_capture(self.rdc_path)
+            self._capture = capture
+            self._controller = controller
+            self._api = api_name or "Unknown"
+            self._report_progress('open', 1, 1, f'已打开: {self._api}')
+            return
+
         try:
             import renderdoc as rd
         except ImportError:
@@ -1196,6 +1207,79 @@ class AnalysisPipeline:
         self._report_progress('sample', 1, 1, 
                              f'采样 {len(self._resource_samples)} 个资源')
     
+    def _create_shader_extractor(self, controller, rd_module):
+        from .extractors.shader_extractor import create_shader_extractor
+        return create_shader_extractor(controller, rd_module)
+
+    def _build_shader_list(self) -> List[Dict[str, Any]]:
+        shaders_list: List[Dict[str, Any]] = []
+        if self._mali_report and self._mali_report.get('shaders'):
+            for shader in self._mali_report.get('shaders', []):
+                name = shader.get('name', '')
+                shader_type = shader.get('type', '')
+                resource_id = shader.get('resourceId') or shader.get('hash') or name
+                shaders_list.append({
+                    "resourceId": str(resource_id),
+                    "name": name,
+                    "type": shader_type,
+                })
+            return shaders_list
+
+        if not self._controller or not self._pipeline_sampling_result:
+            return shaders_list
+
+        try:
+            import renderdoc as rd
+        except Exception:
+            rd = None
+
+        extractor = self._create_shader_extractor(self._controller, rd)
+        shader_map: Dict[str, Any] = {}
+        for sample in self._pipeline_sampling_result.samples:
+            try:
+                self._controller.SetFrameEvent(sample.event_id, True)
+                pipe_state = self._controller.GetPipelineState()
+                result = extractor.extract_bound_shaders(pipe_state)
+                for shader in result.shaders:
+                    shader_map[shader.resource_id] = shader
+            except Exception as exc:
+                logger.debug(f"Shader extract failed for event {sample.event_id}: {exc}")
+
+        if not shader_map:
+            fallback_map: Dict[str, Dict[str, Any]] = {}
+
+            def add_fallback(shader_id: int, shader_type: str, stage: str):
+                if not shader_id:
+                    return
+                key = str(shader_id)
+                if key in fallback_map:
+                    return
+                fallback_map[key] = {
+                    "resourceId": key,
+                    "name": f"Shader_{key}",
+                    "type": shader_type,
+                    "stage": stage,
+                    "encoding": "",
+                }
+
+            for sample in self._pipeline_sampling_result.samples:
+                add_fallback(sample.vertex_shader_id, "VS", "Vertex")
+                add_fallback(sample.pixel_shader_id, "PS", "Pixel")
+                add_fallback(sample.compute_shader_id, "CS", "Compute")
+
+            shaders_list.extend(fallback_map.values())
+            return shaders_list
+
+        for shader in shader_map.values():
+            shaders_list.append({
+                "resourceId": str(shader.resource_id),
+                "name": shader.name or f"Shader_{shader.resource_id}",
+                "type": shader.type or shader.stage or "",
+                "stage": shader.stage,
+                "encoding": shader.encoding,
+            })
+        return shaders_list
+
     def _export_reports(self, output_dir: Path) -> List[str]:
         """生成报告"""
         output_files = []
@@ -1272,17 +1356,7 @@ class AnalysisPipeline:
                 "usage": buf_info.get('usage', ''),
             })
 
-        shaders_list = []
-        if self._mali_report and self._mali_report.get('shaders'):
-            for shader in self._mali_report.get('shaders', []):
-                name = shader.get('name', '')
-                shader_type = shader.get('type', '')
-                resource_id = shader.get('resourceId') or shader.get('hash') or name
-                shaders_list.append({
-                    "resourceId": str(resource_id),
-                    "name": name,
-                    "type": shader_type,
-                })
+        shaders_list = self._build_shader_list()
 
         draw_calls_list = []
         for dc in self._draw_calls:
@@ -2147,9 +2221,14 @@ class AnalysisPipeline:
         """创建分析摘要"""
         total_vertices = sum(dc.get('numIndices', 0) or 0 for dc in self._draw_calls)
         
-        error_count = len([i for i in self._issues if i['severity'] == 'error'])
-        warning_count = len([i for i in self._issues if i['severity'] == 'warning'])
-        info_count = len([i for i in self._issues if i['severity'] == 'info'])
+        def _get_severity(issue):
+            if isinstance(issue, dict):
+                return issue.get('severity')
+            return getattr(issue, 'severity', None)
+
+        error_count = len([i for i in self._issues if _get_severity(i) == 'error'])
+        warning_count = len([i for i in self._issues if _get_severity(i) == 'warning'])
+        info_count = len([i for i in self._issues if _get_severity(i) == 'info'])
         
         return AnalysisSummary(
             rdc_path=self.rdc_path,
@@ -2173,6 +2252,7 @@ class AnalysisPipeline:
 def analyze(
     rdc_path: str,
     output_dir: str = "./output",
+    provider: Optional[Any] = None,
     **kwargs
 ) -> AnalysisSummary:
     """
@@ -2211,7 +2291,7 @@ def analyze(
     options = AnalysisOptions(output_dir=output_dir, **kwargs)
     
     # 创建并运行管线
-    pipeline = AnalysisPipeline(rdc_path, options)
+    pipeline = AnalysisPipeline(rdc_path, options, provider=provider)
     return pipeline.run()
 
 
@@ -2219,6 +2299,7 @@ def analyze_with_progress(
     rdc_path: str,
     output_dir: str = "./output",
     progress_callback: Optional[ProgressCallback] = None,
+    provider: Optional[Any] = None,
     **kwargs
 ) -> AnalysisSummary:
     """
@@ -2234,7 +2315,7 @@ def analyze_with_progress(
         AnalysisSummary: 分析结果摘要
     """
     options = AnalysisOptions(output_dir=output_dir, **kwargs)
-    pipeline = AnalysisPipeline(rdc_path, options, progress_callback)
+    pipeline = AnalysisPipeline(rdc_path, options, progress_callback, provider=provider)
     return pipeline.run()
 
 
