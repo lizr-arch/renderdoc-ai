@@ -543,6 +543,20 @@ class ReportBundleGenerator:
         recommendations = self.stats.get("recommendations", [])
         issues = self.stats.get("issues", [])
         
+        def _extract_issue_event_id(item):
+            if not isinstance(item, dict):
+                return None
+            event_ids = item.get("event_ids") or item.get("eventIds") or item.get("events")
+            event_id = item.get("event_id") or item.get("eventId") or item.get("eid")
+            if event_id is None and isinstance(event_ids, list) and event_ids:
+                event_id = event_ids[0]
+            return event_id
+
+        def _build_issue_jump_button(event_id):
+            if event_id is None:
+                return ""
+            return f'<button class="rdc-jump-btn" onclick="jumpToRenderDoc({event_id}); event.stopPropagation();" title="Jump to RenderDoc">↗ GUI</button>'
+
         # 渲染新格式的 recommendations
         for rec in recommendations[:5]:
             if isinstance(rec, dict):
@@ -565,6 +579,8 @@ class ReportBundleGenerator:
                     severity_class = "info"
                     icon = "ℹ️"
                 
+                jump_html = _build_issue_jump_button(_extract_issue_event_id(rec))
+
                 # 构建详细描述
                 desc_parts = []
                 if detail:
@@ -583,6 +599,7 @@ class ReportBundleGenerator:
                         <div class="issue-title">[{rule}] {title}</div>
                         <div class="issue-desc">{full_desc}</div>
                     </div>
+                    {jump_html}
                 </div>'''
             else:
                 # 字符串格式的旧建议
@@ -597,6 +614,7 @@ class ReportBundleGenerator:
         # 渲染旧格式的 issues（如果没有 recommendations）
         if not recommendations:
             for issue in issues[:8]:
+                jump_html = _build_issue_jump_button(_extract_issue_event_id(issue))
                 severity = issue.get("severity", "info")
                 title = issue.get("title", "Unknown Issue")
                 desc = issue.get("description", "")[:80]
@@ -614,6 +632,7 @@ class ReportBundleGenerator:
                         <div class="issue-title">{title}</div>
                         <div class="issue-desc">{desc}</div>
                     </div>
+                    {jump_html}
                 </div>'''
         
         # 计算问题类样式

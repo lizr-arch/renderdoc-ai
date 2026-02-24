@@ -1227,6 +1227,10 @@
                         <span class="filter-chip" data-filter="cs" onclick="setFilter('cs')">CS</span>
                         <span class="filter-chip warn" data-filter="issues" onclick="setFilter('issues')">⚠️ 问题</span>
                     </div>
+                    <div class="filter-row" style="margin-top: 6px;">
+                        <a class="filter-chip" href="issues_export.json" download>导出问题 JSON</a>
+                        <a class="filter-chip" href="issues_export.csv" download>CSV</a>
+                    </div>
                 </div>
                 
                 <div class="shader-panel-summary" id="shaderPanelSummary">
@@ -2055,6 +2059,10 @@
             const health = calculateHealthScore(mali, dynamicMetrics, tier);
             const weightedCost = calculateWeightedCost(mali, dynamicMetrics);
             const issues = detectIssues(mali, dynamicMetrics, tier);
+            const jumpEid = (shader.usedBy && shader.usedBy.length > 0) ? shader.usedBy[0].eid : null;
+            const jumpButton = jumpEid
+                ? `<div style="margin-top: 8px;"><button class="rdc-jump-btn" onclick="jumpToRenderDoc(${jumpEid}); event.stopPropagation();" title="Jump to RenderDoc">↗ GUI</button></div>`
+                : '';
             
             // 健康评分图标
             const healthIcons = {
@@ -2161,6 +2169,7 @@
                             </div>
                         `).join('')}
                     </div>
+                    ${jumpButton}
                 </div>
                 ` : `
                 <div style="margin-top: 12px; text-align: center; padding: 12px; background: var(--bg-darkest); border-radius: var(--radius-sm);">

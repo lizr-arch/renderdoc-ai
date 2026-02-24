@@ -754,6 +754,10 @@
                         <span class="filter-chip" data-filter="large" onclick="setFilter('large')">大尺寸</span>
                         <span class="filter-chip" data-filter="nomip" onclick="setFilter('nomip')">无 Mip</span>
                     </div>
+                    <div class="filter-row" style="margin-top: 6px;">
+                        <a class="filter-chip" href="issues_export.json" download>导出问题 JSON</a>
+                        <a class="filter-chip" href="issues_export.csv" download>CSV</a>
+                    </div>
                 </div>
                 
                 <div class="texture-panel-summary" id="texturePanelSummary">
@@ -1210,6 +1214,10 @@
                 texture.issues.forEach(issue => {
                     const level = issue.level || 'warn';
                     let message = issue.message || '';
+                    const issueEid = issue.event_id || issue.eventId || issue.eid;
+                    const jumpButton = issueEid
+                        ? `<button class="rdc-jump-btn" onclick="jumpToRenderDoc(${issueEid}); event.stopPropagation();" title="Jump to RenderDoc">↗ GUI</button>`
+                        : '';
                     
                     // 如果有关联的资源 ID 列表，渲染为可点击链接
                     if (issue.related_ids && issue.related_ids.length > 0) {
@@ -1220,9 +1228,13 @@
                                     `<span class="resource-link" onclick="selectTextureByResourceId('${rid}')" title="点击定位">${rid}</span>`
                                 ).join(' ')}
                             </div>
+                            ${jumpButton ? `<div style="margin-top: 6px;">${jumpButton}</div>` : ''}
                         </div>`;
                     } else {
-                        html += `<div class="analysis-tip ${level}">${message}</div>`;
+                        html += `<div class="analysis-tip ${level}">
+                            <div>${message}</div>
+                            ${jumpButton ? `<div style="margin-top: 6px;">${jumpButton}</div>` : ''}
+                        </div>`;
                     }
                 });
             } else {

@@ -234,6 +234,12 @@
             text-decoration: underline;
         }
         
+        .issue-export-links {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 8px;
+        }
+        
         /* 捕获信息卡片 */
         .capture-info-grid {
             display: grid;
@@ -500,6 +506,10 @@
                     <div class="card-badge">{{ISSUE_COUNT}} 条</div>
                 </div>
                 <div class="card-body">
+                    <div class="issue-export-links">
+                        <a class="issue-action" href="issues_export.json" download>导出 JSON</a>
+                        <a class="issue-action" href="issues_export.csv" download>导出 CSV</a>
+                    </div>
                     {{#if ISSUES}}
                     <div class="issues-list">
                         {{ISSUES_HTML}}

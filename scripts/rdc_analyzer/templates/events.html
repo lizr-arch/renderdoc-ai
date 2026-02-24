@@ -1612,6 +1612,8 @@
                             <span>⊟</span>
                         </button>
                         <span class="stats-badge" id="eventStats">{{EVENT_COUNT}} 项</span>
+                        <a class="pass-mode-toggle" href="issues_export.json" download>导出问题 JSON</a>
+                        <a class="pass-mode-toggle" href="issues_export.csv" download>CSV</a>
                     </div>
                 </div>
                 
@@ -3164,9 +3166,12 @@
             const content = document.getElementById('eventAnalysis');
             
             if (event.issues && event.issues.length > 0) {
+                const jumpButton = Number.isFinite(Number(event.eid))
+                    ? `<div style="margin-top: 8px;"><button class="rdc-jump-btn" onclick="jumpToRenderDoc(${event.eid}); event.stopPropagation();" title="Jump to RenderDoc">↗ GUI</button></div>`
+                    : '';
                 content.innerHTML = event.issues.map(issue => `
                     <div class="analysis-tip ${issue.level || 'warn'}">${issue.message}</div>
-                `).join('');
+                `).join('') + jumpButton;
             } else {
                 content.innerHTML = '<div class="analysis-tip success">✅ 未发现明显问题</div>';
             }
