@@ -28,6 +28,7 @@
 
 | [REFACTOR_ANALYSIS.md](REFACTOR_ANALYSIS.md) | 重构分析与优化建议 | 重构, 分析, 优化 |
 | [analysis_report_schema_v1.md](analysis_report_schema_v1.md) | **分析报告 Schema v1**（字段契约 + 页面结构 + 采集路径） | schema, analysis.json, report |
+| [report_ui_optimization_v1.md](../../analysis/codex_rdc_analyzer/report_ui_optimization_v1.md) | **报告 UI 优化建议**（离线报告 + WebUI 一致性、跳转优先、纹理/RT 默认策略） | report, ui, webui, optimization |
 
 
 

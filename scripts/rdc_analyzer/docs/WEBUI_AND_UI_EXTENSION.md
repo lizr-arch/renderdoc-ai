@@ -51,7 +51,8 @@ scripts/rdc_analyzer/
 5. GUI 内嵌或外部浏览器展示 WebUI  
 
 
-> Schema 参考：docs/analysis/codex_rdc_analyzer/analysis_report_schema_v1.md
+> Schema 参考：docs/analysis/codex_rdc_analyzer/analysis_report_schema_v1.md  
+> UI 优化建议：docs/analysis/codex_rdc_analyzer/report_ui_optimization_v1.md
 
 ## 3.1) Shader 列表来源与回退
 
