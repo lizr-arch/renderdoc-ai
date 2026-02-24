@@ -164,6 +164,14 @@ _webui_analysis = None
 _webui_view = None
 _webui_process = None
 _webui_external_url = None
+_jump_watch_thread = None
+_jump_watch_stop = None
+_jump_watch_output_dir = None
+_jump_watch_last_id = None
+
+_JUMP_REQUEST_FILENAME = "rdc_analyzer_jump.json"
+_JUMP_ACK_FILENAME = "rdc_analyzer_jump_ack.json"
+_JUMP_POLL_INTERVAL = 0.25
 
 
 _ANALYZER_MODULE_NAME = "_rdc_analyzer_pkg"
@@ -213,6 +221,7 @@ def get_provider_class():
 def stop_webui_server() -> None:
     global _webui_server, _webui_thread, _webui_port, _webui_analysis
     global _webui_process, _webui_external_url
+    _stop_jump_watcher()
     server = _webui_server
     thread = _webui_thread
     if server is not None:
@@ -238,6 +247,238 @@ def stop_webui_server() -> None:
             pass
     _webui_process = None
     _webui_external_url = None
+
+
+def _coerce_resource_id(value: int):
+    try:
+        import renderdoc as rd  # type: ignore
+
+        if hasattr(rd, "ResourceId") and hasattr(rd.ResourceId, "FromInteger"):
+            return rd.ResourceId.FromInteger(int(value))
+    except Exception:
+        pass
+    try:
+        if hasattr(qrd, "ResourceId") and hasattr(qrd.ResourceId, "FromInteger"):
+            return qrd.ResourceId.FromInteger(int(value))
+    except Exception:
+        pass
+    return int(value)
+
+
+def _null_resource_id():
+    try:
+        import renderdoc as rd  # type: ignore
+
+        if hasattr(rd, "ResourceId") and hasattr(rd.ResourceId, "Null"):
+            return rd.ResourceId.Null()
+    except Exception:
+        pass
+    try:
+        if hasattr(qrd, "ResourceId") and hasattr(qrd.ResourceId, "Null"):
+            return qrd.ResourceId.Null()
+    except Exception:
+        pass
+    return _coerce_resource_id(0)
+
+
+def _jump_to_event(ctx, eid: int) -> bool:
+    if not hasattr(ctx, "SetEventID"):
+        return False
+    try:
+        try:
+            ctx.SetEventID([], eid, eid, True)
+        except TypeError:
+            ctx.SetEventID([], eid, eid)
+        return True
+    except Exception as exc:
+        _log_event("Jump to event failed", exc)
+        return False
+
+
+def _jump_to_texture(ctx, texture_id: int) -> bool:
+    if not hasattr(ctx, "ShowTextureViewer") or not hasattr(ctx, "GetTextureViewer"):
+        return False
+    try:
+        ctx.ShowTextureViewer()
+        viewer = ctx.GetTextureViewer()
+        if viewer is None:
+            return False
+        resource_id = _coerce_resource_id(texture_id)
+        if hasattr(viewer, "ViewTexture"):
+            try:
+                import renderdoc as rd  # type: ignore
+
+                comp_type = getattr(rd.CompType, "Typeless", None)
+            except Exception:
+                comp_type = None
+            if comp_type is None:
+                viewer.ViewTexture(resource_id, 0, True)
+            else:
+                viewer.ViewTexture(resource_id, comp_type, True)
+            return True
+        if hasattr(viewer, "SetSelectedTexture"):
+            viewer.SetSelectedTexture(resource_id)
+            return True
+        return False
+    except Exception as exc:
+        _log_event("Jump to texture failed", exc)
+        return False
+
+
+def _jump_to_shader(ctx, shader_id: int) -> bool:
+    if not hasattr(ctx, "ViewShader"):
+        return False
+    shader_reflection = None
+    try:
+        replay = ctx.Replay() if hasattr(ctx, "Replay") else None
+        if replay is not None and hasattr(replay, "BlockInvoke"):
+            resource_id = _coerce_resource_id(shader_id)
+
+            def _fetch(controller):
+                if hasattr(controller, "GetShader"):
+                    return controller.GetShader(resource_id)
+                return None
+
+            shader_reflection = replay.BlockInvoke(_fetch)
+    except Exception as exc:
+        _log_event("Shader reflection lookup failed", exc)
+        shader_reflection = None
+
+    if shader_reflection is None:
+        return False
+
+    try:
+        ctx.ViewShader(shader_reflection, _null_resource_id())
+        return True
+    except Exception as exc:
+        _log_event("Jump to shader failed", exc)
+        return False
+
+
+def dispatch_jump(ctx, payload: dict) -> bool:
+    target = payload.get("target") or "event"
+    target_id = payload.get("id")
+    if target_id is None:
+        target_id = payload.get("eid")
+    if target_id is None:
+        return False
+    try:
+        target_id = int(target_id)
+    except Exception:
+        return False
+
+    if target == "event":
+        return _jump_to_event(ctx, target_id)
+    if target == "texture":
+        return _jump_to_texture(ctx, target_id)
+    if target == "shader":
+        return _jump_to_shader(ctx, target_id)
+    return False
+
+
+def _dispatch_jump_on_ui_thread(ctx, payload: dict, mini_qt) -> bool:
+    if mini_qt is None or not hasattr(mini_qt, "InvokeOntoUIThread"):
+        return dispatch_jump(ctx, payload)
+    try:
+        mini_qt.InvokeOntoUIThread(lambda: dispatch_jump(ctx, payload))
+        return True
+    except Exception as exc:
+        _log_event("Jump dispatch failed", exc)
+        return False
+
+
+def _jump_request_path(output_dir: Path) -> Path:
+    return output_dir / _JUMP_REQUEST_FILENAME
+
+
+def _jump_ack_path(output_dir: Path) -> Path:
+    return output_dir / _JUMP_ACK_FILENAME
+
+
+def _read_jump_payload(path: Path) -> Optional[dict]:
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except Exception as exc:
+        _log_event("Jump payload read failed", exc)
+        return None
+
+
+def _write_jump_ack(output_dir: Path, payload: dict) -> None:
+    try:
+        _jump_ack_path(output_dir).write_text(
+            json.dumps(payload, ensure_ascii=False), encoding="utf-8"
+        )
+    except Exception as exc:
+        _log_event("Jump ack write failed", exc)
+
+
+def _jump_watch_loop(output_dir: Path, ctx, mini_qt, stop_event: threading.Event) -> None:
+    last_request_id = None
+    ack_path = _jump_ack_path(output_dir)
+    if ack_path.exists():
+        payload = _read_jump_payload(ack_path)
+        if payload is not None:
+            last_request_id = payload.get("request_id")
+
+    while not stop_event.is_set():
+        req_path = _jump_request_path(output_dir)
+        if req_path.exists():
+            payload = _read_jump_payload(req_path)
+            if payload is not None:
+                request_id = payload.get("request_id")
+                if request_id is None:
+                    request_id = payload.get("timestamp")
+                if request_id != last_request_id:
+                    last_request_id = request_id
+                    ok = _dispatch_jump_on_ui_thread(ctx, payload, mini_qt)
+                    _write_jump_ack(
+                        output_dir,
+                        {
+                            "request_id": request_id,
+                            "timestamp": time.time(),
+                            "ok": bool(ok),
+                        },
+                    )
+        stop_event.wait(_JUMP_POLL_INTERVAL)
+
+
+def _start_jump_watcher(output_dir: Path, ctx, mini_qt) -> None:
+    global _jump_watch_thread, _jump_watch_stop, _jump_watch_output_dir
+    if (
+        _jump_watch_thread is not None
+        and _jump_watch_thread.is_alive()
+        and _jump_watch_output_dir == output_dir
+    ):
+        return
+
+    _stop_jump_watcher()
+    stop_event = threading.Event()
+    _jump_watch_stop = stop_event
+    _jump_watch_output_dir = output_dir
+    thread = threading.Thread(
+        target=_jump_watch_loop,
+        name="RDCAnalyzerJumpWatcher",
+        args=(output_dir, ctx, mini_qt, stop_event),
+        daemon=True,
+    )
+    _jump_watch_thread = thread
+    thread.start()
+
+
+def _stop_jump_watcher() -> None:
+    global _jump_watch_thread, _jump_watch_stop, _jump_watch_output_dir
+    stop_event = _jump_watch_stop
+    thread = _jump_watch_thread
+    if stop_event is not None:
+        stop_event.set()
+    if thread is not None:
+        try:
+            thread.join(timeout=1)
+        except Exception:
+            pass
+    _jump_watch_thread = None
+    _jump_watch_stop = None
+    _jump_watch_output_dir = None
 
 
 def _import_webui_server():
@@ -418,31 +659,14 @@ def prepare_webui(ctx, port: int = 8765):
     except Exception:
         mini_qt = None
 
-    def _do_jump(eid: int) -> bool:
-        if not hasattr(ctx, "SetEventID"):
-            return False
-        try:
-            try:
-                ctx.SetEventID([], eid, eid, True)
-            except TypeError:
-                ctx.SetEventID([], eid, eid)
-            return True
-        except Exception as exc:
-            _log_event("Jump to event failed", exc)
-            return False
-
     def jump_handler(eid: int):
-        if mini_qt is None:
-            return _do_jump(eid)
-        try:
-            mini_qt.InvokeOntoUIThread(lambda: _do_jump(eid))
-            return True
-        except Exception as exc:
-            _log_event("Jump to event failed", exc)
-            return False
+        return _dispatch_jump_on_ui_thread(
+            ctx, {"target": "event", "id": eid}, mini_qt
+        )
 
     try:
         url = ensure_webui_server(output_dir, analysis_file, port, jump_handler=jump_handler)
+        _start_jump_watcher(output_dir, ctx, mini_qt)
     except Exception as exc:
         _log_event("WebUI server failed", exc)
         return None, f"WebUI server failed: {exc}. See log: {_log_path()} (latest: {_LATEST_LOG_FILE})"

@@ -95,7 +95,7 @@ def dispatch_jump(ctx, req):
 
 ## Task Checklist
 - [x] Task 1: Define jump request schema + queue write in WebUI server
-- [ ] Task 2: Add GUI jump watcher + dispatcher
+- [x] Task 2: Add GUI jump watcher + dispatcher
 - [ ] Task 3: Wire event/texture/shader buttons + navigation helper
 - [ ] Task 4: Ensure bundle data contains needed IDs
 - [ ] Task 5: Tests + docs update
@@ -129,6 +129,7 @@ def _write_jump_request(root, payload):
 **Step 4: Run test to verify it passes**
 Run: `py -3 -m pytest scripts/rdc_analyzer/tests/test_webui_jump_queue.py -v`
 Expected: PASS
+Result: PASS (2026-02-24)
 Result: PASS (2026-02-24)
 
 **Step 5: Commit**
