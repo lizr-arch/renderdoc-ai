@@ -5,6 +5,8 @@ Simple local server for WebUI assets.
 """
 
 import argparse
+import json
+import time
 from functools import partial
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -133,26 +135,36 @@ class WebUIRequestHandler(SimpleHTTPRequestHandler):
         super().do_GET()
 
     def _handle_jump(self, parsed) -> None:
-        if self._jump_handler is None:
-            self.send_error(404, "Jump not available")
-            return
-
         qs = parse_qs(parsed.query)
-        eid_str = (qs.get("eid") or [None])[0]
-        if eid_str is None:
-            self.send_error(400, "Missing eid")
+        target = (qs.get("target") or ["event"])[0]
+        id_str = (qs.get("id") or qs.get("eid") or [None])[0]
+        if id_str is None:
+            self.send_error(400, "Missing id")
             return
         try:
-            eid = int(eid_str)
+            target_id = int(id_str)
         except ValueError:
-            self.send_error(400, "Invalid eid")
+            self.send_error(400, "Invalid id")
             return
 
-        try:
-            self._jump_handler(eid)
-        except Exception:
-            self.send_error(500, "Jump failed")
-            return
+        if self._jump_handler is not None:
+            try:
+                self._jump_handler(target_id)
+            except Exception:
+                self.send_error(500, "Jump failed")
+                return
+        else:
+            payload = {
+                "request_id": int(time.time() * 1000),
+                "timestamp": time.time(),
+                "target": target,
+                "id": target_id,
+            }
+            try:
+                _write_jump_request(self._report_root, payload)
+            except Exception:
+                self.send_error(500, "Jump queue write failed")
+                return
 
         payload = b"{\"ok\": true}"
         self.send_response(200)
@@ -160,6 +172,15 @@ class WebUIRequestHandler(SimpleHTTPRequestHandler):
         self.send_header("Content-Length", str(len(payload)))
         self.end_headers()
         self.wfile.write(payload)
+
+
+def _write_jump_request(report_root: Path, payload: dict) -> Path:
+    report_root = report_root.resolve()
+    tmp_path = report_root / "rdc_analyzer_jump.tmp"
+    dst_path = report_root / "rdc_analyzer_jump.json"
+    tmp_path.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
+    tmp_path.replace(dst_path)
+    return dst_path
 
     def translate_path(self, path: str) -> str:
         mapped = map_request_path(
