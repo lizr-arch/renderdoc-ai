@@ -404,7 +404,13 @@ def prepare_webui(ctx, port: int = 8765):
     except Exception as exc:
         _log_event("Report generation failed; falling back to WebUI assets", exc)
 
-    def jump_handler(eid: int):
+    mini_qt = None
+    try:
+        mini_qt = ctx.Extensions().GetMiniQtHelper()
+    except Exception:
+        mini_qt = None
+
+    def _do_jump(eid: int) -> bool:
         if not hasattr(ctx, "SetEventID"):
             return False
         try:
@@ -412,6 +418,16 @@ def prepare_webui(ctx, port: int = 8765):
                 ctx.SetEventID([], eid, eid, True)
             except TypeError:
                 ctx.SetEventID([], eid, eid)
+            return True
+        except Exception as exc:
+            _log_event("Jump to event failed", exc)
+            return False
+
+    def jump_handler(eid: int):
+        if mini_qt is None:
+            return _do_jump(eid)
+        try:
+            mini_qt.InvokeOntoUIThread(lambda: _do_jump(eid))
             return True
         except Exception as exc:
             _log_event("Jump to event failed", exc)
