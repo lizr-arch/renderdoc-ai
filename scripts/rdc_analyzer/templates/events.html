@@ -2151,6 +2151,7 @@
                 <span class="event-eid">#${event.eid}</span>
                 <span class="event-type ${getEventTypeClass(event.type)}">${typeIcon}</span>
                 <span class="event-name">${escapeHtml(event.name || getDefaultEventName(event))}${childBadge}</span>
+                <button class="rdc-jump-btn" onclick="jumpToRenderDoc(${event.eid}); event.stopPropagation();" title="Jump to RenderDoc">↗ GUI</button>
                 ${durationText ? `<span class="event-duration ${durationClass}">${durationText}</span>` : ''}
             `;
             

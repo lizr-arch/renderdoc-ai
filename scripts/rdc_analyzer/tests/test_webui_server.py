@@ -139,3 +139,29 @@ def test_start_server_background_serves_analysis(tmp_path):
         httpd.shutdown()
         httpd.server_close()
         thread.join(timeout=1)
+
+
+def test_jump_endpoint_calls_handler(tmp_path):
+    from rdc_analyzer.webui import server
+
+    root = tmp_path / "root"
+    root.mkdir()
+    (root / "analysis.json").write_text("{}", encoding="utf-8")
+
+    calls = {}
+
+    def jump_handler(eid):
+        calls["eid"] = eid
+
+    httpd, thread, port = server.start_server(str(root), 0, None, jump_handler=jump_handler)
+    try:
+        url = f"http://127.0.0.1:{port}/api/jump?eid=7"
+        with urllib.request.urlopen(url, timeout=1) as resp:
+            body = resp.read().decode("utf-8")
+        assert "\"ok\": true" in body
+    finally:
+        httpd.shutdown()
+        httpd.server_close()
+        thread.join(timeout=1)
+
+    assert calls.get("eid") == 7

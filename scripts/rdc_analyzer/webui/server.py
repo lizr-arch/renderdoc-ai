@@ -9,7 +9,7 @@ from functools import partial
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Optional
-from urllib.parse import urlsplit
+from urllib.parse import parse_qs, urlsplit
 import socket
 import threading
 
@@ -83,7 +83,12 @@ def pick_port(requested: int) -> int:
             return sock.getsockname()[1]
 
 
-def start_server(root: str, port: int = 8765, data: Optional[str] = None):
+def start_server(
+    root: str,
+    port: int = 8765,
+    data: Optional[str] = None,
+    jump_handler=None,
+):
     analysis_file = resolve_analysis_file(root, data)
     assets_root = resolve_assets_dir()
     report_root = Path(root).resolve()
@@ -92,9 +97,11 @@ def start_server(root: str, port: int = 8765, data: Optional[str] = None):
         analysis_file=analysis_file,
         report_root=report_root,
         assets_root=assets_root,
+        jump_handler=jump_handler,
     )
     bound_port = pick_port(port)
     httpd = ThreadingHTTPServer(("127.0.0.1", bound_port), handler)
+    httpd.jump_handler = jump_handler
     thread = threading.Thread(
         target=httpd.serve_forever, name="RDCAnalyzerWebUI", daemon=True
     )
@@ -109,12 +116,50 @@ class WebUIRequestHandler(SimpleHTTPRequestHandler):
         analysis_file: Path,
         report_root: Path,
         assets_root: Path,
+        jump_handler=None,
         **kwargs,
     ):
         self._analysis_file = analysis_file
         self._report_root = report_root
         self._assets_root = assets_root
+        self._jump_handler = jump_handler
         super().__init__(*args, directory=str(report_root), **kwargs)
+
+    def do_GET(self):
+        parsed = urlsplit(self.path)
+        if parsed.path == "/api/jump":
+            self._handle_jump(parsed)
+            return
+        super().do_GET()
+
+    def _handle_jump(self, parsed) -> None:
+        if self._jump_handler is None:
+            self.send_error(404, "Jump not available")
+            return
+
+        qs = parse_qs(parsed.query)
+        eid_str = (qs.get("eid") or [None])[0]
+        if eid_str is None:
+            self.send_error(400, "Missing eid")
+            return
+        try:
+            eid = int(eid_str)
+        except ValueError:
+            self.send_error(400, "Invalid eid")
+            return
+
+        try:
+            self._jump_handler(eid)
+        except Exception:
+            self.send_error(500, "Jump failed")
+            return
+
+        payload = b"{\"ok\": true}"
+        self.send_response(200)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", str(len(payload)))
+        self.end_headers()
+        self.wfile.write(payload)
 
     def translate_path(self, path: str) -> str:
         mapped = map_request_path(

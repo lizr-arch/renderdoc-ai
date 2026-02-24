@@ -279,3 +279,18 @@ if (document.readyState === 'loading') {
 } else {
     RdcNav.init();
 }
+
+// ==================== RenderDoc GUI 跳转 ====================
+async function jumpToRenderDoc(eid) {
+    const value = Number.parseInt(eid, 10);
+    if (!Number.isFinite(value)) {
+        return;
+    }
+    try {
+        await fetch(`/api/jump?eid=${value}`);
+    } catch (err) {
+        console.warn('[RdcNav] Jump to RenderDoc failed', err);
+    }
+}
+
+window.jumpToRenderDoc = jumpToRenderDoc;

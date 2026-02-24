@@ -316,7 +316,12 @@ def _start_external_webui_server(output_dir: Path, analysis_file: Path, port: in
     raise RuntimeError("External WebUI server did not report startup URL (see log).")
 
 
-def ensure_webui_server(output_dir: Path, analysis_file: Path, port: int = 8765) -> str:
+def ensure_webui_server(
+    output_dir: Path,
+    analysis_file: Path,
+    port: int = 8765,
+    jump_handler=None,
+) -> str:
     global _webui_server, _webui_thread, _webui_port, _webui_analysis, _webui_external_url
 
     analysis_resolved = analysis_file.resolve()
@@ -340,7 +345,7 @@ def ensure_webui_server(output_dir: Path, analysis_file: Path, port: int = 8765)
         raise
 
     httpd, thread, bound_port = webui_server.start_server(
-        str(output_dir), port, str(analysis_resolved)
+        str(output_dir), port, str(analysis_resolved), jump_handler=jump_handler
     )
     _webui_server = httpd
     _webui_thread = thread
@@ -399,8 +404,21 @@ def prepare_webui(ctx, port: int = 8765):
     except Exception as exc:
         _log_event("Report generation failed; falling back to WebUI assets", exc)
 
+    def jump_handler(eid: int):
+        if not hasattr(ctx, "SetEventID"):
+            return False
+        try:
+            try:
+                ctx.SetEventID([], eid, eid, True)
+            except TypeError:
+                ctx.SetEventID([], eid, eid)
+            return True
+        except Exception as exc:
+            _log_event("Jump to event failed", exc)
+            return False
+
     try:
-        url = ensure_webui_server(output_dir, analysis_file, port)
+        url = ensure_webui_server(output_dir, analysis_file, port, jump_handler=jump_handler)
     except Exception as exc:
         _log_event("WebUI server failed", exc)
         return None, f"WebUI server failed: {exc}. See log: {_log_path()} (latest: {_LATEST_LOG_FILE})"

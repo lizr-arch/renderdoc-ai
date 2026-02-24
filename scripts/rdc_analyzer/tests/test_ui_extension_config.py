@@ -281,9 +281,9 @@ def test_ensure_webui_server_starts_and_reuses(tmp_path, monkeypatch):
         def is_alive(self):
             return self._alive
 
-    def fake_start(root, port, data):
+    def fake_start(root, port, data, jump_handler=None):
         calls["count"] += 1
-        calls["args"] = (root, port, data)
+        calls["args"] = (root, port, data, jump_handler)
         return object(), DummyThread(), 9001
 
     webui_server = type("M", (), {"start_server": fake_start})
@@ -291,8 +291,8 @@ def test_ensure_webui_server_starts_and_reuses(tmp_path, monkeypatch):
     monkeypatch.setitem(sys.modules, "rdc_analyzer.webui", type("P", (), {"server": webui_server}))
 
     analysis_file = tmp_path / "analysis.json"
-    url1 = ext.ensure_webui_server(tmp_path, analysis_file, 8765)
-    url2 = ext.ensure_webui_server(tmp_path, analysis_file, 8765)
+    url1 = ext.ensure_webui_server(tmp_path, analysis_file, 8765, jump_handler=lambda _e: None)
+    url2 = ext.ensure_webui_server(tmp_path, analysis_file, 8765, jump_handler=lambda _e: None)
 
     assert url1 == "http://127.0.0.1:9001/"
     assert url2 == "http://127.0.0.1:9001/"
@@ -323,7 +323,11 @@ def test_prepare_webui_happy_path(tmp_path, monkeypatch):
     monkeypatch.setattr(ext, "derive_output_dir", lambda _p: tmp_path)
     monkeypatch.setattr(ext, "run_analysis", lambda _p, _d: tmp_path / "analysis.json")
     monkeypatch.setattr(ext, "generate_report_from_analysis", lambda *_a, **_k: calls.setdefault("report", True))
-    monkeypatch.setattr(ext, "ensure_webui_server", lambda _d, _a, _p=8765: "http://127.0.0.1:9001/")
+    monkeypatch.setattr(
+        ext,
+        "ensure_webui_server",
+        lambda _d, _a, _p=8765, jump_handler=None: "http://127.0.0.1:9001/",
+    )
 
     url, error = ext.prepare_webui(Ctx())
     assert error is None
