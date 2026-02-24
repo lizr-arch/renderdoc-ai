@@ -115,6 +115,126 @@ def test_run_analysis_invokes_shell_run(tmp_path, monkeypatch):
     assert out == tmp_path / "analysis.json"
 
 
+def test_run_analysis_uses_alias_package(monkeypatch, tmp_path):
+    _install_dummy_qrenderdoc(monkeypatch)
+    from rdc_analyzer.ui_extension import analyzer_extension as ext
+
+    fake_root = types.ModuleType("rdc_analyzer")
+    fake_root.__path__ = [str(tmp_path)]
+    monkeypatch.setitem(sys.modules, "rdc_analyzer", fake_root)
+
+    fake_pkg = types.SimpleNamespace(__name__="fakepkg")
+    monkeypatch.setattr(ext, "_load_analyzer_package", lambda _root: fake_pkg)
+
+    calls = {}
+
+    def fake_run(rdc_path, output_dir, output_name="analysis.json", overwrite=True):
+        calls["args"] = (rdc_path, output_dir, output_name, overwrite)
+        return Path(output_dir) / output_name
+
+    fake_shell = types.ModuleType("fakepkg.tools.renderdoc_shell_analyze")
+    fake_shell.run = fake_run
+    monkeypatch.setitem(sys.modules, "fakepkg.tools.renderdoc_shell_analyze", fake_shell)
+
+    out = ext.run_analysis("X.rdc", tmp_path)
+    assert calls["args"][0] == "X.rdc"
+    assert Path(calls["args"][1]) == tmp_path
+    assert out == tmp_path / "analysis.json"
+
+
+def test_ui_extension_logs_missing_dataclasses(monkeypatch, tmp_path):
+    _install_dummy_qrenderdoc(monkeypatch)
+    from rdc_analyzer.ui_extension import analyzer_extension as ext
+
+    monkeypatch.setattr(ext, "_log_path", lambda: tmp_path / "rdc_analyzer.log")
+
+    import builtins
+
+    real_import = builtins.__import__
+
+    def fake_import(name, *args, **kwargs):
+        if name == "dataclasses":
+            raise ModuleNotFoundError("No module named 'dataclasses'")
+        return real_import(name, *args, **kwargs)
+
+    monkeypatch.setattr(builtins, "__import__", fake_import)
+
+    class Ctx:
+        def CaptureFilename(self):
+            return str(tmp_path / "cap.rdc")
+
+    url, error = ext.prepare_webui(Ctx())
+    assert url is None
+    assert error is not None
+    assert "dataclasses" in error.lower()
+
+    log_path = tmp_path / "rdc_analyzer.log"
+    assert log_path.exists()
+    log_text = log_path.read_text(encoding="utf-8")
+    assert "Missing 'dataclasses' module" in log_text
+
+
+def test_ui_extension_falls_back_to_vendor_dataclasses(monkeypatch, tmp_path):
+    _install_dummy_qrenderdoc(monkeypatch)
+    from rdc_analyzer.ui_extension import analyzer_extension as ext
+
+    vendor_dir = tmp_path / "rdc_analyzer" / "_vendor" / "dataclasses"
+    vendor_dir.mkdir(parents=True)
+    (vendor_dir / "dataclasses.py").write_text("value = 42\n", encoding="utf-8")
+
+    monkeypatch.setattr(ext, "resolve_scripts_root", lambda *args, **kwargs: tmp_path)
+    monkeypatch.setattr(ext, "_log_path", lambda: tmp_path / "rdc_analyzer.log")
+
+    import builtins
+    import importlib.util
+
+    real_import = builtins.__import__
+
+    def fake_import(name, *args, **kwargs):
+        if name == "dataclasses":
+            if str(vendor_dir) in sys.path:
+                spec = importlib.util.spec_from_file_location(
+                    "dataclasses", vendor_dir / "dataclasses.py"
+                )
+                module = importlib.util.module_from_spec(spec)
+                sys.modules["dataclasses"] = module
+                assert spec.loader is not None
+                spec.loader.exec_module(module)
+                return module
+            raise ModuleNotFoundError("No module named 'dataclasses'")
+        return real_import(name, *args, **kwargs)
+
+    monkeypatch.setattr(builtins, "__import__", fake_import)
+
+    ok, error = ext._check_dataclasses_available()
+    assert ok is True
+    assert error is None
+    assert "dataclasses" in sys.modules
+
+
+def test_tools_init_does_not_import_install_ui_extension(monkeypatch):
+    _install_dummy_qrenderdoc(monkeypatch)
+
+    for name in list(sys.modules):
+        if name.startswith("rdc_analyzer.tools"):
+            sys.modules.pop(name, None)
+
+    import builtins
+
+    real_import = builtins.__import__
+
+    def fake_import(name, globals=None, locals=None, fromlist=(), level=0):
+        if name == "rdc_analyzer.tools" and fromlist and "install_ui_extension" in fromlist:
+            raise SyntaxError("future feature annotations is not defined")
+        return real_import(name, globals, locals, fromlist, level)
+
+    monkeypatch.setattr(builtins, "__import__", fake_import)
+
+    import rdc_analyzer.tools as tools  # noqa: F401
+
+    assert "rdc_analyzer.tools.install_ui_extension" not in sys.modules
+
+
 def test_get_capture_filename_prefers_new_api(monkeypatch):
     _install_dummy_qrenderdoc(monkeypatch)
     from rdc_analyzer.ui_extension import analyzer_extension as ext
@@ -135,6 +255,17 @@ def test_get_capture_filename_falls_back(monkeypatch):
             return "B.rdc"
 
     assert ext.get_capture_filename(Ctx()) == "B.rdc"
+
+
+def test_get_capture_filename_supports_getcapture(monkeypatch):
+    _install_dummy_qrenderdoc(monkeypatch)
+    from rdc_analyzer.ui_extension import analyzer_extension as ext
+
+    class Ctx:
+        def GetCaptureFilename(self):
+            return "C.rdc"
+
+    assert ext.get_capture_filename(Ctx()) == "C.rdc"
 
 
 def test_ensure_webui_server_starts_and_reuses(tmp_path, monkeypatch):
@@ -188,13 +319,16 @@ def test_prepare_webui_happy_path(tmp_path, monkeypatch):
         def CaptureFilename(self):
             return "C:\\caps\\frame.rdc"
 
+    calls = {}
     monkeypatch.setattr(ext, "derive_output_dir", lambda _p: tmp_path)
     monkeypatch.setattr(ext, "run_analysis", lambda _p, _d: tmp_path / "analysis.json")
+    monkeypatch.setattr(ext, "generate_report_from_analysis", lambda *_a, **_k: calls.setdefault("report", True))
     monkeypatch.setattr(ext, "ensure_webui_server", lambda _d, _a, _p=8765: "http://127.0.0.1:9001/")
 
     url, error = ext.prepare_webui(Ctx())
     assert error is None
     assert url == "http://127.0.0.1:9001/"
+    assert calls.get("report") is True
 
 
 def test_open_webui_task_calls_ready(monkeypatch):
@@ -265,7 +399,84 @@ def test_open_webui_callback_invokes_task(monkeypatch):
     assert calls["args"][4] is True
 
 
+def test_get_provider_class_ignores_extension_package(monkeypatch):
+    _install_dummy_qrenderdoc(monkeypatch)
+    from rdc_analyzer.ui_extension import analyzer_extension as ext
+
+    fake_pkg = types.ModuleType("rdc_analyzer")
+    fake_pkg.__path__ = [str(Path(__file__).parent)]
+    monkeypatch.setitem(sys.modules, "rdc_analyzer", fake_pkg)
+    monkeypatch.setenv("RDC_ANALYZER_SCRIPTS", str(SCRIPT_ROOT))
+
+    provider_cls = ext.get_provider_class()
+    assert provider_cls.__name__ == "QRenderDocProvider"
+
+
+def test_extension_reload_sets_spec(monkeypatch):
+    _install_dummy_qrenderdoc(monkeypatch)
+    import importlib
+    import imp
+
+    ext_dir = Path(__file__).resolve().parents[1] / "ui_extension"
+
+    parent = types.ModuleType("rdc_analyzer")
+    parent.__path__ = [str(ext_dir)]
+    monkeypatch.setitem(sys.modules, "rdc_analyzer", parent)
+
+    module = imp.load_source("rdc_analyzer.analyzer_extension", str(ext_dir / "analyzer_extension.py"))
+    importlib.reload(module)
+
+
+def test_extension_exec_without_spec_sets_spec(monkeypatch):
+    _install_dummy_qrenderdoc(monkeypatch)
+    ext_dir = Path(__file__).resolve().parents[1] / "ui_extension"
+    module_path = ext_dir / "analyzer_extension.py"
+
+    parent = types.ModuleType("rdc_analyzer")
+    parent.__path__ = [str(ext_dir)]
+    monkeypatch.setitem(sys.modules, "rdc_analyzer", parent)
+
+    module = types.ModuleType("rdc_analyzer.analyzer_extension")
+    module.__file__ = str(module_path)
+    module.__package__ = "rdc_analyzer"
+    module.__spec__ = None
+    sys.modules["rdc_analyzer.analyzer_extension"] = module
+
+    exec(compile(module_path.read_text(encoding="utf-8"), module.__file__, "exec"), module.__dict__)
+    assert module.__spec__ is not None
+
+
 def test_extension_file_avoids_future_annotations():
     extension_file = Path(__file__).resolve().parents[1] / "ui_extension" / "analyzer_extension.py"
     content = extension_file.read_text(encoding="utf-8")
     assert "from __future__ import annotations" not in content
+
+
+def test_gui_pipeline_files_avoid_future_annotations():
+    root = Path(__file__).resolve().parents[1]
+    candidates = [
+        root / "tools" / "renderdoc_shell_analyze.py",
+        root / "webui" / "server.py",
+    ]
+    for path in candidates:
+        content = path.read_text(encoding="utf-8")
+        assert "from __future__ import annotations" not in content
+
+
+def test_webui_falls_back_when_socket_missing(monkeypatch, tmp_path):
+    _install_dummy_qrenderdoc(monkeypatch)
+    from rdc_analyzer.ui_extension import analyzer_extension as ext
+
+    fake_analysis = tmp_path / "analysis.json"
+    fake_analysis.write_text("{}", encoding="utf-8")
+    out_dir = tmp_path / "out"
+    out_dir.mkdir()
+
+    def fake_import():
+        raise ModuleNotFoundError("_socket")
+
+    monkeypatch.setattr(ext, "_import_webui_server", fake_import)
+    monkeypatch.setattr(ext, "_start_external_webui_server", lambda *_args, **_kwargs: "http://127.0.0.1:9999/")
+
+    url = ext.ensure_webui_server(out_dir, fake_analysis, 8765)
+    assert url == "http://127.0.0.1:9999/"

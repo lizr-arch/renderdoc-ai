@@ -4,8 +4,6 @@
 Simple local server for WebUI assets.
 """
 
-from __future__ import annotations
-
 import argparse
 from functools import partial
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
@@ -38,18 +36,35 @@ def resolve_analysis_file(root: str, data: Optional[str]) -> Path:
     return resolved_root / "analysis.json"
 
 
-def map_request_path(request_path: str, analysis_file: Path, assets_root: Path) -> Path:
+def map_request_path(
+    request_path: str,
+    analysis_file: Path,
+    report_root: Path,
+    assets_root: Path,
+) -> Path:
     parsed = urlsplit(request_path)
     if parsed.path == "/analysis.json":
         return analysis_file
     rel_path = parsed.path.lstrip("/")
-    candidate = (assets_root / rel_path).resolve()
+    report_root_resolved = report_root.resolve()
     assets_root_resolved = assets_root.resolve()
-    try:
-        candidate.relative_to(assets_root_resolved)
-    except ValueError:
-        return assets_root_resolved
-    return candidate
+
+    if rel_path == "":
+        report_index = report_root_resolved / "index.html"
+        if report_index.exists():
+            return report_index
+        return assets_root_resolved / "index.html"
+
+    for root in (report_root_resolved, assets_root_resolved):
+        candidate = (root / rel_path).resolve()
+        try:
+            candidate.relative_to(root)
+        except ValueError:
+            continue
+        if candidate.exists():
+            return candidate
+
+    return assets_root_resolved / "index.html"
 
 
 def pick_port(requested: int) -> int:
@@ -71,7 +86,13 @@ def pick_port(requested: int) -> int:
 def start_server(root: str, port: int = 8765, data: Optional[str] = None):
     analysis_file = resolve_analysis_file(root, data)
     assets_root = resolve_assets_dir()
-    handler = partial(WebUIRequestHandler, analysis_file=analysis_file, assets_root=assets_root)
+    report_root = Path(root).resolve()
+    handler = partial(
+        WebUIRequestHandler,
+        analysis_file=analysis_file,
+        report_root=report_root,
+        assets_root=assets_root,
+    )
     bound_port = pick_port(port)
     httpd = ThreadingHTTPServer(("127.0.0.1", bound_port), handler)
     thread = threading.Thread(
@@ -82,13 +103,23 @@ def start_server(root: str, port: int = 8765, data: Optional[str] = None):
 
 
 class WebUIRequestHandler(SimpleHTTPRequestHandler):
-    def __init__(self, *args, analysis_file: Path, assets_root: Path, **kwargs):
+    def __init__(
+        self,
+        *args,
+        analysis_file: Path,
+        report_root: Path,
+        assets_root: Path,
+        **kwargs,
+    ):
         self._analysis_file = analysis_file
+        self._report_root = report_root
         self._assets_root = assets_root
-        super().__init__(*args, directory=str(assets_root), **kwargs)
+        super().__init__(*args, directory=str(report_root), **kwargs)
 
     def translate_path(self, path: str) -> str:
-        mapped = map_request_path(path, self._analysis_file, self._assets_root)
+        mapped = map_request_path(
+            path, self._analysis_file, self._report_root, self._assets_root
+        )
         return str(mapped)
 
 

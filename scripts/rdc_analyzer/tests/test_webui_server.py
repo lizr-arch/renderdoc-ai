@@ -33,8 +33,30 @@ def test_map_request_path_routes_to_assets_and_analysis():
 
         assets_root = server.resolve_assets_dir()
         analysis_file = root / "analysis.json"
-        assert server.map_request_path("/analysis.json", analysis_file, assets_root) == analysis_file
-        assert server.map_request_path("/app.js", analysis_file, assets_root) == (assets_root / "app.js").resolve()
+        report_root = root
+        assert (
+            server.map_request_path("/analysis.json", analysis_file, report_root, assets_root)
+            == analysis_file
+        )
+        assert (
+            server.map_request_path("/app.js", analysis_file, report_root, assets_root)
+            == (assets_root / "app.js").resolve()
+        )
+
+
+def test_map_request_path_prefers_report_index(tmp_path):
+    from rdc_analyzer.webui import server
+
+    root = tmp_path / "root"
+    root.mkdir()
+    (root / "analysis.json").write_text("{}", encoding="utf-8")
+    (root / "index.html").write_text("<html>report</html>", encoding="utf-8")
+
+    assets_root = server.resolve_assets_dir()
+    analysis_file = root / "analysis.json"
+    report_index = (root / "index.html").resolve()
+    assert server.map_request_path("/", analysis_file, root, assets_root) == report_index
+    assert server.map_request_path("/index.html", analysis_file, root, assets_root) == report_index
 
 
 def test_resolve_analysis_file_prefers_data(tmp_path):
