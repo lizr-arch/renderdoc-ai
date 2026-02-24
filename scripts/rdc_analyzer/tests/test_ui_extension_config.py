@@ -322,7 +322,7 @@ def test_prepare_webui_happy_path(tmp_path, monkeypatch):
     calls = {}
     monkeypatch.setattr(ext, "derive_output_dir", lambda _p: tmp_path)
     monkeypatch.setattr(ext, "run_analysis", lambda _p, _d: tmp_path / "analysis.json")
-    monkeypatch.setattr(ext, "generate_report_from_analysis", lambda *_a, **_k: calls.setdefault("report", True))
+    monkeypatch.setattr(ext, "_load_report_generator", lambda _r: lambda *_a, **_k: calls.setdefault("report", True))
     monkeypatch.setattr(
         ext,
         "ensure_webui_server",

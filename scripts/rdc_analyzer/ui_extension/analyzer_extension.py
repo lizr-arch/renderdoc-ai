@@ -17,7 +17,6 @@ from pathlib import Path
 from typing import Optional, Tuple
 
 import qrenderdoc as qrd
-from rdc_analyzer.report_from_analysis import generate_report_from_analysis
 
 if __spec__ is None:
     import importlib.util as _importlib_util
@@ -191,6 +190,14 @@ def _load_analyzer_package(root: Path):
     sys.modules[_ANALYZER_MODULE_NAME] = module
     spec.loader.exec_module(module)
     return module
+
+
+def _load_report_generator(root: Path):
+    package = _load_analyzer_package(root)
+    import importlib
+
+    module = importlib.import_module(f"{package.__name__}.report_from_analysis")
+    return module.generate_report_from_analysis
 
 
 def get_provider_class():
@@ -400,7 +407,8 @@ def prepare_webui(ctx, port: int = 8765):
 
     try:
         capture_name = Path(capture).name if capture else "capture"
-        generate_report_from_analysis(analysis_file, output_dir, capture_name)
+        report_generator = _load_report_generator(ensure_scripts_path())
+        report_generator(analysis_file, output_dir, capture_name)
     except Exception as exc:
         _log_event("Report generation failed; falling back to WebUI assets", exc)
 
