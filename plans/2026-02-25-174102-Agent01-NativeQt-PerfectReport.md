@@ -665,6 +665,20 @@ bool AnalyzerExporter::WriteAll(const AnalyzerSnapshot &snap, const rdcstr &dir)
 - [x] **Verification**
   - `MSBuild.exe renderdoc.sln /p:Configuration=Development /p:Platform=x64 /m /v:minimal /nologo` (PASS)
   - `qrenderdoc.exe --unittest` (PASS, exit 0)
-  - `qrenderdoc.exe --unittest "[analyzer]"` (exit 0, currently no `[analyzer]` test cases registered)
+  - `qrenderdoc.exe --unittest "[analyzer]"` (exit 0, analyzer-tagged test cases now registered)
 - [ ] **Next pending**
   - Manual GUI acceptance on known problematic captures: Issues -> Texture/Shader jump correctness + Refresh/Export/busy behavior.
+
+
+### 2026-02-25 21:45 (Agent continuation)
+
+- [x] **No-repeat docs synced for follow-up sessions**
+  - Handoff updated with explicit "completed vs remaining" guard:
+    - `plans/2026-02-25-184200-Agent01-NativeQt-Handoff.md`
+  - This avoids repeating already finished jump/sort/perf M1 work in later sessions.
+- [x] **Analyzer-tagged tests implemented**
+  - Added `[analyzer]` unit tests for:
+    - jump helper logic in `AnalyzerReportViewer.cpp`
+    - numeric sorting behavior in `AnalyzerModels.cpp`
+- [ ] **Next pending**
+  - You (manual validation): real-capture GUI acceptance of Jump/Refresh/Export/busy paths.

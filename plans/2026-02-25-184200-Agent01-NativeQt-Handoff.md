@@ -187,3 +187,48 @@ git log -6 --oneline
 # 打开 capture -> Window -> Analyzer Report -> Refresh / Jump To EID / Export
 ```
 
+
+
+---
+
+## 6. 2026-02-25 Late Update (No-Repeat Guard)
+
+This section is appended to prevent duplicate implementation in follow-up sessions.
+
+### Completed after this handoff
+
+1. **Jump reliability + table UX delivered**
+   - Commit: `b9fae4a58`
+   - Files:
+     - `qrenderdoc/Windows/AnalyzerReportViewer.cpp/.h`
+     - `qrenderdoc/Windows/AnalyzerModels.cpp/.h`
+   - Scope:
+     - Issue jump now prefers texture/shader concrete targets with stronger fallback.
+     - Shader jump uses stage-aware entrypoint selection and pipeline-aware reflection lookup.
+     - Events/Resources/Shaders support deterministic asc/desc sorting with numeric semantics.
+
+2. **Load optimization M1 delivered**
+   - Commit: `75d33fb90`
+   - Files:
+     - `qrenderdoc/Code/Analyzer/FrameAnalyzer.cpp/.h`
+   - Scope:
+     - Skip replay pipeline-state fetch for non draw/dispatch events.
+     - Replace repeated linear shader aggregation updates with indexed map lookup.
+
+3. **Analyzer-tagged unit tests added**
+   - In-progress branch changes include analyzer tests in:
+     - `qrenderdoc/Windows/AnalyzerReportViewer.cpp`
+     - `qrenderdoc/Windows/AnalyzerModels.cpp`
+   - Goal: `qrenderdoc --unittest "[analyzer]"` should no longer report "No test cases matched".
+
+### Current remaining tasks (do not re-implement completed items)
+
+1. Manual GUI acceptance on known problematic captures:
+   - Issues -> Texture/Shader jump correctness
+   - Refresh/Export/busy-progress interaction behavior
+2. Optional: broaden analyzer rule coverage (beyond baseline heuristics) after jump/sort/perf M1 validation is signed off.
+
+### Continuation pointer
+
+- Active execution plan for this stage:
+  - `plans/2026-02-25-213429-Agent01-AnalyzerTests-DocSync.md`
