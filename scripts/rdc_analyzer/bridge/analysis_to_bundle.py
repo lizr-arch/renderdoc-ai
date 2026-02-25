@@ -17,6 +17,22 @@ def _normalize_draw_type(draw_type: Optional[str]) -> str:
     return str(draw_type).strip().lower()
 
 
+def _parse_resource_id(value: Any) -> Optional[Any]:
+    if value is None:
+        return None
+    if isinstance(value, int):
+        return value
+    text = str(value)
+    if text.startswith("ResourceId::"):
+        text = text[len("ResourceId::") :]
+    if text in ("Null()", "0", "0()"):
+        return None
+    try:
+        return int(text)
+    except ValueError:
+        return value
+
+
 def _extract_shader(binding: Optional[Dict[str, Any]], stage: str) -> Optional[Dict[str, Any]]:
     if not binding:
         return None
@@ -31,6 +47,22 @@ def _extract_shader(binding: Optional[Dict[str, Any]], stage: str) -> Optional[D
     if shader_id is None and name is None:
         return None
     return {"id": shader_id, "name": name, "stage": stage}
+
+
+def _normalize_shader_ids(shader: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    shader_id = shader.get("id")
+    if shader_id is None:
+        shader_id = shader.get("resource_id")
+    if shader_id is None:
+        shader_id = shader.get("resourceId")
+    shader_id = _parse_resource_id(shader_id)
+    if shader_id in (None, 0):
+        return None
+    if "id" not in shader:
+        shader["id"] = shader_id
+    if "resource_id" not in shader:
+        shader["resource_id"] = shader_id
+    return shader
 
 
 def _normalize_texture_ids(texture: Dict[str, Any]) -> None:
@@ -54,6 +86,9 @@ def _record_shader(
     shader_usage: Dict[str, List[int]],
     eid: Optional[int],
 ) -> None:
+    shader = _normalize_shader_ids(shader)
+    if shader is None:
+        return
     key = (shader.get("id"), shader.get("stage"), shader.get("name"))
     if key not in seen:
         seen.add(key)
@@ -62,6 +97,21 @@ def _record_shader(
     if shader_id is None or eid is None:
         return
     shader_usage.setdefault(str(shader_id), []).append(int(eid))
+
+
+def _record_shader_usage(
+    shader_usage: Dict[str, List[int]], shader_id: Any, eid: Optional[int]
+) -> None:
+    if eid is None:
+        return
+    shader_id = _parse_resource_id(shader_id)
+    if shader_id in (None, 0):
+        return
+    try:
+        event_id = int(eid)
+    except Exception:
+        return
+    shader_usage.setdefault(str(shader_id), []).append(event_id)
 
 
 def analysis_to_bundle(analysis: Dict[str, Any]) -> BundleData:
@@ -78,6 +128,11 @@ def analysis_to_bundle(analysis: Dict[str, Any]) -> BundleData:
             continue
         _normalize_texture_ids(texture)
         textures.append(texture)
+
+    for shader in analysis.get("shaders") or []:
+        if not isinstance(shader, dict):
+            continue
+        _record_shader(shader, shaders, seen_shaders, shader_usage, None)
 
     summary = analysis.get("summary") or analysis.get("stats") or {}
     if isinstance(summary, dict):
@@ -122,6 +177,19 @@ def analysis_to_bundle(analysis: Dict[str, Any]) -> BundleData:
                 _record_shader(ps_shader, shaders, seen_shaders, shader_usage, eid)
 
         events.append(event)
+
+    pipeline_samples = analysis.get("pipeline_samples") or {}
+    samples = None
+    if isinstance(pipeline_samples, dict):
+        samples = pipeline_samples.get("samples")
+    if isinstance(samples, list):
+        for sample in samples:
+            if not isinstance(sample, dict):
+                continue
+            event_id = sample.get("event_id") or sample.get("eventId")
+            _record_shader_usage(shader_usage, sample.get("vertex_shader_id"), event_id)
+            _record_shader_usage(shader_usage, sample.get("pixel_shader_id"), event_id)
+            _record_shader_usage(shader_usage, sample.get("compute_shader_id"), event_id)
 
     return BundleData(
         events=events,

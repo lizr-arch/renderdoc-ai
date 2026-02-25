@@ -46,3 +46,29 @@ def test_analysis_to_bundle_normalizes_ids():
     assert bundle.textures[1]["resource_id"] == 22
     assert bundle.textures[1]["id"] == 22
     assert bundle.shaders[0]["id"] == 77
+
+
+def test_analysis_to_bundle_shaders_from_list_and_samples():
+    analysis = {
+        "shaders": [
+            {
+                "resourceId": "ResourceId::123",
+                "name": "main",
+                "type": "VS",
+                "stage": "Vertex",
+            }
+        ],
+        "pipeline_samples": {
+            "samples": [
+                {
+                    "event_id": 7,
+                    "vertex_shader_id": 123,
+                }
+            ]
+        },
+    }
+    bundle = analysis_to_bundle(analysis)
+    assert len(bundle.shaders) == 1
+    assert bundle.shaders[0]["id"] == 123
+    assert bundle.shaders[0]["resource_id"] == 123
+    assert bundle.shader_usage["123"] == [7]
