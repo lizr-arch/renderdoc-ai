@@ -895,7 +895,7 @@ def register(version: str, ctx: qrd.CaptureContext):
     print(f"Registering RDC Analyzer extension for RenderDoc {version}")
     ctx.Extensions().RegisterWindowMenu(qrd.WindowMenu.Window, ["Analyzer"], window_callback)
     ctx.Extensions().RegisterWindowMenu(
-        qrd.WindowMenu.Tools, ["RDC Analyzer", "Open WebUI"], open_webui_callback
+        qrd.WindowMenu.Tools, ["RDC Analyzer", "Open WebUI (Legacy)"], open_webui_callback
     )
 
 

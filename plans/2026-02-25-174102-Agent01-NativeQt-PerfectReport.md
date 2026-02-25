@@ -525,8 +525,8 @@ bool AnalyzerExporter::WriteAll(const AnalyzerSnapshot &snap, const rdcstr &dir)
   `git commit -m "feat(qrenderdoc): integrate native analyzer report into main window and capture context"`
 
 ### Task 10: Legacy WebUI downgrade in GUI flow
-- [ ] `[3m]` 修改 Python 扩展菜单文案为 legacy
-- [ ] `[3m]` 文档更新：GUI 主路径为 native analyzer
+- [x] `[3m]` 修改 Python 扩展菜单文案为 legacy
+- [x] `[3m]` 文档更新：GUI 主路径为 native analyzer
 - [ ] `[2m]` 验证：GUI 主入口不再依赖 WebUI
 - [ ] `[2m]` 提交  
   `git commit -m "docs(rdc-analyzer): mark webui gui path as legacy after native qt integration"`

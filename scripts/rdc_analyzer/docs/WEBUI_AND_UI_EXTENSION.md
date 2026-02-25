@@ -1,6 +1,9 @@
 # WebUI + UI Extension 开发说明
 
 > 目标：记录 WebUI 服务器与 GUI 扩展的功能点、数据流、安装方式与人工验证流程。
+>
+> 状态（2026-02-25）：RenderDoc GUI 主路径已切换为原生 Qt 窗口 `Window -> Analyzer Report`。
+> 本文档保留用于 WebUI 兼容/离线分享路径（legacy）。
 
 ## 1) 功能点概览
 
@@ -15,7 +18,7 @@
 ### GUI 扩展（已实现）
 - RenderDoc GUI 内部面板（MiniQtHelper）
 - 统计卡片：Shader / Texture / Event 计数
-- WebUI 启动入口：Tools 菜单 `RDC Analyzer -> Open WebUI`
+- WebUI 启动入口（legacy）：Tools 菜单 `RDC Analyzer -> Open WebUI (Legacy)`
 - 内嵌优先：若 PySide2/QtWebEngine 可用，内嵌显示；否则外部浏览器打开
 
 ## 2) 模块结构
@@ -83,8 +86,9 @@ py -3 scripts/rdc_analyzer/tools/install_ui_extension.py --scripts-root D:\Code\
 
 ### 4.2 GUI 使用
 1. 打开 RenderDoc，加载 `.rdc`
-2. 菜单：`Tools -> RDC Analyzer -> Open WebUI`
-3. 若可内嵌：直接在 GUI 中打开；否则外部浏览器打开
+2. 原生主入口：`Window -> Analyzer Report`
+3. WebUI 兼容入口：`Tools -> RDC Analyzer -> Open WebUI (Legacy)`
+4. 若可内嵌：直接在 GUI 中打开；否则外部浏览器打开
 
 ### 4.3 WebUI 独立使用
 1. 生成 `analysis.json`（RenderDoc Python Shell）：
@@ -113,7 +117,7 @@ py -3 scripts/rdc_analyzer/tools/install_ui_extension.py --scripts-root D:\Code\
 
 ### 5.2 GUI 扩展
 1. RenderDoc 打开捕获文件
-2. 菜单 `Tools -> RDC Analyzer -> Open WebUI`
+2. 菜单 `Tools -> RDC Analyzer -> Open WebUI (Legacy)`
 3. 内嵌或外部浏览器展示正常
 4. 在 events/textures/shaders 页面点击 “↗ GUI” 按钮，RenderDoc 选中对应事件/打开纹理或 Shader
 5. 确认输出目录生成 `rdc_analyzer_jump.json` 与 `rdc_analyzer_jump_ack.json`
@@ -135,10 +139,11 @@ py -3 scripts/rdc_analyzer/tools/install_ui_extension.py --scripts-root D:\Code\
 ### GUI 扩展
 - [ ] 菜单项可见
 - [ ] 统计卡片显示 Shader/Texture/Event 数量
-- [ ] WebUI 可打开（内嵌/外部浏览器）
+- [ ] WebUI（legacy）可打开（内嵌/外部浏览器）
 - [ ] 关闭捕获后无异常
 
 ## 7) 已知限制
+- RenderDoc GUI 正式分析入口为原生 Qt `Window -> Analyzer Report`；WebUI 路径为兼容模式（legacy）
 - WebUI 目前以基础统计 + 列表为主，详情懒加载尚未接入
 - 仅 XML 路线缺少 Shader 细节，`shader_count=0` 为已知限制
 - Shader 成本中的 `Estimated` 指标来自启发式覆盖率与默认视口，需结合 preflight/coverage 解释结论可信度

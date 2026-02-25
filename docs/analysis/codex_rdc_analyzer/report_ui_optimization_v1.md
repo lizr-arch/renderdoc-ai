@@ -2,6 +2,12 @@
 
 > **目标**：定义离线报告/WebUI 的 UI 优化清单（P0/P1/P2），并明确“默认不全量导出纹理/RT，跳转优先”的策略。
 
+## 0. GUI 主路径（2026-02-25）
+
+- RenderDoc GUI 内主入口：`Window -> Analyzer Report`（原生 Qt，非 WebUI）。
+- WebUI 路径保留为兼容入口：`Tools -> RDC Analyzer -> Open WebUI (Legacy)`。
+- 设计原则不变：`Jump‑First`、证据链可回溯、导出数据契约统一。
+
 ## 1. 默认策略（必须遵守）
 
 - **默认不全量导出纹理/RT**：报告只展示元数据 + 跳转（EID / 资源 ID）。
