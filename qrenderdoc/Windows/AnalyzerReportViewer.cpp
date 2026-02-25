@@ -28,8 +28,8 @@
 #include <QFileInfo>
 #include <QHeaderView>
 #include <QMessageBox>
-#include "AnalyzerModels.h"
 #include "Code/QRDUtils.h"
+#include "AnalyzerModels.h"
 #include "ui_AnalyzerReportViewer.h"
 
 AnalyzerReportViewer::AnalyzerReportViewer(ICaptureContext &ctx, QWidget *parent)
@@ -54,6 +54,20 @@ AnalyzerReportViewer::AnalyzerReportViewer(ICaptureContext &ctx, QWidget *parent
   ui->eventTable->setSelectionBehavior(QAbstractItemView::SelectRows);
   ui->eventTable->setSelectionMode(QAbstractItemView::SingleSelection);
   ui->eventTable->horizontalHeader()->setStretchLastSection(true);
+
+  m_ResourceModel = new AnalyzerResourceModel(this);
+  ui->resourceTable->setModel(m_ResourceModel);
+  ui->resourceTable->setSortingEnabled(true);
+  ui->resourceTable->setSelectionBehavior(QAbstractItemView::SelectRows);
+  ui->resourceTable->setSelectionMode(QAbstractItemView::SingleSelection);
+  ui->resourceTable->horizontalHeader()->setStretchLastSection(true);
+
+  m_ShaderModel = new AnalyzerShaderModel(this);
+  ui->shaderTable->setModel(m_ShaderModel);
+  ui->shaderTable->setSortingEnabled(true);
+  ui->shaderTable->setSelectionBehavior(QAbstractItemView::SelectRows);
+  ui->shaderTable->setSelectionMode(QAbstractItemView::SingleSelection);
+  ui->shaderTable->horizontalHeader()->setStretchLastSection(true);
 
   m_Ctx.AddCaptureViewer(this);
 
@@ -82,9 +96,13 @@ void AnalyzerReportViewer::OnCaptureClosed()
 
   rdcarray<AnalyzerIssue> emptyIssues;
   rdcarray<AnalyzerEventRow> emptyEvents;
+  rdcarray<AnalyzerResourceRow> emptyResources;
+  rdcarray<AnalyzerShaderRow> emptyShaders;
 
   m_IssueModel->SetIssues(emptyIssues);
   m_EventModel->SetEvents(emptyEvents);
+  m_ResourceModel->SetResources(emptyResources);
+  m_ShaderModel->SetShaders(emptyShaders);
 }
 
 void AnalyzerReportViewer::RefreshReport()
@@ -101,6 +119,8 @@ void AnalyzerReportViewer::RefreshReport()
   UpdateSummaryText();
   PopulateIssueTable();
   PopulateEventTable();
+  PopulateResourceTable();
+  PopulateShaderTable();
 }
 
 void AnalyzerReportViewer::UpdateSummaryText()
@@ -121,20 +141,23 @@ void AnalyzerReportViewer::UpdateSummaryText()
           .arg(summary.dispatchCount)
           .arg(summary.passCount));
 
-  QString overview =
-      tr("Native analyzer snapshot (schema: %1)\n\n"
-         "Issues: %2\n"
-         "Events: %3\n"
-         "Textures: %4 (%5 MB)\n"
-         "Buffers: %6 (%7 MB)\n\n"
-         "This report is now generated directly from native C++ extraction + rules.")
-          .arg(ToQStr(m_Snapshot.schemaVersion))
-          .arg(m_Snapshot.issues.count())
-          .arg(m_Snapshot.events.count())
-          .arg(summary.textureCount)
-          .arg(texMB, 0, 'f', 2)
-          .arg(summary.bufferCount)
-          .arg(bufMB, 0, 'f', 2);
+  QString overview = tr("Native analyzer snapshot (schema: %1)\n\n"
+                        "Issues: %2\n"
+                        "Events: %3\n"
+                        "Resources: %4\n"
+                        "Shaders: %5\n"
+                        "Textures: %6 (%7 MB)\n"
+                        "Buffers: %8 (%9 MB)\n\n"
+                        "This report is now generated directly from native C++ extraction + rules.")
+                         .arg(ToQStr(m_Snapshot.schemaVersion))
+                         .arg(m_Snapshot.issues.count())
+                         .arg(m_Snapshot.events.count())
+                         .arg(m_Snapshot.resources.count())
+                         .arg(m_Snapshot.shaders.count())
+                         .arg(summary.textureCount)
+                         .arg(texMB, 0, 'f', 2)
+                         .arg(summary.bufferCount)
+                         .arg(bufMB, 0, 'f', 2);
   ui->overviewText->setPlainText(overview);
 }
 
@@ -149,6 +172,20 @@ void AnalyzerReportViewer::PopulateEventTable()
 {
   m_EventModel->SetEvents(m_Snapshot.events);
   ui->eventTable->resizeColumnsToContents();
+}
+
+void AnalyzerReportViewer::PopulateResourceTable()
+{
+  m_ResourceModel->SetResources(m_Snapshot.resources);
+  ui->resourceTable->resizeColumnsToContents();
+  ui->resourceTable->sortByColumn(AnalyzerResourceModel::ColBytes, Qt::DescendingOrder);
+}
+
+void AnalyzerReportViewer::PopulateShaderTable()
+{
+  m_ShaderModel->SetShaders(m_Snapshot.shaders);
+  ui->shaderTable->resizeColumnsToContents();
+  ui->shaderTable->sortByColumn(AnalyzerShaderModel::ColUseCount, Qt::DescendingOrder);
 }
 
 void AnalyzerReportViewer::on_refreshButton_clicked()

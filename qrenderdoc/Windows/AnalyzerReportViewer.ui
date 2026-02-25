@@ -116,11 +116,7 @@
       </attribute>
       <layout class="QVBoxLayout" name="verticalLayout_5">
        <item>
-        <widget class="QLabel" name="resourcesPlaceholder">
-         <property name="text">
-          <string>Resource page will be populated by native analyzer models.</string>
-         </property>
-        </widget>
+        <widget class="QTableView" name="resourceTable"/>
        </item>
       </layout>
      </widget>
@@ -130,11 +126,7 @@
       </attribute>
       <layout class="QVBoxLayout" name="verticalLayout_6">
        <item>
-        <widget class="QLabel" name="shadersPlaceholder">
-         <property name="text">
-          <string>Shader page will be populated by native analyzer models.</string>
-         </property>
-        </widget>
+        <widget class="QTableView" name="shaderTable"/>
        </item>
       </layout>
      </widget>

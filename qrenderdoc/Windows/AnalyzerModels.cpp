@@ -215,3 +215,193 @@ QVariant AnalyzerEventModel::data(const QModelIndex &index, int role) const
 
   return QVariant();
 }
+
+AnalyzerResourceModel::AnalyzerResourceModel(QObject *parent) : QAbstractTableModel(parent)
+{
+}
+
+void AnalyzerResourceModel::SetResources(const rdcarray<AnalyzerResourceRow> &resources)
+{
+  beginResetModel();
+  m_Resources = resources;
+  endResetModel();
+}
+
+AnalyzerResourceRow AnalyzerResourceModel::ResourceAt(int row) const
+{
+  if(row < 0 || row >= m_Resources.count())
+    return AnalyzerResourceRow();
+
+  return m_Resources[row];
+}
+
+int AnalyzerResourceModel::rowCount(const QModelIndex &parent) const
+{
+  if(parent.isValid())
+    return 0;
+
+  return m_Resources.count();
+}
+
+int AnalyzerResourceModel::columnCount(const QModelIndex &parent) const
+{
+  if(parent.isValid())
+    return 0;
+
+  return ColCount;
+}
+
+QVariant AnalyzerResourceModel::headerData(int section, Qt::Orientation orientation, int role) const
+{
+  if(orientation == Qt::Horizontal && role == Qt::DisplayRole)
+  {
+    switch(section)
+    {
+      case ColKind: return QObject::tr("Kind");
+      case ColName: return QObject::tr("Name");
+      case ColId: return QObject::tr("Resource");
+      case ColBytes: return QObject::tr("Size");
+      case ColShape: return QObject::tr("Shape");
+      case ColFormat: return QObject::tr("Format");
+      default: break;
+    }
+  }
+
+  return QVariant();
+}
+
+QVariant AnalyzerResourceModel::data(const QModelIndex &index, int role) const
+{
+  if(!index.isValid() || index.row() < 0 || index.row() >= m_Resources.count())
+    return QVariant();
+
+  const AnalyzerResourceRow &resource = m_Resources[index.row()];
+
+  if(role == Qt::DisplayRole)
+  {
+    switch(index.column())
+    {
+      case ColKind: return ToQStr(resource.kind);
+      case ColName: return ToQStr(resource.name);
+      case ColId: return ToQStr(resource.id);
+      case ColBytes: return Formatter::HumanFormat(resource.bytes, Formatter::OffsetSize);
+      case ColShape:
+      {
+        if(resource.kind == "texture")
+        {
+          QString shape =
+              QFormatStr("%1x%2x%3").arg(resource.width).arg(resource.height).arg(resource.depth);
+          if(resource.arraySize > 1)
+            shape += QFormatStr(" a%1").arg(resource.arraySize);
+          if(resource.mips > 1)
+            shape += QFormatStr(" m%1").arg(resource.mips);
+          if(resource.samples > 1)
+            shape += QFormatStr(" %1xMSAA").arg(resource.samples);
+          return shape;
+        }
+
+        return QFormatStr("%1 bytes").arg(Formatter::Format(resource.bytes));
+      }
+      case ColFormat: return ToQStr(resource.format);
+      default: break;
+    }
+  }
+
+  if(role == ResourceIdRole)
+    return ToQStr(resource.id);
+
+  if(role == ResourceKindRole)
+    return ToQStr(resource.kind);
+
+  if(role == BytesRole)
+    return qulonglong(resource.bytes);
+
+  return QVariant();
+}
+
+AnalyzerShaderModel::AnalyzerShaderModel(QObject *parent) : QAbstractTableModel(parent)
+{
+}
+
+void AnalyzerShaderModel::SetShaders(const rdcarray<AnalyzerShaderRow> &shaders)
+{
+  beginResetModel();
+  m_Shaders = shaders;
+  endResetModel();
+}
+
+AnalyzerShaderRow AnalyzerShaderModel::ShaderAt(int row) const
+{
+  if(row < 0 || row >= m_Shaders.count())
+    return AnalyzerShaderRow();
+
+  return m_Shaders[row];
+}
+
+int AnalyzerShaderModel::rowCount(const QModelIndex &parent) const
+{
+  if(parent.isValid())
+    return 0;
+
+  return m_Shaders.count();
+}
+
+int AnalyzerShaderModel::columnCount(const QModelIndex &parent) const
+{
+  if(parent.isValid())
+    return 0;
+
+  return ColCount;
+}
+
+QVariant AnalyzerShaderModel::headerData(int section, Qt::Orientation orientation, int role) const
+{
+  if(orientation == Qt::Horizontal && role == Qt::DisplayRole)
+  {
+    switch(section)
+    {
+      case ColStage: return QObject::tr("Stage");
+      case ColName: return QObject::tr("Name");
+      case ColId: return QObject::tr("Shader");
+      case ColUseCount: return QObject::tr("Use Count");
+      case ColFirstEID: return QObject::tr("First EID");
+      case ColLastEID: return QObject::tr("Last EID");
+      default: break;
+    }
+  }
+
+  return QVariant();
+}
+
+QVariant AnalyzerShaderModel::data(const QModelIndex &index, int role) const
+{
+  if(!index.isValid() || index.row() < 0 || index.row() >= m_Shaders.count())
+    return QVariant();
+
+  const AnalyzerShaderRow &shader = m_Shaders[index.row()];
+
+  if(role == Qt::DisplayRole)
+  {
+    switch(index.column())
+    {
+      case ColStage: return ToQStr(shader.stage);
+      case ColName: return ToQStr(shader.name);
+      case ColId: return ToQStr(shader.id);
+      case ColUseCount: return (int)shader.useCount;
+      case ColFirstEID: return (int)shader.firstEID;
+      case ColLastEID: return (int)shader.lastEID;
+      default: break;
+    }
+  }
+
+  if(role == ShaderIdRole)
+    return ToQStr(shader.id);
+
+  if(role == FirstEventRole)
+    return (int)shader.firstEID;
+
+  if(role == UseCountRole)
+    return (int)shader.useCount;
+
+  return QVariant();
+}

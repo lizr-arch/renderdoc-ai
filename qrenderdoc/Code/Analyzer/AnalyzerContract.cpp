@@ -90,6 +90,35 @@ QJsonObject EventToQJson(const AnalyzerEventRow &event)
 
   return obj;
 }
+
+QJsonObject ResourceToQJson(const AnalyzerResourceRow &resource)
+{
+  QJsonObject obj;
+  obj[lit("id")] = ToQStr(resource.id);
+  obj[lit("name")] = ToQStr(resource.name);
+  obj[lit("kind")] = ToQStr(resource.kind);
+  obj[lit("bytes")] = (double)resource.bytes;
+  obj[lit("width")] = (int)resource.width;
+  obj[lit("height")] = (int)resource.height;
+  obj[lit("depth")] = (int)resource.depth;
+  obj[lit("mips")] = (int)resource.mips;
+  obj[lit("array_size")] = (int)resource.arraySize;
+  obj[lit("samples")] = (int)resource.samples;
+  obj[lit("format")] = ToQStr(resource.format);
+  return obj;
+}
+
+QJsonObject ShaderToQJson(const AnalyzerShaderRow &shader)
+{
+  QJsonObject obj;
+  obj[lit("id")] = ToQStr(shader.id);
+  obj[lit("name")] = ToQStr(shader.name);
+  obj[lit("stage")] = ToQStr(shader.stage);
+  obj[lit("use_count")] = (int)shader.useCount;
+  obj[lit("first_eid")] = (int)shader.firstEID;
+  obj[lit("last_eid")] = (int)shader.lastEID;
+  return obj;
+}
 }
 
 QJsonObject AnalyzerContract::ToQJson(const AnalyzerSnapshot &snapshot)
@@ -114,6 +143,16 @@ QJsonObject AnalyzerContract::ToQJson(const AnalyzerSnapshot &snapshot)
   for(const AnalyzerEventRow &event : snapshot.events)
     events.push_back(EventToQJson(event));
   root[lit("events")] = events;
+
+  QJsonArray resources;
+  for(const AnalyzerResourceRow &resource : snapshot.resources)
+    resources.push_back(ResourceToQJson(resource));
+  root[lit("resources")] = resources;
+
+  QJsonArray shaders;
+  for(const AnalyzerShaderRow &shader : snapshot.shaders)
+    shaders.push_back(ShaderToQJson(shader));
+  root[lit("shaders")] = shaders;
 
   QJsonArray issues;
   for(const AnalyzerIssue &issue : snapshot.issues)

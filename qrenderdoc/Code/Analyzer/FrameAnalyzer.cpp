@@ -23,6 +23,7 @@
  ******************************************************************************/
 
 #include "FrameAnalyzer.h"
+#include <algorithm>
 
 AnalyzerSnapshot FrameAnalyzer::Build(ICaptureContext &ctx) const
 {
@@ -50,6 +51,9 @@ AnalyzerSnapshot FrameAnalyzer::Build(ICaptureContext &ctx) const
   uint32_t passIndex = 0;
   FlattenActions(ctx.CurRootActions(), snapshot.events, passIndex);
   snapshot.summary.passCount = passIndex;
+
+  PopulateResources(ctx, snapshot);
+  PopulateShaderUsage(ctx, snapshot);
 
   return snapshot;
 }
@@ -151,4 +155,110 @@ rdcstr FrameAnalyzer::APIName(GraphicsAPI api) const
     return "Vulkan";
 
   return "Unknown";
+}
+
+void FrameAnalyzer::PopulateResources(ICaptureContext &ctx, AnalyzerSnapshot &snapshot) const
+{
+  const rdcarray<TextureDescription> &textures = ctx.GetTextures();
+  for(const TextureDescription &texture : textures)
+  {
+    AnalyzerResourceRow row;
+    row.id = texture.resourceId;
+    row.name = ctx.GetResourceName(texture.resourceId);
+    row.kind = "texture";
+    row.bytes = texture.byteSize;
+    row.width = texture.width;
+    row.height = texture.height;
+    row.depth = texture.depth;
+    row.mips = texture.mips;
+    row.arraySize = texture.arraysize;
+    row.samples = texture.msSamp;
+    row.format = texture.format.Name();
+    snapshot.resources.push_back(row);
+  }
+
+  const rdcarray<BufferDescription> &buffers = ctx.GetBuffers();
+  for(const BufferDescription &buffer : buffers)
+  {
+    AnalyzerResourceRow row;
+    row.id = buffer.resourceId;
+    row.name = ctx.GetResourceName(buffer.resourceId);
+    row.kind = "buffer";
+    row.bytes = buffer.length;
+    row.width = (uint32_t)std::min(buffer.length, (uint64_t)0xffffffffULL);
+    snapshot.resources.push_back(row);
+  }
+
+  std::sort(snapshot.resources.begin(), snapshot.resources.end(),
+            [](const AnalyzerResourceRow &a, const AnalyzerResourceRow &b) {
+              if(a.bytes != b.bytes)
+                return a.bytes > b.bytes;
+              return a.id < b.id;
+            });
+}
+
+void FrameAnalyzer::PopulateShaderUsage(ICaptureContext &ctx, AnalyzerSnapshot &snapshot) const
+{
+  if(snapshot.events.empty())
+    return;
+
+  ctx.Replay().BlockInvoke([&snapshot](IReplayController *r) {
+    for(AnalyzerEventRow &event : snapshot.events)
+    {
+      if(event.eid == 0)
+        continue;
+
+      r->SetFrameEvent(event.eid, false);
+      const PipeState &pipe = r->GetPipelineState();
+
+      event.vs = pipe.GetShader(ShaderStage::Vertex);
+      event.ps = pipe.GetShader(ShaderStage::Pixel);
+      event.cs = pipe.GetShader(ShaderStage::Compute);
+    }
+  });
+
+  for(const AnalyzerEventRow &event : snapshot.events)
+  {
+    RegisterShaderUse(ctx, snapshot, event.vs, "VS", event.eid);
+    RegisterShaderUse(ctx, snapshot, event.ps, "PS", event.eid);
+    RegisterShaderUse(ctx, snapshot, event.cs, "CS", event.eid);
+  }
+
+  std::sort(snapshot.shaders.begin(), snapshot.shaders.end(),
+            [](const AnalyzerShaderRow &a, const AnalyzerShaderRow &b) {
+              if(a.useCount != b.useCount)
+                return a.useCount > b.useCount;
+              if(a.firstEID != b.firstEID)
+                return a.firstEID < b.firstEID;
+              return a.id < b.id;
+            });
+}
+
+void FrameAnalyzer::RegisterShaderUse(ICaptureContext &ctx, AnalyzerSnapshot &snapshot,
+                                      ResourceId shaderId, const char *stageLabel, uint32_t eid) const
+{
+  if(shaderId == ResourceId())
+    return;
+
+  for(AnalyzerShaderRow &shader : snapshot.shaders)
+  {
+    if(shader.id != shaderId || shader.stage != stageLabel)
+      continue;
+
+    shader.useCount++;
+    if(shader.firstEID == 0 || eid < shader.firstEID)
+      shader.firstEID = eid;
+    if(eid > shader.lastEID)
+      shader.lastEID = eid;
+    return;
+  }
+
+  AnalyzerShaderRow shader;
+  shader.id = shaderId;
+  shader.name = ctx.GetResourceName(shaderId);
+  shader.stage = stageLabel;
+  shader.useCount = 1;
+  shader.firstEID = eid;
+  shader.lastEID = eid;
+  snapshot.shaders.push_back(shader);
 }

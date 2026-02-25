@@ -62,6 +62,31 @@ struct AnalyzerEventRow
   ResourceId ds;
 };
 
+struct AnalyzerResourceRow
+{
+  ResourceId id;
+  rdcstr name;
+  rdcstr kind;
+  uint64_t bytes = 0;
+  uint32_t width = 0;
+  uint32_t height = 0;
+  uint32_t depth = 0;
+  uint32_t mips = 0;
+  uint32_t arraySize = 0;
+  uint32_t samples = 0;
+  rdcstr format;
+};
+
+struct AnalyzerShaderRow
+{
+  ResourceId id;
+  rdcstr name;
+  rdcstr stage;
+  uint32_t useCount = 0;
+  uint32_t firstEID = 0;
+  uint32_t lastEID = 0;
+};
+
 struct AnalyzerSummary
 {
   rdcstr api;
@@ -80,5 +105,7 @@ struct AnalyzerSnapshot
   rdcstr schemaVersion = "analysis.native.qt.v1";
   AnalyzerSummary summary;
   rdcarray<AnalyzerEventRow> events;
+  rdcarray<AnalyzerResourceRow> resources;
+  rdcarray<AnalyzerShaderRow> shaders;
   rdcarray<AnalyzerIssue> issues;
 };

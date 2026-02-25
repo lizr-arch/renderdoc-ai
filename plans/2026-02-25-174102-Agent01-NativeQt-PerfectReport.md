@@ -582,3 +582,18 @@ bool AnalyzerExporter::WriteAll(const AnalyzerSnapshot &snap, const rdcstr &dir)
 - [ ] **下一步（进行中）**
   - 优先补齐 `Resources/Shaders` 页面（从占位升级为真实 model+data）
   - 随后完成 issue 到 Texture/Shader 跳转与 busy/progress 异步体验
+
+### 2026-02-25 19:26
+
+- [x] **Resources/Shaders 页面完成首版原生实装**
+  - `AnalyzerSnapshot` 新增 `resources/shaders` 数据模型
+  - `FrameAnalyzer` 新增资源汇总与按 EID 的 shader 使用统计（VS/PS/CS）
+  - `AnalyzerReportViewer.ui` 由占位 `QLabel` 升级为 `QTableView`
+  - `AnalyzerModels` 新增 `AnalyzerResourceModel` / `AnalyzerShaderModel`
+  - `AnalyzerReportViewer` 完成 Resources/Shaders 绑定、排序、清空态与概览统计
+  - `AnalyzerContract` 导出 JSON 已追加 `resources/shaders` 数组
+- [x] **验证**
+  - `MSBuild.exe renderdoc.sln /p:Configuration=Development /p:Platform=x64 /m`：PASS（0 error）
+  - `qrenderdoc.exe --unittest`：PASS（exit 0）
+- [ ] **下一步（进行中）**
+  - 完成 issue -> Texture/Shader 跳转链路（当前仍为 issue -> EID）

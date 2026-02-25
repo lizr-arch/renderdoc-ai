@@ -24,8 +24,8 @@
 
 #pragma once
 
-#include "AnalyzerTypes.h"
 #include "Code/Interface/QRDInterface.h"
+#include "AnalyzerTypes.h"
 
 class FrameAnalyzer
 {
@@ -35,6 +35,10 @@ public:
 private:
   void FlattenActions(const rdcarray<ActionDescription> &actions, rdcarray<AnalyzerEventRow> &rows,
                       uint32_t &passIndex) const;
+  void PopulateResources(ICaptureContext &ctx, AnalyzerSnapshot &snapshot) const;
+  void PopulateShaderUsage(ICaptureContext &ctx, AnalyzerSnapshot &snapshot) const;
+  void RegisterShaderUse(ICaptureContext &ctx, AnalyzerSnapshot &snapshot, ResourceId shaderId,
+                         const char *stageLabel, uint32_t eid) const;
   rdcstr ActionName(const ActionDescription &action) const;
   rdcstr ActionType(const ActionDescription &action) const;
   rdcstr APIName(GraphicsAPI api) const;

@@ -88,3 +88,73 @@ public:
 private:
   rdcarray<AnalyzerEventRow> m_Events;
 };
+
+class AnalyzerResourceModel : public QAbstractTableModel
+{
+public:
+  enum Columns
+  {
+    ColKind = 0,
+    ColName,
+    ColId,
+    ColBytes,
+    ColShape,
+    ColFormat,
+    ColCount,
+  };
+
+  enum Roles
+  {
+    ResourceIdRole = Qt::UserRole + 1,
+    ResourceKindRole,
+    BytesRole,
+  };
+
+  explicit AnalyzerResourceModel(QObject *parent = NULL);
+
+  void SetResources(const rdcarray<AnalyzerResourceRow> &resources);
+  AnalyzerResourceRow ResourceAt(int row) const;
+
+  int rowCount(const QModelIndex &parent = QModelIndex()) const override;
+  int columnCount(const QModelIndex &parent = QModelIndex()) const override;
+  QVariant headerData(int section, Qt::Orientation orientation, int role) const override;
+  QVariant data(const QModelIndex &index, int role = Qt::DisplayRole) const override;
+
+private:
+  rdcarray<AnalyzerResourceRow> m_Resources;
+};
+
+class AnalyzerShaderModel : public QAbstractTableModel
+{
+public:
+  enum Columns
+  {
+    ColStage = 0,
+    ColName,
+    ColId,
+    ColUseCount,
+    ColFirstEID,
+    ColLastEID,
+    ColCount,
+  };
+
+  enum Roles
+  {
+    ShaderIdRole = Qt::UserRole + 1,
+    FirstEventRole,
+    UseCountRole,
+  };
+
+  explicit AnalyzerShaderModel(QObject *parent = NULL);
+
+  void SetShaders(const rdcarray<AnalyzerShaderRow> &shaders);
+  AnalyzerShaderRow ShaderAt(int row) const;
+
+  int rowCount(const QModelIndex &parent = QModelIndex()) const override;
+  int columnCount(const QModelIndex &parent = QModelIndex()) const override;
+  QVariant headerData(int section, Qt::Orientation orientation, int role) const override;
+  QVariant data(const QModelIndex &index, int role = Qt::DisplayRole) const override;
+
+private:
+  rdcarray<AnalyzerShaderRow> m_Shaders;
+};

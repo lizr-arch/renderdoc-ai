@@ -38,6 +38,8 @@ class AnalyzerReportViewer;
 class AnalyzerIssueModel;
 class AnalyzerIssueSortModel;
 class AnalyzerEventModel;
+class AnalyzerResourceModel;
+class AnalyzerShaderModel;
 
 class AnalyzerReportViewer : public QFrame, public IAnalyzerReportViewer, public ICaptureViewer
 {
@@ -65,6 +67,8 @@ private:
   void UpdateSummaryText();
   void PopulateIssueTable();
   void PopulateEventTable();
+  void PopulateResourceTable();
+  void PopulateShaderTable();
 
   Ui::AnalyzerReportViewer *ui = NULL;
   ICaptureContext &m_Ctx;
@@ -75,4 +79,6 @@ private:
   AnalyzerIssueModel *m_IssueModel = NULL;
   AnalyzerIssueSortModel *m_IssueSortModel = NULL;
   AnalyzerEventModel *m_EventModel = NULL;
+  AnalyzerResourceModel *m_ResourceModel = NULL;
+  AnalyzerShaderModel *m_ShaderModel = NULL;
 };
