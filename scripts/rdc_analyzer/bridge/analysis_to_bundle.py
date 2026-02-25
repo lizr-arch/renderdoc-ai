@@ -23,10 +23,28 @@ def _extract_shader(binding: Optional[Dict[str, Any]], stage: str) -> Optional[D
     shader_id = binding.get("shader_resource_id")
     if shader_id is None:
         shader_id = binding.get("shader_id")
+    if shader_id is None:
+        shader_id = binding.get("resourceId")
+    if shader_id is None:
+        shader_id = binding.get("id")
     name = binding.get("shader_name") or binding.get("name") or stage
     if shader_id is None and name is None:
         return None
     return {"id": shader_id, "name": name, "stage": stage}
+
+
+def _normalize_texture_ids(texture: Dict[str, Any]) -> None:
+    resource_id = texture.get("resource_id")
+    if resource_id is None:
+        resource_id = texture.get("resourceId")
+    if resource_id is None:
+        resource_id = texture.get("id")
+    if resource_id is None:
+        return
+    if "resource_id" not in texture:
+        texture["resource_id"] = resource_id
+    if "id" not in texture:
+        texture["id"] = resource_id
 
 
 def _record_shader(
@@ -50,10 +68,16 @@ def analysis_to_bundle(analysis: Dict[str, Any]) -> BundleData:
     draw_calls = analysis.get("draw_calls") or analysis.get("events") or []
     events: List[Dict[str, Any]] = []
     shaders: List[Dict[str, Any]] = []
-    textures: List[Dict[str, Any]] = analysis.get("textures") or []
+    textures: List[Dict[str, Any]] = []
     stats: Dict[str, Any] = {}
     shader_usage: Dict[str, List[int]] = {}
     seen_shaders: Set[Tuple[Any, str, Any]] = set()
+
+    for texture in analysis.get("textures") or []:
+        if not isinstance(texture, dict):
+            continue
+        _normalize_texture_ids(texture)
+        textures.append(texture)
 
     summary = analysis.get("summary") or analysis.get("stats") or {}
     if isinstance(summary, dict):

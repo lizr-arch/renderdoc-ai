@@ -97,7 +97,7 @@ def dispatch_jump(ctx, req):
 - [x] Task 1: Define jump request schema + queue write in WebUI server
 - [x] Task 2: Add GUI jump watcher + dispatcher
 - [x] Task 3: Wire event/texture/shader buttons + navigation helper
-- [ ] Task 4: Ensure bundle data contains needed IDs
+- [x] Task 4: Ensure bundle data contains needed IDs
 - [ ] Task 5: Tests + docs update
 
 ### Task 1: Jump request schema + server writer
@@ -209,6 +209,7 @@ shader_id = shader.get("shader_resource_id") or shader.get("id")
 **Step 2: Run tests**
 Run: `py -3 -m pytest scripts/rdc_analyzer/tests/test_analysis_to_bundle.py -v`
 Expected: PASS
+Result: PASS (2026-02-24)
 
 **Step 3: Commit**
 ```bash
