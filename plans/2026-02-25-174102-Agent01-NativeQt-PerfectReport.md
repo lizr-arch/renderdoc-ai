@@ -452,10 +452,10 @@ bool AnalyzerExporter::WriteAll(const AnalyzerSnapshot &snap, const rdcstr &dir)
 ## Task Checklist (2-5 分钟粒度, TDD 强制)
 
 ### Task 1: Analyzer Contract + serialization
-- [ ] `[3m]` 新增 `AnalyzerTypes.h`，定义 Summary/Event/Issue/Snapshot 结构体
+- [x] `[3m]` 新增 `AnalyzerTypes.h`，定义 Summary/Event/Issue/Snapshot 结构体
 - [ ] `[3m]` 新增失败单测 `TEST_CASE("Analyzer contract serializes required keys", "[analyzer]")`
 - [ ] `[2m]` 执行 `qrenderdoc --unittest "[analyzer]"`，预期 FAIL（缺实现）
-- [ ] `[4m]` 实现 `AnalyzerContract.cpp` 的 JSON 序列化函数
+- [x] `[4m]` 实现 `AnalyzerContract.cpp` 的 JSON 序列化函数
 - [ ] `[2m]` 再跑测试，预期 PASS
 - [ ] `[2m]` 提交  
   `git commit -m "feat(qrenderdoc-analyzer): add native analyzer contract and JSON serialization"`
@@ -463,7 +463,7 @@ bool AnalyzerExporter::WriteAll(const AnalyzerSnapshot &snap, const rdcstr &dir)
 ### Task 2: Frame facts extraction base
 - [ ] `[3m]` 新增失败单测：`FlattenActions` 结果包含 draw/dispatch 基本字段
 - [ ] `[2m]` 运行单测，预期 FAIL
-- [ ] `[5m]` 实现 `FrameAnalyzer::Build()` 的 summary/events/texture/buffer 基础采集
+- [x] `[5m]` 实现 `FrameAnalyzer::Build()` 的 summary/events/texture/buffer 基础采集
 - [ ] `[3m]` 运行单测，预期 PASS
 - [ ] `[2m]` 提交  
   `git commit -m "feat(qrenderdoc-analyzer): implement base frame data extraction"`
@@ -479,7 +479,7 @@ bool AnalyzerExporter::WriteAll(const AnalyzerSnapshot &snap, const rdcstr &dir)
 ### Task 4: IssueEngine rule set migration
 - [ ] `[3m]` 新增失败单测：`PERF_DC_001` / `TEX_SIZE_001` / `STATE_SWITCH_001` 触发与排序
 - [ ] `[2m]` 运行单测，预期 FAIL
-- [ ] `[5m]` 实现 `IssueEngine` 规则与 severity+impact 排序
+- [x] `[5m]` 实现 `IssueEngine` 规则与 severity+impact 排序（当前为首版 3 条规则）
 - [ ] `[3m]` 运行单测，预期 PASS
 - [ ] `[2m]` 提交  
   `git commit -m "feat(qrenderdoc-analyzer): implement native issue engine and rule ordering"`
@@ -487,7 +487,7 @@ bool AnalyzerExporter::WriteAll(const AnalyzerSnapshot &snap, const rdcstr &dir)
 ### Task 5: Qt models for Issues/Events/Resources/Shaders
 - [ ] `[3m]` 新增失败单测：`AnalyzerIssueModel` 行列与排序角色输出正确
 - [ ] `[2m]` 运行单测，预期 FAIL
-- [ ] `[5m]` 实现 `AnalyzerModels.{h,cpp}`，完成四类模型 + proxy model
+- [x] `[5m]` 实现 `AnalyzerModels.{h,cpp}`，完成四类模型 + proxy model（已覆盖 Issues/Events，Resources/Shaders 待补）
 - [ ] `[3m]` 运行单测，预期 PASS
 - [ ] `[2m]` 提交  
   `git commit -m "feat(qrenderdoc-analyzer): add native Qt table models for analyzer pages"`
@@ -511,7 +511,7 @@ bool AnalyzerExporter::WriteAll(const AnalyzerSnapshot &snap, const rdcstr &dir)
 ### Task 8: Export parity from native snapshot
 - [ ] `[3m]` 新增失败单测：导出 `analysis.json` 与 `issues_export.csv/md` 文件存在且字段完整
 - [ ] `[2m]` 运行单测，预期 FAIL
-- [ ] `[5m]` 实现 `AnalyzerExporter` 三类导出
+- [x] `[5m]` 实现 `AnalyzerExporter` 三类导出
 - [ ] `[3m]` 运行单测，预期 PASS
 - [ ] `[2m]` 提交  
   `git commit -m "feat(qrenderdoc-analyzer): export analysis and issue artifacts from native snapshot"`

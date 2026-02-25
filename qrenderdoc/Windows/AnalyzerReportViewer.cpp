@@ -23,9 +23,12 @@
  ******************************************************************************/
 
 #include "AnalyzerReportViewer.h"
+#include <QAbstractItemView>
+#include <QDir>
 #include <QFileInfo>
 #include <QHeaderView>
-#include <QTableWidgetItem>
+#include <QMessageBox>
+#include "AnalyzerModels.h"
 #include "Code/QRDUtils.h"
 #include "ui_AnalyzerReportViewer.h"
 
@@ -36,12 +39,21 @@ AnalyzerReportViewer::AnalyzerReportViewer(ICaptureContext &ctx, QWidget *parent
 
   setWindowTitle(tr("Analyzer Report"));
 
-  ui->issueTable->setColumnCount(5);
-  ui->issueTable->setHorizontalHeaderLabels(
-      {tr("Severity"), tr("Code"), tr("Message"), tr("EID"), tr("Impact")});
-  ui->issueTable->horizontalHeader()->setStretchLastSection(true);
+  m_IssueModel = new AnalyzerIssueModel(this);
+  m_IssueSortModel = new AnalyzerIssueSortModel(this);
+  m_IssueSortModel->setSourceModel(m_IssueModel);
+
+  ui->issueTable->setModel(m_IssueSortModel);
+  ui->issueTable->setSortingEnabled(true);
   ui->issueTable->setSelectionBehavior(QAbstractItemView::SelectRows);
   ui->issueTable->setSelectionMode(QAbstractItemView::SingleSelection);
+  ui->issueTable->horizontalHeader()->setStretchLastSection(true);
+
+  m_EventModel = new AnalyzerEventModel(this);
+  ui->eventTable->setModel(m_EventModel);
+  ui->eventTable->setSelectionBehavior(QAbstractItemView::SelectRows);
+  ui->eventTable->setSelectionMode(QAbstractItemView::SingleSelection);
+  ui->eventTable->horizontalHeader()->setStretchLastSection(true);
 
   m_Ctx.AddCaptureViewer(this);
 
@@ -63,9 +75,16 @@ void AnalyzerReportViewer::OnCaptureLoaded()
 
 void AnalyzerReportViewer::OnCaptureClosed()
 {
+  m_Snapshot = AnalyzerSnapshot();
+
   ui->summaryLabel->setText(tr("No capture loaded"));
   ui->overviewText->setPlainText(tr("Open a capture to build a native analyzer report."));
-  ui->issueTable->setRowCount(0);
+
+  rdcarray<AnalyzerIssue> emptyIssues;
+  rdcarray<AnalyzerEventRow> emptyEvents;
+
+  m_IssueModel->SetIssues(emptyIssues);
+  m_EventModel->SetEvents(emptyEvents);
 }
 
 void AnalyzerReportViewer::RefreshReport()
@@ -76,90 +95,92 @@ void AnalyzerReportViewer::RefreshReport()
     return;
   }
 
+  m_Snapshot = m_FrameAnalyzer.Build(m_Ctx);
+  m_Snapshot.issues = m_IssueEngine.Evaluate(m_Snapshot);
+
   UpdateSummaryText();
   PopulateIssueTable();
+  PopulateEventTable();
 }
 
 void AnalyzerReportViewer::UpdateSummaryText()
 {
-  const FrameDescription &frame = m_Ctx.FrameInfo();
-
-  uint32_t drawCount = frame.stats.draws.calls;
-  uint32_t dispatchCount = frame.stats.dispatches.calls;
+  const AnalyzerSummary &summary = m_Snapshot.summary;
 
   QString frameName = QFileInfo(m_Ctx.GetCaptureFilename()).fileName();
 
+  double texMB = (double)summary.textureBytes / (1024.0 * 1024.0);
+  double bufMB = (double)summary.bufferBytes / (1024.0 * 1024.0);
+
   ui->summaryLabel->setText(
-      tr("Capture: %1 | Frame: %2 | Draws: %3 | Dispatches: %4 | Textures: %5 | Buffers: %6")
+      tr("Capture: %1 | API: %2 | Frame: %3 | Draws: %4 | Dispatches: %5 | Passes: %6")
           .arg(frameName)
-          .arg(frame.frameNumber)
-          .arg(drawCount)
-          .arg(dispatchCount)
-          .arg(m_Ctx.GetTextures().count())
-          .arg(m_Ctx.GetBuffers().count()));
+          .arg(ToQStr(summary.api))
+          .arg(summary.frameNumber)
+          .arg(summary.drawCount)
+          .arg(summary.dispatchCount)
+          .arg(summary.passCount));
 
-  QString overview = tr("Native analyzer report shell (Qt/C++)\n\n"
-                        "This viewer is now integrated as a built-in qrenderdoc window.\n"
-                        "Next steps in this branch will progressively replace placeholders "
-                        "with full analyzer models and rule engine output.");
-
+  QString overview =
+      tr("Native analyzer snapshot (schema: %1)\n\n"
+         "Issues: %2\n"
+         "Events: %3\n"
+         "Textures: %4 (%5 MB)\n"
+         "Buffers: %6 (%7 MB)\n\n"
+         "This report is now generated directly from native C++ extraction + rules.")
+          .arg(ToQStr(m_Snapshot.schemaVersion))
+          .arg(m_Snapshot.issues.count())
+          .arg(m_Snapshot.events.count())
+          .arg(summary.textureCount)
+          .arg(texMB, 0, 'f', 2)
+          .arg(summary.bufferCount)
+          .arg(bufMB, 0, 'f', 2);
   ui->overviewText->setPlainText(overview);
 }
 
 void AnalyzerReportViewer::PopulateIssueTable()
 {
-  ui->issueTable->setRowCount(0);
-
-  const FrameDescription &frame = m_Ctx.FrameInfo();
-
-  int nextRow = 0;
-
-  auto addIssue = [this, &nextRow](const QString &severity, const QString &code,
-                                   const QString &message, uint32_t eid, float impact) {
-    ui->issueTable->insertRow(nextRow);
-    ui->issueTable->setItem(nextRow, 0, new QTableWidgetItem(severity));
-    ui->issueTable->setItem(nextRow, 1, new QTableWidgetItem(code));
-    ui->issueTable->setItem(nextRow, 2, new QTableWidgetItem(message));
-    ui->issueTable->setItem(nextRow, 3, new QTableWidgetItem(QString::number(eid)));
-    ui->issueTable->setItem(nextRow, 4, new QTableWidgetItem(Formatter::Format(impact)));
-    nextRow++;
-  };
-
-  uint32_t drawCount = frame.stats.draws.calls;
-  if(drawCount > 5000)
-  {
-    addIssue(tr("warning"), tr("PERF_DC_001"),
-             tr("High draw-call count may cause CPU submission overhead."), m_Ctx.CurEvent(), 0.80f);
-  }
-
-  uint32_t dispatchCount = frame.stats.dispatches.calls;
-  if(dispatchCount > 1000)
-  {
-    addIssue(tr("info"), tr("PERF_CS_001"),
-             tr("High dispatch count detected; verify workload batching efficiency."),
-             m_Ctx.CurEvent(), 0.45f);
-  }
-
-  if(m_Ctx.GetTextures().count() > 4096)
-  {
-    addIssue(tr("warning"), tr("TEX_COUNT_001"),
-             tr("Texture count is high; validate residency pressure and descriptor churn."),
-             m_Ctx.CurEvent(), 0.65f);
-  }
-
-  if(nextRow == 0)
-  {
-    addIssue(tr("info"), tr("ANALYZER_BASELINE"),
-             tr("No high-priority baseline issues detected by shell heuristics."),
-             m_Ctx.CurEvent(), 0.10f);
-  }
-
+  m_IssueModel->SetIssues(m_Snapshot.issues);
   ui->issueTable->resizeColumnsToContents();
+  ui->issueTable->sortByColumn(AnalyzerIssueModel::ColSeverity, Qt::AscendingOrder);
+}
+
+void AnalyzerReportViewer::PopulateEventTable()
+{
+  m_EventModel->SetEvents(m_Snapshot.events);
+  ui->eventTable->resizeColumnsToContents();
 }
 
 void AnalyzerReportViewer::on_refreshButton_clicked()
 {
   RefreshReport();
+}
+
+void AnalyzerReportViewer::on_exportButton_clicked()
+{
+  if(!m_Ctx.IsCaptureLoaded())
+  {
+    QMessageBox::warning(this, tr("Analyzer Export"), tr("No capture loaded."));
+    return;
+  }
+
+  if(m_Snapshot.events.empty() && m_Snapshot.issues.empty())
+    RefreshReport();
+
+  QString outDir = RDDialog::getExistingDirectory(this, tr("Select analyzer export directory"));
+  if(outDir.isEmpty())
+    return;
+
+  QString error;
+  if(!m_Exporter.WriteAll(m_Snapshot, outDir, &error))
+  {
+    QMessageBox::critical(this, tr("Analyzer Export"), error);
+    return;
+  }
+
+  QMessageBox::information(this, tr("Analyzer Export"),
+                           tr("Exported analysis.json and issues_export.{csv,md} to:\n%1")
+                               .arg(QDir::toNativeSeparators(outDir)));
 }
 
 void AnalyzerReportViewer::on_jumpButton_clicked()
@@ -168,17 +189,15 @@ void AnalyzerReportViewer::on_jumpButton_clicked()
   if(rows.isEmpty())
     return;
 
-  int row = rows[0].row();
+  QModelIndex sourceIndex = m_IssueSortModel->mapToSource(rows[0]);
+  uint32_t eid = sourceIndex.data(AnalyzerIssueModel::EventIdRole).toUInt();
 
-  QTableWidgetItem *eidItem = ui->issueTable->item(row, 3);
-  if(!eidItem)
+  if(eid == 0)
+  {
+    QMessageBox::warning(this, tr("Jump To GUI"),
+                         tr("Selected issue does not have a concrete event id."));
     return;
-
-  bool ok = false;
-  uint32_t eid = eidItem->text().toUInt(&ok);
-
-  if(!ok || eid == 0)
-    return;
+  }
 
   m_Ctx.SetEventID({}, eid, eid, true);
   m_Ctx.ShowEventBrowser();

@@ -49,9 +49,16 @@
       </spacer>
      </item>
      <item>
-      <widget class="QPushButton" name="refreshButton">
+     <widget class="QPushButton" name="refreshButton">
        <property name="text">
         <string>Refresh</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QPushButton" name="exportButton">
+       <property name="text">
+        <string>Export</string>
        </property>
       </widget>
      </item>
@@ -87,9 +94,9 @@
       <attribute name="title">
        <string>Issues</string>
       </attribute>
-      <layout class="QVBoxLayout" name="verticalLayout_3">
+     <layout class="QVBoxLayout" name="verticalLayout_3">
        <item>
-        <widget class="QTableWidget" name="issueTable"/>
+        <widget class="QTableView" name="issueTable"/>
        </item>
       </layout>
      </widget>
@@ -99,11 +106,7 @@
       </attribute>
       <layout class="QVBoxLayout" name="verticalLayout_4">
        <item>
-        <widget class="QLabel" name="eventsPlaceholder">
-         <property name="text">
-          <string>Events page will be populated by native analyzer models.</string>
-         </property>
-        </widget>
+        <widget class="QTableView" name="eventTable"/>
        </item>
       </layout>
      </widget>

@@ -24,55 +24,18 @@
 
 #pragma once
 
-#include <QFrame>
-#include "Code/Analyzer/AnalyzerExporter.h"
-#include "Code/Analyzer/FrameAnalyzer.h"
-#include "Code/Analyzer/IssueEngine.h"
+#include "AnalyzerTypes.h"
 #include "Code/Interface/QRDInterface.h"
 
-namespace Ui
+class FrameAnalyzer
 {
-class AnalyzerReportViewer;
-}
-
-class AnalyzerIssueModel;
-class AnalyzerIssueSortModel;
-class AnalyzerEventModel;
-
-class AnalyzerReportViewer : public QFrame, public IAnalyzerReportViewer, public ICaptureViewer
-{
-  Q_OBJECT
-
 public:
-  explicit AnalyzerReportViewer(ICaptureContext &ctx, QWidget *parent = 0);
-  ~AnalyzerReportViewer();
-
-  // IAnalyzerReportViewer
-  QWidget *Widget() override { return this; }
-  void RefreshReport() override;
-  // ICaptureViewer
-  void OnCaptureLoaded() override;
-  void OnCaptureClosed() override;
-  void OnSelectedEventChanged(uint32_t eventId) override {}
-  void OnEventChanged(uint32_t eventId) override {}
-
-private slots:
-  void on_refreshButton_clicked();
-  void on_exportButton_clicked();
-  void on_jumpButton_clicked();
+  AnalyzerSnapshot Build(ICaptureContext &ctx) const;
 
 private:
-  void UpdateSummaryText();
-  void PopulateIssueTable();
-  void PopulateEventTable();
-
-  Ui::AnalyzerReportViewer *ui = NULL;
-  ICaptureContext &m_Ctx;
-  AnalyzerSnapshot m_Snapshot;
-  FrameAnalyzer m_FrameAnalyzer;
-  IssueEngine m_IssueEngine;
-  AnalyzerExporter m_Exporter;
-  AnalyzerIssueModel *m_IssueModel = NULL;
-  AnalyzerIssueSortModel *m_IssueSortModel = NULL;
-  AnalyzerEventModel *m_EventModel = NULL;
+  void FlattenActions(const rdcarray<ActionDescription> &actions, rdcarray<AnalyzerEventRow> &rows,
+                      uint32_t &passIndex) const;
+  rdcstr ActionName(const ActionDescription &action) const;
+  rdcstr ActionType(const ActionDescription &action) const;
+  rdcstr APIName(GraphicsAPI api) const;
 };
