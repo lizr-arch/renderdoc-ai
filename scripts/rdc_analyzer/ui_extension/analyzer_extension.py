@@ -281,6 +281,21 @@ def _null_resource_id():
     return _coerce_resource_id(0)
 
 
+def _get_comp_type_typeless():
+    comp_type = getattr(qrd, "CompType", None)
+    if comp_type is not None and hasattr(comp_type, "Typeless"):
+        return comp_type.Typeless
+    try:
+        import renderdoc as rd  # type: ignore
+
+        comp_type = getattr(rd, "CompType", None)
+        if comp_type is not None and hasattr(comp_type, "Typeless"):
+            return comp_type.Typeless
+    except Exception:
+        pass
+    return None
+
+
 def _jump_to_event(ctx, eid: int) -> bool:
     if not hasattr(ctx, "SetEventID"):
         return False
@@ -305,17 +320,20 @@ def _jump_to_texture(ctx, texture_id: int) -> bool:
             return False
         resource_id = _coerce_resource_id(texture_id)
         if hasattr(viewer, "ViewTexture"):
-            try:
-                import renderdoc as rd  # type: ignore
-
-                comp_type = getattr(rd.CompType, "Typeless", None)
-            except Exception:
-                comp_type = None
-            if comp_type is None:
-                viewer.ViewTexture(resource_id, 0, True)
-            else:
-                viewer.ViewTexture(resource_id, comp_type, True)
-            return True
+            comp_type = _get_comp_type_typeless()
+            view_exc = None
+            for type_cast in (comp_type, 0, _coerce_resource_id(0)):
+                if type_cast is None:
+                    continue
+                try:
+                    viewer.ViewTexture(resource_id, type_cast, True)
+                    return True
+                except TypeError as exc:
+                    view_exc = exc
+            if view_exc is not None:
+                _log_event(
+                    "ViewTexture type mismatch; fallback to SetSelectedTexture", view_exc
+                )
         if hasattr(viewer, "SetSelectedTexture"):
             viewer.SetSelectedTexture(resource_id)
             return True
