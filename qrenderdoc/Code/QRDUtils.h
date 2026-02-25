@@ -59,6 +59,11 @@ inline T AlignUp(T x, T a)
 // this will be here to lighten the burden of converting from rdcstr to
 // QString everywhere.
 
+inline QString ToQStr(const rdcstr &el)
+{
+  return QString::fromUtf8(el.c_str());
+}
+
 template <typename T>
 inline QString ToQStr(const T &el)
 {

@@ -24,9 +24,7 @@
 
 #pragma once
 
-#include "api/replay/rdcarray.h"
-#include "api/replay/rdcstr.h"
-#include "api/replay/data_types.h"
+#include "data_types.h"
 
 struct AnalyzerEvidence
 {

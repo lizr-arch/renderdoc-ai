@@ -563,3 +563,22 @@ bool AnalyzerExporter::WriteAll(const AnalyzerSnapshot &snap, const rdcstr &dir)
 
 该计划为“高成本但最完美”路线，已锁定全原生 C++/Qt 实施。  
 收到 `/do` 后按上述 Task 1 -> Task 12 顺序执行，并在同一计划文件中持续勾选与记录偏差。
+
+---
+
+## /do Execution Log
+
+### 2026-02-25 19:18 (Agent continuation)
+
+- [x] **MSBuild 链路已恢复并验证通过（Windows 方案构建）**
+  - 补齐 VS 工程集成与接口缺口后，`renderdoc.sln` 可在 Development|x64 下通过
+  - 关键修复：`AnalyzerTypes` include 路径、`PythonShell` 的 `ICaptureContext` 新方法转发、`qrenderdoc_local.vcxproj` 注册 analyzer 源码/头文件/UI 生成项、`ToQStr(rdcstr)` 重载
+- [x] **按交接要求先执行构建验证（继续功能开发前）**
+  - 命令：`"E:\\Program Files\\Microsoft Visual Studio\\2022\\Community\\MSBuild\\Current\\Bin\\MSBuild.exe" renderdoc.sln /p:Configuration=Development /p:Platform=x64 /m`
+  - 结果：`0 warning, 0 error`
+- [x] **按交接要求执行 qrenderdoc unittest**
+  - 命令：`D:\\Code\\git\\renderdoc\\x64\\Development\\qrenderdoc.exe --unittest`
+  - 结果：进程退出码 `0`
+- [ ] **下一步（进行中）**
+  - 优先补齐 `Resources/Shaders` 页面（从占位升级为真实 model+data）
+  - 随后完成 issue 到 Texture/Shader 跳转与 busy/progress 异步体验
