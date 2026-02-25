@@ -69,9 +69,12 @@ private:
   void PopulateEventTable();
   void PopulateResourceTable();
   void PopulateShaderTable();
+  void ConfigureTableLayout();
   bool JumpToTextureTarget(const AnalyzerIssue &issue, uint32_t fallbackEID);
   bool JumpToShaderTarget(const AnalyzerIssue &issue, uint32_t fallbackEID);
-  ResourceId FindShaderForEvent(uint32_t eid) const;
+  ResourceId FindShaderForEvent(uint32_t eid, ShaderStage *stage = NULL) const;
+  ShaderStage FindShaderStageForEvent(ResourceId shaderId, uint32_t eid) const;
+  ShaderStage FindKnownShaderStage(ResourceId shaderId) const;
   bool IsKnownShader(ResourceId id) const;
   void SetBusyState(bool busy, const QString &statusText);
 

@@ -23,6 +23,7 @@
  ******************************************************************************/
 
 #include "AnalyzerModels.h"
+#include <algorithm>
 #include "Code/QRDUtils.h"
 
 AnalyzerIssueModel::AnalyzerIssueModel(QObject *parent) : QAbstractTableModel(parent)
@@ -216,6 +217,52 @@ QVariant AnalyzerEventModel::data(const QModelIndex &index, int role) const
   return QVariant();
 }
 
+void AnalyzerEventModel::sort(int column, Qt::SortOrder order)
+{
+  if(m_Events.count() <= 1)
+    return;
+
+  bool ascending = order == Qt::AscendingOrder;
+
+  auto compareText = [ascending](const rdcstr &a, const rdcstr &b) {
+    return ascending ? a < b : a > b;
+  };
+  auto compareUInt = [ascending](uint32_t a, uint32_t b) { return ascending ? a < b : a > b; };
+
+  beginResetModel();
+  std::stable_sort(
+      m_Events.begin(), m_Events.end(),
+      [column, &compareText, &compareUInt](const AnalyzerEventRow &a, const AnalyzerEventRow &b) {
+        switch(column)
+        {
+          case 0:
+            if(a.eid != b.eid)
+              return compareUInt(a.eid, b.eid);
+            break;
+          case 1:
+            if(a.name != b.name)
+              return compareText(a.name, b.name);
+            break;
+          case 2:
+            if(a.type != b.type)
+              return compareText(a.type, b.type);
+            break;
+          case 3:
+            if(a.drawIndex != b.drawIndex)
+              return compareUInt(a.drawIndex, b.drawIndex);
+            break;
+          case 4:
+            if(a.passIndex != b.passIndex)
+              return compareUInt(a.passIndex, b.passIndex);
+            break;
+          default: break;
+        }
+
+        return a.eid < b.eid;
+      });
+  endResetModel();
+}
+
 AnalyzerResourceModel::AnalyzerResourceModel(QObject *parent) : QAbstractTableModel(parent)
 {
 }
@@ -289,18 +336,19 @@ QVariant AnalyzerResourceModel::data(const QModelIndex &index, int role) const
       {
         if(resource.kind == "texture")
         {
-          QString shape =
-              QFormatStr("%1x%2x%3").arg(resource.width).arg(resource.height).arg(resource.depth);
+          QString shape = QFormatStr("%1x%2").arg(resource.width).arg(resource.height);
+          if(resource.depth > 1)
+            shape += QFormatStr("x%1").arg(resource.depth);
           if(resource.arraySize > 1)
-            shape += QFormatStr(" a%1").arg(resource.arraySize);
+            shape += QFormatStr(" | Layers:%1").arg(resource.arraySize);
           if(resource.mips > 1)
-            shape += QFormatStr(" m%1").arg(resource.mips);
+            shape += QFormatStr(" | Mips:%1").arg(resource.mips);
           if(resource.samples > 1)
-            shape += QFormatStr(" %1xMSAA").arg(resource.samples);
+            shape += QFormatStr(" | MSAA:%1x").arg(resource.samples);
           return shape;
         }
 
-        return QFormatStr("%1 bytes").arg(Formatter::Format(resource.bytes));
+        return QObject::tr("Linear buffer");
       }
       case ColFormat: return ToQStr(resource.format);
       default: break;
@@ -317,6 +365,69 @@ QVariant AnalyzerResourceModel::data(const QModelIndex &index, int role) const
     return qulonglong(resource.bytes);
 
   return QVariant();
+}
+
+void AnalyzerResourceModel::sort(int column, Qt::SortOrder order)
+{
+  if(m_Resources.count() <= 1)
+    return;
+
+  bool ascending = order == Qt::AscendingOrder;
+
+  auto compareText = [ascending](const rdcstr &a, const rdcstr &b) {
+    return ascending ? a < b : a > b;
+  };
+  auto compareUInt = [ascending](uint32_t a, uint32_t b) { return ascending ? a < b : a > b; };
+  auto compareU64 = [ascending](uint64_t a, uint64_t b) { return ascending ? a < b : a > b; };
+
+  beginResetModel();
+  std::stable_sort(m_Resources.begin(), m_Resources.end(),
+                   [column, ascending, &compareText, &compareUInt, &compareU64](
+                       const AnalyzerResourceRow &a, const AnalyzerResourceRow &b) {
+                     switch(column)
+                     {
+                       case ColKind:
+                         if(a.kind != b.kind)
+                           return compareText(a.kind, b.kind);
+                         break;
+                       case ColName:
+                         if(a.name != b.name)
+                           return compareText(a.name, b.name);
+                         break;
+                       case ColId:
+                         if(a.id != b.id)
+                           return ascending ? a.id < b.id : b.id < a.id;
+                         break;
+                       case ColBytes:
+                         if(a.bytes != b.bytes)
+                           return compareU64(a.bytes, b.bytes);
+                         break;
+                       case ColShape:
+                         if(a.width != b.width)
+                           return compareUInt(a.width, b.width);
+                         if(a.height != b.height)
+                           return compareUInt(a.height, b.height);
+                         if(a.depth != b.depth)
+                           return compareUInt(a.depth, b.depth);
+                         if(a.arraySize != b.arraySize)
+                           return compareUInt(a.arraySize, b.arraySize);
+                         if(a.mips != b.mips)
+                           return compareUInt(a.mips, b.mips);
+                         if(a.samples != b.samples)
+                           return compareUInt(a.samples, b.samples);
+                         if(a.bytes != b.bytes)
+                           return compareU64(a.bytes, b.bytes);
+                         break;
+                       case ColFormat:
+                         if(a.format != b.format)
+                           return compareText(a.format, b.format);
+                         break;
+                       default: break;
+                     }
+
+                     return a.id < b.id;
+                   });
+  endResetModel();
 }
 
 AnalyzerShaderModel::AnalyzerShaderModel(QObject *parent) : QAbstractTableModel(parent)
@@ -404,4 +515,54 @@ QVariant AnalyzerShaderModel::data(const QModelIndex &index, int role) const
     return (int)shader.useCount;
 
   return QVariant();
+}
+
+void AnalyzerShaderModel::sort(int column, Qt::SortOrder order)
+{
+  if(m_Shaders.count() <= 1)
+    return;
+
+  bool ascending = order == Qt::AscendingOrder;
+
+  auto compareText = [ascending](const rdcstr &a, const rdcstr &b) {
+    return ascending ? a < b : a > b;
+  };
+  auto compareUInt = [ascending](uint32_t a, uint32_t b) { return ascending ? a < b : a > b; };
+
+  beginResetModel();
+  std::stable_sort(m_Shaders.begin(), m_Shaders.end(),
+                   [column, ascending, &compareText, &compareUInt](const AnalyzerShaderRow &a,
+                                                                   const AnalyzerShaderRow &b) {
+                     switch(column)
+                     {
+                       case ColStage:
+                         if(a.stage != b.stage)
+                           return compareText(a.stage, b.stage);
+                         break;
+                       case ColName:
+                         if(a.name != b.name)
+                           return compareText(a.name, b.name);
+                         break;
+                       case ColId:
+                         if(a.id != b.id)
+                           return ascending ? a.id < b.id : b.id < a.id;
+                         break;
+                       case ColUseCount:
+                         if(a.useCount != b.useCount)
+                           return compareUInt(a.useCount, b.useCount);
+                         break;
+                       case ColFirstEID:
+                         if(a.firstEID != b.firstEID)
+                           return compareUInt(a.firstEID, b.firstEID);
+                         break;
+                       case ColLastEID:
+                         if(a.lastEID != b.lastEID)
+                           return compareUInt(a.lastEID, b.lastEID);
+                         break;
+                       default: break;
+                     }
+
+                     return a.id < b.id;
+                   });
+  endResetModel();
 }

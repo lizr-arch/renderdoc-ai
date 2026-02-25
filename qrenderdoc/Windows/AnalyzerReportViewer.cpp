@@ -33,6 +33,20 @@
 #include "AnalyzerModels.h"
 #include "ui_AnalyzerReportViewer.h"
 
+namespace
+{
+ShaderStage StageFromAnalyzerLabel(const rdcstr &stage)
+{
+  if(stage == "PS")
+    return ShaderStage::Pixel;
+  if(stage == "VS")
+    return ShaderStage::Vertex;
+  if(stage == "CS")
+    return ShaderStage::Compute;
+  return ShaderStage::Count;
+}
+}
+
 AnalyzerReportViewer::AnalyzerReportViewer(ICaptureContext &ctx, QWidget *parent)
     : QFrame(parent), ui(new Ui::AnalyzerReportViewer), m_Ctx(ctx)
 {
@@ -48,27 +62,25 @@ AnalyzerReportViewer::AnalyzerReportViewer(ICaptureContext &ctx, QWidget *parent
   ui->issueTable->setSortingEnabled(true);
   ui->issueTable->setSelectionBehavior(QAbstractItemView::SelectRows);
   ui->issueTable->setSelectionMode(QAbstractItemView::SingleSelection);
-  ui->issueTable->horizontalHeader()->setStretchLastSection(true);
 
   m_EventModel = new AnalyzerEventModel(this);
   ui->eventTable->setModel(m_EventModel);
+  ui->eventTable->setSortingEnabled(true);
   ui->eventTable->setSelectionBehavior(QAbstractItemView::SelectRows);
   ui->eventTable->setSelectionMode(QAbstractItemView::SingleSelection);
-  ui->eventTable->horizontalHeader()->setStretchLastSection(true);
 
   m_ResourceModel = new AnalyzerResourceModel(this);
   ui->resourceTable->setModel(m_ResourceModel);
   ui->resourceTable->setSortingEnabled(true);
   ui->resourceTable->setSelectionBehavior(QAbstractItemView::SelectRows);
   ui->resourceTable->setSelectionMode(QAbstractItemView::SingleSelection);
-  ui->resourceTable->horizontalHeader()->setStretchLastSection(true);
 
   m_ShaderModel = new AnalyzerShaderModel(this);
   ui->shaderTable->setModel(m_ShaderModel);
   ui->shaderTable->setSortingEnabled(true);
   ui->shaderTable->setSelectionBehavior(QAbstractItemView::SelectRows);
   ui->shaderTable->setSelectionMode(QAbstractItemView::SingleSelection);
-  ui->shaderTable->horizontalHeader()->setStretchLastSection(true);
+  ConfigureTableLayout();
 
   m_Ctx.AddCaptureViewer(this);
 
@@ -193,28 +205,48 @@ void AnalyzerReportViewer::UpdateSummaryText()
 void AnalyzerReportViewer::PopulateIssueTable()
 {
   m_IssueModel->SetIssues(m_Snapshot.issues);
-  ui->issueTable->resizeColumnsToContents();
   ui->issueTable->sortByColumn(AnalyzerIssueModel::ColSeverity, Qt::AscendingOrder);
 }
 
 void AnalyzerReportViewer::PopulateEventTable()
 {
   m_EventModel->SetEvents(m_Snapshot.events);
-  ui->eventTable->resizeColumnsToContents();
+  ui->eventTable->sortByColumn(0, Qt::AscendingOrder);
 }
 
 void AnalyzerReportViewer::PopulateResourceTable()
 {
   m_ResourceModel->SetResources(m_Snapshot.resources);
-  ui->resourceTable->resizeColumnsToContents();
   ui->resourceTable->sortByColumn(AnalyzerResourceModel::ColBytes, Qt::DescendingOrder);
 }
 
 void AnalyzerReportViewer::PopulateShaderTable()
 {
   m_ShaderModel->SetShaders(m_Snapshot.shaders);
-  ui->shaderTable->resizeColumnsToContents();
   ui->shaderTable->sortByColumn(AnalyzerShaderModel::ColUseCount, Qt::DescendingOrder);
+}
+
+void AnalyzerReportViewer::ConfigureTableLayout()
+{
+  QHeaderView *issueHeader = ui->issueTable->horizontalHeader();
+  issueHeader->setStretchLastSection(false);
+  issueHeader->setSectionResizeMode(QHeaderView::ResizeToContents);
+  issueHeader->setSectionResizeMode(AnalyzerIssueModel::ColMessage, QHeaderView::Stretch);
+
+  QHeaderView *eventHeader = ui->eventTable->horizontalHeader();
+  eventHeader->setStretchLastSection(false);
+  eventHeader->setSectionResizeMode(QHeaderView::ResizeToContents);
+  eventHeader->setSectionResizeMode(1, QHeaderView::Stretch);
+
+  QHeaderView *resourceHeader = ui->resourceTable->horizontalHeader();
+  resourceHeader->setStretchLastSection(false);
+  resourceHeader->setSectionResizeMode(QHeaderView::ResizeToContents);
+  resourceHeader->setSectionResizeMode(AnalyzerResourceModel::ColName, QHeaderView::Stretch);
+
+  QHeaderView *shaderHeader = ui->shaderTable->horizontalHeader();
+  shaderHeader->setStretchLastSection(false);
+  shaderHeader->setSectionResizeMode(QHeaderView::ResizeToContents);
+  shaderHeader->setSectionResizeMode(AnalyzerShaderModel::ColName, QHeaderView::Stretch);
 }
 
 void AnalyzerReportViewer::SetBusyState(bool busy, const QString &statusText)
@@ -304,9 +336,24 @@ void AnalyzerReportViewer::on_jumpButton_clicked()
 
 bool AnalyzerReportViewer::JumpToTextureTarget(const AnalyzerIssue &issue, uint32_t fallbackEID)
 {
-  rdcarray<ResourceId> candidates = issue.resourceIds;
+  rdcarray<ResourceId> candidates;
+  auto appendUniqueCandidate = [&candidates](ResourceId id) {
+    if(id == ResourceId())
+      return;
 
-  if(candidates.empty() && fallbackEID != 0)
+    for(ResourceId existing : candidates)
+    {
+      if(existing == id)
+        return;
+    }
+
+    candidates.push_back(id);
+  };
+
+  for(ResourceId id : issue.resourceIds)
+    appendUniqueCandidate(id);
+
+  if(fallbackEID != 0)
   {
     for(const AnalyzerEventRow &event : m_Snapshot.events)
     {
@@ -314,10 +361,9 @@ bool AnalyzerReportViewer::JumpToTextureTarget(const AnalyzerIssue &issue, uint3
         continue;
 
       for(ResourceId rt : event.rts)
-        candidates.push_back(rt);
+        appendUniqueCandidate(rt);
 
-      if(event.ds != ResourceId())
-        candidates.push_back(event.ds);
+      appendUniqueCandidate(event.ds);
       break;
     }
   }
@@ -344,27 +390,45 @@ bool AnalyzerReportViewer::JumpToTextureTarget(const AnalyzerIssue &issue, uint3
 bool AnalyzerReportViewer::JumpToShaderTarget(const AnalyzerIssue &issue, uint32_t fallbackEID)
 {
   ResourceId shaderId;
+  ShaderStage preferredStage = ShaderStage::Count;
 
   for(ResourceId id : issue.resourceIds)
   {
     if(IsKnownShader(id))
     {
       shaderId = id;
+      preferredStage = FindShaderStageForEvent(id, fallbackEID);
+      if(preferredStage == ShaderStage::Count)
+        preferredStage = FindKnownShaderStage(id);
       break;
     }
   }
 
   if(shaderId == ResourceId() && fallbackEID != 0)
-    shaderId = FindShaderForEvent(fallbackEID);
+    shaderId = FindShaderForEvent(fallbackEID, &preferredStage);
 
   if(shaderId == ResourceId())
     return false;
+
+  if(preferredStage == ShaderStage::Count)
+    preferredStage = FindKnownShaderStage(shaderId);
 
   if(fallbackEID != 0)
     m_Ctx.SetEventID({}, fallbackEID, fallbackEID, true);
 
   ICaptureContext *ctx = &m_Ctx;
-  m_Ctx.Replay().AsyncInvoke([this, ctx, shaderId](IReplayController *r) {
+  m_Ctx.Replay().AsyncInvoke([this, ctx, shaderId, preferredStage, fallbackEID](IReplayController *r) {
+    ResourceId graphicsPipelineId;
+    ResourceId computePipelineId;
+
+    if(fallbackEID != 0)
+    {
+      r->SetFrameEvent(fallbackEID, false);
+      const PipeState &pipe = r->GetPipelineState();
+      graphicsPipelineId = pipe.GetGraphicsPipelineObject();
+      computePipelineId = pipe.GetComputePipelineObject();
+    }
+
     rdcarray<ShaderEntryPoint> entries = r->GetShaderEntryPoints(shaderId);
     if(entries.empty())
     {
@@ -375,7 +439,33 @@ bool AnalyzerReportViewer::JumpToShaderTarget(const AnalyzerIssue &issue, uint32
       return;
     }
 
-    const ShaderReflection *refl = r->GetShader(ResourceId(), shaderId, entries[0]);
+    ShaderEntryPoint selected = entries[0];
+    if(preferredStage != ShaderStage::Count)
+    {
+      for(const ShaderEntryPoint &entry : entries)
+      {
+        if(entry.stage == preferredStage)
+        {
+          selected = entry;
+          break;
+        }
+      }
+    }
+
+    ResourceId pipelineId;
+    if(selected.stage == ShaderStage::Compute)
+      pipelineId = computePipelineId;
+    else if(selected.stage != ShaderStage::Count)
+      pipelineId = graphicsPipelineId;
+    else if(preferredStage == ShaderStage::Compute)
+      pipelineId = computePipelineId;
+    else if(preferredStage != ShaderStage::Count)
+      pipelineId = graphicsPipelineId;
+
+    const ShaderReflection *refl = r->GetShader(pipelineId, shaderId, selected);
+    if(!refl && pipelineId != ResourceId())
+      refl = r->GetShader(ResourceId(), shaderId, selected);
+
     if(!refl)
     {
       GUIInvoke::call(this, [this] {
@@ -385,8 +475,8 @@ bool AnalyzerReportViewer::JumpToShaderTarget(const AnalyzerIssue &issue, uint32
       return;
     }
 
-    GUIInvoke::call(this, [ctx, refl] {
-      IShaderViewer *viewer = ctx->ViewShader(refl, ResourceId());
+    GUIInvoke::call(this, [ctx, refl, pipelineId] {
+      IShaderViewer *viewer = ctx->ViewShader(refl, pipelineId);
       ctx->AddDockWindow(viewer->Widget(), DockReference::MainToolArea, NULL);
     });
   });
@@ -394,23 +484,78 @@ bool AnalyzerReportViewer::JumpToShaderTarget(const AnalyzerIssue &issue, uint32
   return true;
 }
 
-ResourceId AnalyzerReportViewer::FindShaderForEvent(uint32_t eid) const
+ResourceId AnalyzerReportViewer::FindShaderForEvent(uint32_t eid, ShaderStage *stage) const
 {
+  if(stage)
+    *stage = ShaderStage::Count;
+
   for(const AnalyzerEventRow &event : m_Snapshot.events)
   {
     if(event.eid != eid)
       continue;
 
     if(event.ps != ResourceId())
+    {
+      if(stage)
+        *stage = ShaderStage::Pixel;
       return event.ps;
+    }
     if(event.vs != ResourceId())
+    {
+      if(stage)
+        *stage = ShaderStage::Vertex;
       return event.vs;
+    }
     if(event.cs != ResourceId())
+    {
+      if(stage)
+        *stage = ShaderStage::Compute;
       return event.cs;
+    }
     break;
   }
 
   return ResourceId();
+}
+
+ShaderStage AnalyzerReportViewer::FindShaderStageForEvent(ResourceId shaderId, uint32_t eid) const
+{
+  if(shaderId == ResourceId() || eid == 0)
+    return ShaderStage::Count;
+
+  for(const AnalyzerEventRow &event : m_Snapshot.events)
+  {
+    if(event.eid != eid)
+      continue;
+
+    if(event.ps == shaderId)
+      return ShaderStage::Pixel;
+    if(event.vs == shaderId)
+      return ShaderStage::Vertex;
+    if(event.cs == shaderId)
+      return ShaderStage::Compute;
+    break;
+  }
+
+  return ShaderStage::Count;
+}
+
+ShaderStage AnalyzerReportViewer::FindKnownShaderStage(ResourceId shaderId) const
+{
+  if(shaderId == ResourceId())
+    return ShaderStage::Count;
+
+  for(const AnalyzerShaderRow &shader : m_Snapshot.shaders)
+  {
+    if(shader.id != shaderId)
+      continue;
+
+    ShaderStage stage = StageFromAnalyzerLabel(shader.stage);
+    if(stage != ShaderStage::Count)
+      return stage;
+  }
+
+  return ShaderStage::Count;
 }
 
 bool AnalyzerReportViewer::IsKnownShader(ResourceId id) const
