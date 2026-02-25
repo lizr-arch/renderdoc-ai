@@ -1411,6 +1411,9 @@
                             <button class="detail-action-btn primary" onclick="jumpToEvent()">
                                 📋 查看事件
                             </button>
+                            <button class="detail-action-btn secondary" onclick="jumpToRenderDocShader()">
+                                ↗ GUI
+                            </button>
                             <button class="detail-action-btn secondary" onclick="exportShader()">
                                 💾 导出
                             </button>
@@ -2061,7 +2064,7 @@
             const issues = detectIssues(mali, dynamicMetrics, tier);
             const jumpEid = (shader.usedBy && shader.usedBy.length > 0) ? shader.usedBy[0].eid : null;
             const jumpButton = jumpEid
-                ? `<div style="margin-top: 8px;"><button class="rdc-jump-btn" onclick="jumpToRenderDoc(${jumpEid}); event.stopPropagation();" title="Jump to RenderDoc">↗ GUI</button></div>`
+                ? `<div style="margin-top: 8px;"><button class="rdc-jump-btn" onclick="jumpToRenderDoc('event', ${jumpEid}); event.stopPropagation();" title="Jump to RenderDoc">↗ GUI</button></div>`
                 : '';
             
             // 健康评分图标
@@ -2360,6 +2363,17 @@
             } else if (currentShader && currentShader.usedBy && currentShader.usedBy.length > 0) {
                 window.location.href = `events.html?eid=${currentShader.usedBy[0].eid}`;
             }
+        }
+
+        function jumpToRenderDocShader() {
+            if (!currentShader) {
+                return;
+            }
+            const targetId = currentShader.id;
+            if (!targetId) {
+                return;
+            }
+            jumpToRenderDoc('shader', targetId);
         }
         
         // ========== 导出 ==========

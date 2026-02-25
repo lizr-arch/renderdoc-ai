@@ -2154,7 +2154,7 @@
                 <span class="event-eid">#${event.eid}</span>
                 <span class="event-type ${getEventTypeClass(event.type)}">${typeIcon}</span>
                 <span class="event-name">${escapeHtml(event.name || getDefaultEventName(event))}${childBadge}</span>
-                <button class="rdc-jump-btn" onclick="jumpToRenderDoc(${event.eid}); event.stopPropagation();" title="Jump to RenderDoc">↗ GUI</button>
+                <button class="rdc-jump-btn" onclick="jumpToRenderDoc('event', ${event.eid}); event.stopPropagation();" title="Jump to RenderDoc">↗ GUI</button>
                 ${durationText ? `<span class="event-duration ${durationClass}">${durationText}</span>` : ''}
             `;
             
@@ -3168,7 +3168,7 @@
             
             if (event.issues && event.issues.length > 0) {
                 const jumpButton = Number.isFinite(Number(event.eid))
-                    ? `<div style="margin-top: 8px;"><button class="rdc-jump-btn" onclick="jumpToRenderDoc(${event.eid}); event.stopPropagation();" title="Jump to RenderDoc">↗ GUI</button></div>`
+                    ? `<div style="margin-top: 8px;"><button class="rdc-jump-btn" onclick="jumpToRenderDoc('event', ${event.eid}); event.stopPropagation();" title="Jump to RenderDoc">↗ GUI</button></div>`
                     : '';
                 content.innerHTML = event.issues.map(issue => `
                     <div class="analysis-tip ${issue.level || 'warn'}">${issue.message}</div>

@@ -281,13 +281,23 @@ if (document.readyState === 'loading') {
 }
 
 // ==================== RenderDoc GUI 跳转 ====================
-async function jumpToRenderDoc(eid) {
-    const value = Number.parseInt(eid, 10);
+async function jumpToRenderDoc(targetOrId, maybeId) {
+    let target = 'event';
+    let id = maybeId;
+    if (typeof maybeId === 'undefined') {
+        id = targetOrId;
+    } else {
+        target = targetOrId;
+    }
+    const value = Number.parseInt(id, 10);
     if (!Number.isFinite(value)) {
         return;
     }
     try {
-        await fetch(`/api/jump?eid=${value}`);
+        const params = new URLSearchParams();
+        params.set('target', target);
+        params.set('id', String(value));
+        await fetch(`/api/jump?${params.toString()}`);
     } catch (err) {
         console.warn('[RdcNav] Jump to RenderDoc failed', err);
     }

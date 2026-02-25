@@ -898,6 +898,9 @@
                             <button class="detail-action-btn primary" onclick="jumpToEvent()">
                                 📋 查看事件
                             </button>
+                            <button class="detail-action-btn secondary" onclick="jumpToRenderDocTexture()">
+                                ↗ GUI
+                            </button>
                             <button class="detail-action-btn secondary" onclick="addToCompare()">
                                 🔀 对比
                             </button>
@@ -1216,7 +1219,7 @@
                     let message = issue.message || '';
                     const issueEid = issue.event_id || issue.eventId || issue.eid;
                     const jumpButton = issueEid
-                        ? `<button class="rdc-jump-btn" onclick="jumpToRenderDoc(${issueEid}); event.stopPropagation();" title="Jump to RenderDoc">↗ GUI</button>`
+                        ? `<button class="rdc-jump-btn" onclick="jumpToRenderDoc('event', ${issueEid}); event.stopPropagation();" title="Jump to RenderDoc">↗ GUI</button>`
                         : '';
                     
                     // 如果有关联的资源 ID 列表，渲染为可点击链接
@@ -1568,6 +1571,17 @@
             } else if (currentTexture && currentTexture.usedBy && currentTexture.usedBy.length > 0) {
                 window.location.href = `events.html?eid=${currentTexture.usedBy[0].eid}`;
             }
+        }
+
+        function jumpToRenderDocTexture() {
+            if (!currentTexture) {
+                return;
+            }
+            const targetId = currentTexture.resource_id || currentTexture.id;
+            if (!targetId) {
+                return;
+            }
+            jumpToRenderDoc('texture', targetId);
         }
         
         // ========== 根据 resource_id 选中纹理（右侧面板点击联动） ==========

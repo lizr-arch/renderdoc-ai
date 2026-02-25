@@ -96,7 +96,7 @@ def dispatch_jump(ctx, req):
 ## Task Checklist
 - [x] Task 1: Define jump request schema + queue write in WebUI server
 - [x] Task 2: Add GUI jump watcher + dispatcher
-- [ ] Task 3: Wire event/texture/shader buttons + navigation helper
+- [x] Task 3: Wire event/texture/shader buttons + navigation helper
 - [ ] Task 4: Ensure bundle data contains needed IDs
 - [ ] Task 5: Tests + docs update
 
@@ -194,6 +194,7 @@ window.jumpToRenderDoc = (target, id) => fetch(`/api/jump?target=${target}&id=${
 git add scripts/rdc_analyzer/templates/navigation.js scripts/rdc_analyzer/templates/events.html scripts/rdc_analyzer/templates/textures.html scripts/rdc_analyzer/templates/shaders.html
 git commit -m "feat(rdc-analyzer): add jump buttons for event/texture/shader"
 ```
+Result: PASS (2026-02-24, test_webui_jump_buttons.py)
 
 ### Task 4: Ensure bundle data contains needed IDs
 **Files:**
