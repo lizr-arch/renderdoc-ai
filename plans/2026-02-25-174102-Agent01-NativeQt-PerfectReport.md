@@ -457,7 +457,7 @@ bool AnalyzerExporter::WriteAll(const AnalyzerSnapshot &snap, const rdcstr &dir)
 - [ ] `[2m]` 执行 `qrenderdoc --unittest "[analyzer]"`，预期 FAIL（缺实现）
 - [x] `[4m]` 实现 `AnalyzerContract.cpp` 的 JSON 序列化函数
 - [ ] `[2m]` 再跑测试，预期 PASS
-- [ ] `[2m]` 提交  
+- [x] `[2m]` 提交  
   `git commit -m "feat(qrenderdoc-analyzer): add native analyzer contract and JSON serialization"`
 
 ### Task 2: Frame facts extraction base
@@ -465,7 +465,7 @@ bool AnalyzerExporter::WriteAll(const AnalyzerSnapshot &snap, const rdcstr &dir)
 - [ ] `[2m]` 运行单测，预期 FAIL
 - [x] `[5m]` 实现 `FrameAnalyzer::Build()` 的 summary/events/texture/buffer 基础采集
 - [ ] `[3m]` 运行单测，预期 PASS
-- [ ] `[2m]` 提交  
+- [x] `[2m]` 提交  
   `git commit -m "feat(qrenderdoc-analyzer): implement base frame data extraction"`
 
 ### Task 3: Per-event pipeline snapshot extraction
@@ -481,7 +481,7 @@ bool AnalyzerExporter::WriteAll(const AnalyzerSnapshot &snap, const rdcstr &dir)
 - [ ] `[2m]` 运行单测，预期 FAIL
 - [x] `[5m]` 实现 `IssueEngine` 规则与 severity+impact 排序（当前为首版 3 条规则）
 - [ ] `[3m]` 运行单测，预期 PASS
-- [ ] `[2m]` 提交  
+- [x] `[2m]` 提交  
   `git commit -m "feat(qrenderdoc-analyzer): implement native issue engine and rule ordering"`
 
 ### Task 5: Qt models for Issues/Events/Resources/Shaders
@@ -489,7 +489,7 @@ bool AnalyzerExporter::WriteAll(const AnalyzerSnapshot &snap, const rdcstr &dir)
 - [ ] `[2m]` 运行单测，预期 FAIL
 - [x] `[5m]` 实现 `AnalyzerModels.{h,cpp}`，完成四类模型 + proxy model（已覆盖 Issues/Events，Resources/Shaders 待补）
 - [ ] `[3m]` 运行单测，预期 PASS
-- [ ] `[2m]` 提交  
+- [x] `[2m]` 提交  
   `git commit -m "feat(qrenderdoc-analyzer): add native Qt table models for analyzer pages"`
 
 ### Task 6: AnalyzerReportViewer shell UI
@@ -497,7 +497,7 @@ bool AnalyzerExporter::WriteAll(const AnalyzerSnapshot &snap, const rdcstr &dir)
 - [ ] `[2m]` 新增失败单测：viewer 初始化后包含核心页签
 - [x] `[5m]` 实现 `AnalyzerReportViewer` 构造、模型绑定、busy/progress 状态（已完成窗口骨架 + summary/issues 基础绑定，busy/progress 仍待补全）
 - [ ] `[3m]` 运行单测，预期 PASS
-- [ ] `[2m]` 提交  
+- [x] `[2m]` 提交  
   `git commit -m "feat(qrenderdoc-analyzer): create native analyzer report viewer window"`
 
 ### Task 7: Jump chain (Issue -> Event/Texture/Shader)
@@ -505,7 +505,7 @@ bool AnalyzerExporter::WriteAll(const AnalyzerSnapshot &snap, const rdcstr &dir)
 - [ ] `[2m]` 运行单测，预期 FAIL
 - [x] `[5m]` 实现 issue/event/resource/shader 跳转 slot（首版：issue->EID->EventBrowser）
 - [ ] `[3m]` 运行单测，预期 PASS
-- [ ] `[2m]` 提交  
+- [x] `[2m]` 提交  
   `git commit -m "feat(qrenderdoc-analyzer): wire native issue-to-gui jump chain"`
 
 ### Task 8: Export parity from native snapshot
@@ -513,7 +513,7 @@ bool AnalyzerExporter::WriteAll(const AnalyzerSnapshot &snap, const rdcstr &dir)
 - [ ] `[2m]` 运行单测，预期 FAIL
 - [x] `[5m]` 实现 `AnalyzerExporter` 三类导出
 - [ ] `[3m]` 运行单测，预期 PASS
-- [ ] `[2m]` 提交  
+- [x] `[2m]` 提交  
   `git commit -m "feat(qrenderdoc-analyzer): export analysis and issue artifacts from native snapshot"`
 
 ### Task 9: CaptureContext + MainWindow integration
@@ -521,14 +521,14 @@ bool AnalyzerExporter::WriteAll(const AnalyzerSnapshot &snap, const rdcstr &dir)
 - [x] `[3m]` 在 `CaptureContext` 新增 viewer 生命周期管理
 - [x] `[3m]` 在 `MainWindow.ui/.h/.cpp` 新增 `Analyzer Report` 菜单动作
 - [ ] `[2m]` 手工验证：菜单拉起窗口成功
-- [ ] `[2m]` 提交  
+- [x] `[2m]` 提交  
   `git commit -m "feat(qrenderdoc): integrate native analyzer report into main window and capture context"`
 
 ### Task 10: Legacy WebUI downgrade in GUI flow
 - [x] `[3m]` 修改 Python 扩展菜单文案为 legacy
 - [x] `[3m]` 文档更新：GUI 主路径为 native analyzer
 - [ ] `[2m]` 验证：GUI 主入口不再依赖 WebUI
-- [ ] `[2m]` 提交  
+- [x] `[2m]` 提交  
   `git commit -m "docs(rdc-analyzer): mark webui gui path as legacy after native qt integration"`
 
 ### Task 11: Parity validation with existing schema/tests
