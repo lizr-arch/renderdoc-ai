@@ -24,6 +24,7 @@
 
 #include "FrameAnalyzer.h"
 #include <algorithm>
+#include <map>
 
 AnalyzerSnapshot FrameAnalyzer::Build(ICaptureContext &ctx, IReplayController *replay) const
 {
@@ -208,6 +209,8 @@ void FrameAnalyzer::PopulateShaderUsage(ICaptureContext &ctx, AnalyzerSnapshot &
     {
       if(event.eid == 0)
         continue;
+      if(event.type != "draw" && event.type != "dispatch")
+        continue;
 
       r->SetFrameEvent(event.eid, false);
       const PipeState &pipe = r->GetPipelineState();
@@ -223,11 +226,13 @@ void FrameAnalyzer::PopulateShaderUsage(ICaptureContext &ctx, AnalyzerSnapshot &
   else
     ctx.Replay().BlockInvoke([&populateFromReplay](IReplayController *r) { populateFromReplay(r); });
 
+  std::map<rdcpair<ResourceId, rdcstr>, size_t> shaderIndices;
+
   for(const AnalyzerEventRow &event : snapshot.events)
   {
-    RegisterShaderUse(ctx, snapshot, event.vs, "VS", event.eid);
-    RegisterShaderUse(ctx, snapshot, event.ps, "PS", event.eid);
-    RegisterShaderUse(ctx, snapshot, event.cs, "CS", event.eid);
+    RegisterShaderUse(ctx, snapshot, shaderIndices, event.vs, "VS", event.eid);
+    RegisterShaderUse(ctx, snapshot, shaderIndices, event.ps, "PS", event.eid);
+    RegisterShaderUse(ctx, snapshot, shaderIndices, event.cs, "CS", event.eid);
   }
 
   std::sort(snapshot.shaders.begin(), snapshot.shaders.end(),
@@ -241,16 +246,17 @@ void FrameAnalyzer::PopulateShaderUsage(ICaptureContext &ctx, AnalyzerSnapshot &
 }
 
 void FrameAnalyzer::RegisterShaderUse(ICaptureContext &ctx, AnalyzerSnapshot &snapshot,
+                                      std::map<rdcpair<ResourceId, rdcstr>, size_t> &shaderIndices,
                                       ResourceId shaderId, const char *stageLabel, uint32_t eid) const
 {
   if(shaderId == ResourceId())
     return;
 
-  for(AnalyzerShaderRow &shader : snapshot.shaders)
+  rdcpair<ResourceId, rdcstr> key(shaderId, stageLabel);
+  auto it = shaderIndices.find(key);
+  if(it != shaderIndices.end())
   {
-    if(shader.id != shaderId || shader.stage != stageLabel)
-      continue;
-
+    AnalyzerShaderRow &shader = snapshot.shaders[it->second];
     shader.useCount++;
     if(shader.firstEID == 0 || eid < shader.firstEID)
       shader.firstEID = eid;
@@ -267,4 +273,5 @@ void FrameAnalyzer::RegisterShaderUse(ICaptureContext &ctx, AnalyzerSnapshot &sn
   shader.firstEID = eid;
   shader.lastEID = eid;
   snapshot.shaders.push_back(shader);
+  shaderIndices[key] = (size_t)snapshot.shaders.count() - 1;
 }
