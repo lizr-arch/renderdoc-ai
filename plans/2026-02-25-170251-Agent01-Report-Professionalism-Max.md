@@ -273,7 +273,7 @@ for rec in suggestions:
 - [x] `[3m]` 更新 `WEBUI_AND_UI_EXTENSION.md` 验收项（可信度卡 + 估算标识）
 - [ ] `[3m]` 运行回归集（issue export/jump/schema/dod + 新增契约测试）【阻塞：当前 WSL 环境缺少 pytest】
 - [x] `[2m]` 汇总结果并更新 plan 勾选状态
-- [ ] `[2m]` 提交 `docs(rdc-analyzer): add professionalism acceptance items`
+- [x] `[2m]` 提交 `docs(rdc-analyzer): add professionalism acceptance items`（提交见 `7a4bcdefd`）
 
 ---
 
