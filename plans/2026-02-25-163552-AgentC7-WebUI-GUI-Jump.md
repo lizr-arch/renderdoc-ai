@@ -77,7 +77,7 @@
         mapped = map_request_path(path, self._analysis_file, self._report_root, self._assets_root)
         return str(mapped)
     ```
-- [ ] T2: Update GUI jump handler signature
+- [x] T2: Update GUI jump handler signature
   - Change `jump_handler` in `analyzer_extension.py` to accept a payload dict and pass it to `_dispatch_jump_on_ui_thread`.
   - Code sketch:
     ```python
@@ -113,3 +113,4 @@
 
 ## Progress Log
 - 2026-02-25 16:36: updated `/api/jump` payload handling and fixed `translate_path` placement in `webui/server.py`.
+- 2026-02-25 16:38: updated GUI jump handler to accept payload dict (event/texture/shader).

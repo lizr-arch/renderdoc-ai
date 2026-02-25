@@ -659,9 +659,11 @@ def prepare_webui(ctx, port: int = 8765):
     except Exception:
         mini_qt = None
 
-    def jump_handler(eid: int):
+    def jump_handler(payload):
+        if isinstance(payload, dict):
+            return _dispatch_jump_on_ui_thread(ctx, payload, mini_qt)
         return _dispatch_jump_on_ui_thread(
-            ctx, {"target": "event", "id": eid}, mini_qt
+            ctx, {"target": "event", "id": payload}, mini_qt
         )
 
     try:
