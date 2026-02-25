@@ -230,6 +230,7 @@ SOURCES += Code/qrenderdoc.cpp \
     Windows/LogView.cpp \
     Windows/CommentView.cpp \
     Windows/StatisticsViewer.cpp \
+    Windows/AnalyzerReportViewer.cpp \
     Windows/TimelineBar.cpp \
     Windows/Dialogs/SettingsDialog.cpp \
     Widgets/OrderedListEditor.cpp \
@@ -319,6 +320,7 @@ HEADERS += Code/CaptureContext.h \
     Windows/LogView.h \
     Windows/CommentView.h \
     Windows/StatisticsViewer.h \
+    Windows/AnalyzerReportViewer.h \
     Windows/TimelineBar.h \
     Windows/Dialogs/SettingsDialog.h \
     Widgets/OrderedListEditor.h \
@@ -372,6 +374,7 @@ FORMS    += Windows/Dialogs/AboutDialog.ui \
     Windows/LogView.ui \
     Windows/CommentView.ui \
     Windows/StatisticsViewer.ui \
+    Windows/AnalyzerReportViewer.ui \
     Windows/Dialogs/SettingsDialog.ui \
     Windows/Dialogs/SuggestRemoteDialog.ui \
     Windows/Dialogs/VirtualFileDialog.ui \
