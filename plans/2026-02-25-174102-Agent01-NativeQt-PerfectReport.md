@@ -651,3 +651,20 @@ bool AnalyzerExporter::WriteAll(const AnalyzerSnapshot &snap, const rdcstr &dir)
   - 备注：命令返回后存在残留 `qrenderdoc` 进程，已手动结束，避免影响后续构建
 - [ ] **下一步（进行中）**
   - 人工 GUI 验收（交互项）：`Window -> Analyzer Report` 的 Refresh / Jump / Export / busy-progression
+
+
+### 2026-02-25 21:15 (Agent continuation)
+
+- [x] **Jump reliability + table UX + perf M1 batch implemented (see dedicated /do plan)**
+  - Working plan: `plans/2026-02-25-201919-Agent01-AnalyzerReport-JumpSortPerf.md`
+  - Texture jump fallback now merges issue resource candidates with fallback event RT/DS candidates (deduped).
+  - Shader jump now uses stage-aware entrypoint selection and stage/pipeline-aware reflection lookup.
+  - Events/Resources/Shaders models now support deterministic asc/desc sorting with numeric comparisons.
+  - Resource shape text now uses clearer size/dimension metadata (`Layers/Mips/MSAA`).
+  - `FrameAnalyzer` replay scan now skips non draw/dispatch events and uses indexed shader aggregation.
+- [x] **Verification**
+  - `MSBuild.exe renderdoc.sln /p:Configuration=Development /p:Platform=x64 /m /v:minimal /nologo` (PASS)
+  - `qrenderdoc.exe --unittest` (PASS, exit 0)
+  - `qrenderdoc.exe --unittest "[analyzer]"` (PASS, exit 0)
+- [ ] **Next pending**
+  - Manual GUI acceptance on known problematic captures: Issues -> Texture/Shader jump correctness + Refresh/Export/busy behavior.
