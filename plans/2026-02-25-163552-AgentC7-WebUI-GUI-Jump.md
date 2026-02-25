@@ -117,3 +117,4 @@
 - 2026-02-25 16:39: updated WebUI jump endpoint test to assert payload target/id.
 - 2026-02-25 16:40: verified templates already emit jump buttons for issues/events/textures/shaders; no edits needed.
 - 2026-02-25 16:41: docs already describe target-based `/api/jump` and GUI jump steps; no doc edits required.
+- 2026-02-25 16:42: tests passed — test_webui_server, test_webui_jump_queue, test_webui_jump_buttons, test_report_issue_jump_links.
