@@ -636,3 +636,18 @@ bool AnalyzerExporter::WriteAll(const AnalyzerSnapshot &snap, const rdcstr &dir)
   - 结论：可确认进程可启动并加载到运行态；交互路径（Refresh/Jump/Export/busy）仍需人工点击验收
 - [ ] **下一步（进行中）**
   - 人工 GUI 验收：`Window -> Analyzer Report` 的 Refresh / Jump / Export / busy-progression 四项手工确认
+
+### 2026-02-25 20:12 (Agent continuation)
+
+- [x] **按用户指定路径再次执行 Windows MSBuild 验证**
+  - 命令：`"E:\\Program Files\\Microsoft Visual Studio\\2022\\Community\\MSBuild\\Current\\Bin\\MSBuild.exe" renderdoc.sln /p:Configuration=Development /p:Platform=x64 /m`
+  - 首次结果：FAIL，`LNK1168`（`renderdoc.dll` 被占用）
+  - 定位：残留 `qrenderdoc` 进程持有 DLL 句柄
+  - 处理：终止残留进程后重试
+  - 重试结果：PASS（`0 warning, 0 error`）
+- [x] **构建通过后再次执行 qrenderdoc unittest**
+  - 命令：`D:\\Code\\git\\renderdoc\\x64\\Development\\qrenderdoc.exe --unittest`
+  - 结果：退出码 `0`
+  - 备注：命令返回后存在残留 `qrenderdoc` 进程，已手动结束，避免影响后续构建
+- [ ] **下一步（进行中）**
+  - 人工 GUI 验收（交互项）：`Window -> Analyzer Report` 的 Refresh / Jump / Export / busy-progression
