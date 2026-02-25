@@ -610,3 +610,17 @@ bool AnalyzerExporter::WriteAll(const AnalyzerSnapshot &snap, const rdcstr &dir)
   - `qrenderdoc.exe --unittest`：PASS（exit 0）
 - [ ] **下一步（进行中）**
   - 实装 busy/progress 异步刷新体验，避免 Refresh 同步阻塞
+
+### 2026-02-25 19:36
+
+- [x] **busy/progress 异步刷新体验已落地**
+  - `RefreshReport()` 从同步改为 `Replay().AsyncInvoke` 后台构建，主线程仅做状态切换与结果绑定
+  - 引入 busy gate：构建中禁用 Refresh/Export/Jump，避免并发触发
+  - UI 增加 `statusLabel + progressBar(不定进度)` 展示构建状态
+  - `FrameAnalyzer::Build()` 支持传入 replay 上下文，避免异步路径中二次 `BlockInvoke` 造成潜在死锁
+  - `Export` 增加构建中提示与“尚未完成构建”保护
+- [x] **验证**
+  - `MSBuild.exe renderdoc.sln /p:Configuration=Development /p:Platform=x64 /m`：PASS（0 error）
+  - `qrenderdoc.exe --unittest`：PASS（exit 0）
+- [ ] **下一步（进行中）**
+  - 补一次手工 GUI 验收（Window -> Analyzer Report: Refresh/Jump/Export/busy 状态）

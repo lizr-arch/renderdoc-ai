@@ -73,6 +73,7 @@ private:
   bool JumpToShaderTarget(const AnalyzerIssue &issue, uint32_t fallbackEID);
   ResourceId FindShaderForEvent(uint32_t eid) const;
   bool IsKnownShader(ResourceId id) const;
+  void SetBusyState(bool busy, const QString &statusText);
 
   Ui::AnalyzerReportViewer *ui = NULL;
   ICaptureContext &m_Ctx;
@@ -85,4 +86,6 @@ private:
   AnalyzerEventModel *m_EventModel = NULL;
   AnalyzerResourceModel *m_ResourceModel = NULL;
   AnalyzerShaderModel *m_ShaderModel = NULL;
+  bool m_BuildInFlight = false;
+  uint32_t m_BuildSerial = 0;
 };

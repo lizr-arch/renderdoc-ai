@@ -30,13 +30,14 @@
 class FrameAnalyzer
 {
 public:
-  AnalyzerSnapshot Build(ICaptureContext &ctx) const;
+  AnalyzerSnapshot Build(ICaptureContext &ctx, IReplayController *replay = NULL) const;
 
 private:
   void FlattenActions(const rdcarray<ActionDescription> &actions, rdcarray<AnalyzerEventRow> &rows,
                       uint32_t &passIndex) const;
   void PopulateResources(ICaptureContext &ctx, AnalyzerSnapshot &snapshot) const;
-  void PopulateShaderUsage(ICaptureContext &ctx, AnalyzerSnapshot &snapshot) const;
+  void PopulateShaderUsage(ICaptureContext &ctx, AnalyzerSnapshot &snapshot,
+                           IReplayController *replay) const;
   void RegisterShaderUse(ICaptureContext &ctx, AnalyzerSnapshot &snapshot, ResourceId shaderId,
                          const char *stageLabel, uint32_t eid) const;
   rdcstr ActionName(const ActionDescription &action) const;

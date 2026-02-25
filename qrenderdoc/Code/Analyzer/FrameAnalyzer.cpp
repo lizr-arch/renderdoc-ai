@@ -25,7 +25,7 @@
 #include "FrameAnalyzer.h"
 #include <algorithm>
 
-AnalyzerSnapshot FrameAnalyzer::Build(ICaptureContext &ctx) const
+AnalyzerSnapshot FrameAnalyzer::Build(ICaptureContext &ctx, IReplayController *replay) const
 {
   AnalyzerSnapshot snapshot;
 
@@ -53,7 +53,7 @@ AnalyzerSnapshot FrameAnalyzer::Build(ICaptureContext &ctx) const
   snapshot.summary.passCount = passIndex;
 
   PopulateResources(ctx, snapshot);
-  PopulateShaderUsage(ctx, snapshot);
+  PopulateShaderUsage(ctx, snapshot, replay);
 
   return snapshot;
 }
@@ -197,12 +197,13 @@ void FrameAnalyzer::PopulateResources(ICaptureContext &ctx, AnalyzerSnapshot &sn
             });
 }
 
-void FrameAnalyzer::PopulateShaderUsage(ICaptureContext &ctx, AnalyzerSnapshot &snapshot) const
+void FrameAnalyzer::PopulateShaderUsage(ICaptureContext &ctx, AnalyzerSnapshot &snapshot,
+                                        IReplayController *replay) const
 {
   if(snapshot.events.empty())
     return;
 
-  ctx.Replay().BlockInvoke([&snapshot](IReplayController *r) {
+  auto populateFromReplay = [&snapshot](IReplayController *r) {
     for(AnalyzerEventRow &event : snapshot.events)
     {
       if(event.eid == 0)
@@ -215,7 +216,12 @@ void FrameAnalyzer::PopulateShaderUsage(ICaptureContext &ctx, AnalyzerSnapshot &
       event.ps = pipe.GetShader(ShaderStage::Pixel);
       event.cs = pipe.GetShader(ShaderStage::Compute);
     }
-  });
+  };
+
+  if(replay != NULL)
+    populateFromReplay(replay);
+  else
+    ctx.Replay().BlockInvoke([&populateFromReplay](IReplayController *r) { populateFromReplay(r); });
 
   for(const AnalyzerEventRow &event : snapshot.events)
   {

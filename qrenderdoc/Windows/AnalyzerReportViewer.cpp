@@ -28,6 +28,7 @@
 #include <QFileInfo>
 #include <QHeaderView>
 #include <QMessageBox>
+#include <QPointer>
 #include "Code/QRDUtils.h"
 #include "AnalyzerModels.h"
 #include "ui_AnalyzerReportViewer.h"
@@ -89,6 +90,8 @@ void AnalyzerReportViewer::OnCaptureLoaded()
 
 void AnalyzerReportViewer::OnCaptureClosed()
 {
+  m_BuildSerial++;
+  m_BuildInFlight = false;
   m_Snapshot = AnalyzerSnapshot();
 
   ui->summaryLabel->setText(tr("No capture loaded"));
@@ -103,6 +106,7 @@ void AnalyzerReportViewer::OnCaptureClosed()
   m_EventModel->SetEvents(emptyEvents);
   m_ResourceModel->SetResources(emptyResources);
   m_ShaderModel->SetShaders(emptyShaders);
+  SetBusyState(false, QString());
 }
 
 void AnalyzerReportViewer::RefreshReport()
@@ -113,14 +117,39 @@ void AnalyzerReportViewer::RefreshReport()
     return;
   }
 
-  m_Snapshot = m_FrameAnalyzer.Build(m_Ctx);
-  m_Snapshot.issues = m_IssueEngine.Evaluate(m_Snapshot);
+  if(m_BuildInFlight)
+    return;
 
-  UpdateSummaryText();
-  PopulateIssueTable();
-  PopulateEventTable();
-  PopulateResourceTable();
-  PopulateShaderTable();
+  m_BuildInFlight = true;
+  const uint32_t serial = ++m_BuildSerial;
+  SetBusyState(true, tr("Building native analyzer report..."));
+
+  FrameAnalyzer analyzer = m_FrameAnalyzer;
+  IssueEngine issueEngine = m_IssueEngine;
+  ICaptureContext *ctx = &m_Ctx;
+  QObject *invokeTarget = m_Ctx.GetMainWindow() ? m_Ctx.GetMainWindow()->Widget() : this;
+  QPointer<AnalyzerReportViewer> self(this);
+
+  m_Ctx.Replay().AsyncInvoke(
+      [analyzer, issueEngine, ctx, invokeTarget, serial, self](IReplayController *r) mutable {
+        AnalyzerSnapshot snapshot = analyzer.Build(*ctx, r);
+        snapshot.issues = issueEngine.Evaluate(snapshot);
+
+        GUIInvoke::call(invokeTarget, [self, serial, snapshot] {
+          if(!self || serial != self->m_BuildSerial)
+            return;
+
+          self->m_BuildInFlight = false;
+          self->m_Snapshot = snapshot;
+
+          self->UpdateSummaryText();
+          self->PopulateIssueTable();
+          self->PopulateEventTable();
+          self->PopulateResourceTable();
+          self->PopulateShaderTable();
+          self->SetBusyState(false, QString());
+        });
+      });
 }
 
 void AnalyzerReportViewer::UpdateSummaryText()
@@ -188,6 +217,18 @@ void AnalyzerReportViewer::PopulateShaderTable()
   ui->shaderTable->sortByColumn(AnalyzerShaderModel::ColUseCount, Qt::DescendingOrder);
 }
 
+void AnalyzerReportViewer::SetBusyState(bool busy, const QString &statusText)
+{
+  bool hasCapture = m_Ctx.IsCaptureLoaded();
+
+  ui->refreshButton->setEnabled(hasCapture && !busy);
+  ui->exportButton->setEnabled(hasCapture && !busy);
+  ui->jumpButton->setEnabled(hasCapture && !busy);
+
+  ui->progressBar->setVisible(busy);
+  ui->statusLabel->setText(busy ? statusText : QString());
+}
+
 void AnalyzerReportViewer::on_refreshButton_clicked()
 {
   RefreshReport();
@@ -201,8 +242,21 @@ void AnalyzerReportViewer::on_exportButton_clicked()
     return;
   }
 
-  if(m_Snapshot.events.empty() && m_Snapshot.issues.empty())
+  if(m_BuildInFlight)
+  {
+    QMessageBox::information(this, tr("Analyzer Export"),
+                             tr("Please wait until report refresh is complete."));
+    return;
+  }
+
+  if(m_Snapshot.events.empty() && m_Snapshot.issues.empty() && m_Snapshot.resources.empty() &&
+     m_Snapshot.shaders.empty())
+  {
     RefreshReport();
+    QMessageBox::information(this, tr("Analyzer Export"),
+                             tr("Report is being built. Please export again after refresh."));
+    return;
+  }
 
   QString outDir = RDDialog::getExistingDirectory(this, tr("Select analyzer export directory"));
   if(outDir.isEmpty())
