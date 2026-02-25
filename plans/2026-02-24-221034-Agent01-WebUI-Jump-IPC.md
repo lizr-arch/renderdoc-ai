@@ -98,7 +98,7 @@ def dispatch_jump(ctx, req):
 - [x] Task 2: Add GUI jump watcher + dispatcher
 - [x] Task 3: Wire event/texture/shader buttons + navigation helper
 - [x] Task 4: Ensure bundle data contains needed IDs
-- [ ] Task 5: Tests + docs update
+- [x] Task 5: Tests + docs update
 
 ### Task 1: Jump request schema + server writer
 **Files:**
