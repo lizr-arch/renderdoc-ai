@@ -624,3 +624,15 @@ bool AnalyzerExporter::WriteAll(const AnalyzerSnapshot &snap, const rdcstr &dir)
   - `qrenderdoc.exe --unittest`：PASS（exit 0）
 - [ ] **下一步（进行中）**
   - 补一次手工 GUI 验收（Window -> Analyzer Report: Refresh/Jump/Export/busy 状态）
+
+### 2026-02-25 20:05 (Agent continuation)
+
+- [x] **按交接中断点补做 qrenderdoc unittest**
+  - 命令：`D:\\Code\\git\\renderdoc\\x64\\Development\\qrenderdoc.exe --unittest`
+  - 结果：退出码 `0`
+- [x] **执行非交互 GUI 烟测（可自动化范围）**
+  - 命令：`py -3 -c "import subprocess,time; ..."`（启动 `qrenderdoc.exe test_game.rdc`，等待 8 秒后终止）
+  - 结果：`initial_exit=None`（8 秒内无崩溃退出），随后主动终止进程 `final_exit=1`
+  - 结论：可确认进程可启动并加载到运行态；交互路径（Refresh/Jump/Export/busy）仍需人工点击验收
+- [ ] **下一步（进行中）**
+  - 人工 GUI 验收：`Window -> Analyzer Report` 的 Refresh / Jump / Export / busy-progression 四项手工确认
