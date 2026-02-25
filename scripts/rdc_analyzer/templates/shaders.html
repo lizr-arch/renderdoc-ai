@@ -1552,7 +1552,9 @@
             const cycles = mali.totalCycles || 0;
             const draws = dynamicMetrics?.drawCount || 1;
             const coverage = dynamicMetrics?.coverage || 0.5;
-            const pixels = 1920 * 1080 * coverage; // 假设 1080p
+            const viewportWidth = dynamicMetrics?.viewportWidth || 1920;
+            const viewportHeight = dynamicMetrics?.viewportHeight || 1080;
+            const pixels = viewportWidth * viewportHeight * coverage;
             
             // 寄存器惩罚
             const regs = mali.workRegisters || 0;
@@ -2053,10 +2055,17 @@
                 drawCount: shader.usedBy?.length || 1,
                 pixelCoverage: 0.5,
                 viewportWidth: 1920,
-                viewportHeight: 1080
+                viewportHeight: 1080,
+                estimated: true,
+                assumption: "viewport=1920x1080; coverage=heuristic-by-pass-name"
             };
             // 兼容旧字段名
             dynamicMetrics.coverage = dynamicMetrics.pixelCoverage || dynamicMetrics.coverage || 0.5;
+            if (dynamicMetrics.estimated === undefined) {
+                dynamicMetrics.estimated = true;
+            }
+            dynamicMetrics.assumption =
+                dynamicMetrics.assumption || "viewport=1920x1080; coverage=heuristic-by-pass-name";
             
             // 计算多维度指标
             const health = calculateHealthScore(mali, dynamicMetrics, tier);
@@ -2082,6 +2091,12 @@
             // 成本等级
             const costLevel = weightedCost > 1000 ? 'high' : (weightedCost > 300 ? 'medium' : 'low');
             const costPercent = Math.min(100, (weightedCost / 2000) * 100);
+            const estimatedBadge = dynamicMetrics.estimated
+                ? `<span style="font-size:10px;color:var(--accent-yellow);margin-left:8px;">Estimated</span>`
+                : '';
+            const estimatedHint = dynamicMetrics.estimated
+                ? `<div style="font-size:10px;color:var(--text-muted);margin-top:6px;">估算假设: ${escapeHtml(dynamicMetrics.assumption)}</div>`
+                : '';
             
             content.innerHTML = `
                 <!-- M4.3 健康评分头部 -->
@@ -2115,12 +2130,13 @@
                 <!-- 加权成本条 -->
                 <div class="cost-bar-container">
                     <div class="cost-bar-header">
-                        <span class="cost-bar-label">加权成本 (MCP)</span>
+                        <span class="cost-bar-label">加权成本 (MCP)${estimatedBadge}</span>
                         <span class="cost-bar-value">${weightedCost.toFixed(1)}</span>
                     </div>
                     <div class="cost-bar">
                         <div class="cost-bar-fill ${costLevel}" style="width: ${costPercent}%"></div>
                     </div>
+                    ${estimatedHint}
                 </div>
                 
                 <!-- 管线阶段统计 -->

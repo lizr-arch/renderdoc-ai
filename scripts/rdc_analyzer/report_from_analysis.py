@@ -48,6 +48,9 @@ def _normalize_issue_record(issue: Dict[str, Any]) -> Dict[str, Any]:
         record["resource_id"] = resource_ids[0]
     if suggestion:
         record["suggestion"] = suggestion
+    evidence = issue.get("evidence")
+    if isinstance(evidence, dict) and evidence:
+        record["evidence"] = evidence
     return record
 
 

@@ -102,6 +102,8 @@ def test_generate_shaders_validates_schema(tmp_path):
     html = gen.generate_shaders()
     shader_data = _extract_embedded_json(html, ["embeddedData", "shaderData"])
     assert shader_data and shader_data[0]["dynamicMetrics"]["drawCount"] == 1
+    assert shader_data[0]["dynamicMetrics"]["estimated"] is True
+    assert "1920x1080" in shader_data[0]["dynamicMetrics"]["assumption"]
 
 
 def test_generate_events_validates_heatmap_schema(tmp_path):

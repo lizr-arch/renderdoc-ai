@@ -303,19 +303,77 @@ class ReportBundleGenerator:
         self.mali_data = mali_data or {}
         self.shader_usage_map = usage_map or {}
         self.stats["total_shaders"] = len(self.shaders)
+
+    def _normalize_suggestions(self, data: Dict[str, Any]) -> List[Dict[str, Any]]:
+        """统一 suggestions/recommendations 契约，优先 suggestions。"""
+        raw = data.get("suggestions")
+        if not raw:
+            raw = data.get("recommendations", [])
+
+        normalized: List[Dict[str, Any]] = []
+        for i, item in enumerate(raw or []):
+            if not isinstance(item, dict):
+                normalized.append(
+                    {
+                        "id": f"SUG-{i+1:03d}",
+                        "severity": "info",
+                        "category": "general",
+                        "title": str(item)[:80],
+                        "description": str(item),
+                        "suggestion": "",
+                        "impact": "",
+                        "verification_plan": {},
+                        "confidence": "unknown",
+                        "estimated": False,
+                    }
+                )
+                continue
+
+            normalized.append(
+                {
+                    "id": item.get("id") or item.get("rule_id") or f"SUG-{i+1:03d}",
+                    "severity": item.get("severity")
+                    or item.get("priority")
+                    or item.get("level")
+                    or "info",
+                    "category": item.get("category", "general"),
+                    "title": item.get("title") or item.get("message") or "",
+                    "description": item.get("description")
+                    or item.get("detail")
+                    or item.get("message")
+                    or "",
+                    "suggestion": item.get("suggestion") or item.get("action") or "",
+                    "impact": item.get("impact") or item.get("expected_impact", ""),
+                    "verification_plan": item.get("verification_plan", {}),
+                    "confidence": item.get("confidence", "unknown"),
+                    "estimated": bool(item.get("estimated", False)),
+                    "event_ids": item.get("event_ids") or item.get("eventIds") or [],
+                    "resource_ids": item.get("resource_ids") or item.get("resourceIds") or [],
+                    "evidence": item.get("evidence") or {},
+                }
+            )
+
+        return normalized
     
     def set_performance_data(self, data: Dict):
         """设置性能分析数据"""
         self.performance_data = data or {}
-        
+
         # 提取问题列表
-        issues = data.get("issues", [])
+        issues = self.performance_data.get("issues", [])
+        if not isinstance(issues, list):
+            issues = []
         self.stats["issues"] = issues
         self.stats["issues_count"] = len(issues)
-        
-        # 提取结构化建议列表
-        recommendations = data.get("recommendations", [])
-        self.stats["recommendations"] = recommendations
+
+        suggestions = self._normalize_suggestions(self.performance_data)
+        self.stats["suggestions"] = suggestions
+        # backward compatibility: existing rendering path still reads recommendations
+        self.stats["recommendations"] = suggestions
+
+        self.stats["coverage"] = self.performance_data.get("coverage", {})
+        self.stats["data_richness"] = self.performance_data.get("data_richness", {})
+        self.stats["preflight"] = self.performance_data.get("preflight", {})
     
     def set_frame_thumbnail(self, thumbnail: str):
         """设置帧缩略图（Base64 Data URI）"""
@@ -535,14 +593,21 @@ class ReportBundleGenerator:
                     <div class="shader-perf-cycles">{s["cycles"]:.1f}</div>
                 </div>'''
         
-        # 生成问题列表 HTML（增强版：支持详细建议格式）
+        # 生成问题列表 HTML（增强版：canonical issue + 结构化建议）
         issues_html = ""
         critical_count = 0
-        
-        # 优先使用 recommendations（新格式），回退到 issues（旧格式）
-        recommendations = self.stats.get("recommendations", [])
+        suggestions = self.stats.get("suggestions") or self.stats.get("recommendations", [])
         issues = self.stats.get("issues", [])
-        
+
+        def _short_text(value: Any, limit: int = 80) -> str:
+            if value is None:
+                return ""
+            if isinstance(value, (dict, list)):
+                text = json.dumps(value, ensure_ascii=False, separators=(",", ":"))
+            else:
+                text = str(value)
+            return text[:limit]
+
         def _extract_issue_event_id(item):
             if not isinstance(item, dict):
                 return None
@@ -552,57 +617,92 @@ class ReportBundleGenerator:
                 event_id = event_ids[0]
             return event_id
 
+        def _extract_severity(item) -> str:
+            if not isinstance(item, dict):
+                return "info"
+            severity = str(
+                item.get("severity") or item.get("priority") or item.get("level") or "info"
+            ).lower()
+            if severity in ("critical", "high", "error", "warning", "info"):
+                return severity
+            if severity == "medium" or severity == "warn":
+                return "warning"
+            return "info"
+
+        def _severity_visual(severity: str):
+            if severity in ("critical", "high", "error"):
+                return "error", "🔴", True
+            if severity == "warning":
+                return "", "⚠️", False
+            return "info", "ℹ️", False
+
+        def _canonical_issue_title(item, default: str) -> str:
+            if not isinstance(item, dict):
+                return _short_text(item, 80)
+            code = item.get("code") or item.get("rule") or item.get("rule_id")
+            message = item.get("message") or item.get("title") or default
+            if code and not str(message).startswith(f"[{code}]"):
+                return f"[{code}] {message}"
+            return str(message)
+
+        def _canonical_issue_desc(item) -> str:
+            if not isinstance(item, dict):
+                return ""
+            desc_parts = []
+            detail = item.get("description") or item.get("detail")
+            if detail:
+                desc_parts.append(_short_text(detail, 100))
+            action = item.get("suggestion") or item.get("action")
+            if action:
+                desc_parts.append(f"💡 {_short_text(action, 80)}")
+            impact = item.get("impact") or item.get("expected_impact")
+            if impact:
+                desc_parts.append(f"📊 {_short_text(impact, 60)}")
+            event_ids = item.get("event_ids") or item.get("eventIds") or []
+            if isinstance(event_ids, list) and event_ids:
+                desc_parts.append("EID " + ",".join(str(v) for v in event_ids[:3]))
+            resource_ids = item.get("resource_ids") or item.get("resourceIds") or []
+            if isinstance(resource_ids, list) and resource_ids:
+                desc_parts.append("RES " + ",".join(str(v) for v in resource_ids[:2]))
+            evidence = item.get("evidence")
+            if isinstance(evidence, dict) and evidence:
+                desc_parts.append("含证据")
+            if not desc_parts and item.get("message"):
+                desc_parts.append(_short_text(item.get("message"), 80))
+            return " | ".join(desc_parts)
+
         def _build_issue_jump_button(event_id):
             if event_id is None:
                 return ""
-            return f'<button class="rdc-jump-btn" onclick="jumpToRenderDoc({event_id}); event.stopPropagation();" title="Jump to RenderDoc">↗ GUI</button>'
+            return (
+                f'<button class="rdc-jump-btn" onclick="jumpToRenderDoc({event_id}); '
+                'event.stopPropagation();" title="Jump to RenderDoc">↗ GUI</button>'
+            )
 
-        # 渲染新格式的 recommendations
-        for rec in recommendations[:5]:
+        # 渲染结构化 suggestions（优先）
+        for rec in suggestions[:5]:
             if isinstance(rec, dict):
-                priority = rec.get("priority", "info")
-                rule = rec.get("rule", "")
-                title = rec.get("title", "未知问题")
-                detail = rec.get("detail", "")
-                action = rec.get("action", "")
-                impact = rec.get("impact", "")
-                
-                # 映射优先级到样式
-                if priority in ["critical", "high"]:
-                    severity_class = "error"
-                    icon = "🔴"
+                severity = _extract_severity(rec)
+                severity_class, icon, is_critical = _severity_visual(severity)
+                if is_critical:
                     critical_count += 1
-                elif priority in ["warning", "medium"]:
-                    severity_class = ""
-                    icon = "⚠️"
-                else:
-                    severity_class = "info"
-                    icon = "ℹ️"
-                
-                jump_html = _build_issue_jump_button(_extract_issue_event_id(rec))
 
-                # 构建详细描述
-                desc_parts = []
-                if detail:
-                    desc_parts.append(detail[:100])
-                if action:
-                    desc_parts.append(f"💡 {action[:80]}")
-                if impact:
-                    desc_parts.append(f"📊 {impact[:60]}")
-                
-                full_desc = " | ".join(desc_parts) if desc_parts else ""
-                
+                title = _canonical_issue_title(rec, "未知问题")
+                full_desc = _canonical_issue_desc(rec)
+                if rec.get("estimated"):
+                    full_desc = (full_desc + " | " if full_desc else "") + "⚠️ 包含估算值"
+
+                jump_html = _build_issue_jump_button(_extract_issue_event_id(rec))
                 issues_html += f'''
                 <div class="issue-item {severity_class}">
                     <span class="issue-icon">{icon}</span>
                     <div class="issue-content">
-                        <div class="issue-title">[{rule}] {title}</div>
+                        <div class="issue-title">{title}</div>
                         <div class="issue-desc">{full_desc}</div>
                     </div>
                     {jump_html}
                 </div>'''
             else:
-                # 字符串格式的旧建议
                 issues_html += f'''
                 <div class="issue-item info">
                     <span class="issue-icon">💡</span>
@@ -610,21 +710,18 @@ class ReportBundleGenerator:
                         <div class="issue-title">{str(rec)[:80]}</div>
                     </div>
                 </div>'''
-        
-        # 渲染旧格式的 issues（如果没有 recommendations）
-        if not recommendations:
+
+        # 回退渲染旧格式 issues（如果没有 suggestions）
+        if not suggestions:
             for issue in issues[:8]:
                 jump_html = _build_issue_jump_button(_extract_issue_event_id(issue))
-                severity = issue.get("severity", "info")
-                title = issue.get("title", "Unknown Issue")
-                desc = issue.get("description", "")[:80]
-                
-                severity_class = "error" if severity in ["critical", "high"] else ("" if severity == "warning" else "info")
-                icon = "🔴" if severity in ["critical", "high"] else ("⚠️" if severity == "warning" else "ℹ️")
-                
-                if severity in ["critical", "high"]:
+                severity = _extract_severity(issue)
+                severity_class, icon, is_critical = _severity_visual(severity)
+                if is_critical:
                     critical_count += 1
-                
+
+                title = _canonical_issue_title(issue, "Unknown Issue")
+                desc = _canonical_issue_desc(issue)
                 issues_html += f'''
                 <div class="issue-item {severity_class}">
                     <span class="issue-icon">{icon}</span>
@@ -634,14 +731,46 @@ class ReportBundleGenerator:
                     </div>
                     {jump_html}
                 </div>'''
-        
+
         # 计算问题类样式
-        issue_count = self.stats["issues_count"]
+        issue_count = len(suggestions) if suggestions else self.stats["issues_count"]
         issue_class = ""
         issue_value_class = "success" if issue_count == 0 else ("error" if critical_count > 0 else "warn")
         
         # VRAM 值（MB）
         total_vram_mb = total_vram / (1024 * 1024)
+
+        coverage = self.stats.get("coverage", {})
+        if not isinstance(coverage, dict):
+            coverage = {}
+        preflight = self.stats.get("preflight", {})
+        if not isinstance(preflight, dict):
+            preflight = {}
+        data_richness = self.stats.get("data_richness", {})
+        if not isinstance(data_richness, dict):
+            data_richness = {}
+
+        quality_level = str(coverage.get("overall", "unknown"))
+        preflight_status = str(preflight.get("status", "unknown"))
+        missing_data = preflight.get("missing_data", [])
+        if not isinstance(missing_data, list):
+            missing_data = []
+        preflight_missing_count = len(missing_data)
+
+        confidence_reasons = coverage.get("confidence_reasons", [])
+        if not isinstance(confidence_reasons, list):
+            confidence_reasons = []
+        quality_reasons = "<br>".join(str(v) for v in confidence_reasons[:3]) if confidence_reasons else "无"
+
+        richness_routes = data_richness.get("routes", {})
+        if not isinstance(richness_routes, dict):
+            richness_routes = {}
+        route_a = richness_routes.get("A", {})
+        if not isinstance(route_a, dict):
+            route_a = {}
+        route_c = richness_routes.get("C", {})
+        if not isinstance(route_c, dict):
+            route_c = {}
         
         replacements = {
             "CAPTURE_NAME": self.capture_name,
@@ -670,6 +799,13 @@ class ReportBundleGenerator:
             "ISSUE_VALUE_CLASS": issue_value_class,
             "CRITICAL_COUNT": str(critical_count),
             "ISSUE_TEXTURE_COUNT": str(len([t for t in self.textures if t.get("issues")])),
+
+            "QUALITY_LEVEL": quality_level,
+            "PREFLIGHT_STATUS": preflight_status,
+            "PREFLIGHT_MISSING_COUNT": str(preflight_missing_count),
+            "QUALITY_REASONS": quality_reasons,
+            "RICHNESS_ROUTE_A": str(route_a.get("coverage", "unknown")),
+            "RICHNESS_ROUTE_C": str(route_c.get("coverage", "unknown")),
             
             "VRAM_CHART_SEGMENTS": vram_chart_segments,
             "VRAM_LEGEND_ITEMS": vram_legend_items,
@@ -1051,6 +1187,8 @@ class ReportBundleGenerator:
                 "pixelCoverage": round(estimated_coverage, 2),
                 "viewportWidth": 1920,   # 默认值，可从 capture info 覆盖
                 "viewportHeight": 1080,
+                "estimated": True,
+                "assumption": "viewport=1920x1080; coverage=heuristic-by-pass-name",
             }
             
             shader_with_mali.append(shader_copy)
@@ -1130,7 +1268,9 @@ class ReportBundleGenerator:
         
         # 统计各严重程度的问题数量
         issues = self.performance_data.get("issues", []) if self.performance_data else []
-        recommendations = self.performance_data.get("recommendations", []) if self.performance_data else []
+        suggestions = (
+            self._normalize_suggestions(self.performance_data) if self.performance_data else []
+        )
         
         # 合并问题和建议，使用新的数据结构
         all_issues = []
@@ -1139,10 +1279,13 @@ class ReportBundleGenerator:
         for issue in issues:
             if isinstance(issue, dict):
                 item = {
-                    "id": issue.get("rule_id", f"ISSUE-{len(all_issues)+1:03d}"),
+                    "id": issue.get("rule_id")
+                    or issue.get("code")
+                    or issue.get("id")
+                    or f"ISSUE-{len(all_issues)+1:03d}",
                     "severity": issue.get("severity", "info"),
                     "category": issue.get("category", "general"),
-                    "title": issue.get("title", ""),
+                    "title": issue.get("title") or issue.get("message") or "",
                     "description": issue.get("message", ""),
                     "suggestion": issue.get("suggestion", ""),
                     "impact": issue.get("impact", ""),
@@ -1163,14 +1306,14 @@ class ReportBundleGenerator:
                     "impact": "",
                 })
         
-        # 处理建议
-        for rec in recommendations:
+        # 处理建议（suggestions / recommendations 兼容）
+        for rec in suggestions:
             if isinstance(rec, dict):
                 all_issues.append({
                     "id": rec.get("id", rec.get("rule_id", f"REC-{len(all_issues)+1:03d}")),
                     "severity": rec.get("severity", "info"),
                     "category": rec.get("category", "general"),
-                    "title": rec.get("title", ""),
+                    "title": rec.get("title") or rec.get("message") or "",
                     "description": rec.get("description", rec.get("detail", rec.get("message", ""))),
                     "suggestion": rec.get("suggestion", rec.get("action", "")),
                     "impact": rec.get("impact", ""),
@@ -1384,6 +1527,8 @@ class ReportBundleGenerator:
                 "pixelCoverage": round(estimated_coverage, 2),
                 "viewportWidth": 1920,
                 "viewportHeight": 1080,
+                "estimated": True,
+                "assumption": "viewport=1920x1080; coverage=heuristic-by-pass-name",
             }
             shader_with_mali.append(shader_copy)
         

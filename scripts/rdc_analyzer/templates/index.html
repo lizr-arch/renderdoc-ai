@@ -239,6 +239,46 @@
             gap: 10px;
             margin-bottom: 8px;
         }
+
+        /* 数据可信度卡片 */
+        .quality-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+
+        .quality-item {
+            background: var(--bg-darkest);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-md);
+            padding: 8px 10px;
+        }
+
+        .quality-label {
+            font-size: 9px;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .quality-value {
+            margin-top: 2px;
+            font-size: 12px;
+            color: var(--text-primary);
+            font-weight: 600;
+            word-break: break-word;
+        }
+
+        .quality-reasons {
+            background: var(--bg-darkest);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-md);
+            padding: 8px 10px;
+            font-size: 10px;
+            color: var(--text-secondary);
+            line-height: 1.4;
+        }
         
         /* 捕获信息卡片 */
         .capture-info-grid {
@@ -496,6 +536,37 @@
                 </div>
             </div>
             
+            <!-- 数据可信度卡片 -->
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title">
+                        <span class="card-title-icon">🧪</span>
+                        数据可信度
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="quality-grid">
+                        <div class="quality-item">
+                            <div class="quality-label">Coverage</div>
+                            <div class="quality-value">{{QUALITY_LEVEL}}</div>
+                        </div>
+                        <div class="quality-item">
+                            <div class="quality-label">Preflight</div>
+                            <div class="quality-value">{{PREFLIGHT_STATUS}}</div>
+                        </div>
+                        <div class="quality-item">
+                            <div class="quality-label">缺失项</div>
+                            <div class="quality-value">{{PREFLIGHT_MISSING_COUNT}}</div>
+                        </div>
+                        <div class="quality-item">
+                            <div class="quality-label">Data Richness</div>
+                            <div class="quality-value">A={{RICHNESS_ROUTE_A}} / C={{RICHNESS_ROUTE_C}}</div>
+                        </div>
+                    </div>
+                    <div class="quality-reasons">{{QUALITY_REASONS}}</div>
+                </div>
+            </div>
+
             <!-- 优化建议卡片 -->
             <div class="card">
                 <div class="card-header">

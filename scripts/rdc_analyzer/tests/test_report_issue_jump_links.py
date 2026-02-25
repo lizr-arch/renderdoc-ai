@@ -21,3 +21,10 @@ def test_issue_jump_buttons_present() -> None:
     assert "jumpToRenderDoc(" in events_html
     assert "jumpToRenderDoc(" in shaders_html
     assert "jumpToRenderDoc(" in textures_html
+
+
+def test_quality_panel_placeholders_present() -> None:
+    index_html = Path("scripts/rdc_analyzer/templates/index.html").read_text(encoding="utf-8")
+    assert "数据可信度" in index_html
+    assert "{{QUALITY_LEVEL}}" in index_html
+    assert "{{PREFLIGHT_STATUS}}" in index_html
