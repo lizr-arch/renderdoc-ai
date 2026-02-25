@@ -566,3 +566,109 @@ void AnalyzerShaderModel::sort(int column, Qt::SortOrder order)
                    });
   endResetModel();
 }
+
+#if ENABLE_UNIT_TESTS
+
+#include <cstring>
+#include "3rdparty/catch/catch.hpp"
+
+namespace
+{
+ResourceId MakeAnalyzerTestResourceId(uint64_t raw)
+{
+  ResourceId id;
+  static_assert(sizeof(ResourceId) == sizeof(uint64_t),
+                "ResourceId size changed, update test helper");
+  memcpy(&id, &raw, sizeof(raw));
+  return id;
+}
+}
+
+TEST_CASE("Analyzer resource model sorts size numerically", "[analyzer]")
+{
+  AnalyzerResourceRow small;
+  small.id = MakeAnalyzerTestResourceId(1);
+  small.kind = "texture";
+  small.bytes = 16;
+  small.width = 16;
+  small.height = 16;
+  small.format = "R8";
+
+  AnalyzerResourceRow medium;
+  medium.id = MakeAnalyzerTestResourceId(2);
+  medium.kind = "texture";
+  medium.bytes = 1024;
+  medium.width = 32;
+  medium.height = 32;
+  medium.format = "R8G8";
+
+  AnalyzerResourceRow large;
+  large.id = MakeAnalyzerTestResourceId(3);
+  large.kind = "texture";
+  large.bytes = 4096;
+  large.width = 64;
+  large.height = 64;
+  large.format = "R8G8B8A8";
+
+  rdcarray<AnalyzerResourceRow> resources;
+  resources.push_back(medium);
+  resources.push_back(large);
+  resources.push_back(small);
+
+  AnalyzerResourceModel model;
+  model.SetResources(resources);
+
+  model.sort(AnalyzerResourceModel::ColBytes, Qt::AscendingOrder);
+  CHECK(model.ResourceAt(0).bytes == 16);
+  CHECK(model.ResourceAt(1).bytes == 1024);
+  CHECK(model.ResourceAt(2).bytes == 4096);
+
+  model.sort(AnalyzerResourceModel::ColBytes, Qt::DescendingOrder);
+  CHECK(model.ResourceAt(0).bytes == 4096);
+  CHECK(model.ResourceAt(1).bytes == 1024);
+  CHECK(model.ResourceAt(2).bytes == 16);
+}
+
+TEST_CASE("Analyzer shader model sorts use count numerically", "[analyzer]")
+{
+  AnalyzerShaderRow low;
+  low.id = MakeAnalyzerTestResourceId(11);
+  low.stage = "PS";
+  low.useCount = 1;
+  low.firstEID = 100;
+  low.lastEID = 100;
+
+  AnalyzerShaderRow mid;
+  mid.id = MakeAnalyzerTestResourceId(12);
+  mid.stage = "PS";
+  mid.useCount = 3;
+  mid.firstEID = 101;
+  mid.lastEID = 105;
+
+  AnalyzerShaderRow high;
+  high.id = MakeAnalyzerTestResourceId(13);
+  high.stage = "PS";
+  high.useCount = 20;
+  high.firstEID = 90;
+  high.lastEID = 140;
+
+  rdcarray<AnalyzerShaderRow> shaders;
+  shaders.push_back(mid);
+  shaders.push_back(low);
+  shaders.push_back(high);
+
+  AnalyzerShaderModel model;
+  model.SetShaders(shaders);
+
+  model.sort(AnalyzerShaderModel::ColUseCount, Qt::DescendingOrder);
+  CHECK(model.ShaderAt(0).useCount == 20);
+  CHECK(model.ShaderAt(1).useCount == 3);
+  CHECK(model.ShaderAt(2).useCount == 1);
+
+  model.sort(AnalyzerShaderModel::ColUseCount, Qt::AscendingOrder);
+  CHECK(model.ShaderAt(0).useCount == 1);
+  CHECK(model.ShaderAt(1).useCount == 3);
+  CHECK(model.ShaderAt(2).useCount == 20);
+}
+
+#endif

@@ -45,6 +45,78 @@ ShaderStage StageFromAnalyzerLabel(const rdcstr &stage)
     return ShaderStage::Compute;
   return ShaderStage::Count;
 }
+
+rdcarray<ResourceId> BuildTextureJumpCandidates(const AnalyzerIssue &issue, uint32_t fallbackEID,
+                                                const rdcarray<AnalyzerEventRow> &events)
+{
+  rdcarray<ResourceId> candidates;
+  auto appendUniqueCandidate = [&candidates](ResourceId id) {
+    if(id == ResourceId())
+      return;
+
+    for(ResourceId existing : candidates)
+    {
+      if(existing == id)
+        return;
+    }
+
+    candidates.push_back(id);
+  };
+
+  for(ResourceId id : issue.resourceIds)
+    appendUniqueCandidate(id);
+
+  if(fallbackEID != 0)
+  {
+    for(const AnalyzerEventRow &event : events)
+    {
+      if(event.eid != fallbackEID)
+        continue;
+
+      for(ResourceId rt : event.rts)
+        appendUniqueCandidate(rt);
+
+      appendUniqueCandidate(event.ds);
+      break;
+    }
+  }
+
+  return candidates;
+}
+
+ShaderEntryPoint PickEntryPointForStage(const rdcarray<ShaderEntryPoint> &entries,
+                                        ShaderStage preferredStage)
+{
+  if(entries.empty())
+    return ShaderEntryPoint();
+
+  if(preferredStage != ShaderStage::Count)
+  {
+    for(const ShaderEntryPoint &entry : entries)
+    {
+      if(entry.stage == preferredStage)
+        return entry;
+    }
+  }
+
+  return entries[0];
+}
+
+ResourceId PickPipelineForShaderStage(ShaderStage preferredStage, ShaderStage selectedStage,
+                                      ResourceId graphicsPipelineId, ResourceId computePipelineId)
+{
+  if(selectedStage == ShaderStage::Compute)
+    return computePipelineId;
+  if(selectedStage != ShaderStage::Count)
+    return graphicsPipelineId;
+
+  if(preferredStage == ShaderStage::Compute)
+    return computePipelineId;
+  if(preferredStage != ShaderStage::Count)
+    return graphicsPipelineId;
+
+  return ResourceId();
+}
 }
 
 AnalyzerReportViewer::AnalyzerReportViewer(ICaptureContext &ctx, QWidget *parent)
@@ -336,37 +408,7 @@ void AnalyzerReportViewer::on_jumpButton_clicked()
 
 bool AnalyzerReportViewer::JumpToTextureTarget(const AnalyzerIssue &issue, uint32_t fallbackEID)
 {
-  rdcarray<ResourceId> candidates;
-  auto appendUniqueCandidate = [&candidates](ResourceId id) {
-    if(id == ResourceId())
-      return;
-
-    for(ResourceId existing : candidates)
-    {
-      if(existing == id)
-        return;
-    }
-
-    candidates.push_back(id);
-  };
-
-  for(ResourceId id : issue.resourceIds)
-    appendUniqueCandidate(id);
-
-  if(fallbackEID != 0)
-  {
-    for(const AnalyzerEventRow &event : m_Snapshot.events)
-    {
-      if(event.eid != fallbackEID)
-        continue;
-
-      for(ResourceId rt : event.rts)
-        appendUniqueCandidate(rt);
-
-      appendUniqueCandidate(event.ds);
-      break;
-    }
-  }
+  rdcarray<ResourceId> candidates = BuildTextureJumpCandidates(issue, fallbackEID, m_Snapshot.events);
 
   for(ResourceId id : candidates)
   {
@@ -439,28 +481,9 @@ bool AnalyzerReportViewer::JumpToShaderTarget(const AnalyzerIssue &issue, uint32
       return;
     }
 
-    ShaderEntryPoint selected = entries[0];
-    if(preferredStage != ShaderStage::Count)
-    {
-      for(const ShaderEntryPoint &entry : entries)
-      {
-        if(entry.stage == preferredStage)
-        {
-          selected = entry;
-          break;
-        }
-      }
-    }
-
-    ResourceId pipelineId;
-    if(selected.stage == ShaderStage::Compute)
-      pipelineId = computePipelineId;
-    else if(selected.stage != ShaderStage::Count)
-      pipelineId = graphicsPipelineId;
-    else if(preferredStage == ShaderStage::Compute)
-      pipelineId = computePipelineId;
-    else if(preferredStage != ShaderStage::Count)
-      pipelineId = graphicsPipelineId;
+    ShaderEntryPoint selected = PickEntryPointForStage(entries, preferredStage);
+    ResourceId pipelineId = PickPipelineForShaderStage(preferredStage, selected.stage,
+                                                       graphicsPipelineId, computePipelineId);
 
     const ShaderReflection *refl = r->GetShader(pipelineId, shaderId, selected);
     if(!refl && pipelineId != ResourceId())
@@ -571,3 +594,78 @@ bool AnalyzerReportViewer::IsKnownShader(ResourceId id) const
 
   return false;
 }
+
+#if ENABLE_UNIT_TESTS
+
+#include <cstring>
+#include "3rdparty/catch/catch.hpp"
+
+namespace
+{
+ResourceId MakeAnalyzerTestResourceId(uint64_t raw)
+{
+  ResourceId id;
+  static_assert(sizeof(ResourceId) == sizeof(uint64_t),
+                "ResourceId size changed, update test helper");
+  memcpy(&id, &raw, sizeof(raw));
+  return id;
+}
+}
+
+TEST_CASE("Analyzer texture jump candidates merge and dedup", "[analyzer]")
+{
+  ResourceId texA = MakeAnalyzerTestResourceId(1);
+  ResourceId texB = MakeAnalyzerTestResourceId(2);
+  ResourceId texC = MakeAnalyzerTestResourceId(3);
+
+  AnalyzerIssue issue;
+  issue.resourceIds.push_back(texA);
+
+  AnalyzerEventRow event;
+  event.eid = 77;
+  event.rts.push_back(texA);
+  event.rts.push_back(texB);
+  event.ds = texC;
+
+  rdcarray<AnalyzerEventRow> events;
+  events.push_back(event);
+
+  rdcarray<ResourceId> candidates = BuildTextureJumpCandidates(issue, 77, events);
+
+  REQUIRE(candidates.count() == 3);
+  CHECK(candidates[0] == texA);
+  CHECK(candidates[1] == texB);
+  CHECK(candidates[2] == texC);
+}
+
+TEST_CASE("Analyzer shader entrypoint selection prefers requested stage", "[analyzer]")
+{
+  ShaderEntryPoint vertexEntry;
+  vertexEntry.stage = ShaderStage::Vertex;
+  ShaderEntryPoint pixelEntry;
+  pixelEntry.stage = ShaderStage::Pixel;
+
+  rdcarray<ShaderEntryPoint> entries;
+  entries.push_back(vertexEntry);
+  entries.push_back(pixelEntry);
+
+  ShaderEntryPoint selected = PickEntryPointForStage(entries, ShaderStage::Pixel);
+  CHECK(selected.stage == ShaderStage::Pixel);
+}
+
+TEST_CASE("Analyzer shader entrypoint selection falls back to first entry", "[analyzer]")
+{
+  ShaderEntryPoint vertexEntry;
+  vertexEntry.stage = ShaderStage::Vertex;
+  ShaderEntryPoint pixelEntry;
+  pixelEntry.stage = ShaderStage::Pixel;
+
+  rdcarray<ShaderEntryPoint> entries;
+  entries.push_back(vertexEntry);
+  entries.push_back(pixelEntry);
+
+  ShaderEntryPoint selected = PickEntryPointForStage(entries, ShaderStage::Compute);
+  CHECK(selected.stage == ShaderStage::Vertex);
+}
+
+#endif
