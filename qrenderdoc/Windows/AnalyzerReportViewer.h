@@ -69,6 +69,10 @@ private:
   void PopulateEventTable();
   void PopulateResourceTable();
   void PopulateShaderTable();
+  bool JumpToTextureTarget(const AnalyzerIssue &issue, uint32_t fallbackEID);
+  bool JumpToShaderTarget(const AnalyzerIssue &issue, uint32_t fallbackEID);
+  ResourceId FindShaderForEvent(uint32_t eid) const;
+  bool IsKnownShader(ResourceId id) const;
 
   Ui::AnalyzerReportViewer *ui = NULL;
   ICaptureContext &m_Ctx;

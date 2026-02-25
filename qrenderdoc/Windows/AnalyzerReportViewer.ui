@@ -63,9 +63,9 @@
       </widget>
      </item>
      <item>
-      <widget class="QPushButton" name="jumpButton">
+     <widget class="QPushButton" name="jumpButton">
        <property name="text">
-        <string>Jump To EID</string>
+        <string>Jump To Target</string>
        </property>
       </widget>
      </item>

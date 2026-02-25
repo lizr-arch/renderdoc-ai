@@ -41,6 +41,21 @@ rdcarray<AnalyzerIssue> IssueEngine::Evaluate(const AnalyzerSnapshot &snapshot) 
     return snapshot.events.back().eid;
   };
 
+  auto largestTexture = [&snapshot]() -> ResourceId {
+    for(const AnalyzerResourceRow &resource : snapshot.resources)
+    {
+      if(resource.kind == "texture")
+        return resource.id;
+    }
+    return ResourceId();
+  };
+
+  auto busiestShader = [&snapshot]() -> ResourceId {
+    if(snapshot.shaders.empty())
+      return ResourceId();
+    return snapshot.shaders[0].id;
+  };
+
   if(snapshot.summary.drawCount > 5000)
   {
     AnalyzerIssue issue;
@@ -55,6 +70,10 @@ rdcarray<AnalyzerIssue> IssueEngine::Evaluate(const AnalyzerSnapshot &snapshot) 
     issue.eventIds.push_back(firstEvent());
     if(lastEvent() != firstEvent())
       issue.eventIds.push_back(lastEvent());
+
+    ResourceId shader = busiestShader();
+    if(shader != ResourceId())
+      issue.resourceIds.push_back(shader);
 
     AnalyzerEvidence evidence;
     evidence.metric = "draw_count";
@@ -79,6 +98,10 @@ rdcarray<AnalyzerIssue> IssueEngine::Evaluate(const AnalyzerSnapshot &snapshot) 
         "Review oversized textures and ensure high-resolution assets are justified.";
     issue.eventIds.push_back(lastEvent());
 
+    ResourceId texture = largestTexture();
+    if(texture != ResourceId())
+      issue.resourceIds.push_back(texture);
+
     AnalyzerEvidence evidence;
     evidence.metric = "texture_bytes";
     evidence.value = (double)snapshot.summary.textureBytes;
@@ -98,8 +121,7 @@ rdcarray<AnalyzerIssue> IssueEngine::Evaluate(const AnalyzerSnapshot &snapshot) 
     issue.message = "High render pass count can indicate state churn.";
     issue.impactScore = 0.50;
     issue.confidence = "medium";
-    issue.recommendation =
-        "Inspect pass boundaries and merge compatible passes when practical.";
+    issue.recommendation = "Inspect pass boundaries and merge compatible passes when practical.";
     issue.eventIds.push_back(lastEvent());
 
     AnalyzerEvidence evidence;

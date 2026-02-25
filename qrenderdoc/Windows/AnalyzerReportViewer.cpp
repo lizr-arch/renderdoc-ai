@@ -227,15 +227,148 @@ void AnalyzerReportViewer::on_jumpButton_clicked()
     return;
 
   QModelIndex sourceIndex = m_IssueSortModel->mapToSource(rows[0]);
+  AnalyzerIssue issue = m_IssueModel->IssueAt(sourceIndex.row());
   uint32_t eid = sourceIndex.data(AnalyzerIssueModel::EventIdRole).toUInt();
 
-  if(eid == 0)
+  // Prefer direct texture/shader navigation, then fallback to event browser.
+  if(JumpToTextureTarget(issue, eid))
+    return;
+
+  if(JumpToShaderTarget(issue, eid))
+    return;
+
+  if(eid != 0)
   {
-    QMessageBox::warning(this, tr("Jump To GUI"),
-                         tr("Selected issue does not have a concrete event id."));
+    m_Ctx.SetEventID({}, eid, eid, true);
+    m_Ctx.ShowEventBrowser();
     return;
   }
 
-  m_Ctx.SetEventID({}, eid, eid, true);
-  m_Ctx.ShowEventBrowser();
+  QMessageBox::warning(this, tr("Jump To GUI"),
+                       tr("Selected issue does not have a concrete event or resource target."));
+}
+
+bool AnalyzerReportViewer::JumpToTextureTarget(const AnalyzerIssue &issue, uint32_t fallbackEID)
+{
+  rdcarray<ResourceId> candidates = issue.resourceIds;
+
+  if(candidates.empty() && fallbackEID != 0)
+  {
+    for(const AnalyzerEventRow &event : m_Snapshot.events)
+    {
+      if(event.eid != fallbackEID)
+        continue;
+
+      for(ResourceId rt : event.rts)
+        candidates.push_back(rt);
+
+      if(event.ds != ResourceId())
+        candidates.push_back(event.ds);
+      break;
+    }
+  }
+
+  for(ResourceId id : candidates)
+  {
+    if(id == ResourceId())
+      continue;
+
+    if(m_Ctx.GetTexture(id) == NULL)
+      continue;
+
+    if(fallbackEID != 0)
+      m_Ctx.SetEventID({}, fallbackEID, fallbackEID, true);
+
+    m_Ctx.ShowTextureViewer();
+    m_Ctx.GetTextureViewer()->ViewTexture(id, CompType::Typeless, true);
+    return true;
+  }
+
+  return false;
+}
+
+bool AnalyzerReportViewer::JumpToShaderTarget(const AnalyzerIssue &issue, uint32_t fallbackEID)
+{
+  ResourceId shaderId;
+
+  for(ResourceId id : issue.resourceIds)
+  {
+    if(IsKnownShader(id))
+    {
+      shaderId = id;
+      break;
+    }
+  }
+
+  if(shaderId == ResourceId() && fallbackEID != 0)
+    shaderId = FindShaderForEvent(fallbackEID);
+
+  if(shaderId == ResourceId())
+    return false;
+
+  if(fallbackEID != 0)
+    m_Ctx.SetEventID({}, fallbackEID, fallbackEID, true);
+
+  ICaptureContext *ctx = &m_Ctx;
+  m_Ctx.Replay().AsyncInvoke([this, ctx, shaderId](IReplayController *r) {
+    rdcarray<ShaderEntryPoint> entries = r->GetShaderEntryPoints(shaderId);
+    if(entries.empty())
+    {
+      GUIInvoke::call(this, [this] {
+        QMessageBox::warning(this, tr("Jump To Shader"),
+                             tr("No shader entry point was available for this issue target."));
+      });
+      return;
+    }
+
+    const ShaderReflection *refl = r->GetShader(ResourceId(), shaderId, entries[0]);
+    if(!refl)
+    {
+      GUIInvoke::call(this, [this] {
+        QMessageBox::warning(this, tr("Jump To Shader"),
+                             tr("Failed to load shader reflection for this issue target."));
+      });
+      return;
+    }
+
+    GUIInvoke::call(this, [ctx, refl] {
+      IShaderViewer *viewer = ctx->ViewShader(refl, ResourceId());
+      ctx->AddDockWindow(viewer->Widget(), DockReference::MainToolArea, NULL);
+    });
+  });
+
+  return true;
+}
+
+ResourceId AnalyzerReportViewer::FindShaderForEvent(uint32_t eid) const
+{
+  for(const AnalyzerEventRow &event : m_Snapshot.events)
+  {
+    if(event.eid != eid)
+      continue;
+
+    if(event.ps != ResourceId())
+      return event.ps;
+    if(event.vs != ResourceId())
+      return event.vs;
+    if(event.cs != ResourceId())
+      return event.cs;
+    break;
+  }
+
+  return ResourceId();
+}
+
+bool AnalyzerReportViewer::IsKnownShader(ResourceId id) const
+{
+  if(id == ResourceId())
+    return false;
+
+  for(const AnalyzerShaderRow &shader : m_Snapshot.shaders)
+  {
+    if(shader.id == id)
+      return true;
+  }
+
+  return false;
 }

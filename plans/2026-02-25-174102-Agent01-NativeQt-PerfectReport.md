@@ -597,3 +597,16 @@ bool AnalyzerExporter::WriteAll(const AnalyzerSnapshot &snap, const rdcstr &dir)
   - `qrenderdoc.exe --unittest`：PASS（exit 0）
 - [ ] **下一步（进行中）**
   - 完成 issue -> Texture/Shader 跳转链路（当前仍为 issue -> EID）
+
+### 2026-02-25 19:31
+
+- [x] **Issues -> Texture/Shader 跳转链路已补齐**
+  - `Jump` 按钮升级为 `Jump To Target`，优先尝试 Texture / Shader，再回退 EventBrowser
+  - 支持从 issue `resourceIds` 直接跳转 texture
+  - 支持基于 issue 关联 shader 或事件绑定 shader 的异步打开（`Replay().AsyncInvoke` + `ViewShader`）
+  - `IssueEngine` 为关键 issue 补充可跳转资源：`TEX_SIZE_001` 绑定纹理、`PERF_DC_001` 绑定热点 shader
+- [x] **验证**
+  - `MSBuild.exe renderdoc.sln /p:Configuration=Development /p:Platform=x64 /m`：PASS（0 error）
+  - `qrenderdoc.exe --unittest`：PASS（exit 0）
+- [ ] **下一步（进行中）**
+  - 实装 busy/progress 异步刷新体验，避免 Refresh 同步阻塞
