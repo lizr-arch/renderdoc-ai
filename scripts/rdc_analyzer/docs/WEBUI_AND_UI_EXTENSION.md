@@ -126,6 +126,8 @@ py -3 scripts/rdc_analyzer/tools/install_ui_extension.py --scripts-root D:\Code\
 - [ ] 端口占用时自动回退
 - [ ] 页面可访问并展示统计/列表
 - [ ] `issues_export.json` / `issues_export.csv` 可下载
+- [ ] `index.html` 显示“数据可信度”卡片（Coverage / Preflight / Data Richness）
+- [ ] `shaders.html` 的加权成本显示 `Estimated` 标识与“估算假设”文案
 - [ ] `/api/jump?target=...&id=...` 可返回成功（内嵌/外部均可）
 - [ ] 外部 WebUI 时 `rdc_analyzer_jump.json`/`rdc_analyzer_jump_ack.json` 可生成
 - [ ] RenderDoc GUI 可见 shader 的样本，WebUI 中 shaders 数量 > 0
@@ -139,6 +141,7 @@ py -3 scripts/rdc_analyzer/tools/install_ui_extension.py --scripts-root D:\Code\
 ## 7) 已知限制
 - WebUI 目前以基础统计 + 列表为主，详情懒加载尚未接入
 - 仅 XML 路线缺少 Shader 细节，`shader_count=0` 为已知限制
+- Shader 成本中的 `Estimated` 指标来自启发式覆盖率与默认视口，需结合 preflight/coverage 解释结论可信度
 - GUI 扩展依赖内嵌 Python 的标准库；若提示缺失 `dataclasses`，请确保 Python >= 3.7 且运行时完整
 - 若嵌入 Python 缺失 `_socket` 导致使用外部 WebUI server，`/api/jump` 通过跳转队列生效（需 GUI 扩展运行）
 - 日志路径：`%APPDATA%\qrenderdoc\extensions\rdc_analyzer_ext\rdc_analyzer_<timestamp>.log`
