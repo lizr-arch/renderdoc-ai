@@ -96,10 +96,10 @@
     url = f"http://127.0.0.1:{port}/api/jump?target=texture&id=7"
     assert calls == {"target": "texture", "id": 7}
     ```
-- [ ] T4: Verify issue jump coverage in templates
+- [x] T4: Verify issue jump coverage in templates
   - Confirm index/events/textures/shaders issue sections emit `jumpToRenderDoc(...)`.
   - If any page lacks a jump hook for issues, add `jumpToRenderDoc('event', eid)` or resource-specific target.
-- [ ] T5: Docs update (if behavior changes need explicit note)
+- [x] T5: Docs update (if behavior changes need explicit note)
   - Update `scripts/rdc_analyzer/docs/WEBUI_AND_UI_EXTENSION.md` to state embedded mode supports event/texture/shader jumps via `/api/jump`.
 
 ## Verification / Acceptance (Definition of Done)
@@ -115,3 +115,5 @@
 - 2026-02-25 16:36: updated `/api/jump` payload handling and fixed `translate_path` placement in `webui/server.py`.
 - 2026-02-25 16:38: updated GUI jump handler to accept payload dict (event/texture/shader).
 - 2026-02-25 16:39: updated WebUI jump endpoint test to assert payload target/id.
+- 2026-02-25 16:40: verified templates already emit jump buttons for issues/events/textures/shaders; no edits needed.
+- 2026-02-25 16:41: docs already describe target-based `/api/jump` and GUI jump steps; no doc edits required.
