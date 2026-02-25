@@ -134,6 +134,12 @@ class WebUIRequestHandler(SimpleHTTPRequestHandler):
             return
         super().do_GET()
 
+    def translate_path(self, path: str) -> str:
+        mapped = map_request_path(
+            path, self._analysis_file, self._report_root, self._assets_root
+        )
+        return str(mapped)
+
     def _handle_jump(self, parsed) -> None:
         qs = parse_qs(parsed.query)
         target = (qs.get("target") or ["event"])[0]
@@ -147,19 +153,20 @@ class WebUIRequestHandler(SimpleHTTPRequestHandler):
             self.send_error(400, "Invalid id")
             return
 
+        payload = {
+            "request_id": int(time.time() * 1000),
+            "timestamp": time.time(),
+            "target": target,
+            "id": target_id,
+        }
+
         if self._jump_handler is not None:
             try:
-                self._jump_handler(target_id)
+                self._jump_handler(payload)
             except Exception:
                 self.send_error(500, "Jump failed")
                 return
         else:
-            payload = {
-                "request_id": int(time.time() * 1000),
-                "timestamp": time.time(),
-                "target": target,
-                "id": target_id,
-            }
             try:
                 _write_jump_request(self._report_root, payload)
             except Exception:
@@ -181,12 +188,6 @@ def _write_jump_request(report_root: Path, payload: dict) -> Path:
     tmp_path.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
     tmp_path.replace(dst_path)
     return dst_path
-
-    def translate_path(self, path: str) -> str:
-        mapped = map_request_path(
-            path, self._analysis_file, self._report_root, self._assets_root
-        )
-        return str(mapped)
 
 
 def serve(root: str, port: int = 8765, data: Optional[str] = None) -> None:
