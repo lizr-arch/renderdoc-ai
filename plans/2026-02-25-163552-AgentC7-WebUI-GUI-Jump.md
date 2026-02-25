@@ -85,7 +85,7 @@
     def jump_handler(payload: dict):
         return _dispatch_jump_on_ui_thread(ctx, payload, mini_qt)
     ```
-- [ ] T3: Update tests for new handler contract
+- [x] T3: Update tests for new handler contract
   - Adjust `test_webui_server.py` to expect payload dict (target/id).
   - Example update:
     ```python
@@ -114,3 +114,4 @@
 ## Progress Log
 - 2026-02-25 16:36: updated `/api/jump` payload handling and fixed `translate_path` placement in `webui/server.py`.
 - 2026-02-25 16:38: updated GUI jump handler to accept payload dict (event/texture/shader).
+- 2026-02-25 16:39: updated WebUI jump endpoint test to assert payload target/id.

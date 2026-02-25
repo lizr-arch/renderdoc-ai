@@ -150,12 +150,12 @@ def test_jump_endpoint_calls_handler(tmp_path):
 
     calls = {}
 
-    def jump_handler(eid):
-        calls["eid"] = eid
+    def jump_handler(payload):
+        calls["payload"] = payload
 
     httpd, thread, port = server.start_server(str(root), 0, None, jump_handler=jump_handler)
     try:
-        url = f"http://127.0.0.1:{port}/api/jump?eid=7"
+        url = f"http://127.0.0.1:{port}/api/jump?target=texture&id=7"
         with urllib.request.urlopen(url, timeout=1) as resp:
             body = resp.read().decode("utf-8")
         assert "\"ok\": true" in body
@@ -164,4 +164,6 @@ def test_jump_endpoint_calls_handler(tmp_path):
         httpd.server_close()
         thread.join(timeout=1)
 
-    assert calls.get("eid") == 7
+    payload = calls.get("payload") or {}
+    assert payload.get("target") == "texture"
+    assert payload.get("id") == 7
