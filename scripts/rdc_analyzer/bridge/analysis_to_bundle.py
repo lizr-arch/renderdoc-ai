@@ -8,7 +8,7 @@ class BundleData:
     textures: List[Dict[str, Any]]
     shaders: List[Dict[str, Any]]
     stats: Dict[str, Any]
-    shader_usage: Dict[str, List[int]]
+    shader_usage: Dict[str, List[Dict[str, Any]]]
 
 
 def _normalize_draw_type(draw_type: Optional[str]) -> str:
@@ -83,8 +83,9 @@ def _record_shader(
     shader: Dict[str, Any],
     shaders: List[Dict[str, Any]],
     seen: Set[Tuple[Any, str, Any]],
-    shader_usage: Dict[str, List[int]],
+    shader_usage: Dict[str, List[Dict[str, Any]]],
     eid: Optional[int],
+    draw_name: Optional[str] = None,
 ) -> None:
     shader = _normalize_shader_ids(shader)
     if shader is None:
@@ -96,11 +97,20 @@ def _record_shader(
     shader_id = shader.get("id")
     if shader_id is None or eid is None:
         return
-    shader_usage.setdefault(str(shader_id), []).append(int(eid))
+    shader_usage.setdefault(str(shader_id), []).append(
+        {
+            "event_id": int(eid),
+            "name": draw_name or "Draw Call",
+            "slot": 0,
+        }
+    )
 
 
 def _record_shader_usage(
-    shader_usage: Dict[str, List[int]], shader_id: Any, eid: Optional[int]
+    shader_usage: Dict[str, List[Dict[str, Any]]],
+    shader_id: Any,
+    eid: Optional[int],
+    draw_name: Optional[str] = None,
 ) -> None:
     if eid is None:
         return
@@ -111,7 +121,13 @@ def _record_shader_usage(
         event_id = int(eid)
     except Exception:
         return
-    shader_usage.setdefault(str(shader_id), []).append(event_id)
+    shader_usage.setdefault(str(shader_id), []).append(
+        {
+            "event_id": event_id,
+            "name": draw_name or "Draw Call",
+            "slot": 0,
+        }
+    )
 
 
 def analysis_to_bundle(analysis: Dict[str, Any]) -> BundleData:
@@ -120,7 +136,7 @@ def analysis_to_bundle(analysis: Dict[str, Any]) -> BundleData:
     shaders: List[Dict[str, Any]] = []
     textures: List[Dict[str, Any]] = []
     stats: Dict[str, Any] = {}
-    shader_usage: Dict[str, List[int]] = {}
+    shader_usage: Dict[str, List[Dict[str, Any]]] = {}
     seen_shaders: Set[Tuple[Any, str, Any]] = set()
 
     for texture in analysis.get("textures") or []:
@@ -145,6 +161,7 @@ def analysis_to_bundle(analysis: Dict[str, Any]) -> BundleData:
             continue
         eid = draw.get("event_id") or draw.get("eid") or draw.get("eventId")
         draw_type = draw.get("draw_type") or draw.get("type")
+        draw_name = draw.get("name") or draw.get("label") or ""
         event_type = _normalize_draw_type(draw_type)
 
         event: Dict[str, Any] = {
@@ -172,9 +189,9 @@ def analysis_to_bundle(analysis: Dict[str, Any]) -> BundleData:
             vs_shader = _extract_shader(vs_binding, "VS")
             ps_shader = _extract_shader(ps_binding, "PS")
             if vs_shader:
-                _record_shader(vs_shader, shaders, seen_shaders, shader_usage, eid)
+                _record_shader(vs_shader, shaders, seen_shaders, shader_usage, eid, draw_name)
             if ps_shader:
-                _record_shader(ps_shader, shaders, seen_shaders, shader_usage, eid)
+                _record_shader(ps_shader, shaders, seen_shaders, shader_usage, eid, draw_name)
 
         events.append(event)
 
@@ -187,9 +204,15 @@ def analysis_to_bundle(analysis: Dict[str, Any]) -> BundleData:
             if not isinstance(sample, dict):
                 continue
             event_id = sample.get("event_id") or sample.get("eventId")
-            _record_shader_usage(shader_usage, sample.get("vertex_shader_id"), event_id)
-            _record_shader_usage(shader_usage, sample.get("pixel_shader_id"), event_id)
-            _record_shader_usage(shader_usage, sample.get("compute_shader_id"), event_id)
+            _record_shader_usage(
+                shader_usage, sample.get("vertex_shader_id"), event_id
+            )
+            _record_shader_usage(
+                shader_usage, sample.get("pixel_shader_id"), event_id
+            )
+            _record_shader_usage(
+                shader_usage, sample.get("compute_shader_id"), event_id
+            )
 
     return BundleData(
         events=events,

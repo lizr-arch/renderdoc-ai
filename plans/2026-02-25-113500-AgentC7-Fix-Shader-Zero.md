@@ -73,6 +73,7 @@ def _parse_resource_id(value):
   - For each sample: `event_id`, `vertex_shader_id`, `pixel_shader_id`, `compute_shader_id`.
   - Normalize shader id, then `shader_usage[str(id)].append(event_id)`.
 - [x] Step-4: Re-run tests; expect pass.
+- [x] Step-5: 修复 shader_usage 记录格式（从 int 改为 dict），避免生成报告时报 `AttributeError: 'int' object has no attribute 'get'`。
 
 ## Risks / Blockers
 - `pipeline_samples` might be `None` or dict without `samples`; must guard.

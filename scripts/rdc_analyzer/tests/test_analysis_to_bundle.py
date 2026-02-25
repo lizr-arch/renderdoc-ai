@@ -71,4 +71,6 @@ def test_analysis_to_bundle_shaders_from_list_and_samples():
     assert len(bundle.shaders) == 1
     assert bundle.shaders[0]["id"] == 123
     assert bundle.shaders[0]["resource_id"] == 123
-    assert bundle.shader_usage["123"] == [7]
+    usage = bundle.shader_usage["123"]
+    assert len(usage) == 1
+    assert usage[0]["event_id"] == 7
