@@ -402,7 +402,6 @@
             <nav class="app-menu">
                 <a href="index.html" class="menu-item active">📊 概览</a>
                 <a href="textures.html" class="menu-item">🖼️ 纹理</a>
-                <a href="events.html" class="menu-item">📋 事件</a>
                 <a href="shaders.html" class="menu-item">🎨 Shaders</a>
                 <a href="recommendations.html" class="menu-item">💡 优化</a>
             </nav>
@@ -431,7 +430,7 @@
                             <div class="stat-label">纹理</div>
                             <div class="stat-sublabel">{{TEXTURE_VRAM}} VRAM</div>
                         </div>
-                        <div class="stat-item clickable" onclick="location.href='events.html'">
+                        <div class="stat-item">
                             <div class="stat-value">{{DRAWCALL_COUNT}}</div>
                             <div class="stat-label">Draw Calls</div>
                             <div class="stat-sublabel">{{EVENT_COUNT}} 事件</div>
@@ -502,20 +501,6 @@
                             <div class="nav-item-text">
                                 <span class="nav-item-label">问题纹理</span>
                                 <span class="nav-item-count">{{ISSUE_TEXTURE_COUNT}} 项</span>
-                            </div>
-                        </a>
-                        <a href="events.html" class="nav-item">
-                            <span class="nav-item-icon">📋</span>
-                            <div class="nav-item-text">
-                                <span class="nav-item-label">事件列表</span>
-                                <span class="nav-item-count">{{EVENT_COUNT}} 项</span>
-                            </div>
-                        </a>
-                        <a href="events.html?filter=drawcall" class="nav-item">
-                            <span class="nav-item-icon">🎯</span>
-                            <div class="nav-item-text">
-                                <span class="nav-item-label">Draw Calls</span>
-                                <span class="nav-item-count">{{DRAWCALL_COUNT}} 项</span>
                             </div>
                         </a>
                         <a href="shaders.html" class="nav-item">

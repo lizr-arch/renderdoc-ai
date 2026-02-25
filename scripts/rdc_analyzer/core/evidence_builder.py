@@ -135,15 +135,7 @@ class EvidenceBuilder:
                 )
                 
                 # 为前 3 个使用位置添加跳转操作
-                for i, usage in enumerate(usages[:3]):
-                    chain.add_action(
-                        action_type="jump_to_event",
-                        label=f"跳转到 Event #{usage.event_id}",
-                        target_page="events.html",
-                        target_id=str(usage.event_id),
-                        highlight="true"
-                    )
-        
+                
         # 添加查看纹理详情的操作
         chain.add_action(
             action_type="jump_to_texture",
@@ -239,24 +231,12 @@ class EvidenceBuilder:
         # 添加跳转到热点事件的操作
         if binding_events:
             # 跳转到第一个绑定事件
-            chain.add_action(
-                action_type="jump_to_event",
-                label=f"跳转到首次绑定 (Event #{binding_events[0]})",
-                target_page="events.html",
-                target_id=str(binding_events[0]),
-                highlight="true"
-            )
+            pass
             
             # 跳转到中间事件（热点）
             mid_idx = len(binding_events) // 2
             if mid_idx > 0:
-                chain.add_action(
-                    action_type="jump_to_event",
-                    label=f"跳转到中间绑定 (Event #{binding_events[mid_idx]})",
-                    target_page="events.html",
-                    target_id=str(binding_events[mid_idx]),
-                    highlight="true"
-                )
+                pass
         
         # 计算影响评分
         chain.impact_score = min(100, (bind_count / threshold_count) * 30)
@@ -384,13 +364,7 @@ class EvidenceBuilder:
                 
                 # 添加跳转操作
                 for i, usage in enumerate(usages[:2]):
-                    chain.add_action(
-                        action_type="jump_to_event",
-                        label=f"跳转到 Event #{usage.event_id}",
-                        target_page="events.html",
-                        target_id=str(usage.event_id),
-                        highlight="true"
-                    )
+                    pass
         
         # 添加查看 Shader 详情的操作
         chain.add_action(
@@ -466,13 +440,7 @@ class EvidenceBuilder:
         
         # 添加跳转操作
         if event_ids:
-            chain.add_action(
-                action_type="jump_to_event",
-                label=f"跳转到 Event #{event_ids[0]}",
-                target_page="events.html",
-                target_id=str(event_ids[0]),
-                highlight="true"
-            )
+            pass
         
         if resource_ids:
             chain.add_action(

@@ -395,25 +395,6 @@ def test_common_css_typography_tokens_contract():
     assert "Cascadia Mono" in css
 
 
-def test_events_right_panel_typography_contract(tmp_path):
-    gen = ReportBundleGenerator(output_dir=tmp_path, capture_name="t.rdc")
-    gen.set_events([
-        {"eid": 1, "name": "vkCmdDraw", "type": "draw", "duration_ms": 1.0},
-    ])
-    outputs = gen.generate_all()
-    html = Path(outputs["events"]).read_text(encoding="utf-8")
-
-    assert "#panelRight .stat-label" in html
-    assert "font-size: var(--font-xs);" in html
-    assert "#panelRight .stat-value" in html
-    assert "font-size: var(--font-sm);" in html
-    assert "color: var(--text-secondary);" in html
-    assert "font-variant-numeric: tabular-nums;" in html
-    assert "#panelRight .stat-value.highlight" in html
-    assert "color: var(--accent-blue);" in html
-    assert "#panelRight .prop-section-title" in html
-    assert "letter-spacing: 0.2px;" in html
-
 def test_common_css_theme_alias_tokens_contract():
     css_path = Path(__file__).resolve().parents[1] / "templates" / "common.css"
     css = css_path.read_text(encoding="utf-8")
@@ -427,7 +408,7 @@ def test_common_css_theme_alias_tokens_contract():
 
 def test_template_css_vars_defined_contract():
     templates_dir = Path(__file__).resolve().parents[1] / "templates"
-    files = ["common.css", "events.html", "shaders.html", "textures.html"]
+    files = ["common.css", "shaders.html", "textures.html"]
 
     defined = set()
     used = set()

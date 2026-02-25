@@ -140,15 +140,6 @@ class EvidenceChainBuilder:
             )
         
         # 添加跳转操作
-        if issue.event_id:
-            chain.add_action(
-                action_type="jump_to_event",
-                label=f"查看事件 #{issue.event_id}",
-                target_page="events.html",
-                target_id=str(issue.event_id),
-                highlight="true"
-            )
-        
         if issue.resource_id:
             chain.add_action(
                 action_type="jump_to_texture",
@@ -180,16 +171,6 @@ class EvidenceChainBuilder:
             severity="warning"
         )
         
-        # 添加相关事件跳转
-        for eid in issue.related_events[:5]:  # 限制前 5 个
-            chain.add_action(
-                action_type="jump_to_event",
-                label=f"事件 #{eid}",
-                target_page="events.html",
-                target_id=str(eid),
-                highlight="true"
-            )
-        
         # 添加 RT 跳转
         if issue.resource_id:
             chain.add_action(
@@ -220,15 +201,6 @@ class EvidenceChainBuilder:
                 value=f"#{start} - #{end}",
                 evidence_type="state"
             )
-            # 跳转到起始事件
-            chain.add_action(
-                action_type="jump_to_event",
-                label=f"跳转到起始 #{start}",
-                target_page="events.html",
-                target_id=str(start),
-                highlight="true"
-            )
-    
     def _build_perf003(self, chain: EvidenceChain, issue: PerformanceIssue) -> None:
         """PERF003: 小批次绘制"""
         chain.summary = f"绘制调用顶点数仅 {issue.actual_value}，低于阈值 {issue.threshold_value}"
@@ -242,15 +214,6 @@ class EvidenceChainBuilder:
             severity="warning"
         )
         
-        if issue.event_id:
-            chain.add_action(
-                action_type="jump_to_event",
-                label=f"查看事件 #{issue.event_id}",
-                target_page="events.html",
-                target_id=str(issue.event_id),
-                highlight="true"
-            )
-    
     def _build_perf004(self, chain: EvidenceChain, issue: PerformanceIssue) -> None:
         """PERF004: 大纹理"""
         chain.summary = f"纹理尺寸 {issue.actual_value}，超过推荐阈值 {issue.threshold_value}"
@@ -284,16 +247,6 @@ class EvidenceChainBuilder:
                         unit="次",
                         evidence_type="resource"
                     )
-                    # 添加前 3 个事件跳转
-                    for usage in usages[:3]:
-                        chain.add_action(
-                            action_type="jump_to_event",
-                            label=f"使用者 #{usage.event_id}",
-                            target_page="events.html",
-                            target_id=str(usage.event_id),
-                            highlight="true"
-                        )
-    
     def _build_perf005(self, chain: EvidenceChain, issue: PerformanceIssue) -> None:
         """PERF005: 未压缩纹理"""
         chain.summary = f"纹理未使用压缩格式，浪费带宽和显存"
@@ -333,16 +286,6 @@ class EvidenceChainBuilder:
             severity="warning"
         )
         
-        # 添加使用混合的事件跳转
-        for eid in issue.related_events[:5]:
-            chain.add_action(
-                action_type="jump_to_event",
-                label=f"混合事件 #{eid}",
-                target_page="events.html",
-                target_id=str(eid),
-                highlight="true"
-            )
-    
     def _build_perf007(self, chain: EvidenceChain, issue: PerformanceIssue) -> None:
         """PERF007: 频繁绑定"""
         chain.summary = f"资源被绑定 {issue.actual_value} 次，超过阈值 {issue.threshold_value}"
@@ -367,18 +310,6 @@ class EvidenceChainBuilder:
             )
             
             # 从 usage_index 获取绑定事件
-            if self.usage_index:
-                usages = self.usage_index.get_all_usages(issue.resource_id)
-                for usage in usages[:5]:
-                    chain.add_action(
-                        action_type="jump_to_event",
-                        label=f"绑定 #{usage.event_id}",
-                        target_page="events.html",
-                        target_id=str(usage.event_id),
-                        highlight="true"
-                    )
-
-
 def build_evidence_chain(
     issue: PerformanceIssue,
     usage_index: Optional[ResourceUsageIndex] = None

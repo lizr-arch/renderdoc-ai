@@ -493,7 +493,6 @@
             <div class="app-menu">
                 <a href="index.html" class="menu-item">概览</a>
                 <a href="textures.html" class="menu-item">纹理</a>
-                <a href="events.html" class="menu-item">事件</a>
                 <a href="shaders.html" class="menu-item">着色器</a>
                 <a href="recommendations.html" class="menu-item active">优化建议</a>
             </div>
@@ -715,6 +714,9 @@
                     if (action.type === 'jump' && action.target_page) {
                         // 跨页面跳转：构建 URL 并导航
                         const page = action.target_page.endsWith('.html') ? action.target_page : action.target_page + '.html';
+                        if (page === 'events.html') {
+                            return;
+                        }
                         html += `<button class="action-btn jump-btn" onclick="window.location.href=RdcNav.buildLink('${page}', '${action.target_id || ''}')">
                             <span class="btn-icon">→</span>
                             <span class="btn-text">${action.label || '跳转'}</span>
@@ -740,30 +742,17 @@
                     // 推断资源类型并跨页面跳转
                     const isTexture = resId.includes('tex') || resId.includes('Texture');
                     const isShader = resId.includes('shader') || resId.includes('Shader');
-                    const targetPage = isTexture ? 'textures.html' : isShader ? 'shaders.html' : 'events.html';
+                    const targetPage = isTexture ? 'textures.html' : isShader ? 'shaders.html' : '';
                     
-                    html += `<span class="resource-tag clickable" onclick="window.location.href=RdcNav.buildLink('${targetPage}', '${resId}')">${resId}</span>`;
+                    if (targetPage) {
+                        html += `<span class="resource-tag clickable" onclick="window.location.href=RdcNav.buildLink('${targetPage}', '${resId}')">${resId}</span>`;
+                    } else {
+                        html += `<span class="resource-tag">${resId}</span>`;
+                    }
                 });
                 
                 if (chain.affected_resources.length > 10) {
                     html += `<span class="resource-tag more">+${chain.affected_resources.length - 10} 更多</span>`;
-                }
-                
-                html += `</div></div>`;
-            }
-            
-            // 受影响事件
-            if (chain.affected_events && chain.affected_events.length > 0) {
-                html += `<div class="detail-section">
-                    <div class="section-title">🎬 相关事件 (${chain.affected_events.length})</div>
-                    <div class="affected-list">`;
-                
-                chain.affected_events.slice(0, 8).forEach(eid => {
-                    html += `<span class="event-tag clickable" onclick="window.location.href=RdcNav.buildLink('events.html', 'event_${eid}')">EID ${eid}</span>`;
-                });
-                
-                if (chain.affected_events.length > 8) {
-                    html += `<span class="event-tag more">+${chain.affected_events.length - 8} 更多</span>`;
                 }
                 
                 html += `</div></div>`;

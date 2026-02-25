@@ -1188,7 +1188,6 @@
             <nav class="app-menu">
                 <a href="index.html" class="menu-item">📊 概览</a>
                 <a href="textures.html" class="menu-item">🖼️ 纹理</a>
-                <a href="events.html" class="menu-item">📋 事件</a>
                 <a href="shaders.html" class="menu-item active">🎨 Shaders</a>
                 <a href="recommendations.html" class="menu-item">💡 优化</a>
             </nav>
@@ -1408,9 +1407,6 @@
                     <!-- 快捷操作 -->
                     <div style="padding: 12px;">
                         <div class="detail-actions">
-                            <button class="detail-action-btn primary" onclick="jumpToEvent()">
-                                📋 查看事件
-                            </button>
                             <button class="detail-action-btn secondary" onclick="jumpToRenderDocShader()">
                                 ↗ GUI
                             </button>
@@ -2071,10 +2067,7 @@
             const health = calculateHealthScore(mali, dynamicMetrics, tier);
             const weightedCost = calculateWeightedCost(mali, dynamicMetrics);
             const issues = detectIssues(mali, dynamicMetrics, tier);
-            const jumpEid = (shader.usedBy && shader.usedBy.length > 0) ? shader.usedBy[0].eid : null;
-            const jumpButton = jumpEid
-                ? `<div style="margin-top: 8px;"><button class="rdc-jump-btn" onclick="jumpToRenderDoc('event', ${jumpEid}); event.stopPropagation();" title="Jump to RenderDoc">↗ GUI</button></div>`
-                : '';
+            const jumpButton = '';
             
             // 健康评分图标
             const healthIcons = {
@@ -2238,7 +2231,7 @@
             
             if (shader.usedBy && shader.usedBy.length > 0) {
                 list.innerHTML = shader.usedBy.slice(0, 20).map(usage => `
-                    <div class="usage-item" onclick="jumpToEvent(${usage.eid})">
+                    <div class="usage-item">
                         <span class="usage-eid">EID ${usage.eid}</span>
                         <span class="usage-name">${usage.name || 'Draw Call'}</span>
                     </div>
@@ -2370,15 +2363,6 @@
 
             banner.dataset.state = 'good';
             banner.textContent = `数据状态：可读 HLSL ${hlslReady}/${total}（${coverage}%），可进行完整 Shader 视觉验收。`;
-        }
-
-        // ========== 跳转 ==========
-        function jumpToEvent(eid) {
-            if (eid) {
-                window.location.href = `events.html?eid=${eid}`;
-            } else if (currentShader && currentShader.usedBy && currentShader.usedBy.length > 0) {
-                window.location.href = `events.html?eid=${currentShader.usedBy[0].eid}`;
-            }
         }
 
         function jumpToRenderDocShader() {

@@ -715,7 +715,6 @@
             <nav class="app-menu">
                 <a href="index.html" class="menu-item">📊 概览</a>
                 <a href="textures.html" class="menu-item active">🖼️ 纹理</a>
-                <a href="events.html" class="menu-item">📋 事件</a>
                 <a href="shaders.html" class="menu-item">🎨 Shaders</a>
                 <a href="recommendations.html" class="menu-item">💡 优化</a>
             </nav>
@@ -895,9 +894,6 @@
                     <!-- 操作按钮 -->
                     <div style="padding: 12px;">
                         <div class="detail-actions">
-                            <button class="detail-action-btn primary" onclick="jumpToEvent()">
-                                📋 查看事件
-                            </button>
                             <button class="detail-action-btn secondary" onclick="jumpToRenderDocTexture()">
                                 ↗ GUI
                             </button>
@@ -1217,10 +1213,6 @@
                 texture.issues.forEach(issue => {
                     const level = issue.level || 'warn';
                     let message = issue.message || '';
-                    const issueEid = issue.event_id || issue.eventId || issue.eid;
-                    const jumpButton = issueEid
-                        ? `<button class="rdc-jump-btn" onclick="jumpToRenderDoc('event', ${issueEid}); event.stopPropagation();" title="Jump to RenderDoc">↗ GUI</button>`
-                        : '';
                     
                     // 如果有关联的资源 ID 列表，渲染为可点击链接
                     if (issue.related_ids && issue.related_ids.length > 0) {
@@ -1231,12 +1223,10 @@
                                     `<span class="resource-link" onclick="selectTextureByResourceId('${rid}')" title="点击定位">${rid}</span>`
                                 ).join(' ')}
                             </div>
-                            ${jumpButton ? `<div style="margin-top: 6px;">${jumpButton}</div>` : ''}
                         </div>`;
                     } else {
                         html += `<div class="analysis-tip ${level}">
                             <div>${message}</div>
-                            ${jumpButton ? `<div style="margin-top: 6px;">${jumpButton}</div>` : ''}
                         </div>`;
                     }
                 });
@@ -1259,7 +1249,7 @@
                     const name = usage.name || usage.eventName || 'Draw Call';
                     const slot = usage.slot || 0;
                     return `
-                    <div class="usage-item" onclick="jumpToEvent(${eid})">
+                    <div class="usage-item">
                         <span class="usage-eid">EID ${eid}</span>
                         <span class="usage-name">${name}</span>
                         <span class="usage-slot">Slot ${slot}</span>
@@ -1564,15 +1554,6 @@
             title.textContent = `对比 ${index === 1 ? 'A' : 'B'}`;
         }
         
-        // ========== 跳转事件 ==========
-        function jumpToEvent(eid) {
-            if (eid) {
-                window.location.href = `events.html?eid=${eid}`;
-            } else if (currentTexture && currentTexture.usedBy && currentTexture.usedBy.length > 0) {
-                window.location.href = `events.html?eid=${currentTexture.usedBy[0].eid}`;
-            }
-        }
-
         function jumpToRenderDocTexture() {
             if (!currentTexture) {
                 return;

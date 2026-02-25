@@ -5,8 +5,8 @@ RDC Report Bundle Generator - 4 页面报告系统
 生成互联的 HTML 报告包：
 - index.html: 概览仪表盘
 - textures.html: 纹理浏览器  
-- events.html: 事件时间线
 - shaders.html: Shader 分析
+- recommendations.html: 优化建议
 
 所有页面共享 common.css 和 manifest.json，通过 URL 参数实现深度链接。
 """
@@ -1421,27 +1421,13 @@ class ReportBundleGenerator:
         P7C.4: 生成独立数据 JSON 文件，供 HTML 异步加载
         
         生成以下文件：
-        - events_data.json: 事件数据（含绑定信息）
         - textures_data.json: 纹理数据（含使用信息）
         - shaders_data.json: Shader 数据（含 Mali 分析）
-        - heatmap_data.json: 热力图数据
         
         Args:
             output_files: 输出文件字典（将被更新）
         """
-        # 1. 准备事件数据
-        prepared_events = prepare_events_for_frontend(
-            self.events, self.textures, self.shaders
-        )
-        events_json_path = self.output_dir / "events_data.json"
-        events_json_path.write_text(
-            json.dumps(prepared_events, ensure_ascii=False, indent=None),
-            encoding="utf-8"
-        )
-        output_files["events_data"] = str(events_json_path)
-        print(f"  [OK] Generated: {events_json_path.name} ({len(prepared_events)} events)")
-        
-        # 2. 准备纹理数据
+        # 1. 准备纹理数据
         textures_with_usage = []
         for tex in self.textures:
             tex_copy = dict(tex)
@@ -1473,7 +1459,7 @@ class ReportBundleGenerator:
         output_files["textures_data"] = str(textures_json_path)
         print(f"  [OK] Generated: {textures_json_path.name} ({len(textures_with_usage)} textures)")
         
-        # 3. 准备 Shader 数据
+        # 2. 准备 Shader 数据
         shader_with_mali = []
         for shader in self.shaders:
             shader_copy = dict(shader)
@@ -1540,16 +1526,6 @@ class ReportBundleGenerator:
         output_files["shaders_data"] = str(shaders_json_path)
         print(f"  [OK] Generated: {shaders_json_path.name} ({len(shader_with_mali)} shaders)")
         
-        # 4. 生成热力图数据
-        heatmap_data = self._build_binding_heatmaps(prepared_events)
-        heatmap_json_path = self.output_dir / "heatmap_data.json"
-        heatmap_json_path.write_text(
-            json.dumps(heatmap_data, ensure_ascii=False, indent=None),
-            encoding="utf-8"
-        )
-        output_files["heatmap_data"] = str(heatmap_json_path)
-        print(f"  [OK] Generated: {heatmap_json_path.name}")
-    
     def generate_manifest(self) -> Dict:
         """生成 manifest.json"""
         return {
@@ -1563,7 +1539,6 @@ class ReportBundleGenerator:
             "pages": {
                 "index": "index.html",
                 "textures": "textures.html",
-                "events": "events.html",
                 "shaders": "shaders.html",
                 "recommendations": "recommendations.html"
             },
@@ -1601,35 +1576,28 @@ class ReportBundleGenerator:
         output_files["textures"] = str(textures_path)
         print(f"  [OK] Generated: {textures_path.name}")
         
-        # 3. 生成 events.html
-        events_html = self.generate_events()
-        events_path = self.output_dir / "events.html"
-        events_path.write_text(events_html, encoding="utf-8")
-        output_files["events"] = str(events_path)
-        print(f"  [OK] Generated: {events_path.name}")
-        
-        # 4. 生成 shaders.html
+        # 3. 生成 shaders.html
         shaders_html = self.generate_shaders()
         shaders_path = self.output_dir / "shaders.html"
         shaders_path.write_text(shaders_html, encoding="utf-8")
         output_files["shaders"] = str(shaders_path)
         print(f"  [OK] Generated: {shaders_path.name}")
         
-        # 5. 生成 recommendations.html (优化建议专页)
+        # 4. 生成 recommendations.html (优化建议专页)
         recommendations_html = self.generate_recommendations()
         recommendations_path = self.output_dir / "recommendations.html"
         recommendations_path.write_text(recommendations_html, encoding="utf-8")
         output_files["recommendations"] = str(recommendations_path)
         print(f"  [OK] Generated: {recommendations_path.name}")
         
-        # 6. 生成 manifest.json
+        # 5. 生成 manifest.json
         manifest = self.generate_manifest()
         manifest_path = self.output_dir / "manifest.json"
         manifest_path.write_text(json.dumps(manifest, indent=2, ensure_ascii=False), encoding="utf-8")
         output_files["manifest"] = str(manifest_path)
         print(f"  [OK] Generated: {manifest_path.name}")
         
-        # 6.5 生成 resource_usage.json（资源使用索引，证据链数据基础）
+        # 5.5 生成 resource_usage.json（资源使用索引，证据链数据基础）
         if self.resource_usage_index:
             usage_path = self.output_dir / "resource_usage.json"
             usage_path.write_text(json.dumps(self.resource_usage_index, indent=2, ensure_ascii=False), encoding="utf-8")

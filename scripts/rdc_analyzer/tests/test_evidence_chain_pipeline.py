@@ -191,7 +191,7 @@ class TestEvidenceChainJSRendering:
                 Action(
                     type="jump",
                     label="跳转按钮",
-                    target_page="events.html",
+                    target_page="textures.html",
                     target_id="event_123"
                 ),
                 Action(

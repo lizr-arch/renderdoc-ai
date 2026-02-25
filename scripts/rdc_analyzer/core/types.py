@@ -890,15 +890,15 @@ class Action:
     定义 Issue 卡片上的可执行操作（如跳转到事件、查看纹理详情等）。
     
     字段说明:
-        type: 操作类型 (jump_to_event | jump_to_texture | jump_to_shader | open_panel)
+        type: 操作类型 (jump_to_texture | jump_to_shader | open_panel)
         label: 按钮显示文本
-        target_page: 目标页面 (events.html | textures.html | shaders.html | index.html)
+        target_page: 目标页面 (textures.html | shaders.html | index.html)
         target_id: 目标元素 ID (如 event_id、texture_id)
         params: 附加参数 (如 highlight=true)
     """
     type: str  # jump_to_event | jump_to_texture | jump_to_shader | open_panel
     label: str = ""
-    target_page: str = ""  # events.html | textures.html | shaders.html
+    target_page: str = ""  # textures.html | shaders.html | index.html
     target_id: str = ""  # 目标 ID
     params: Dict[str, Any] = field(default_factory=dict)  # 附加 URL 参数
     
