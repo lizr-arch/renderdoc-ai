@@ -49,6 +49,7 @@ scripts/rdc_analyzer/
 3. `report_from_analysis.generate_report_from_analysis(...)` 生成报告包页面  
 4. WebUI 本地服务器优先提供报告包页面（index/events/textures/shaders）  
 5. GUI 内嵌或外部浏览器展示 WebUI  
+6. 报告包导出 `issues_export.json` / `issues_export.csv` 供问题追踪与分享  
 
 
 > Schema 参考：docs/analysis/codex_rdc_analyzer/analysis_report_schema_v1.md  
@@ -121,6 +122,7 @@ py -3 scripts/rdc_analyzer/tools/install_ui_extension.py --scripts-root D:\Code\
 - [ ] `analysis.json` 存在时可正常启动服务
 - [ ] 端口占用时自动回退
 - [ ] 页面可访问并展示统计/列表
+- [ ] `issues_export.json` / `issues_export.csv` 可下载
 - [ ] `/api/jump?eid=` 可返回成功（内嵌 server 可用时）
 - [ ] RenderDoc GUI 可见 shader 的样本，WebUI 中 shaders 数量 > 0
 

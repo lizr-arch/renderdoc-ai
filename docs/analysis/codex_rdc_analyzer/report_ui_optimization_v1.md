@@ -59,6 +59,9 @@
 - **跳转兼容**：
   - 内嵌 WebUI server 可用 → 显示 Jump 按钮
   - 外部 WebUI server → 隐藏/禁用 Jump 并提示
+- **问题导出**：
+  - 报告目录输出 `issues_export.json` + `issues_export.csv`
+  - 每个问题条目包含 `severity/message/event_id/resource_id`
 
 ## 5. 字段映射（参考 schema）
 
@@ -78,4 +81,3 @@
 - `uniforms` 在 D3D11/D3D12 的可用性待验证
 - `pipeline_state` 是否覆盖所有状态切换（需核对 DrawCallInfo）
 - RT/DS 绑定细节在 XML 模式下的完整性待核验
-
