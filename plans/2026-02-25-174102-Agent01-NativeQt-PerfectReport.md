@@ -665,6 +665,6 @@ bool AnalyzerExporter::WriteAll(const AnalyzerSnapshot &snap, const rdcstr &dir)
 - [x] **Verification**
   - `MSBuild.exe renderdoc.sln /p:Configuration=Development /p:Platform=x64 /m /v:minimal /nologo` (PASS)
   - `qrenderdoc.exe --unittest` (PASS, exit 0)
-  - `qrenderdoc.exe --unittest "[analyzer]"` (PASS, exit 0)
+  - `qrenderdoc.exe --unittest "[analyzer]"` (exit 0, currently no `[analyzer]` test cases registered)
 - [ ] **Next pending**
   - Manual GUI acceptance on known problematic captures: Issues -> Texture/Shader jump correctness + Refresh/Export/busy behavior.

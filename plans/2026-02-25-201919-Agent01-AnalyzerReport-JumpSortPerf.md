@@ -276,7 +276,8 @@ numeric/id columns -> ResizeToContents
     - Shader aggregation now uses indexed updates via map lookup (removes repeated linear scan per shader update).
 - Verification after edits:
   - Rebuilt successfully with same MSBuild command.
-  - Re-ran `qrenderdoc.exe --unittest` and `qrenderdoc.exe --unittest "[analyzer]"`, both exit code `0`.
+  - Re-ran `qrenderdoc.exe --unittest` (exit code `0`).
+  - Re-ran `qrenderdoc.exe --unittest "[analyzer]"` (exit code `0`, but current tree has no registered `[analyzer]` test cases).
 - Remaining validation:
   - Manual GUI smoke (capture -> Analyzer Report -> Refresh/Jump/Export, including known problematic captures).
   - Optional `[analyzer]` targeted unit coverage additions for jump/sort helpers.
