@@ -694,3 +694,15 @@ bool AnalyzerExporter::WriteAll(const AnalyzerSnapshot &snap, const rdcstr &dir)
   - `qrenderdoc.exe --unittest`: PASS (exit 0). qrenderdoc left running; terminated to avoid lock.
 - [ ] **Next pending**
   - Manual GUI verification on a real capture for Events jump, Size display, and header resizing.
+
+### 2026-02-26 17:10 (Agent continuation)
+
+- [x] **按交接要求先做构建与 unittest 验证**
+  - `MSBuild.exe renderdoc.sln /p:Configuration=Development /p:Platform=x64 /m`：PASS（0 error）
+  - `D:\Code\git\renderdoc\x64\Development\qrenderdoc.exe --unittest`：PASS（exit 0）
+- [x] **新增“风险维度标准”文档并收录索引**
+  - `docs/analysis/codex_rdc_analyzer/report_risk_dimensions_v1.md`
+  - `docs/analysis/codex_rdc_analyzer/DOC_INDEX.md`
+- [ ] **Shader 维度（Mali Offline）原生落地（进行中）**
+  - 目标：GPU 选择 + Mali 分析入口 + 表格排序（复杂度）
+  - 当前阻塞：`MSBuild` LNK1168（qrenderdoc.exe 被占用，PID 37392，无法终止）

@@ -165,6 +165,12 @@
 ## 维护约定
 - 新文档必须补充到本索引（简介 + 关键词 + 适用链路）。
 - 索引条目保持简短，单条不超过 4 行。
+### report_risk_dimensions_v1（Analyzer Report 风险维度标准）
+- 简介：定义“发现风险 → 排序 → 跳转”的维度标准与置信度，首版以 Shader(Mali) 为落地点。
+- 关键词：risk, dimension, shader, mali, sorting, jump
+- 适用路线：A/B/C
+- 路径：`docs/analysis/codex_rdc_analyzer/report_risk_dimensions_v1.md`
+
 ### 2025-01-19-rdc-analyzer-capability-scorecard（RDC Analyzer 能力盘点 / 冲突点 / 路线图（Codex 专属笔记））
 - 简介：未标注（原因：源文档无 WHAT 段）
 - 关键词：未标注（原因：源文档无关键词段）
