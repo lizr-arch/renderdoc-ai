@@ -785,24 +785,6 @@
                         <button class="toolbar-btn" id="zoomFit" title="适应">⬜</button>
                         <button class="toolbar-btn" id="flipVerticalBtn" title="上下翻转">↕</button>
                     </div>
-                    
-                    <div class="toolbar-group">
-                        <button class="channel-btn" data-channel="r" onclick="toggleChannel('r')">R</button>
-                        <button class="channel-btn" data-channel="g" onclick="toggleChannel('g')">G</button>
-                        <button class="channel-btn" data-channel="b" onclick="toggleChannel('b')">B</button>
-                        <button class="channel-btn" data-channel="a" onclick="toggleChannel('a')">A</button>
-                    </div>
-                    
-                    <div class="toolbar-group">
-                        <button class="toolbar-btn" id="compareBtn" title="对比模式">🔀</button>
-                        <button class="toolbar-btn" id="gridViewBtn" title="网格视图">⊞</button>
-                    </div>
-                    
-                    <div style="flex: 1;"></div>
-                    
-                    <div class="toolbar-group" style="border-right: none;">
-                        <button class="toolbar-btn" id="exportBtn" title="导出">💾</button>
-                    </div>
                 </div>
                 
                 <!-- 主画布 -->
@@ -814,12 +796,6 @@
                     </div>
                     <img class="preview-img hidden" id="previewImg" src="" alt="Texture Preview">
                     
-                    <!-- 颜色拾取器 -->
-                    <div class="color-picker-float hidden" id="colorPicker">
-                        <div class="color-preview" id="colorPreview"></div>
-                        <span class="coord" id="coordDisplay">X: 0, Y: 0</span>
-                        <span class="hex" id="hexDisplay" onclick="copyHex()">#000000</span>
-                    </div>
                 </div>
             </main>
             
@@ -897,9 +873,6 @@
                             <button class="detail-action-btn secondary" onclick="jumpToRenderDocTexture()">
                                 ↗ GUI
                             </button>
-                            <button class="detail-action-btn secondary" onclick="addToCompare()">
-                                🔀 对比
-                            </button>
                         </div>
                         <div class="detail-actions" style="margin-top: 6px;">
                             <button class="detail-action-btn secondary" onclick="scrollToCurrentTexture()">
@@ -912,43 +885,12 @@
         </div>
     </div>
     
-    <!-- Lightbox 弹窗 -->
-    <div class="lightbox-overlay" id="lightbox" onclick="closeLightbox()">
-        <span class="lightbox-close" onclick="closeLightbox()">&times;</span>
-        <img class="lightbox-img" id="lightboxImg" src="" alt="Preview">
-        <div class="lightbox-caption" id="lightboxCaption"></div>
-    </div>
-    
-    <!-- 对比面板 -->
-    <div class="compare-panel" id="comparePanel">
-        <div class="compare-slot" id="compareSlot1">
-            <div class="compare-header">
-                <span class="compare-title" id="compareTitle1">对比 A</span>
-                <button class="compare-close" onclick="clearCompareSlot(1)">×</button>
-            </div>
-            <div class="compare-body">
-                <span class="compare-empty">拖拽纹理到此处</span>
-            </div>
-        </div>
-        <div class="compare-slot" id="compareSlot2">
-            <div class="compare-header">
-                <span class="compare-title" id="compareTitle2">对比 B</span>
-                <button class="compare-close" onclick="clearCompareSlot(2)">×</button>
-            </div>
-            <div class="compare-body">
-                <span class="compare-empty">拖拽纹理到此处</span>
-            </div>
-        </div>
-    </div>
-    
     <script>
         // ========== 状态管理 ==========
         let currentTexture = null;
         let currentZoom = 1;
         let textureFlipVertical = false;
-        let activeChannels = { r: true, g: true, b: true, a: true };
         let currentFilter = 'all';
-        let compareSlots = [null, null];
         
         // ========== 纹理数据 (P7C.4: 支持异步加载) ==========
         let textureData = [];
@@ -1154,8 +1096,6 @@
             // 更新使用情况
             updateUsage(texture);
             
-            // 仅在有预览图时显示颜色拾取器
-            document.getElementById('colorPicker').classList.toggle('hidden', !hasPreview);
             updateTexturePanelSummary();
 
         }
@@ -1456,21 +1396,6 @@
             scrollToCurrentTexture();
         }
 
-        // ========== 通道切换 ==========
-        function toggleChannel(channel) {
-            activeChannels[channel] = !activeChannels[channel];
-            const btn = document.querySelector(`.channel-btn[data-channel="${channel}"]`);
-            btn.classList.toggle('active', activeChannels[channel]);
-            applyChannelFilter();
-        }
-        
-        function applyChannelFilter() {
-            const img = document.getElementById('previewImg');
-            // 实际实现需要 Canvas 处理，这里简化为 CSS filter
-            // 完整实现应使用 WebGL 或 Canvas 2D
-            console.log('Channel filter:', activeChannels);
-        }
-        
         // ========== 缩放控制 ==========
         document.getElementById('zoomIn').addEventListener('click', () => {
             currentZoom = Math.min(currentZoom * 1.25, 8);
@@ -1499,60 +1424,6 @@
             document.getElementById('flipVerticalBtn').classList.toggle('active', textureFlipVertical);
             applyZoom();
         });
-        
-        // ========== Lightbox ==========
-        function openLightbox() {
-            if (!currentTexture || !currentTexture.thumbnail) return;
-            
-            const lightbox = document.getElementById('lightbox');
-            const img = document.getElementById('lightboxImg');
-            const caption = document.getElementById('lightboxCaption');
-            
-            img.src = currentTexture.thumbnail;
-            caption.textContent = `${currentTexture.name} (${currentTexture.width}×${currentTexture.height})`;
-            lightbox.classList.add('active');
-        }
-        
-        function closeLightbox() {
-            document.getElementById('lightbox').classList.remove('active');
-        }
-        
-        // ========== 对比模式 ==========
-        document.getElementById('compareBtn').addEventListener('click', () => {
-            const panel = document.getElementById('comparePanel');
-            panel.classList.toggle('active');
-        });
-
-        document.getElementById('gridViewBtn').addEventListener('click', () => {
-            document.body.classList.toggle('view-mode-grid');
-            document.getElementById('gridViewBtn').classList.toggle('active', document.body.classList.contains('view-mode-grid'));
-        });
-        
-        function addToCompare() {
-            if (!currentTexture || !currentTexture.thumbnail) return;
-            
-            const slotIndex = compareSlots[0] === null ? 0 : (compareSlots[1] === null ? 1 : 0);
-            compareSlots[slotIndex] = currentTexture;
-            
-            const slot = document.getElementById(`compareSlot${slotIndex + 1}`);
-            const body = slot.querySelector('.compare-body');
-            const title = document.getElementById(`compareTitle${slotIndex + 1}`);
-            
-            body.innerHTML = `<img src="${currentTexture.thumbnail}" alt="${currentTexture.name}">`;
-            title.textContent = currentTexture.name;
-            
-            document.getElementById('comparePanel').classList.add('active');
-        }
-        
-        function clearCompareSlot(index) {
-            compareSlots[index - 1] = null;
-            const slot = document.getElementById(`compareSlot${index}`);
-            const body = slot.querySelector('.compare-body');
-            const title = document.getElementById(`compareTitle${index}`);
-            
-            body.innerHTML = '<span class="compare-empty">拖拽纹理到此处</span>';
-            title.textContent = `对比 ${index === 1 ? 'A' : 'B'}`;
-        }
         
         function jumpToRenderDocTexture() {
             if (!currentTexture) {
@@ -1616,18 +1487,6 @@
             const i = Math.floor(Math.log(bytes) / Math.log(k));
             return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
         }
-        
-        function copyHex() {
-            const hex = document.getElementById('hexDisplay').textContent;
-            navigator.clipboard.writeText(hex);
-        }
-        
-        // ========== 键盘快捷键 ==========
-        document.addEventListener('keydown', (e) => {
-            if (e.key === 'Escape') {
-                closeLightbox();
-            }
-        });
         
         // ========== 初始化 ==========
         document.addEventListener('DOMContentLoaded', () => {

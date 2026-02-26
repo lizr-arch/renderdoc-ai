@@ -36,7 +36,6 @@ class ViewportResult:
     textures_list_client_height: int
     textures_properties_scroll_height: int
     textures_properties_client_height: int
-    textures_grid_mode: bool
     shaders_total: int
     shaders_visible_before: int
     shaders_visible_after_search: int
@@ -170,11 +169,6 @@ def run_smoke(
                 """
             )
 
-            page.click("#gridViewBtn")
-            page.wait_for_timeout(80)
-            textures_grid_mode = page.evaluate(
-                "() => document.body.classList.contains('view-mode-grid')"
-            )
             if capture_screenshots:
                 _save_page_shot(page, out_dir, f"textures_{vp_tag}_selected.png")
 
@@ -252,14 +246,14 @@ def run_smoke(
                 if capture_screenshots:
                     _save_page_shot(page, out_dir, f"shaders_{vp_tag}_search.png")
             hlsl_box = page.locator("#hlslBtn").bounding_box()
-            ai_box = page.locator("#aiOptimizeBtn").bounding_box()
+            copy_box = page.locator("#copyBtn").bounding_box()
             overlap = False
-            if hlsl_box and ai_box:
+            if hlsl_box and copy_box:
                 overlap = not (
-                    hlsl_box["x"] + hlsl_box["width"] <= ai_box["x"]
-                    or ai_box["x"] + ai_box["width"] <= hlsl_box["x"]
-                    or hlsl_box["y"] + hlsl_box["height"] <= ai_box["y"]
-                    or ai_box["y"] + ai_box["height"] <= hlsl_box["y"]
+                    hlsl_box["x"] + hlsl_box["width"] <= copy_box["x"]
+                    or copy_box["x"] + copy_box["width"] <= hlsl_box["x"]
+                    or hlsl_box["y"] + hlsl_box["height"] <= copy_box["y"]
+                    or copy_box["y"] + copy_box["height"] <= hlsl_box["y"]
                 )
 
             has_shader_data = shaders_total > 0 or shaders_item_count > 0
@@ -271,7 +265,6 @@ def run_smoke(
                 "textures_large_filter_effective": textures_visible_large_filter > 0,
                 "textures_list_scrollable": list_scroll["scrollHeight"] > list_scroll["clientHeight"],
                 "textures_selection_updates_property": textures_selected_prop_id not in ("", "-"),
-                "textures_grid_toggle_works": bool(textures_grid_mode),
                 "shaders_has_items": has_shader_data or shaders_empty_ok,
                 "shaders_search_effective": (0 < shaders_visible_after_search <= shaders_visible_before) if has_shader_data else True,
                 "shaders_list_scrollable": (shaders_list_scroll["scrollHeight"] > shaders_list_scroll["clientHeight"]) if has_shader_data else True,
@@ -294,7 +287,6 @@ def run_smoke(
                     textures_list_client_height=int(list_scroll["clientHeight"]),
                     textures_properties_scroll_height=int(properties_scroll["scrollHeight"]),
                     textures_properties_client_height=int(properties_scroll["clientHeight"]),
-                    textures_grid_mode=bool(textures_grid_mode),
                     shaders_total=shaders_total,
                     shaders_visible_before=shaders_visible_before,
                     shaders_visible_after_search=shaders_visible_after_search,

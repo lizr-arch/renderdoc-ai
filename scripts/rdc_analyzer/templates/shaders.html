@@ -1259,7 +1259,6 @@
                     
                     <div class="toolbar-group primary-actions">
                         <button class="toolbar-btn primary" id="hlslBtn" title="查看 HLSL 代码">查看 HLSL 代码</button>
-                        <button class="toolbar-btn secondary" id="aiOptimizeBtn" title="AI Shader 优化">AI Shader 优化</button>
                         <span class="mode-badge" id="codeModeBadge" data-state="idle">HLSL OFF</span>
                     </div>
                     
@@ -1290,14 +1289,8 @@
                         </select>
                     </div>
                     
-                    <div class="toolbar-group">
-                        <button class="toolbar-btn" id="wrapBtn" title="自动换行">↩️</button>
-                        <button class="toolbar-btn" id="searchBtn" title="搜索">🔍</button>
-                    </div>
-                    
                     <div class="toolbar-group" style="border-right: none;">
                         <button class="toolbar-btn" id="copyBtn" title="复制代码">📋</button>
-                        <button class="toolbar-btn" id="exportBtn" title="导出">💾</button>
                     </div>
                 </div>
                 
@@ -1979,29 +1972,6 @@
             updateCodeViewer(currentShader);
         }
 
-        function updateAiModeUI() {
-            const enabled = document.body.classList.contains('ai-optimize');
-            const aiBtn = document.getElementById('aiOptimizeBtn');
-            const banner = document.getElementById('analysisModeBanner');
-
-            if (aiBtn) {
-                aiBtn.classList.toggle('active', enabled);
-                aiBtn.textContent = enabled ? '退出 AI 优化' : 'AI Shader 优化';
-            }
-
-            if (banner) {
-                banner.dataset.state = enabled ? 'active' : 'idle';
-                banner.textContent = enabled
-                    ? 'AI 优化模式：聚焦 HLSL + 建议，自动隐藏非关键面板'
-                    : '标准模式：完整性能面板（可查看 Mali + 建议 + 使用情况）';
-            }
-        }
-
-        function toggleAiOptimize() {
-            document.body.classList.toggle('ai-optimize');
-            updateAiModeUI();
-        }
-        
         function highlightCode(code) {
             // 简单的语法高亮
             return code
@@ -2407,8 +2377,6 @@
             
             const params = new URLSearchParams(window.location.search);
             updateCodeModeBadge('HLSL OFF', 'idle');
-            updateAiModeUI();
-
             // 先渲染全量查询（默认 all）
             setFilter('all');
 
@@ -2436,10 +2404,6 @@
                 hlslBtn.addEventListener('click', showHlsl);
             }
 
-            const aiBtn = document.getElementById('aiOptimizeBtn');
-            if (aiBtn) {
-                aiBtn.addEventListener('click', toggleAiOptimize);
-            }
         });
     </script>
     
