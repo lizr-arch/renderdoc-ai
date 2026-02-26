@@ -302,23 +302,23 @@ void AnalyzerReportViewer::ConfigureTableLayout()
 {
   QHeaderView *issueHeader = ui->issueTable->horizontalHeader();
   issueHeader->setStretchLastSection(false);
-  issueHeader->setSectionResizeMode(QHeaderView::ResizeToContents);
-  issueHeader->setSectionResizeMode(AnalyzerIssueModel::ColMessage, QHeaderView::Stretch);
+  issueHeader->setSectionResizeMode(QHeaderView::Interactive);
+  issueHeader->resizeSections(QHeaderView::ResizeToContents);
 
   QHeaderView *eventHeader = ui->eventTable->horizontalHeader();
   eventHeader->setStretchLastSection(false);
-  eventHeader->setSectionResizeMode(QHeaderView::ResizeToContents);
-  eventHeader->setSectionResizeMode(1, QHeaderView::Stretch);
+  eventHeader->setSectionResizeMode(QHeaderView::Interactive);
+  eventHeader->resizeSections(QHeaderView::ResizeToContents);
 
   QHeaderView *resourceHeader = ui->resourceTable->horizontalHeader();
   resourceHeader->setStretchLastSection(false);
-  resourceHeader->setSectionResizeMode(QHeaderView::ResizeToContents);
-  resourceHeader->setSectionResizeMode(AnalyzerResourceModel::ColName, QHeaderView::Stretch);
+  resourceHeader->setSectionResizeMode(QHeaderView::Interactive);
+  resourceHeader->resizeSections(QHeaderView::ResizeToContents);
 
   QHeaderView *shaderHeader = ui->shaderTable->horizontalHeader();
   shaderHeader->setStretchLastSection(false);
-  shaderHeader->setSectionResizeMode(QHeaderView::ResizeToContents);
-  shaderHeader->setSectionResizeMode(AnalyzerShaderModel::ColName, QHeaderView::Stretch);
+  shaderHeader->setSectionResizeMode(QHeaderView::Interactive);
+  shaderHeader->resizeSections(QHeaderView::ResizeToContents);
 }
 
 void AnalyzerReportViewer::SetBusyState(bool busy, const QString &statusText)
@@ -380,9 +380,45 @@ void AnalyzerReportViewer::on_exportButton_clicked()
 
 void AnalyzerReportViewer::on_jumpButton_clicked()
 {
+  QWidget *currentTab = ui->tabWidget->currentWidget();
+
+  if(currentTab == ui->eventsTab)
+  {
+    QModelIndexList rows = ui->eventTable->selectionModel()->selectedRows();
+    if(rows.isEmpty())
+    {
+      QMessageBox::information(this, tr("Jump To Event"),
+                               tr("Select an event row to jump to the Event Browser."));
+      return;
+    }
+
+    uint32_t eid = rows[0].data().toUInt();
+    if(eid == 0)
+    {
+      QMessageBox::warning(this, tr("Jump To Event"),
+                           tr("Selected event does not have a valid EID."));
+      return;
+    }
+
+    m_Ctx.SetEventID({}, eid, eid, true);
+    m_Ctx.ShowEventBrowser();
+    return;
+  }
+
+  if(currentTab != ui->issuesTab)
+  {
+    QMessageBox::information(this, tr("Jump To GUI"),
+                             tr("Jump is currently supported for Issues and Events only."));
+    return;
+  }
+
   QModelIndexList rows = ui->issueTable->selectionModel()->selectedRows();
   if(rows.isEmpty())
+  {
+    QMessageBox::information(this, tr("Jump To GUI"),
+                             tr("Select an issue row to jump to its target."));
     return;
+  }
 
   QModelIndex sourceIndex = m_IssueSortModel->mapToSource(rows[0]);
   AnalyzerIssue issue = m_IssueModel->IssueAt(sourceIndex.row());

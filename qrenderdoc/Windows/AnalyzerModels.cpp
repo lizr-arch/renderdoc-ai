@@ -331,7 +331,11 @@ QVariant AnalyzerResourceModel::data(const QModelIndex &index, int role) const
       case ColKind: return ToQStr(resource.kind);
       case ColName: return ToQStr(resource.name);
       case ColId: return ToQStr(resource.id);
-      case ColBytes: return Formatter::HumanFormat(resource.bytes, Formatter::OffsetSize);
+      case ColBytes:
+      {
+        double mb = (double)resource.bytes / (1024.0 * 1024.0);
+        return QFormatStr("%1 MB").arg(mb, 0, 'f', 2);
+      }
       case ColShape:
       {
         if(resource.kind == "texture")

@@ -682,3 +682,15 @@ bool AnalyzerExporter::WriteAll(const AnalyzerSnapshot &snap, const rdcstr &dir)
     - numeric sorting behavior in `AnalyzerModels.cpp`
 - [ ] **Next pending**
   - You (manual validation): real-capture GUI acceptance of Jump/Refresh/Export/busy paths.
+
+### 2026-02-26 12:30 (Agent continuation)
+
+- [x] **Analyzer Report UX fixes (Jump/Size/Header resize)**
+  - Jump button now follows active tab: Events -> Event Browser; Issues keeps target jump logic.
+  - Resources Size column displays MB (2 decimals) instead of hex bytes.
+  - Table headers default auto-fit and allow manual resizing.
+- [x] **Verification**
+  - MSBuild Development|x64: PASS after closing qrenderdoc (initial LNK1168 lock on renderdoc.dll).
+  - `qrenderdoc.exe --unittest`: PASS (exit 0). qrenderdoc left running; terminated to avoid lock.
+- [ ] **Next pending**
+  - Manual GUI verification on a real capture for Events jump, Size display, and header resizing.
