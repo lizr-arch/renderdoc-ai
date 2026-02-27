@@ -733,6 +733,7 @@ def analyze_rdc_file(
         detail = {
             "index": i,
             "hash": shader_hash,
+            "resource_id": f"ResourceId::{shader.resource_id}",
             "name": shader_name,
             "entry_name": entry_name,
             "stage": stage,

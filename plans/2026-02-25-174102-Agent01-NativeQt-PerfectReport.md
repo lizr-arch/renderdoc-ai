@@ -750,3 +750,15 @@ bool AnalyzerExporter::WriteAll(const AnalyzerSnapshot &snap, const rdcstr &dir)
   - `D:\\Code\\git\\renderdoc\\x64\\Development\\qrenderdoc.exe --unittest`：PASS（exit 0）
 - [ ] **下一步（进行中）**
   - 你侧点击 Run Mali Analysis，确认 `Mali status` 出现匹配统计摘要
+
+### 2026-02-27 15:17 (Agent continuation)
+
+- [x] **修复 Mali 匹配为 0 的问题（resource_id 兜底匹配）**
+  - analyzer JSON 增加 `resource_id` 字段（ResourceId::<num>）
+  - C++ 侧同时支持 hash|stage 与 resource_id|stage 匹配
+  - 状态摘要补充 hash/id 命中数
+- [x] **验证**
+  - `MSBuild.exe renderdoc.sln /p:Configuration=Development /p:Platform=x64 /m`：PASS（0 error）
+  - `D:\\Code\\git\\renderdoc\\x64\\Development\\qrenderdoc.exe --unittest`：PASS（exit 0）
+- [ ] **下一步（进行中）**
+  - 你侧重新 Run Mali Analysis，确认 `Mali status` 出现 hash/id 命中统计

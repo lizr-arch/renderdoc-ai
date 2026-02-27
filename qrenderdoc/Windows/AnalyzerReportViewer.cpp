@@ -683,8 +683,9 @@ bool AnalyzerReportViewer::ApplyMaliAnalysisResults(const QString &jsonPath, con
   {
     QJsonObject obj = value.toObject();
     QString hash = obj.value(lit("hash")).toString().trimmed();
+    QString resourceId = obj.value(lit("resource_id")).toString().trimmed();
     QString stage = obj.value(lit("stage")).toString().trimmed().toUpper();
-    if(hash.isEmpty() || stage.isEmpty())
+    if(stage.isEmpty() || (hash.isEmpty() && resourceId.isEmpty()))
       continue;
 
     MaliShaderMetrics m;
@@ -708,7 +709,10 @@ bool AnalyzerReportViewer::ApplyMaliAnalysisResults(const QString &jsonPath, con
       m.cost = ComputeMaliCost(m.longestPath, m.workRegs, m.spillCount);
       m.bound = ComputeMaliBound(m);
     }
-    metrics.insert(hash + lit("|") + stage, m);
+    if(!hash.isEmpty())
+      metrics.insert(hash + lit("|") + stage, m);
+    if(!resourceId.isEmpty())
+      metrics.insert(resourceId + lit("|") + stage, m);
   }
 
   if(metrics.isEmpty())
@@ -719,6 +723,8 @@ bool AnalyzerReportViewer::ApplyMaliAnalysisResults(const QString &jsonPath, con
 
   int totalShaders = 0;
   int foundShaders = 0;
+  int foundByHash = 0;
+  int foundByResource = 0;
   int validShaders = 0;
   int invalidShaders = 0;
   int noDataShaders = 0;
@@ -758,20 +764,39 @@ bool AnalyzerReportViewer::ApplyMaliAnalysisResults(const QString &jsonPath, con
       }
 
       rdcstr hash = ComputeShaderHash(r, shader.id, stage, shader.firstEID);
-      if(hash.empty())
-      {
-        shader.maliError = "No SPIR-V";
-        noSpirvShaders++;
-        continue;
-      }
+      if(!hash.empty())
+        shader.maliHash = hash;
 
-      shader.maliHash = hash;
-      QString key = ToQStr(hash) + lit("|") + ToQStr(shader.stage).toUpper();
-      auto it = metrics.find(key);
+      const QString stageKey = ToQStr(shader.stage).toUpper();
+      QString hashKey;
+      if(!hash.empty())
+        hashKey = ToQStr(hash) + lit("|") + stageKey;
+      QString resourceKey = ToQStr(shader.id) + lit("|") + stageKey;
+
+      auto it = hashKey.isEmpty() ? metrics.end() : metrics.find(hashKey);
       if(it == metrics.end())
       {
-        shader.maliError = "No Mali data";
-        noDataShaders++;
+        it = metrics.find(resourceKey);
+        if(it != metrics.end())
+          foundByResource++;
+      }
+      else
+      {
+        foundByHash++;
+      }
+
+      if(it == metrics.end())
+      {
+        if(hash.empty())
+        {
+          shader.maliError = "No SPIR-V";
+          noSpirvShaders++;
+        }
+        else
+        {
+          shader.maliError = "No Mali data";
+          noDataShaders++;
+        }
         continue;
       }
 
@@ -806,9 +831,11 @@ bool AnalyzerReportViewer::ApplyMaliAnalysisResults(const QString &jsonPath, con
 
   if(summary)
   {
-    *summary = tr("found %1/%2 (valid %3, invalid %4, no data %5, no SPIR-V %6, unsupported %7)")
+    *summary = tr("found %1/%2 (hash %3, id %4, valid %5, invalid %6, no data %7, no SPIR-V %8, unsupported %9)")
                    .arg(foundShaders)
                    .arg(totalShaders)
+                   .arg(foundByHash)
+                   .arg(foundByResource)
                    .arg(validShaders)
                    .arg(invalidShaders)
                    .arg(noDataShaders)
