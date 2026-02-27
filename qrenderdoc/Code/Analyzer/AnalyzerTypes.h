@@ -85,6 +85,24 @@ struct AnalyzerShaderRow
   uint32_t useCount = 0;
   uint32_t firstEID = 0;
   uint32_t lastEID = 0;
+  rdcstr maliHash;
+  rdcstr maliGpu;
+  bool maliValid = false;
+  float maliTotalCycles = 0.0f;
+  float maliShortestPath = 0.0f;
+  float maliLongestPath = 0.0f;
+  float maliFmaCycles = 0.0f;
+  float maliCvtCycles = 0.0f;
+  float maliSfuCycles = 0.0f;
+  float maliLoadStoreCycles = 0.0f;
+  float maliTextureCycles = 0.0f;
+  float maliVaryingCycles = 0.0f;
+  uint32_t maliWorkRegs = 0;
+  uint32_t maliUniformRegs = 0;
+  uint32_t maliSpillCount = 0;
+  float maliCost = 0.0f;
+  rdcstr maliBound;
+  rdcstr maliError;
 };
 
 struct AnalyzerSummary

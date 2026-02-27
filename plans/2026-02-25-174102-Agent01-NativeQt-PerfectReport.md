@@ -706,3 +706,31 @@ bool AnalyzerExporter::WriteAll(const AnalyzerSnapshot &snap, const rdcstr &dir)
 - [ ] **Shader 维度（Mali Offline）原生落地（进行中）**
   - 目标：GPU 选择 + Mali 分析入口 + 表格排序（复杂度）
   - 当前阻塞：`MSBuild` LNK1168（qrenderdoc.exe 被占用，PID 37392，无法终止）
+
+### 2026-02-26 17:38 (Agent continuation)
+
+- [x] **修复 MSBuild 链接错误（DoStringise<QString> 未定义）**
+  - 位置：`qrenderdoc/Windows/AnalyzerReportViewer.cpp`
+  - 改动：QString -> rdcstr 直接构造，避免 `ToStr(QString)` 触发链接缺失
+- [x] **按用户要求重新构建**
+  - 命令：`"E:\\Program Files\\Microsoft Visual Studio\\2022\\Community\\MSBuild\\Current\\Bin\\MSBuild.exe" renderdoc.sln /p:Configuration=Development /p:Platform=x64 /m`
+  - 结果：PASS（0 error）
+- [x] **qrenderdoc unittest**
+  - 命令：`D:\\Code\\git\\renderdoc\\x64\\Development\\qrenderdoc.exe --unittest`
+  - 结果：退出码 `0`
+- [ ] **下一步（进行中）**
+  - 你侧手工验证 Mali Shader 维度 UI（GPU 选择 + Run Mali Analysis + 排序列）
+
+### 2026-02-26 23:54 (Agent continuation)
+
+- [x] **Malioc 2026.0 集成 + Shader 指标扩展完成**
+  - repo 内置 malioc 2026.0，增加 `MALIOC_PATH` 覆盖与系统安装回退
+  - GPU 列表改为解析 `malioc --list`（适配 v8.8.1+ 输出）
+  - Shader 表新增 Mali 全量指标 + bound 分类，支持排序
+  - Analyzer JSON 导出新增字段（保留 `mali_cycles` 兼容）
+- [x] **验证**
+  - `MSBuild.exe renderdoc.sln /p:Configuration=Development /p:Platform=x64 /m`：PASS（0 error）
+  - `D:\\Code\\git\\renderdoc\\x64\\Development\\qrenderdoc.exe --unittest`：PASS（exit 0）
+  - `py -3 -m py_compile scripts/rdc_analyzer/mali_analyzer.py`：PASS
+- [ ] **下一步（进行中）**
+  - 你侧手工验证 Mali Shader 维度 UI（GPU 选择 + Run Mali Analysis + 排序列）

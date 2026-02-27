@@ -117,6 +117,26 @@ QJsonObject ShaderToQJson(const AnalyzerShaderRow &shader)
   obj[lit("use_count")] = (int)shader.useCount;
   obj[lit("first_eid")] = (int)shader.firstEID;
   obj[lit("last_eid")] = (int)shader.lastEID;
+  obj[lit("mali_hash")] = ToQStr(shader.maliHash);
+  obj[lit("mali_gpu")] = ToQStr(shader.maliGpu);
+  obj[lit("mali_valid")] = shader.maliValid;
+  obj[lit("mali_total_cycles")] = (double)shader.maliTotalCycles;
+  obj[lit("mali_shortest_path")] = (double)shader.maliShortestPath;
+  obj[lit("mali_longest_path")] = (double)shader.maliLongestPath;
+  // Backward-compatible alias for older consumers
+  obj[lit("mali_cycles")] = (double)shader.maliLongestPath;
+  obj[lit("mali_fma_cycles")] = (double)shader.maliFmaCycles;
+  obj[lit("mali_cvt_cycles")] = (double)shader.maliCvtCycles;
+  obj[lit("mali_sfu_cycles")] = (double)shader.maliSfuCycles;
+  obj[lit("mali_load_store_cycles")] = (double)shader.maliLoadStoreCycles;
+  obj[lit("mali_texture_cycles")] = (double)shader.maliTextureCycles;
+  obj[lit("mali_varying_cycles")] = (double)shader.maliVaryingCycles;
+  obj[lit("mali_work_registers")] = (int)shader.maliWorkRegs;
+  obj[lit("mali_uniform_registers")] = (int)shader.maliUniformRegs;
+  obj[lit("mali_spill_count")] = (int)shader.maliSpillCount;
+  obj[lit("mali_cost")] = (double)shader.maliCost;
+  obj[lit("mali_bound")] = ToQStr(shader.maliBound);
+  obj[lit("mali_error")] = ToQStr(shader.maliError);
   return obj;
 }
 }

@@ -18,8 +18,25 @@ from typing import List, Optional, Dict, Any
 from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
-# 默认 Mali Offline Compiler 路径
-DEFAULT_MALIOC_PATH = r"D:\Program Files\Arm\Arm Performance Studio 2025.3\mali_offline_compiler\malioc.exe"
+REPO_ROOT = Path(__file__).resolve().parents[2]
+REPO_MALIOC = REPO_ROOT / "tools" / "malioc" / "2026.0" / "mali_offline_compiler" / "malioc.exe"
+DEFAULT_MALIOC_CANDIDATES = [
+    str(REPO_MALIOC),
+    r"C:\Program Files\Arm\Arm Performance Studio 2026.0\mali_offline_compiler\malioc.exe",
+    r"D:\Program Files\Arm\Arm Performance Studio 2025.3\mali_offline_compiler\malioc.exe",
+]
+
+
+def resolve_malioc_path() -> str:
+    env_path = os.environ.get("MALIOC_PATH")
+    if env_path and Path(env_path).exists():
+        return env_path
+
+    for candidate in DEFAULT_MALIOC_CANDIDATES:
+        if Path(candidate).exists():
+            return candidate
+
+    return DEFAULT_MALIOC_CANDIDATES[0]
 
 
 @dataclass
@@ -93,7 +110,7 @@ class MaliOfflineCompiler:
     """Mali Offline Compiler 包装器"""
     
     def __init__(self, malioc_path: str = None):
-        self.malioc_path = malioc_path or DEFAULT_MALIOC_PATH
+        self.malioc_path = malioc_path or resolve_malioc_path()
         self._validate_malioc()
     
     def _validate_malioc(self):
@@ -460,11 +477,11 @@ class MaliOfflineCompiler:
 
 def get_available_gpu_cores(malioc_path: str = None) -> List[str]:
     """获取可用的 GPU 核心列表"""
-    malioc = malioc_path or DEFAULT_MALIOC_PATH
+    malioc = malioc_path or resolve_malioc_path()
     
     try:
         result = subprocess.run(
-            [malioc, "--list-cores"],
+            [malioc, "--list"],
             capture_output=True,
             text=True,
             timeout=10
@@ -473,11 +490,14 @@ def get_available_gpu_cores(malioc_path: str = None) -> List[str]:
         cores = []
         for line in result.stdout.split('\n'):
             line = line.strip()
-            if line and not line.startswith('#') and not line.startswith('Available'):
-                # 提取核心名称
-                parts = line.split()
-                if parts:
-                    cores.append(parts[0])
+            if not line:
+                continue
+            if "architecture" in line or line.startswith("="):
+                continue
+            if "(" in line:
+                name = line.split("(")[0].strip()
+                if name:
+                    cores.append(name)
         
         return cores
     except:
@@ -501,9 +521,10 @@ if __name__ == '__main__':
     
     try:
         malioc = MaliOfflineCompiler()
+        print(f"Path: {malioc.malioc_path}")
         print(f"Version: {malioc.version}")
         
-        cores = get_available_gpu_cores()
+        cores = get_available_gpu_cores(malioc.malioc_path)
         print(f"\nAvailable GPU cores: {len(cores)}")
         for core in cores[:10]:
             print(f"  - {core}")

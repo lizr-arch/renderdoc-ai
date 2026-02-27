@@ -24,11 +24,19 @@
 
 #include "AnalyzerReportViewer.h"
 #include <QAbstractItemView>
+#include <QCoreApplication>
+#include <QCryptographicHash>
 #include <QDir>
+#include <QFile>
 #include <QFileInfo>
 #include <QHeaderView>
+#include <QHash>
+#include <QJsonArray>
+#include <QJsonDocument>
+#include <QJsonObject>
 #include <QMessageBox>
 #include <QPointer>
+#include <QProcess>
 #include "Code/QRDUtils.h"
 #include "AnalyzerModels.h"
 #include "ui_AnalyzerReportViewer.h"
@@ -117,6 +125,62 @@ ResourceId PickPipelineForShaderStage(ShaderStage preferredStage, ShaderStage se
 
   return ResourceId();
 }
+
+struct MaliShaderMetrics
+{
+  bool valid = false;
+  double totalCycles = 0.0;
+  double shortestPath = 0.0;
+  double longestPath = 0.0;
+  double fmaCycles = 0.0;
+  double cvtCycles = 0.0;
+  double sfuCycles = 0.0;
+  double loadStoreCycles = 0.0;
+  double textureCycles = 0.0;
+  double varyingCycles = 0.0;
+  uint32_t workRegs = 0;
+  uint32_t uniformRegs = 0;
+  uint32_t spillCount = 0;
+  double cost = 0.0;
+  rdcstr bound;
+  QString error;
+};
+
+double ComputeMaliCost(double cycles, uint32_t workRegs, uint32_t spillCount)
+{
+  double registerPenalty = 0.0;
+  if(workRegs > 32)
+    registerPenalty = (double)(workRegs - 32) * 0.5;
+  double spillPenalty = (double)spillCount * 10.0;
+  return cycles + registerPenalty + spillPenalty;
+}
+
+rdcstr ComputeMaliBound(const MaliShaderMetrics &m)
+{
+  double arith = m.fmaCycles + m.cvtCycles + m.sfuCycles;
+  double ls = m.loadStoreCycles;
+  double tex = m.textureCycles;
+  double vary = m.varyingCycles;
+
+  double maxVal = arith;
+  const char *bound = "A";
+  if(ls > maxVal)
+  {
+    maxVal = ls;
+    bound = "LS";
+  }
+  if(tex > maxVal)
+  {
+    maxVal = tex;
+    bound = "T";
+  }
+  if(vary > maxVal)
+  {
+    maxVal = vary;
+    bound = "V";
+  }
+  return bound;
+}
 }
 
 AnalyzerReportViewer::AnalyzerReportViewer(ICaptureContext &ctx, QWidget *parent)
@@ -152,6 +216,7 @@ AnalyzerReportViewer::AnalyzerReportViewer(ICaptureContext &ctx, QWidget *parent
   ui->shaderTable->setSortingEnabled(true);
   ui->shaderTable->setSelectionBehavior(QAbstractItemView::SelectRows);
   ui->shaderTable->setSelectionMode(QAbstractItemView::SingleSelection);
+  PopulateMaliGpuList();
   ConfigureTableLayout();
 
   m_Ctx.AddCaptureViewer(this);
@@ -190,6 +255,7 @@ void AnalyzerReportViewer::OnCaptureClosed()
   m_EventModel->SetEvents(emptyEvents);
   m_ResourceModel->SetResources(emptyResources);
   m_ShaderModel->SetShaders(emptyShaders);
+  ResetMaliState();
   SetBusyState(false, QString());
 }
 
@@ -225,6 +291,7 @@ void AnalyzerReportViewer::RefreshReport()
 
           self->m_BuildInFlight = false;
           self->m_Snapshot = snapshot;
+          self->ResetMaliState();
 
           self->UpdateSummaryText();
           self->PopulateIssueTable();
@@ -321,6 +388,63 @@ void AnalyzerReportViewer::ConfigureTableLayout()
   shaderHeader->resizeSections(QHeaderView::ResizeToContents);
 }
 
+void AnalyzerReportViewer::PopulateMaliGpuList()
+{
+  ui->maliGpuCombo->clear();
+  ui->maliGpuCombo->setEditable(true);
+
+  const char *gpuList[] = {"Mali-G1",    "Immortalis-G925", "Immortalis-G720",
+                           "Mali-G725", "Mali-G720",        "Mali-G625",
+                           "Mali-G620", "Immortalis-G715",  "Mali-G715",
+                           "Mali-G710", "Mali-G615",        "Mali-G610",
+                           "Mali-G510", "Mali-G310",        "Mali-G78AE",
+                           "Mali-G78",  "Mali-G77",         "Mali-G68",
+                           "Mali-G57",  "Mali-G76",         "Mali-G72",
+                           "Mali-G71",  "Mali-G52",         "Mali-G51",
+                           "Mali-G31",  "Mali-T880",        "Mali-T860",
+                           "Mali-T830", "Mali-T820",        "Mali-T760",
+                           "Mali-T720"};
+  for(const char *gpu : gpuList)
+    ui->maliGpuCombo->addItem(QString::fromLatin1(gpu));
+
+  ui->maliGpuCombo->setCurrentText(lit("Mali-G78"));
+}
+
+void AnalyzerReportViewer::ResetMaliState()
+{
+  if(m_MaliProcess && m_MaliProcess->state() != QProcess::NotRunning)
+  {
+    m_MaliProcess->kill();
+    m_MaliProcess->waitForFinished(2000);
+  }
+
+  m_MaliOutputPath.clear();
+  m_MaliGpu.clear();
+  ui->maliStatusLabel->setText(tr("Not run"));
+
+  for(AnalyzerShaderRow &shader : m_Snapshot.shaders)
+  {
+    shader.maliHash.clear();
+    shader.maliGpu.clear();
+    shader.maliValid = false;
+    shader.maliTotalCycles = 0.0f;
+    shader.maliShortestPath = 0.0f;
+    shader.maliLongestPath = 0.0f;
+    shader.maliFmaCycles = 0.0f;
+    shader.maliCvtCycles = 0.0f;
+    shader.maliSfuCycles = 0.0f;
+    shader.maliLoadStoreCycles = 0.0f;
+    shader.maliTextureCycles = 0.0f;
+    shader.maliVaryingCycles = 0.0f;
+    shader.maliWorkRegs = 0;
+    shader.maliUniformRegs = 0;
+    shader.maliSpillCount = 0;
+    shader.maliCost = 0.0f;
+    shader.maliBound.clear();
+    shader.maliError.clear();
+  }
+}
+
 void AnalyzerReportViewer::SetBusyState(bool busy, const QString &statusText)
 {
   bool hasCapture = m_Ctx.IsCaptureLoaded();
@@ -328,6 +452,8 @@ void AnalyzerReportViewer::SetBusyState(bool busy, const QString &statusText)
   ui->refreshButton->setEnabled(hasCapture && !busy);
   ui->exportButton->setEnabled(hasCapture && !busy);
   ui->jumpButton->setEnabled(hasCapture && !busy);
+  ui->maliRunButton->setEnabled(hasCapture && !busy);
+  ui->maliGpuCombo->setEnabled(hasCapture && !busy);
 
   ui->progressBar->setVisible(busy);
   ui->statusLabel->setText(busy ? statusText : QString());
@@ -376,6 +502,286 @@ void AnalyzerReportViewer::on_exportButton_clicked()
   QMessageBox::information(this, tr("Analyzer Export"),
                            tr("Exported analysis.json and issues_export.{csv,md} to:\n%1")
                                .arg(QDir::toNativeSeparators(outDir)));
+}
+
+void AnalyzerReportViewer::on_maliRunButton_clicked()
+{
+  if(!m_Ctx.IsCaptureLoaded())
+  {
+    QMessageBox::warning(this, tr("Mali Analysis"), tr("No capture loaded."));
+    return;
+  }
+
+  if(m_BuildInFlight)
+  {
+    QMessageBox::information(this, tr("Mali Analysis"),
+                             tr("Please wait until report refresh is complete."));
+    return;
+  }
+
+  StartMaliAnalysis();
+}
+
+void AnalyzerReportViewer::StartMaliAnalysis()
+{
+  if(m_MaliProcess && m_MaliProcess->state() != QProcess::NotRunning)
+  {
+    QMessageBox::information(this, tr("Mali Analysis"),
+                             tr("Mali analysis is already running."));
+    return;
+  }
+
+  const QString capturePath = m_Ctx.GetCaptureFilename();
+  if(capturePath.isEmpty())
+  {
+    QMessageBox::warning(this, tr("Mali Analysis"), tr("No capture filename available."));
+    return;
+  }
+
+  QString gpuName = ui->maliGpuCombo->currentText().trimmed();
+  if(gpuName.isEmpty())
+  {
+    QMessageBox::warning(this, tr("Mali Analysis"), tr("Select a Mali GPU target first."));
+    return;
+  }
+
+  QString rootPath = QDir(QCoreApplication::applicationDirPath()).absoluteFilePath(lit("../.."));
+  QString scriptPath = QDir(rootPath).absoluteFilePath(lit("scripts/rdc_analyzer/analyze_rdc.py"));
+  if(!QFileInfo::exists(scriptPath))
+  {
+    QMessageBox::warning(this, tr("Mali Analysis"),
+                         tr("Mali analyzer script not found:\n%1").arg(scriptPath));
+    return;
+  }
+
+  m_MaliGpu = gpuName;
+  m_MaliOutputPath =
+      QDir::tempPath() + QDir::separator() +
+      QString(lit("renderdoc_mali_%1.json")).arg(QCoreApplication::applicationPid());
+
+  if(m_MaliProcess)
+  {
+    m_MaliProcess->deleteLater();
+    m_MaliProcess = NULL;
+  }
+
+  m_MaliProcess = new QProcess(this);
+  m_MaliProcess->setWorkingDirectory(rootPath);
+  QStringList args;
+  args << lit("-3") << scriptPath << capturePath << lit("--core") << gpuName << lit("--json")
+       << m_MaliOutputPath;
+
+  QObject::connect(m_MaliProcess, QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished),
+                   this, [this](int exitCode, QProcess::ExitStatus status) {
+                     HandleMaliProcessFinished(exitCode, status != QProcess::NormalExit);
+                   });
+  QObject::connect(m_MaliProcess, &QProcess::errorOccurred, this,
+                   [this](QProcess::ProcessError) {
+                     ui->maliRunButton->setEnabled(m_Ctx.IsCaptureLoaded() && !m_BuildInFlight);
+                     ui->maliGpuCombo->setEnabled(m_Ctx.IsCaptureLoaded() && !m_BuildInFlight);
+                     ui->maliStatusLabel->setText(tr("Mali analysis failed"));
+                     QMessageBox::warning(this, tr("Mali Analysis"),
+                                          tr("Failed to start Mali analysis.\n\n%1")
+                                              .arg(m_MaliProcess->errorString()));
+                     if(m_MaliProcess)
+                     {
+                       m_MaliProcess->deleteLater();
+                       m_MaliProcess = NULL;
+                     }
+                   });
+
+  ui->maliStatusLabel->setText(tr("Running Mali analysis..."));
+  ui->maliRunButton->setEnabled(false);
+  ui->maliGpuCombo->setEnabled(false);
+
+  m_MaliProcess->start(lit("py"), args);
+}
+
+void AnalyzerReportViewer::HandleMaliProcessFinished(int exitCode, bool crashed)
+{
+  QString stdErr;
+  if(m_MaliProcess)
+    stdErr = QString::fromUtf8(m_MaliProcess->readAllStandardError());
+
+  ui->maliRunButton->setEnabled(m_Ctx.IsCaptureLoaded() && !m_BuildInFlight);
+  ui->maliGpuCombo->setEnabled(m_Ctx.IsCaptureLoaded() && !m_BuildInFlight);
+
+  if(crashed || exitCode != 0)
+  {
+    ui->maliStatusLabel->setText(tr("Mali analysis failed"));
+    QMessageBox::warning(this, tr("Mali Analysis"),
+                         tr("Mali analysis failed.\n\n%1").arg(stdErr));
+    if(m_MaliProcess)
+    {
+      m_MaliProcess->deleteLater();
+      m_MaliProcess = NULL;
+    }
+    return;
+  }
+
+  QString error;
+  if(!ApplyMaliAnalysisResults(m_MaliOutputPath, m_MaliGpu, error))
+  {
+    ui->maliStatusLabel->setText(tr("Mali analysis failed"));
+    QMessageBox::warning(this, tr("Mali Analysis"), error);
+    if(m_MaliProcess)
+    {
+      m_MaliProcess->deleteLater();
+      m_MaliProcess = NULL;
+    }
+    return;
+  }
+
+  ui->maliStatusLabel->setText(tr("Mali analysis ready (%1)").arg(m_MaliGpu));
+  if(m_MaliProcess)
+  {
+    m_MaliProcess->deleteLater();
+    m_MaliProcess = NULL;
+  }
+}
+
+bool AnalyzerReportViewer::ApplyMaliAnalysisResults(const QString &jsonPath, const QString &gpuName,
+                                                    QString &error)
+{
+  QFile file(jsonPath);
+  if(!file.open(QIODevice::ReadOnly | QIODevice::Text))
+  {
+    error = tr("Failed to read Mali analysis JSON:\n%1").arg(jsonPath);
+    return false;
+  }
+
+  QJsonParseError parseError;
+  QJsonDocument doc = QJsonDocument::fromJson(file.readAll(), &parseError);
+  if(parseError.error != QJsonParseError::NoError)
+  {
+    error = tr("Failed to parse Mali analysis JSON (%1)").arg(parseError.errorString());
+    return false;
+  }
+
+  if(!doc.isArray() || doc.array().isEmpty())
+  {
+    error = tr("Mali analysis JSON does not contain results.");
+    return false;
+  }
+
+  QJsonObject root = doc.array()[0].toObject();
+  QJsonArray shaderArray = root.value(lit("shaders")).toArray();
+  if(shaderArray.isEmpty())
+  {
+    error = tr("Mali analysis JSON has no shader metrics.");
+    return false;
+  }
+
+  QHash<QString, MaliShaderMetrics> metrics;
+  metrics.reserve(shaderArray.size());
+  for(const QJsonValue &value : shaderArray)
+  {
+    QJsonObject obj = value.toObject();
+    QString hash = obj.value(lit("hash")).toString().trimmed();
+    QString stage = obj.value(lit("stage")).toString().trimmed().toUpper();
+    if(hash.isEmpty() || stage.isEmpty())
+      continue;
+
+    MaliShaderMetrics m;
+    m.valid = obj.value(lit("valid")).toBool(false);
+    m.totalCycles = obj.value(lit("total_cycles")).toDouble(0.0);
+    m.shortestPath = obj.value(lit("shortest_path")).toDouble(0.0);
+    m.longestPath = obj.value(lit("longest_path")).toDouble(
+        obj.value(lit("total_cycles")).toDouble(0.0));
+    m.fmaCycles = obj.value(lit("fma_cycles")).toDouble(0.0);
+    m.cvtCycles = obj.value(lit("cvt_cycles")).toDouble(0.0);
+    m.sfuCycles = obj.value(lit("sfu_cycles")).toDouble(0.0);
+    m.loadStoreCycles = obj.value(lit("load_store_cycles")).toDouble(0.0);
+    m.textureCycles = obj.value(lit("texture_cycles")).toDouble(0.0);
+    m.varyingCycles = obj.value(lit("varying_cycles")).toDouble(0.0);
+    m.workRegs = (uint32_t)obj.value(lit("work_registers")).toInt(0);
+    m.uniformRegs = (uint32_t)obj.value(lit("uniform_registers")).toInt(0);
+    m.spillCount = (uint32_t)obj.value(lit("spill_count")).toInt(0);
+    m.error = obj.value(lit("error")).toString();
+    if(m.valid)
+    {
+      m.cost = ComputeMaliCost(m.longestPath, m.workRegs, m.spillCount);
+      m.bound = ComputeMaliBound(m);
+    }
+    metrics.insert(hash + lit("|") + stage, m);
+  }
+
+  if(metrics.isEmpty())
+  {
+    error = tr("Mali analysis JSON did not contain usable shader metrics.");
+    return false;
+  }
+
+  rdcarray<AnalyzerShaderRow> updated = m_Snapshot.shaders;
+  m_Ctx.Replay().BlockInvoke([&](IReplayController *r) {
+    for(AnalyzerShaderRow &shader : updated)
+    {
+      shader.maliHash.clear();
+      shader.maliGpu = rdcstr(gpuName);
+      shader.maliValid = false;
+      shader.maliTotalCycles = 0.0f;
+      shader.maliShortestPath = 0.0f;
+      shader.maliLongestPath = 0.0f;
+      shader.maliFmaCycles = 0.0f;
+      shader.maliCvtCycles = 0.0f;
+      shader.maliSfuCycles = 0.0f;
+      shader.maliLoadStoreCycles = 0.0f;
+      shader.maliTextureCycles = 0.0f;
+      shader.maliVaryingCycles = 0.0f;
+      shader.maliWorkRegs = 0;
+      shader.maliUniformRegs = 0;
+      shader.maliSpillCount = 0;
+      shader.maliCost = 0.0f;
+      shader.maliBound.clear();
+      shader.maliError.clear();
+
+      ShaderStage stage = StageFromAnalyzerLabel(shader.stage);
+      if(stage == ShaderStage::Count)
+      {
+        shader.maliError = "Unsupported stage";
+        continue;
+      }
+
+      rdcstr hash = ComputeShaderHash(r, shader.id, stage, shader.firstEID);
+      if(hash.empty())
+      {
+        shader.maliError = "No SPIR-V";
+        continue;
+      }
+
+      shader.maliHash = hash;
+      QString key = ToQStr(hash) + lit("|") + ToQStr(shader.stage).toUpper();
+      auto it = metrics.find(key);
+      if(it == metrics.end())
+      {
+        shader.maliError = "No Mali data";
+        continue;
+      }
+
+      const MaliShaderMetrics &m = it.value();
+      shader.maliValid = m.valid;
+      shader.maliTotalCycles = (float)m.totalCycles;
+      shader.maliShortestPath = (float)m.shortestPath;
+      shader.maliLongestPath = (float)m.longestPath;
+      shader.maliFmaCycles = (float)m.fmaCycles;
+      shader.maliCvtCycles = (float)m.cvtCycles;
+      shader.maliSfuCycles = (float)m.sfuCycles;
+      shader.maliLoadStoreCycles = (float)m.loadStoreCycles;
+      shader.maliTextureCycles = (float)m.textureCycles;
+      shader.maliVaryingCycles = (float)m.varyingCycles;
+      shader.maliWorkRegs = m.workRegs;
+      shader.maliUniformRegs = m.uniformRegs;
+      shader.maliSpillCount = m.spillCount;
+      shader.maliCost = (float)m.cost;
+      shader.maliBound = m.bound;
+      shader.maliError = rdcstr(m.error);
+    }
+  });
+
+  m_Snapshot.shaders = updated;
+  PopulateShaderTable();
+  ui->shaderTable->sortByColumn(AnalyzerShaderModel::ColMaliCost, Qt::DescendingOrder);
+  return true;
 }
 
 void AnalyzerReportViewer::on_jumpButton_clicked()
@@ -629,6 +1035,44 @@ bool AnalyzerReportViewer::IsKnownShader(ResourceId id) const
   }
 
   return false;
+}
+
+rdcstr AnalyzerReportViewer::ComputeShaderHash(IReplayController *replay, ResourceId shaderId,
+                                               ShaderStage stage, uint32_t fallbackEID) const
+{
+  if(!replay || shaderId == ResourceId())
+    return rdcstr();
+
+  ResourceId graphicsPipelineId;
+  ResourceId computePipelineId;
+  if(fallbackEID != 0)
+  {
+    replay->SetFrameEvent(fallbackEID, false);
+    const PipeState &pipe = replay->GetPipelineState();
+    graphicsPipelineId = pipe.GetGraphicsPipelineObject();
+    computePipelineId = pipe.GetComputePipelineObject();
+  }
+
+  rdcarray<ShaderEntryPoint> entries = replay->GetShaderEntryPoints(shaderId);
+  if(entries.empty())
+    return rdcstr();
+
+  ShaderEntryPoint selected = PickEntryPointForStage(entries, stage);
+  ResourceId pipelineId =
+      PickPipelineForShaderStage(stage, selected.stage, graphicsPipelineId, computePipelineId);
+  const ShaderReflection *refl = replay->GetShader(pipelineId, shaderId, selected);
+  if(!refl && pipelineId != ResourceId())
+    refl = replay->GetShader(ResourceId(), shaderId, selected);
+
+  if(!refl)
+    return rdcstr();
+
+  if(refl->encoding != ShaderEncoding::SPIRV || refl->rawBytes.count() == 0)
+    return rdcstr();
+
+  QByteArray bytes((const char *)refl->rawBytes.data(), refl->rawBytes.count());
+  QByteArray digest = QCryptographicHash::hash(bytes, QCryptographicHash::Sha256).toHex();
+  return rdcstr(QString::fromLatin1(digest.left(16)));
 }
 
 #if ENABLE_UNIT_TESTS

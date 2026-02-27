@@ -481,6 +481,20 @@ QVariant AnalyzerShaderModel::headerData(int section, Qt::Orientation orientatio
       case ColUseCount: return QObject::tr("Use Count");
       case ColFirstEID: return QObject::tr("First EID");
       case ColLastEID: return QObject::tr("Last EID");
+      case ColMaliTotalCycles: return QObject::tr("Mali Total");
+      case ColMaliShortestPath: return QObject::tr("Mali Short");
+      case ColMaliLongestPath: return QObject::tr("Mali Long");
+      case ColMaliUniformRegs: return QObject::tr("Mali URegs");
+      case ColMaliFmaCycles: return QObject::tr("Mali FMA");
+      case ColMaliCvtCycles: return QObject::tr("Mali CVT");
+      case ColMaliSfuCycles: return QObject::tr("Mali SFU");
+      case ColMaliLoadStoreCycles: return QObject::tr("Mali LS");
+      case ColMaliTextureCycles: return QObject::tr("Mali Tex");
+      case ColMaliVaryingCycles: return QObject::tr("Mali Var");
+      case ColMaliWorkRegs: return QObject::tr("Mali Regs");
+      case ColMaliSpillCount: return QObject::tr("Mali Spill");
+      case ColMaliCost: return QObject::tr("Mali Cost");
+      case ColMaliBound: return QObject::tr("Mali Bound");
       default: break;
     }
   }
@@ -505,6 +519,47 @@ QVariant AnalyzerShaderModel::data(const QModelIndex &index, int role) const
       case ColUseCount: return (int)shader.useCount;
       case ColFirstEID: return (int)shader.firstEID;
       case ColLastEID: return (int)shader.lastEID;
+      case ColMaliTotalCycles:
+        return shader.maliValid ? QString::number(shader.maliTotalCycles, 'f', 2)
+                                : QObject::tr("N/A");
+      case ColMaliShortestPath:
+        return shader.maliValid ? QString::number(shader.maliShortestPath, 'f', 2)
+                                : QObject::tr("N/A");
+      case ColMaliLongestPath:
+        return shader.maliValid ? QString::number(shader.maliLongestPath, 'f', 2)
+                                : QObject::tr("N/A");
+      case ColMaliUniformRegs:
+        return shader.maliValid ? QString::number(shader.maliUniformRegs)
+                                : QObject::tr("N/A");
+      case ColMaliFmaCycles:
+        return shader.maliValid ? QString::number(shader.maliFmaCycles, 'f', 2)
+                                : QObject::tr("N/A");
+      case ColMaliCvtCycles:
+        return shader.maliValid ? QString::number(shader.maliCvtCycles, 'f', 2)
+                                : QObject::tr("N/A");
+      case ColMaliSfuCycles:
+        return shader.maliValid ? QString::number(shader.maliSfuCycles, 'f', 2)
+                                : QObject::tr("N/A");
+      case ColMaliLoadStoreCycles:
+        return shader.maliValid ? QString::number(shader.maliLoadStoreCycles, 'f', 2)
+                                : QObject::tr("N/A");
+      case ColMaliTextureCycles:
+        return shader.maliValid ? QString::number(shader.maliTextureCycles, 'f', 2)
+                                : QObject::tr("N/A");
+      case ColMaliVaryingCycles:
+        return shader.maliValid ? QString::number(shader.maliVaryingCycles, 'f', 2)
+                                : QObject::tr("N/A");
+      case ColMaliWorkRegs:
+        return shader.maliValid ? QString::number(shader.maliWorkRegs)
+                                : QObject::tr("N/A");
+      case ColMaliSpillCount:
+        return shader.maliValid ? QString::number(shader.maliSpillCount)
+                                : QObject::tr("N/A");
+      case ColMaliCost:
+        return shader.maliValid ? QString::number(shader.maliCost, 'f', 2)
+                                : QObject::tr("N/A");
+      case ColMaliBound:
+        return shader.maliValid ? ToQStr(shader.maliBound) : QObject::tr("N/A");
       default: break;
     }
   }
@@ -532,10 +587,12 @@ void AnalyzerShaderModel::sort(int column, Qt::SortOrder order)
     return ascending ? a < b : a > b;
   };
   auto compareUInt = [ascending](uint32_t a, uint32_t b) { return ascending ? a < b : a > b; };
+  auto compareFloat = [ascending](float a, float b) { return ascending ? a < b : a > b; };
 
   beginResetModel();
   std::stable_sort(m_Shaders.begin(), m_Shaders.end(),
-                   [column, ascending, &compareText, &compareUInt](const AnalyzerShaderRow &a,
+                   [column, ascending, &compareText, &compareUInt,
+                    &compareFloat](const AnalyzerShaderRow &a,
                                                                    const AnalyzerShaderRow &b) {
                      switch(column)
                      {
@@ -559,15 +616,99 @@ void AnalyzerShaderModel::sort(int column, Qt::SortOrder order)
                          if(a.firstEID != b.firstEID)
                            return compareUInt(a.firstEID, b.firstEID);
                          break;
-                       case ColLastEID:
-                         if(a.lastEID != b.lastEID)
-                           return compareUInt(a.lastEID, b.lastEID);
-                         break;
-                       default: break;
-                     }
+                        case ColLastEID:
+                          if(a.lastEID != b.lastEID)
+                            return compareUInt(a.lastEID, b.lastEID);
+                          break;
+                       case ColMaliTotalCycles:
+                          if(a.maliValid != b.maliValid)
+                            return a.maliValid && !b.maliValid;
+                          if(a.maliTotalCycles != b.maliTotalCycles)
+                            return compareFloat(a.maliTotalCycles, b.maliTotalCycles);
+                          break;
+                        case ColMaliShortestPath:
+                          if(a.maliValid != b.maliValid)
+                            return a.maliValid && !b.maliValid;
+                          if(a.maliShortestPath != b.maliShortestPath)
+                            return compareFloat(a.maliShortestPath, b.maliShortestPath);
+                          break;
+                        case ColMaliLongestPath:
+                          if(a.maliValid != b.maliValid)
+                            return a.maliValid && !b.maliValid;
+                          if(a.maliLongestPath != b.maliLongestPath)
+                            return compareFloat(a.maliLongestPath, b.maliLongestPath);
+                          break;
+                        case ColMaliUniformRegs:
+                          if(a.maliValid != b.maliValid)
+                            return a.maliValid && !b.maliValid;
+                          if(a.maliUniformRegs != b.maliUniformRegs)
+                            return compareUInt(a.maliUniformRegs, b.maliUniformRegs);
+                          break;
+                        case ColMaliFmaCycles:
+                          if(a.maliValid != b.maliValid)
+                            return a.maliValid && !b.maliValid;
+                          if(a.maliFmaCycles != b.maliFmaCycles)
+                            return compareFloat(a.maliFmaCycles, b.maliFmaCycles);
+                          break;
+                        case ColMaliCvtCycles:
+                          if(a.maliValid != b.maliValid)
+                            return a.maliValid && !b.maliValid;
+                          if(a.maliCvtCycles != b.maliCvtCycles)
+                            return compareFloat(a.maliCvtCycles, b.maliCvtCycles);
+                          break;
+                        case ColMaliSfuCycles:
+                          if(a.maliValid != b.maliValid)
+                            return a.maliValid && !b.maliValid;
+                          if(a.maliSfuCycles != b.maliSfuCycles)
+                            return compareFloat(a.maliSfuCycles, b.maliSfuCycles);
+                          break;
+                        case ColMaliLoadStoreCycles:
+                          if(a.maliValid != b.maliValid)
+                            return a.maliValid && !b.maliValid;
+                          if(a.maliLoadStoreCycles != b.maliLoadStoreCycles)
+                            return compareFloat(a.maliLoadStoreCycles, b.maliLoadStoreCycles);
+                          break;
+                        case ColMaliTextureCycles:
+                          if(a.maliValid != b.maliValid)
+                            return a.maliValid && !b.maliValid;
+                          if(a.maliTextureCycles != b.maliTextureCycles)
+                            return compareFloat(a.maliTextureCycles, b.maliTextureCycles);
+                          break;
+                        case ColMaliVaryingCycles:
+                          if(a.maliValid != b.maliValid)
+                            return a.maliValid && !b.maliValid;
+                          if(a.maliVaryingCycles != b.maliVaryingCycles)
+                            return compareFloat(a.maliVaryingCycles, b.maliVaryingCycles);
+                          break;
+                        case ColMaliWorkRegs:
+                          if(a.maliValid != b.maliValid)
+                            return a.maliValid && !b.maliValid;
+                          if(a.maliWorkRegs != b.maliWorkRegs)
+                            return compareUInt(a.maliWorkRegs, b.maliWorkRegs);
+                          break;
+                        case ColMaliSpillCount:
+                          if(a.maliValid != b.maliValid)
+                            return a.maliValid && !b.maliValid;
+                          if(a.maliSpillCount != b.maliSpillCount)
+                            return compareUInt(a.maliSpillCount, b.maliSpillCount);
+                          break;
+                        case ColMaliCost:
+                          if(a.maliValid != b.maliValid)
+                            return a.maliValid && !b.maliValid;
+                          if(a.maliCost != b.maliCost)
+                            return compareFloat(a.maliCost, b.maliCost);
+                          break;
+                        case ColMaliBound:
+                          if(a.maliValid != b.maliValid)
+                            return a.maliValid && !b.maliValid;
+                          if(a.maliBound != b.maliBound)
+                            return compareText(a.maliBound, b.maliBound);
+                          break;
+                        default: break;
+                      }
 
-                     return a.id < b.id;
-                   });
+                      return a.id < b.id;
+                    });
   endResetModel();
 }
 
@@ -673,6 +814,102 @@ TEST_CASE("Analyzer shader model sorts use count numerically", "[analyzer]")
   CHECK(model.ShaderAt(0).useCount == 1);
   CHECK(model.ShaderAt(1).useCount == 3);
   CHECK(model.ShaderAt(2).useCount == 20);
+}
+
+TEST_CASE("Analyzer shader model sorts mali cost numerically", "[analyzer]")
+{
+  AnalyzerShaderRow low;
+  low.id = MakeAnalyzerTestResourceId(21);
+  low.stage = "PS";
+  low.maliValid = true;
+  low.maliCost = 1.0f;
+
+  AnalyzerShaderRow mid;
+  mid.id = MakeAnalyzerTestResourceId(22);
+  mid.stage = "PS";
+  mid.maliValid = true;
+  mid.maliCost = 3.5f;
+
+  AnalyzerShaderRow high;
+  high.id = MakeAnalyzerTestResourceId(23);
+  high.stage = "PS";
+  high.maliValid = true;
+  high.maliCost = 9.0f;
+
+  AnalyzerShaderRow invalid;
+  invalid.id = MakeAnalyzerTestResourceId(24);
+  invalid.stage = "PS";
+  invalid.maliValid = false;
+  invalid.maliCost = 100.0f;
+
+  rdcarray<AnalyzerShaderRow> shaders;
+  shaders.push_back(mid);
+  shaders.push_back(invalid);
+  shaders.push_back(low);
+  shaders.push_back(high);
+
+  AnalyzerShaderModel model;
+  model.SetShaders(shaders);
+
+  model.sort(AnalyzerShaderModel::ColMaliCost, Qt::DescendingOrder);
+  CHECK(model.ShaderAt(0).maliCost == 9.0f);
+  CHECK(model.ShaderAt(1).maliCost == 3.5f);
+  CHECK(model.ShaderAt(2).maliCost == 1.0f);
+  CHECK(model.ShaderAt(3).maliValid == false);
+
+  model.sort(AnalyzerShaderModel::ColMaliCost, Qt::AscendingOrder);
+  CHECK(model.ShaderAt(0).maliCost == 1.0f);
+  CHECK(model.ShaderAt(1).maliCost == 3.5f);
+  CHECK(model.ShaderAt(2).maliCost == 9.0f);
+  CHECK(model.ShaderAt(3).maliValid == false);
+}
+
+TEST_CASE("Analyzer shader model sorts mali longest path numerically", "[analyzer]")
+{
+  AnalyzerShaderRow low;
+  low.id = MakeAnalyzerTestResourceId(21);
+  low.stage = "PS";
+  low.maliValid = true;
+  low.maliLongestPath = 5.0f;
+
+  AnalyzerShaderRow mid;
+  mid.id = MakeAnalyzerTestResourceId(22);
+  mid.stage = "PS";
+  mid.maliValid = true;
+  mid.maliLongestPath = 12.5f;
+
+  AnalyzerShaderRow high;
+  high.id = MakeAnalyzerTestResourceId(23);
+  high.stage = "PS";
+  high.maliValid = true;
+  high.maliLongestPath = 30.0f;
+
+  AnalyzerShaderRow invalid;
+  invalid.id = MakeAnalyzerTestResourceId(24);
+  invalid.stage = "PS";
+  invalid.maliValid = false;
+  invalid.maliLongestPath = 100.0f;
+
+  rdcarray<AnalyzerShaderRow> shaders;
+  shaders.push_back(mid);
+  shaders.push_back(high);
+  shaders.push_back(low);
+  shaders.push_back(invalid);
+
+  AnalyzerShaderModel model;
+  model.SetShaders(shaders);
+
+  model.sort(AnalyzerShaderModel::ColMaliLongestPath, Qt::DescendingOrder);
+  CHECK(model.ShaderAt(0).maliLongestPath == 30.0f);
+  CHECK(model.ShaderAt(1).maliLongestPath == 12.5f);
+  CHECK(model.ShaderAt(2).maliLongestPath == 5.0f);
+  CHECK(model.ShaderAt(3).maliValid == false);
+
+  model.sort(AnalyzerShaderModel::ColMaliLongestPath, Qt::AscendingOrder);
+  CHECK(model.ShaderAt(0).maliLongestPath == 5.0f);
+  CHECK(model.ShaderAt(1).maliLongestPath == 12.5f);
+  CHECK(model.ShaderAt(2).maliLongestPath == 30.0f);
+  CHECK(model.ShaderAt(3).maliValid == false);
 }
 
 #endif

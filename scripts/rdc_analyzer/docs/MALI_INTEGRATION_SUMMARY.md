@@ -1,6 +1,6 @@
 # Mali Offline Compiler 集成项目总结
 
-> **版本**: v1.0.0 | **日期**: 2025-01 | **状态**: Alpha
+> **版本**: v1.1.0 | **日期**: 2026-02 | **状态**: Active
 
 ---
 
@@ -26,7 +26,7 @@
 | 模块 | 文件 | 功能 |
 |------|------|------|
 | **Shader 转换器** | `converters/shader_converter.py` | HLSL/DXBC → GLSL ES 3.0 转换 |
-| **Mali 分析器** | `analyzers/mali_analyzer.py` | 调用 malioc，解析 JSON 输出 |
+| **Mali 分析器** | `mali_analyzer.py` | 调用 malioc，解析 JSON 输出 |
 | **HTML 报告器** | `generate_sample_report.py` | 生成交互式可折叠报告 |
 | **Shell 脚本** | `renderdoc_mali_shell.py` | RenderDoc Python Shell 入口 |
 
@@ -62,7 +62,11 @@
 
 ### 2.3 malioc 数据解析
 
-完整解析 malioc v8.7.0 JSON Schema v2 输出：
+默认 malioc 路径（repo-first）：
+- `tools/malioc/2026.0/mali_offline_compiler/malioc.exe`
+- 可通过环境变量 `MALIOC_PATH` 覆盖
+
+完整解析 malioc v8.8.1 JSON Schema v2 输出：
 
 | 数据类别 | 字段 |
 |----------|------|
@@ -107,7 +111,7 @@
 ### 3.3 已知 Bug
 
 1. **终端 Emoji 编码问题** - Windows GBK 终端无法显示 ✅ 等符号（已修复为 `[OK]`）
-2. **路径硬编码** - malioc 路径写死，需改为配置或自动检测
+2. **路径硬编码** - malioc 路径写死，需改为配置或自动检测（已修复：repo-first + env override）
 
 ---
 
@@ -115,8 +119,7 @@
 
 ```
 scripts/rdc_analyzer/
-├── analyzers/
-│   └── mali_analyzer.py          # Mali 分析器核心
+├── mali_analyzer.py              # Mali 分析器核心
 ├── converters/
 │   └── shader_converter.py       # HLSL/DXBC → GLSL 转换
 ├── docs/
@@ -138,7 +141,7 @@ scripts/rdc_analyzer/
 |------|------|----------|
 | **RDC Shader 真实提取** | 在 `renderdoc_mali_shell.py` 中实现从 RDC 提取所有 Shader | 4h |
 | **SPIR-V 直通** | 检测 Vulkan Shader，直接传给 malioc | 2h |
-| **路径配置化** | 将 malioc 路径移到配置文件或环境变量 | 1h |
+| **路径配置化** | 将 malioc 路径移到配置文件或环境变量 | ✅ 完成 |
 
 ### Phase 2: 转换器增强 (P1)
 
@@ -213,4 +216,4 @@ scripts/rdc_analyzer/
 
 ---
 
-*最后更新: 2025-01*
+*最后更新: 2026-02*
