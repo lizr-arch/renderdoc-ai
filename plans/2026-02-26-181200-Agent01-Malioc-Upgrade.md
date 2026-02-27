@@ -260,5 +260,22 @@ ColMaliBound,
 - [ ] **Next pending**
   - Manual GUI validation: Shaders tab shows new Mali columns, sorting works, GPU list includes 2026.0 cores
 
+### 2026-02-27 14:54 (Agent continuation)
+
+- [x] **增加 Mali 结果匹配日志与状态摘要**
+  - Shaders 更新后统计匹配数量、无 SPIR-V、无数据、阶段不支持等原因
+  - `Mali status` 直接显示统计摘要，避免“看起来没变化”
+  - 额外 `qInfo` 输出 summary 与 JSON 路径便于定位
+- [ ] **Next pending**
+  - 你侧再次点击 Run Mali Analysis 验证状态摘要是否显示匹配统计
+
+### 2026-02-27 14:58 (Agent continuation)
+
+- [x] **重新构建 + unittest 验证**
+  - `MSBuild.exe renderdoc.sln /p:Configuration=Development /p:Platform=x64 /m`：PASS（0 error）
+  - `D:\\Code\\git\\renderdoc\\x64\\Development\\qrenderdoc.exe --unittest`：PASS（exit 0）
+- [ ] **Next pending**
+  - 你侧点击 Run Mali Analysis，确认 `Mali status` 出现匹配统计摘要
+
 ## Next Step
 - Manual GUI validation by you, then we can commit and proceed to next dimension work.

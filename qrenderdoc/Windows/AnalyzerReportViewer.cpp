@@ -26,6 +26,7 @@
 #include <QAbstractItemView>
 #include <QCoreApplication>
 #include <QCryptographicHash>
+#include <QDebug>
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
@@ -620,7 +621,8 @@ void AnalyzerReportViewer::HandleMaliProcessFinished(int exitCode, bool crashed)
   }
 
   QString error;
-  if(!ApplyMaliAnalysisResults(m_MaliOutputPath, m_MaliGpu, error))
+  QString summary;
+  if(!ApplyMaliAnalysisResults(m_MaliOutputPath, m_MaliGpu, error, &summary))
   {
     ui->maliStatusLabel->setText(tr("Mali analysis failed"));
     QMessageBox::warning(this, tr("Mali Analysis"), error);
@@ -632,7 +634,10 @@ void AnalyzerReportViewer::HandleMaliProcessFinished(int exitCode, bool crashed)
     return;
   }
 
-  ui->maliStatusLabel->setText(tr("Mali analysis ready (%1)").arg(m_MaliGpu));
+  if(summary.isEmpty())
+    ui->maliStatusLabel->setText(tr("Mali analysis ready (%1)").arg(m_MaliGpu));
+  else
+    ui->maliStatusLabel->setText(tr("Mali analysis ready (%1) - %2").arg(m_MaliGpu, summary));
   if(m_MaliProcess)
   {
     m_MaliProcess->deleteLater();
@@ -641,7 +646,7 @@ void AnalyzerReportViewer::HandleMaliProcessFinished(int exitCode, bool crashed)
 }
 
 bool AnalyzerReportViewer::ApplyMaliAnalysisResults(const QString &jsonPath, const QString &gpuName,
-                                                    QString &error)
+                                                    QString &error, QString *summary)
 {
   QFile file(jsonPath);
   if(!file.open(QIODevice::ReadOnly | QIODevice::Text))
@@ -712,8 +717,17 @@ bool AnalyzerReportViewer::ApplyMaliAnalysisResults(const QString &jsonPath, con
     return false;
   }
 
+  int totalShaders = 0;
+  int foundShaders = 0;
+  int validShaders = 0;
+  int invalidShaders = 0;
+  int noDataShaders = 0;
+  int noSpirvShaders = 0;
+  int unsupportedStageShaders = 0;
+
   rdcarray<AnalyzerShaderRow> updated = m_Snapshot.shaders;
   m_Ctx.Replay().BlockInvoke([&](IReplayController *r) {
+    totalShaders = updated.count();
     for(AnalyzerShaderRow &shader : updated)
     {
       shader.maliHash.clear();
@@ -739,6 +753,7 @@ bool AnalyzerReportViewer::ApplyMaliAnalysisResults(const QString &jsonPath, con
       if(stage == ShaderStage::Count)
       {
         shader.maliError = "Unsupported stage";
+        unsupportedStageShaders++;
         continue;
       }
 
@@ -746,6 +761,7 @@ bool AnalyzerReportViewer::ApplyMaliAnalysisResults(const QString &jsonPath, con
       if(hash.empty())
       {
         shader.maliError = "No SPIR-V";
+        noSpirvShaders++;
         continue;
       }
 
@@ -755,10 +771,12 @@ bool AnalyzerReportViewer::ApplyMaliAnalysisResults(const QString &jsonPath, con
       if(it == metrics.end())
       {
         shader.maliError = "No Mali data";
+        noDataShaders++;
         continue;
       }
 
       const MaliShaderMetrics &m = it.value();
+      foundShaders++;
       shader.maliValid = m.valid;
       shader.maliTotalCycles = (float)m.totalCycles;
       shader.maliShortestPath = (float)m.shortestPath;
@@ -775,12 +793,30 @@ bool AnalyzerReportViewer::ApplyMaliAnalysisResults(const QString &jsonPath, con
       shader.maliCost = (float)m.cost;
       shader.maliBound = m.bound;
       shader.maliError = rdcstr(m.error);
+      if(m.valid)
+        validShaders++;
+      else
+        invalidShaders++;
     }
   });
 
   m_Snapshot.shaders = updated;
   PopulateShaderTable();
   ui->shaderTable->sortByColumn(AnalyzerShaderModel::ColMaliCost, Qt::DescendingOrder);
+
+  if(summary)
+  {
+    *summary = tr("found %1/%2 (valid %3, invalid %4, no data %5, no SPIR-V %6, unsupported %7)")
+                   .arg(foundShaders)
+                   .arg(totalShaders)
+                   .arg(validShaders)
+                   .arg(invalidShaders)
+                   .arg(noDataShaders)
+                   .arg(noSpirvShaders)
+                   .arg(unsupportedStageShaders);
+    qInfo().noquote() << "Mali analysis summary:" << *summary << "json:" << jsonPath;
+  }
+
   return true;
 }
 

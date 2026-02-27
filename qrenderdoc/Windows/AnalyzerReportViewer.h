@@ -40,6 +40,7 @@ class AnalyzerIssueSortModel;
 class AnalyzerEventModel;
 class AnalyzerResourceModel;
 class AnalyzerShaderModel;
+class QProcess;
 
 class AnalyzerReportViewer : public QFrame, public IAnalyzerReportViewer, public ICaptureViewer
 {
@@ -62,6 +63,7 @@ private slots:
   void on_refreshButton_clicked();
   void on_exportButton_clicked();
   void on_jumpButton_clicked();
+  void on_maliRunButton_clicked();
 
 private:
   void UpdateSummaryText();
@@ -70,6 +72,14 @@ private:
   void PopulateResourceTable();
   void PopulateShaderTable();
   void ConfigureTableLayout();
+  void PopulateMaliGpuList();
+  void ResetMaliState();
+  void StartMaliAnalysis();
+  void HandleMaliProcessFinished(int exitCode, bool crashed);
+  bool ApplyMaliAnalysisResults(const QString &jsonPath, const QString &gpuName, QString &error,
+                                QString *summary);
+  rdcstr ComputeShaderHash(IReplayController *replay, ResourceId shaderId, ShaderStage stage,
+                           uint32_t fallbackEID) const;
   bool JumpToTextureTarget(const AnalyzerIssue &issue, uint32_t fallbackEID);
   bool JumpToShaderTarget(const AnalyzerIssue &issue, uint32_t fallbackEID);
   ResourceId FindShaderForEvent(uint32_t eid, ShaderStage *stage = NULL) const;
@@ -89,6 +99,9 @@ private:
   AnalyzerEventModel *m_EventModel = NULL;
   AnalyzerResourceModel *m_ResourceModel = NULL;
   AnalyzerShaderModel *m_ShaderModel = NULL;
+  QProcess *m_MaliProcess = NULL;
+  QString m_MaliOutputPath;
+  QString m_MaliGpu;
   bool m_BuildInFlight = false;
   uint32_t m_BuildSerial = 0;
 };

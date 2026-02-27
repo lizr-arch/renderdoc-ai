@@ -734,3 +734,19 @@ bool AnalyzerExporter::WriteAll(const AnalyzerSnapshot &snap, const rdcstr &dir)
   - `py -3 -m py_compile scripts/rdc_analyzer/mali_analyzer.py`：PASS
 - [ ] **下一步（进行中）**
   - 你侧手工验证 Mali Shader 维度 UI（GPU 选择 + Run Mali Analysis + 排序列）
+
+### 2026-02-27 14:54 (Agent continuation)
+
+- [x] **Mali 结果匹配日志增强**
+  - 增加匹配统计（found/valid/invalid/no-data/no-spirv/unsupported）
+  - Mali status 显示统计摘要，便于定位“无变化”原因
+- [ ] **下一步（进行中）**
+  - 你侧再次点击 Run Mali Analysis，确认状态摘要是否显示匹配统计
+
+### 2026-02-27 14:58 (Agent continuation)
+
+- [x] **重新构建 + unittest 验证**
+  - `MSBuild.exe renderdoc.sln /p:Configuration=Development /p:Platform=x64 /m`：PASS（0 error）
+  - `D:\\Code\\git\\renderdoc\\x64\\Development\\qrenderdoc.exe --unittest`：PASS（exit 0）
+- [ ] **下一步（进行中）**
+  - 你侧点击 Run Mali Analysis，确认 `Mali status` 出现匹配统计摘要
