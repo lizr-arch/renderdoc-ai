@@ -278,3 +278,7 @@
 - 关键词：未标注（原因：源文档无关键词段）
 - 适用路线：未标注（原因：源文档无适用路线段）
 - 路径：`docs/analysis/codex_rdc_analyzer/README.md`
+
+### PERFORMANCE_REPORT_TRACKER｜Native Qt Analyzer Report 7 维度追踪
+- 路径：docs/analysis/codex_rdc_analyzer/PERFORMANCE_REPORT_TRACKER.md
+- 说明：7 维度 /spec + /plan 入口与实现顺序总览

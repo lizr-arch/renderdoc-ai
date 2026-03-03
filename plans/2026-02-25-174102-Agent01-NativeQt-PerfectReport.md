@@ -762,3 +762,80 @@ bool AnalyzerExporter::WriteAll(const AnalyzerSnapshot &snap, const rdcstr &dir)
   - `D:\\Code\\git\\renderdoc\\x64\\Development\\qrenderdoc.exe --unittest`：PASS（exit 0）
 - [ ] **下一步（进行中）**
   - 你侧重新 Run Mali Analysis，确认 `Mali status` 出现 hash/id 命中统计
+
+### 2026-03-01 15:13 (Agent continuation)
+
+- [x] **增加 entry_name + size 兜底匹配**
+  - C++ 侧新增 entry 匹配通道，状态摘要包含 entry 命中数
+- [ ] **下一步（进行中）**
+  - 你侧重新 Run Mali Analysis，确认 `Mali status` 出现 entry 命中
+
+
+### 2026-03-01 15:44 (Agent continuation)
+
+- [x] Mali hash alignment + logging
+  - Prefer module reflection in ComputeShaderHash to avoid pipeline specialization affecting hash
+  - Add Mali match misses sample log (stage/hash/entry/bytes/entryName)
+- [ ] Next
+  - Rebuild and Run Mali Analysis to confirm hash/entry hits
+
+### 2026-03-01 16:56 (Agent continuation)
+
+- [x] 修复 ShaderExtractor 的 ResourceId 提取
+  - vkCreateShaderModule chunk 末尾 8 bytes 才是 ShaderModule ResourceId（此前取到 device id）
+  - 解析后 resource_id 不再全为同一个值
+- [x] 验证
+  - `py -3 -c "<RDCParser extract_vulkan_shaders>"`：首批资源 id 变为 `626/627/2721/...`（不再固定）
+- [ ] 下一步（进行中）
+  - 你侧重新 Run Mali Analysis，确认 `Mali status` 出现 `id` 命中且表格填充
+
+### 2026-03-01 17:05 (Agent continuation)
+
+- [x] 强制刷新 Shader 表格显示
+  - Mali 分析后主动 invalidate 过滤器并刷新视图
+  - 增加 sample 行日志（验证 UI 侧数据已写入）
+- [ ] 下一步（进行中）
+  - 需重新编译后你侧 Run Mali Analysis，确认表格显示 Mali 数值
+
+### 2026-03-01 20:03 (Agent continuation)
+
+- [x] 重新编译 + unittest
+  - `MSBuild.exe renderdoc.sln /p:Configuration=Development /p:Platform=x64 /m`：PASS（0 error）
+  - `D:\Code\git\renderdoc\x64\Development\qrenderdoc.exe --unittest`：PASS（exit 0）
+- [ ] 下一步（进行中）
+  - 你侧 Run Mali Analysis，确认表格刷新并检查日志 `Mali UI sample row`
+
+### 2026-03-03 19:30 (Agent continuation)
+
+- [x] **Shader 表排序修复（Mali 有效值置顶）**
+  - 新增 `AnalyzerShaderSortModel`，Mali 列按数值排序且有效数据永远优先显示
+  - Shader 表改用自定义排序模型，避免 N/A 覆盖顶部
+- [x] **修复降序排序不生效**
+  - `AnalyzerShaderSortModel::sort` 追加 `invalidate()`，确保切换升/降序会重新排序
+- [x] **验证**
+  - `MSBuild.exe renderdoc.sln /p:Configuration=Development /p:Platform=x64 /m`：PASS（0 error）
+  - `D:\Code\git\renderdoc\x64\Development\qrenderdoc.exe --unittest`：PASS（exit 0）
+- [ ] **下一步（进行中）**
+  - 你侧 Run Mali Analysis，确认表格升/降序切换正常（N/A 仍垫底）
+
+### 2026-03-04 01:35 (Agent continuation)
+
+- [x] **修复 RegisterShaderUse 签名不一致 + 补齐 Shader byte size**
+  - FrameAnalyzer：PopulateShaderUsage 传入 pipeline/stage，RegisterShaderUse 计算 byteSize
+  - AnalyzerContract/AnalyzerModels：JSON 增加 `byte_size`，Shader 表新增 Size 列（KB）
+- [x] **构建与 unittest 验证**
+  - `E:\Program Files\Microsoft Visual Studio\2022\Community\MSBuild\Current\Bin\MSBuild.exe renderdoc.sln /p:Configuration=Development /p:Platform=x64 /m`：PASS
+  - `D:\Code\git\renderdoc\x64\Development\qrenderdoc.exe --unittest`：PASS
+- [ ] **下一步（进行中）**
+  - 生成 7 维度追踪文档，补齐 6 维度 /spec，并输出 7 份 /plan 文档
+
+### 2026-03-04 02:10 (Agent continuation)
+
+- [x] **生成 7 维度追踪文档 + 7 份 /plan**
+  - `docs/analysis/codex_rdc_analyzer/PERFORMANCE_REPORT_TRACKER.md`
+  - `plans/2026-03-03-210001~210007-Agent01-PerfDim-*.md`
+- [x] **更新风险维度说明与文档索引**
+  - `docs/analysis/codex_rdc_analyzer/report_risk_dimensions_v1.md`
+  - `docs/analysis/codex_rdc_analyzer/DOC_INDEX.md`
+- [ ] **下一步（进行中）**
+  - 完成 Shader 维度手工验收，然后开始维度 01（Draw/Dispatch）

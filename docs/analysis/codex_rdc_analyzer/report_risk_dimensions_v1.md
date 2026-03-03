@@ -1,8 +1,8 @@
 # Analyzer Report 风险维度与定位标准（v1）
 
-> 目标：把“发现风险 → 快速定位 → 解释证据”的动作固化为稳定流程，降低排查成本。
-> 适用范围：Native Qt Analyzer Report（本地 C++ 报告窗口）。
-> MCP 不可用：以下为本地检索与现有代码链路整理。
+> 目标：把“发现风险 → 快速定位 → 解释证据”的动作固化为稳定流程，降低排查成本。  
+> 适用范围：Native Qt Analyzer Report（本地 C++ 报告窗口）。  
+> 说明：本文件对齐当前 GUI 目标，字段命名遵循数据来源原始命名，不新增自定义指标。
 
 ---
 
@@ -31,64 +31,69 @@
 
 ## 3. 风险维度清单（v1）
 
-### 3.1 Texture 维度（大纹理 / 高带宽）
-- **风险信号**：纹理占用异常高、单纹理过大
-- **证据字段**：bytes / width / height / mips / samples
-- **排序字段**：`bytes`（默认降序）
-- **跳转入口**：Texture Viewer（选中纹理）
-- **置信度**：低（体积 ≠ 性能，但可快速发现“超标纹理”）
+### 3.1 Draw / Dispatch 密度（小批次）
+- **风险信号**：大量小 Draw / Dispatch，CPU/GPU 提交开销上升  
+- **证据字段**：numIndices / numInstances / dispatchDimension / dispatchThreadsDimension  
+- **排序字段**：小批次数量、低顶点/实例优先  
+- **跳转入口**：Event Browser  
+- **置信度**：中（基于 ActionDescription 元数据）
 
-### 3.2 Shader 维度（Mali Offline 复杂度）
-- **风险信号**：周期数/寄存器/溢出异常高
-- **证据字段**：`longest_path_cycles`, `work_registers`, `spill_count`
-- **排序字段**：**Mali Cost**（建议）
-  - 计算方式（对齐脚本基线）：
-    - `cost = cycles + max(0, work_registers-32) * 0.5 + spill_count * 10`
-- **跳转入口**：Shader Viewer（选中 Shader + entrypoint）
-- **置信度**：中-高（依赖 malioc 与 GPU 目标）
-- **GPU 选择**：必须可选 Mali 核心（默认 `Mali-G78`）
+### 3.2 资源/状态抖动（绑定频繁）
+- **风险信号**：Shader / Resource 频繁切换  
+- **证据字段**：ShaderChangeStats / ResourceBindStats  
+- **排序字段**：变更次数降序  
+- **跳转入口**：Event Browser / Pipeline State  
+- **置信度**：中（D3D11 FrameStatistics 可用时较高）
 
-### 3.3 Draw / Dispatch 密度（小批次）
-- **风险信号**：大量小 Draw / Dispatch，CPU/GPU 提交开销上升
-- **证据字段**：useCount / vertices / instances / dispatch dims
-- **排序字段**：Draw 数量 / 低顶点数优先
-- **跳转入口**：Event Browser
-- **置信度**：中
+### 3.3 Pipeline 带宽（MRT / MSAA / Blend）
+- **风险信号**：MRT 数量多 / MSAA 过高 / Blend 热点  
+- **证据字段**：RT 数 / samples / blend state  
+- **排序字段**：MRT 数 / MSAA 等级  
+- **跳转入口**：Event Browser + Pipeline State  
+- **置信度**：中（Replay 状态）
 
-### 3.4 资源/状态抖动（绑定频繁）
-- **风险信号**：Shader / Resource 频繁切换
-- **证据字段**：Shader 变更计数、资源绑定次数
-- **排序字段**：变更次数降序
-- **跳转入口**：Event Browser / Pipeline State
-- **置信度**：中
-
-### 3.5 Overdraw / Triangle Size
-- **风险信号**：过度绘制、极小三角形
-- **证据字段**：Overlay 统计（Quad Overdraw / Triangle Size）
-- **排序字段**：覆盖面积或 overdraw 强度
-- **跳转入口**：Overlay 可视化
+### 3.4 Overdraw / Triangle Size
+- **风险信号**：过度绘制、极小三角形  
+- **证据字段**：Overlay 统计（Quad Overdraw / Triangle Size）  
+- **排序字段**：覆盖面积或 overdraw 强度  
+- **跳转入口**：Overlay 可视化  
 - **置信度**：高（视觉直观）
 
-### 3.6 Pipeline 带宽（MRT / MSAA / Blend）
-- **风险信号**：MRT 数量多 / MSAA 过高 / Blend 热点
-- **证据字段**：RT 数量 / samples / blend state
-- **排序字段**：MRT 数 / MSAA 等级
-- **跳转入口**：Event Browser + Pipeline State
-- **置信度**：中
+### 3.5 Buffer/Texture 更新与内存压力（含大纹理）
+- **风险信号**：更新次数过多 / 资源过大导致带宽与显存压力  
+- **证据字段**：ResourceUpdateStats（calls/sizes/types）+ Texture/Buffer 字节数  
+- **排序字段**：bytes / update calls  
+- **跳转入口**：Resource Viewer / Event Browser  
+- **置信度**：中（更新统计仅 D3D11）
+
+### 3.6 GPU 计时与计数器（热点）
+- **风险信号**：EventGPUDuration / PSInvocations 等异常高  
+- **证据字段**：GPUCounter 结果（EventGPUDuration, VS/PS/CS invocations...）  
+- **排序字段**：GPU 时间 / invocations  
+- **跳转入口**：Event Browser  
+- **置信度**：高（硬件计数器）
+
+### 3.7 Shader 维度（Mali Offline）
+- **风险信号**：cycles / registers / spill 等异常高  
+- **证据字段**：malioc 输出字段（保持原名，不新增自定义指标）  
+- **排序字段**：malioc 输出中最大负载字段（由用户选择）  
+- **跳转入口**：Shader Viewer（选中 Shader + entrypoint）  
+- **置信度**：中-高（依赖 malioc 与 GPU 目标）  
+- **GPU 选择**：必须可选 Mali 核心（默认 `Mali-G78`）
 
 ---
 
 ## 4. UI 展示标准（统一模板）
 
 每个 Tab/维度必须满足：
-- **默认降序排序**（高风险在前）
-- **升/降序可切换**
-- **字段单位明确**（MB / cycles / regs）
-- **N/A 明确显示**（无数据不可伪装）
+- **默认降序排序**（高风险在前）  
+- **升/降序可切换**  
+- **字段单位明确**（MB / cycles / regs）  
+- **N/A 明确显示**（无数据不可伪装）  
 - **跳转可用**（无跳转则提示原因）
 
 ---
 
 ## 5. 本次落地范围
 
-本轮先落地 **Shader 维度（Mali Offline）**，其余维度作为后续扩展基线。
+本轮优先完成 **Shader 维度（Mali Offline）**，其余维度按追踪文档逐项落地。
