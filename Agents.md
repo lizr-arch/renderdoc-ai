@@ -1,10 +1,10 @@
 # Codex Project Configuration: RenderDoc (Graphics Debugger / C++)
 
-> **Version**: 1.1.0 | **Updated**: 2025-02-05 | **For**: Codex Executor
+> **Version**: 1.2.0 | **Updated**: 2026-02-25 | **For**: Codex Executor
 > 
 > **项目简介**: RenderDoc 是一个开源的帧捕获图形调试器，支持 Vulkan、D3D11、D3D12、OpenGL 和 OpenGL ES。
 >
-> **文档目标**: 本配置专为 **RDC 文件分析 MCP/Skill 开发** 优化，重点关注：
+> **文档目标**: 本配置专为 **RDC 文件分析与自动化开发** 优化，重点关注：
 > - 理解 `.rdc` 文件的二进制结构和 Section 布局
 > - 掌握 Replay 机制和各图形 API 驱动的解析入口
 > - 使用 Python API 实现自动化分析脚本
@@ -12,6 +12,11 @@
 ## 项目核心目标（SSOT）
 1. **单帧极致分析**：从 `.rdc/XML` 中提取性能问题并生成可执行建议  
 2. **双帧全方位对比**：baseline vs target 差异分析与结论输出  
+
+## 指令优先级（冲突处理）
+1. **系统/平台硬约束 > 本文件 > 任务临时约束**。
+2. 规则冲突时，选择更安全且可执行的一侧，并在回复中说明取舍。
+3. 工具不可用时，必须给出降级路径（fallback）并标注证据来源。
 
 ## 索引文档
 - 项目索引与贡献指南：`docs/CONTRIBUTING.md`
@@ -44,9 +49,10 @@
 - 会话开始必须调用 `get_project_index`。
 - 进入 `/spec` 或 `/plan` 前，至少一次 `search_docs`（使用 1-3 个任务关键词）。
 - 涉及既有功能/脚本/规范/结论时，必须 `search_docs` 或 `read_doc` 并给出证据路径。
-- 连续 10+ 轮未调用 `mcp__renderdoc_context` 且仍在 RenderDoc 任务中，强制一次 `search_docs`。
+- 连续 10+ 轮未调用上述 MCP 工具且仍在 RenderDoc 任务中，强制一次 `search_docs`。
 - 无检索结果时必须标注 **假设（待验证）**。
 - **频率底线**：每次会话至少 1 次 `get_project_index` + 1 次 `search_docs`。
+- 若 MCP 工具不可用：改用 `rg -n` + 直接读取文档路径，并在结论中注明「基于本地检索（MCP unavailable）」。
 
 ### 数据源
 
@@ -70,7 +76,7 @@
 ```
 
 ## 0. COMMANDS (Executable Quick List)
-> 以下命令仅记录，不自动执行；执行前需确认权限与路径。构建类命令需用户授权。更多约束见下方 "Shell Protocol / 命令执行权限"。
+> `/plan` 阶段命令仅记录不执行；`/do` 阶段允许执行验证类命令。构建类命令需用户授权。更多约束见下方 "Shell Protocol / 命令执行权限"。
 
 ### Build (需用户授权)
 ```powershell
@@ -105,6 +111,11 @@ make -C build-android
   1. Search (rg/sg) 定位相关代码。
   2. 阅读关键文件，理解数据结构和调用关系。
   3. 总结需求和发现。
+  4. **强制自我追问**（技术可行性判断）：
+     - 如果发现"不能"/"不支持"/"不兼容"等否定性结论
+     - 如果缺少关键组件/API/文档
+     - 如果涉及跨平台/跨版本兼容性问题
+     → **必须启动自我追问协议**（见 1.2 节），展示 4 轮追问结果
 
 ### Phase 2: /plan (Architecture & Strategy)
 - **Goal**: Design solution.
@@ -113,14 +124,15 @@ make -C build-android
   1. File List (精确到行号范围).
   2. Pseudo-code.
   3. Impact Analysis.
-  4. Approval: WAIT for user.
-  5. 产物：`plans/YYYY-MM-DD-HHmmss-<AgentID>-<title>.md`（时间精确到秒 + Agent标识），含任务 checkbox、风险/问题；/do 期间在同一文件勾选并追加问题，禁止另起副本或修订历史。
-  6. 如需生成 XML 任务文档：`.codex/tasks/<timestamp>-<AgentID>-<title>.xml`，与 plan.md 对齐，覆盖式更新。
-  7. 推荐模板（放入 plan.md 开头）：Scope/Assumptions、Build/Test/Lint Quick Guide（**命令仅记录不执行**）、Task Checklist（checkbox）、Risks/Blockers、Decisions、Verification/Acceptance（Definition of Done）、Next Steps。
+  4. **自我追问验证**：如果方案涉及技术可行性判断（如"XX API 不支持"），必须展示 1.2 节的 4 轮追问结果。
+  5. Approval: WAIT for user.
+  6. 产物：`plans/YYYY-MM-DD-HHmmss-<AgentID>-<title>.md`（时间精确到秒 + Agent标识），含任务 checkbox、风险/问题；/do 期间在同一文件勾选并追加问题，禁止另起副本或修订历史。
+  7. 如需生成 XML 任务文档：`.codex/tasks/<timestamp>-<AgentID>-<title>.xml`，与 plan.md 对齐，覆盖式更新。
+  8. 推荐模板（放入 plan.md 开头）：Scope/Assumptions、Build/Test/Lint Quick Guide（`/plan` 阶段命令仅记录不执行）、Task Checklist（checkbox）、Risks/Blockers、Decisions、Verification/Acceptance（Definition of Done）、Next Steps。
 - **[增强] 计划粒度要求**:
   - **2-5分钟粒度**：每个步骤应能在 2-5 分钟内完成
   - **完整代码**：计划中含完整代码片段，不写"添加验证逻辑"这种模糊描述
-  - **精确命令**：测试/验证命令写全，含预期输出（**由用户手动执行**）
+  - **精确命令**：测试/验证命令写全并标注预期输出；`/do` 阶段由 AI 自主运行验证类命令（构建类仍需授权）
   - **TDD 步骤模板**：写失败测试 → 验证失败 → 写最小实现 → 验证通过 → 提交
 - **[多 Agent 并行] 文件命名防冲突**:
   - 格式：`YYYY-MM-DD-HHmmss-<AgentID>-<title>.md`
@@ -128,7 +140,7 @@ make -C build-android
   - 每个 Agent 必须使用唯一标识（如 Agent01/Agent02 或会话ID前6位）
 
 #### /plan 50字模板（速用）
-参见：`docs/templates/plan-template.md`（Scope/Steps/Impact/Risks/Verification）
+优先参考 `docs/plans/` 下既有 plan；若无模板文件，按 Scope/Steps/Impact/Risks/Verification 结构编写。
 
 ### Phase 3: /do (Implementation)
 - **Goal**: Apply changes.
@@ -140,9 +152,9 @@ make -C build-android
   4. 若需求或范围变化：立即暂停 /do，回退 /plan 更新同一 plan.md，获批后再继续。
   5. 自检：按 plan.md 的 Definition of Done 勾选，**自主运行验证命令确认结果**。
   6. 遇阻流程：同一问题尝试不超过 3 次；记录已尝试方法/错误/推测原因/备选方案到 plan.md 的 Risks/Blockers，再决定等待指示或调整方案。
-  7. **Git 自动提交**：每完成一个独立功能/任务后立即提交到 Git。
-- **[强制] Git 自动提交规则**:
-  - **触发时机**：完成一个可验证的功能/修复/任务后
+  7. 若用户明确要求提交（或启用 `auto_commit=true`），每完成一个独立功能/任务后提交到 Git。
+- **[可选] Git 提交规则（需用户明确启用）**:
+  - **触发时机**：仅在用户要求提交或启用 `auto_commit=true` 时；完成一个可验证的功能/修复/任务后提交
   - **提交格式**：遵循 Conventional Commits
     ```
     <type>(<scope>): <简短描述>
@@ -171,7 +183,7 @@ make -C build-android
   - **禁止行为**:
     - ❌ 累积多个任务后批量提交
     - ❌ 使用模糊的提交信息（如 "update", "fix"）
-    - ❌ 忘记提交就开始下一个任务
+    - ❌ 在未获授权时自动提交
 
 - **[增强] 批次执行与汇报**:
   - **默认批次**：每完成 3 个任务进行总结是否存在疑问、不确定，如果存在就汇报进度，等待反馈
@@ -196,10 +208,6 @@ make -C build-android
 - 仅用于总结与提示，不作为完成门槛。
 - 若发现遗漏，建议在后续轮次补充。
 
-### $autonomous-skill 模式
-
-当 `$autonomous-skill` 技能激活时，`$spec-plan-do` 失效，**Stage-Gated**无需用户确认，AI 内部静默遵循 spec→plan→do 三阶段方法论。
-
 ---
 
 ## 1.1 IRON LAWS (铁律)
@@ -214,6 +222,18 @@ make -C build-android
 - **标注不确定性**：无法确认时使用「**假设（待验证）**」标注
 - **3 次规则**：同一问题搜索 3 次未找到 → 停止猜测，向用户说明缺失信息
 
+- **[新增] 根因追溯检查清单**：
+  遇到技术限制时，必须完成以下验证：
+  ```
+  ☑ 1. 证据来源是什么？（文档/源码/测试）
+  ☑ 2. 限制在哪一层？（API/驱动/硬件）→ 配合铁律3判断
+  ☑ 3. 是否有绕过方案？（Patch/替代技术）
+  ☑ 4. 成本和风险如何？（开发时间/稳定性）
+  ☑ 5. 是否有先例？（开源项目/论文）
+  ```
+  
+  **未完成检查清单前，禁止直接回复"不可行"**。
+
 ### 铁律 2: 验证优先 (Verification First)
 ```
 无验证，不宣称完成
@@ -222,15 +242,110 @@ make -C build-android
 - 代码路径推断需追踪到实际函数调用
 - 禁止模糊宣称（"可能是..."、"应该是..."）
 
+### 铁律 3: 分层限制判断 (Layered Constraint Analysis)
+```
+无分层分析，不说"不能"
+```
+
+- **触发条件**（遇到以下词汇必须启动分层分析）：
+  - "不能" / "无法" / "不支持" / "不兼容" / "不可行" / "不可能"
+  - "缺少" / "缺失" / "没有实现" / "不存在" / "没有提供"
+  - "限制" / "禁止" / "不允许"
+
+- **强制输出要求**：
+  1. 必须明确指出限制属于**哪一层**（理论/实现/配置）
+  2. 如果是实现/配置限制，必须提供**至少 1 个**绕过方案或改造路径
+  3. 每个结论必须附带**证据链**（文件:行号 或 文档链接）
+
+- **三层判断模型**：
+  | 层次 | 含义 | 示例 | 可突破性 |
+  |------|------|------|----------|
+  | **理论限制** | 违反物理/数学定律 | "超光速通信" | ❌ 无法突破 |
+  | **实现限制** | 当前代码未实现 | "跨GPU内存映射" | ✅ 可修改代码 |
+  | **配置限制** | 参数/环境问题 | "内存不足" | ✅ 可调整参数 |
+
+- **强制流程**：
+  1. 遇到"不可行"结论 → 先定位限制层次
+  2. 实现/配置限制 → 必须说明"如何改造"或"成本评估"
+  3. 理论限制 → 需引用权威文档/规范证明
+
+- **语言表达规范**：
+  | ❌ 危险回答 | ✅ 改进回答 |
+  |------------|------------|
+  | "不能实现" | "**官方版本**不支持，原因是X，但理论上可通过Y改造" |
+  | "无法跨平台" | "**直接打开**会失败（错误Z），需要修复内存映射逻辑" |
+  | "GPU不兼容" | "GPU **索引**不兼容，但**属性**兼容，可重映射" |
+
 ### 铁律快速参考卡
 ```
-┌─────────────────────────────────────────────────┐
-│ ANALYZE: 先搜索源码，再下结论                    │
-│ VERIFY:  引用文件:行号作为证据                   │
-│ UNCERTAIN: 标注「假设」，说明缺失信息            │
-│ 3-STRIKE: 搜索3次未果 → 停止，请求帮助           │
-└─────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────┐
+│ ANALYZE:    先搜索源码，再下结论                     │
+│ VERIFY:     引用文件:行号作为证据                    │
+│ UNCERTAIN:  标注「假设」，说明缺失信息               │
+│ 3-STRIKE:   搜索3次未果 → 停止，请求帮助             │
+│ LAYERED:    说"不能"前 → 分层判断（理论/实现/配置）  │
+│ ROOT-CAUSE: 遇限制 → 5步检查清单                    │
+│ SELF-ASK:   4轮追问（表面→机制→限制→方案）         │
+│ TRIGGER:    遇否定词 → 启动自我追问(/spec优先)     │
+└─────────────────────────────────────────────────────┘
 ```
+
+---
+
+## 1.2 自我追问协议 (Self-Questioning Protocol)
+
+### 触发时机
+
+**强制触发**（优先级从高到低）：
+1. **/spec 阶段**：任何涉及技术可行性判断的回答（见第 1 章 Phase 1）
+2. **/plan 阶段**：设计方案时遇到技术限制（见第 1 章 Phase 2）
+3. **/do 阶段**：实现受阻需要判断"能否实现"
+
+**触发关键词**（见铁律 3）：
+- "不能" / "无法" / "不支持" / "不兼容" / "不可行"
+- "缺少" / "缺失" / "没有实现" / "不存在"
+- 任何否定性技术结论
+
+### 第 1 轮：表面分析
+
+| 自问 | 行动 | 输出 |
+|------|------|------|
+| 这个功能/API **看起来**支持吗？ | 搜索官方文档/头文件 | 初步结论 + 证据路径 |
+| 是否有现成的代码示例？ | `rg -n "关键API"` 查找用例 | 用例数量 + 文件位置 |
+
+### 第 2 轮：机制验证
+
+| 自问 | 行动 | 输出 |
+|------|------|------|
+| 底层**如何实现**的？ | 读取源码，追踪调用链 | 调用路径 + 关键函数 |
+| 是否有隐藏的前提条件？ | 检查初始化/配置代码 | 依赖条件列表 |
+
+### 第 3 轮：限制定位
+
+| 自问 | 行动 | 输出 |
+|------|------|------|
+| 限制在**哪一层**？ | 应用铁律 3 的三层模型 | 理论/实现/配置 |
+| 是否有**绕过方案**？ | 搜索 Workaround/Patch | 替代技术列表 |
+
+### 第 4 轮：方案评估
+
+| 自问 | 行动 | 输出 |
+|------|------|------|
+| **至少 2 个**替代方案是什么？ | 设计方案矩阵 | 方案对比表 |
+| 成本和风险如何？ | 评估开发时间/稳定性 | 风险等级 + 建议 |
+
+### 输出格式要求
+
+1. **禁止内心验证**：4 轮追问的结果必须显式输出（不得"我已验证，结论是..."）
+2. **方案矩阵**：至少提供 2 个替代方案 + 成本对比表
+3. **证据链**：每个结论必须附带 `文件:行号` 证据
+4. **分层结论**：明确说明限制属于"理论/实现/配置"哪一层
+
+### 与铁律的关系
+
+- **铁律 1（系统分析）**：第 1-2 轮追问确保"有证据"
+- **铁律 2（验证优先）**：第 4 轮追问确保"有方案"
+- **铁律 3（分层限制）**：第 3 轮追问确保"定位准确"
 
 ---
 
@@ -253,14 +368,17 @@ make -C build-android
 - **建议规避**：优先用 `apply_patch` 改文件；需要脚本时优先 `python -c ...`；`pwsh` 尽量使用**无 `$var` 的单条命令** + 绝对路径。
 
 #### Python 版本
-- **强制 `py -3`**：本机 `python` 默认指向 2.7.18，缺少 `pathlib` 等标准库
-- ✅ 正确：`py -3 scripts/sync_plans_index.py`
+- **Windows**：使用 `py -3`
+- **Linux/WSL/macOS**：使用 `python3`
+- 下文若出现 `py -3`，在 Linux/WSL/macOS 中等价替换为 `python3`
+- ✅ Windows：`py -3 scripts/sync_plans_index.py`
+- ✅ Linux/WSL：`python3 scripts/sync_plans_index.py`
 - ❌ 错误：`python scripts/sync_plans_index.py`
 
 #### Python 脚本执行
-- 简单脚本（单行、无嵌套引号）：`py -3 -c '...'`
+- 简单脚本（单行、无嵌套引号）：Windows 用 `py -3 -c '...'`，Linux/WSL 用 `python3 -c '...'`
 - 复杂脚本（多行 + 引号/中文，或超 3 行）：写 `scripts/_tmp_<用途>.py` → 执行；`/end` 时统一清理 `_tmp_*.py`
-- **一次性原则**：临时脚本应一次性写对，同一脚本反复创建-运行超过 2 次 → 停止，换用 `replace_in_file` 或其他工具
+- **一次性原则**：临时脚本应一次性写对，同一脚本反复创建-运行超过 2 次 → 停止，换用 `apply_patch` 或其他工具
 - **禁止即删**：临时脚本执行后**不得立即删除**，保留至 `/end` 统一清理（便于排查问题和复用）
 
 #### 会话存档
@@ -301,14 +419,14 @@ make -C build-android
 **工具选择**
 | 文件行数 | 推荐工具 | 禁止行为 |
 |----------|----------|----------|
-| ≤300行 | `edit_file` 全文替换 | - |
-| >300行 | `replace_in_file` 精确 SEARCH/REPLACE | 禁止 `edit_file` 全文覆盖 |
+| ≤300行 | `apply_patch` 小范围修改 | 禁止无定位全文覆盖 |
+| >300行 | `apply_patch` 多 hunk 或一次性脚本替换 | 禁止无定位全文覆盖 |
 | 含特殊缩进（Tab/深层嵌套） | 写临时 Python 脚本操作 | 禁止内联 PowerShell 多行 |
 
 **强制流程**（>300行文件）
 1. **编辑前**：读取目标区域，确认缩进风格（Tab 数量 / 空格数）
-2. **编辑时**：使用 `replace_in_file` 的 SEARCH/REPLACE 块，保留原始缩进
-3. **编辑后**：执行语法验证（Python: `py -3 -m py_compile <file>`）
+2. **编辑时**：使用 `apply_patch` 的最小上下文 diff，保留原始缩进
+3. **编辑后**：执行语法验证（Python：Windows `py -3 -m py_compile <file>` / Linux/WSL `python3 -m py_compile <file>`）
 4. **编辑后禁重读**: 信任工具成功，禁止重读验证（除非验证失败）
 5. **失败处理**：语法错误 → 不叠加修复 → 回滚重来，累计 3 次后停止请求帮助
 
@@ -329,7 +447,8 @@ make -C build-android
 #### Encoding Detection (On Error Only)
 ```powershell
 # Run ONLY when UnicodeDecodeError occurs
-py -3 -c "import chardet; print(chardet.detect(open(r'<file>','rb').read())['encoding'])"
+py -3 -c "import chardet; print(chardet.detect(open(r'<file>','rb').read())['encoding'])"   # Windows
+python3 -c "import chardet; print(chardet.detect(open(r'<file>','rb').read())['encoding'])"  # Linux/WSL/macOS
 ```
 - **Fallback** (if chardet unavailable): Try BOM detection, then `gb18030` → `gbk` in sequence.
 - **Forbidden**: Exhaustively trying multiple encodings and printing each failure (wastes tokens).
@@ -407,12 +526,12 @@ void MyFunction()
 - Return: Modified Files, Key Changes, Verification Status.
 
 ### 5.2.1 Response Design
-- **Source**: `docs/AI_Response_Design_Methodology.md`（问题分析模式 + 三秒法则 + 信息密度金字塔）
+- **Source**: 本文件 + `docs/CONTRIBUTING/Developing-Change.md`
 - **Goal**: CLI 可读、先结论后细节、表格做摘要
 - **Rule**: 遵守该文档的结构与格式规范
 
 ### 5.3 Prohibitions
-- NO Auto Compile.
+- NO Auto Build without explicit user authorization.
 - NO Deleting files without approval.
 - 分析笔记统一置于 `docs/analysis/`，禁止在仓库根散落临时文件。
 
@@ -425,7 +544,7 @@ void MyFunction()
 
 ## 7. RDC 文件格式分析
 
-> **目标**：理解 `.rdc` 文件结构，为构建 MCP/Skill 提供解析入口。
+> **目标**：理解 `.rdc` 文件结构，为构建解析工具提供入口。
 
 ### 7.1 核心类与文件
 
@@ -437,11 +556,12 @@ void MyFunction()
 | `StreamReader/Writer` | `renderdoc/serialise/streamio.h` | 二进制流读写 |
 
 ### 7.2 关键入口点
+> 说明：以下行号会随版本漂移，使用 `rg -n "<函数名>" <文件>` 二次确认。
 
 | 操作 | 文件 | 函数 |
 |------|------|------|
 | 打开 RDC | `renderdoc/serialise/rdcfile.cpp:236` | `RDCFile::Open` |
-| 创建设备 | `renderdoc/replay/replay_controller.cpp:2167` | `ReplayController::CreateDevice` |
+| 创建设备 | `renderdoc/replay/replay_controller.cpp:2174` | `ReplayController::CreateDevice` |
 | Vulkan 回放 | `renderdoc/driver/vulkan/vk_replay.cpp:199` | `VulkanReplay::ReadLogInitialisation` |
 | D3D12 回放 | `renderdoc/driver/d3d12/d3d12_replay.cpp:275` | `D3D12Replay::ReadLogInitialisation` |
 | D3D11 回放 | `renderdoc/driver/d3d11/d3d11_replay.cpp:1694` | `D3D11Replay::ReadLogInitialisation` |
@@ -539,13 +659,13 @@ py -3 scripts/rdc_analyzer/generate_offline_report.py capture.xml -o report.html
 
 ---
 
-## 11. RDC Analyzer 功能地图（Project Memory）
+## 10. RDC Analyzer 功能地图（Project Memory）
 
 > **目标**：帮助 AI 会话快速恢复项目上下文，避免遗忘关键模块和开发节点。
 > 
 > **使用场景**：每次会话开始时，AI 应扫描本章节以建立"项目记忆"。
 
-### 11.1 关键入口脚本
+### 10.1 关键入口脚本
 
 > **架构图**：见 `scripts/rdc_analyzer/docs/INDEX.md`（Parsers → Analyzers → Rules → Exporters 四层架构）
 
@@ -561,7 +681,7 @@ py -3 scripts/rdc_analyzer/generate_offline_report.py capture.xml -o report.html
 | `extract_shaders.py` | Shader 提取 | `py -3 extract_shaders.py input.rdc -o shaders/` |
 | `mali_analyzer.py` | Mali 离线分析 | `py -3 mali_analyzer.py input.rdc --malioc` |
 
-### 11.3 快速上下文恢复清单
+### 10.3 快速上下文恢复清单
 
 > **开发里程碑**：见 `docs/analysis/codex_rdc_analyzer/WORK_SUMMARY_2025-01-21.md`
 
@@ -574,11 +694,11 @@ py -3 scripts/rdc_analyzer/generate_offline_report.py capture.xml -o report.html
 
 ---
 
-## 12. 文档资源索引
+## 11. 文档资源索引
 
 > **目标**：统一管理项目文档入口，支持未来 MCP 工具集成。
 
-### 12.1 本地文档
+### 11.1 本地文档
 
 | 类别 | 路径 | 说明 |
 |------|------|------|
@@ -587,7 +707,7 @@ py -3 scripts/rdc_analyzer/generate_offline_report.py capture.xml -o report.html
 | **分析器开发文档** | `docs/analysis/codex_rdc_analyzer/` | 架构设计/里程碑/Schema |
 | **工具使用指南** | `scripts/rdc_analyzer/docs/` | 脚本使用说明 |
 
-#### 12.1.1 关键技术文档（新人必读）
+#### 11.1.1 关键技术文档（新人必读）
 
 | 文档 | 路径 | 核心内容 |
 |------|------|----------|
@@ -599,7 +719,7 @@ py -3 scripts/rdc_analyzer/generate_offline_report.py capture.xml -o report.html
 | **RDC 解析索引** | `docs/analysis/RDC_PARSING_INDEX.md` | RDC 解析入口与数据提取 |
 | **开发计划汇总** | `plans/PROJECT_SUMMARY.md` | 历史开发计划索引（60+ 计划文件） |
 
-#### 12.1.2 RDC 格式入门系列（新人友好）
+#### 11.1.2 RDC 格式入门系列（新人友好）
 
 | 文档 | 路径 | 说明 |
 |------|------|------|
@@ -607,7 +727,7 @@ py -3 scripts/rdc_analyzer/generate_offline_report.py capture.xml -o report.html
 | **02_RDC_STRUCTURE** | `docs/analysis/codex_rdc_analyzer/rdc_format/02_RDC_STRUCTURE.md` | 逐字节解释 Header/Section/Chunk |
 | **03_RDC_EXAMPLE** | `docs/analysis/codex_rdc_analyzer/rdc_format/03_RDC_EXAMPLE.md` | 3D 场景数据示例 |
 
-### 12.2 在线资源
+### 11.2 在线资源
 
 | 资源 | URL | 用途 |
 |------|-----|------|
