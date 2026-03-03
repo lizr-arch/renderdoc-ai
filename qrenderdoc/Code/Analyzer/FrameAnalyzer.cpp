@@ -26,6 +26,59 @@
 #include <algorithm>
 #include <map>
 
+namespace
+{
+ShaderStage StageFromLabel(const rdcstr &stage)
+{
+  if(stage == "VS")
+    return ShaderStage::Vertex;
+  if(stage == "PS")
+    return ShaderStage::Pixel;
+  if(stage == "CS")
+    return ShaderStage::Compute;
+  return ShaderStage::Count;
+}
+
+ShaderEntryPoint PickEntryPointForStage(const rdcarray<ShaderEntryPoint> &entries,
+                                        ShaderStage preferredStage)
+{
+  if(entries.empty())
+    return ShaderEntryPoint();
+
+  if(preferredStage != ShaderStage::Count)
+  {
+    for(const ShaderEntryPoint &entry : entries)
+    {
+      if(entry.stage == preferredStage)
+        return entry;
+    }
+  }
+
+  return entries[0];
+}
+
+uint32_t ComputeShaderByteSize(IReplayController *replay, ResourceId shaderId, ShaderStage stage,
+                               ResourceId pipelineId)
+{
+  if(replay == NULL || shaderId == ResourceId())
+    return 0;
+
+  rdcarray<ShaderEntryPoint> entries = replay->GetShaderEntryPoints(shaderId);
+  if(entries.empty())
+    return 0;
+
+  ShaderEntryPoint selected = PickEntryPointForStage(entries, stage);
+  const ShaderReflection *refl = replay->GetShader(ResourceId(), shaderId, selected);
+  if(!refl && pipelineId != ResourceId())
+    refl = replay->GetShader(pipelineId, shaderId, selected);
+
+  if(!refl || refl->rawBytes.count() == 0)
+    return 0;
+
+  return (uint32_t)refl->rawBytes.count();
+}
+}
+
 AnalyzerSnapshot FrameAnalyzer::Build(ICaptureContext &ctx, IReplayController *replay) const
 {
   AnalyzerSnapshot snapshot;
@@ -204,9 +257,19 @@ void FrameAnalyzer::PopulateShaderUsage(ICaptureContext &ctx, AnalyzerSnapshot &
   if(snapshot.events.empty())
     return;
 
-  auto populateFromReplay = [&snapshot](IReplayController *r) {
-    for(AnalyzerEventRow &event : snapshot.events)
+  rdcarray<ResourceId> graphicsPipelines;
+  rdcarray<ResourceId> computePipelines;
+  graphicsPipelines.resize(snapshot.events.count());
+  computePipelines.resize(snapshot.events.count());
+
+  auto populateFromReplay = [&snapshot, &graphicsPipelines,
+                             &computePipelines](IReplayController *r) {
+    for(int i = 0; i < snapshot.events.count(); i++)
     {
+      AnalyzerEventRow &event = snapshot.events[i];
+      graphicsPipelines[i] = ResourceId();
+      computePipelines[i] = ResourceId();
+
       if(event.eid == 0)
         continue;
       if(event.type != "draw" && event.type != "dispatch")
@@ -218,21 +281,33 @@ void FrameAnalyzer::PopulateShaderUsage(ICaptureContext &ctx, AnalyzerSnapshot &
       event.vs = pipe.GetShader(ShaderStage::Vertex);
       event.ps = pipe.GetShader(ShaderStage::Pixel);
       event.cs = pipe.GetShader(ShaderStage::Compute);
+      graphicsPipelines[i] = pipe.GetGraphicsPipelineObject();
+      computePipelines[i] = pipe.GetComputePipelineObject();
     }
   };
 
   if(replay != NULL)
     populateFromReplay(replay);
   else
-    ctx.Replay().BlockInvoke([&populateFromReplay](IReplayController *r) { populateFromReplay(r); });
+    ctx.Replay().BlockInvoke(
+        [&populateFromReplay](IReplayController *r) { populateFromReplay(r); });
 
   std::map<rdcpair<ResourceId, rdcstr>, size_t> shaderIndices;
 
-  for(const AnalyzerEventRow &event : snapshot.events)
+  for(int i = 0; i < snapshot.events.count(); i++)
   {
-    RegisterShaderUse(ctx, snapshot, shaderIndices, event.vs, "VS", event.eid);
-    RegisterShaderUse(ctx, snapshot, shaderIndices, event.ps, "PS", event.eid);
-    RegisterShaderUse(ctx, snapshot, shaderIndices, event.cs, "CS", event.eid);
+    const AnalyzerEventRow &event = snapshot.events[i];
+    ResourceId graphicsPipeline =
+        i < graphicsPipelines.count() ? graphicsPipelines[i] : ResourceId();
+    ResourceId computePipeline =
+        i < computePipelines.count() ? computePipelines[i] : ResourceId();
+
+    RegisterShaderUse(ctx, snapshot, shaderIndices, replay, event.vs, ShaderStage::Vertex,
+                      graphicsPipeline, "VS", event.eid);
+    RegisterShaderUse(ctx, snapshot, shaderIndices, replay, event.ps, ShaderStage::Pixel,
+                      graphicsPipeline, "PS", event.eid);
+    RegisterShaderUse(ctx, snapshot, shaderIndices, replay, event.cs, ShaderStage::Compute,
+                      computePipeline, "CS", event.eid);
   }
 
   std::sort(snapshot.shaders.begin(), snapshot.shaders.end(),
@@ -247,7 +322,9 @@ void FrameAnalyzer::PopulateShaderUsage(ICaptureContext &ctx, AnalyzerSnapshot &
 
 void FrameAnalyzer::RegisterShaderUse(ICaptureContext &ctx, AnalyzerSnapshot &snapshot,
                                       std::map<rdcpair<ResourceId, rdcstr>, size_t> &shaderIndices,
-                                      ResourceId shaderId, const char *stageLabel, uint32_t eid) const
+                                      IReplayController *replay, ResourceId shaderId,
+                                      ShaderStage stage, ResourceId pipelineId,
+                                      const char *stageLabel, uint32_t eid) const
 {
   if(shaderId == ResourceId())
     return;
@@ -262,6 +339,13 @@ void FrameAnalyzer::RegisterShaderUse(ICaptureContext &ctx, AnalyzerSnapshot &sn
       shader.firstEID = eid;
     if(eid > shader.lastEID)
       shader.lastEID = eid;
+    if(shader.byteSize == 0 && replay != NULL)
+    {
+      ShaderStage resolvedStage = stage != ShaderStage::Count
+                                      ? stage
+                                      : StageFromLabel(rdcstr(stageLabel));
+      shader.byteSize = ComputeShaderByteSize(replay, shaderId, resolvedStage, pipelineId);
+    }
     return;
   }
 
@@ -272,6 +356,12 @@ void FrameAnalyzer::RegisterShaderUse(ICaptureContext &ctx, AnalyzerSnapshot &sn
   shader.useCount = 1;
   shader.firstEID = eid;
   shader.lastEID = eid;
+  {
+    ShaderStage resolvedStage = stage != ShaderStage::Count
+                                    ? stage
+                                    : StageFromLabel(rdcstr(stageLabel));
+    shader.byteSize = ComputeShaderByteSize(replay, shaderId, resolvedStage, pipelineId);
+  }
   snapshot.shaders.push_back(shader);
   shaderIndices[key] = (size_t)snapshot.shaders.count() - 1;
 }

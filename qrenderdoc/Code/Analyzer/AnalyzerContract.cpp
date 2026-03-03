@@ -114,6 +114,7 @@ QJsonObject ShaderToQJson(const AnalyzerShaderRow &shader)
   obj[lit("id")] = ToQStr(shader.id);
   obj[lit("name")] = ToQStr(shader.name);
   obj[lit("stage")] = ToQStr(shader.stage);
+  obj[lit("byte_size")] = (int)shader.byteSize;
   obj[lit("use_count")] = (int)shader.useCount;
   obj[lit("first_eid")] = (int)shader.firstEID;
   obj[lit("last_eid")] = (int)shader.lastEID;

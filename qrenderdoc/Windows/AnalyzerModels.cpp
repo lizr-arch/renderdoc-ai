@@ -24,7 +24,20 @@
 
 #include "AnalyzerModels.h"
 #include <algorithm>
+#include <cmath>
 #include "Code/QRDUtils.h"
+
+namespace
+{
+QString LocalizeSeverityLabel(const rdcstr &severity)
+{
+  if(severity == "critical")
+    return QString::fromUtf16(u"\u4e25\u91cd");
+  if(severity == "warning")
+    return QString::fromUtf16(u"\u8b66\u544a");
+  return QString::fromUtf16(u"\u63d0\u793a");
+}
+}
 
 AnalyzerIssueModel::AnalyzerIssueModel(QObject *parent) : QAbstractTableModel(parent)
 {
@@ -67,11 +80,27 @@ QVariant AnalyzerIssueModel::headerData(int section, Qt::Orientation orientation
   {
     switch(section)
     {
-      case ColSeverity: return QObject::tr("Severity");
-      case ColCode: return QObject::tr("Code");
-      case ColMessage: return QObject::tr("Message");
-      case ColEID: return QObject::tr("EID");
-      case ColImpact: return QObject::tr("Impact");
+      case ColSeverity: return QString::fromUtf16(u"\u4e25\u91cd\u6027");
+      case ColCode: return QString::fromUtf16(u"\u89c4\u5219\u7f16\u53f7");
+      case ColMessage: return QString::fromUtf16(u"\u95ee\u9898");
+      case ColEID: return QString::fromUtf16(u"\u4e8b\u4ef6ID");
+      case ColImpact: return QString::fromUtf16(u"\u5f71\u54cd\u8bc4\u5206");
+      default: break;
+    }
+  }
+
+  if(orientation == Qt::Horizontal && role == Qt::ToolTipRole)
+  {
+    switch(section)
+    {
+      case ColImpact:
+        return QString::fromUtf16(
+            u"\u5f71\u54cd\u8bc4\u5206\u4e3a 0-1 \u7684\u4f30\u8ba1\u503c\uff0c"
+            u"\u8d8a\u5927\u4ee3\u8868\u5f71\u54cd\u8d8a\u9ad8\u3002");
+      case ColCode:
+        return QString::fromUtf16(
+            u"\u89c4\u5219\u7f16\u53f7\u7528\u4e8e\u5b9a\u4f4d\u89c4\u5219\u4e0e"
+            u"\u5bfc\u51fa\u5bf9\u9f50\u3002");
       default: break;
     }
   }
@@ -91,11 +120,15 @@ QVariant AnalyzerIssueModel::data(const QModelIndex &index, int role) const
   {
     switch(index.column())
     {
-      case ColSeverity: return ToQStr(issue.severity);
+      case ColSeverity: return LocalizeSeverityLabel(issue.severity);
       case ColCode: return ToQStr(issue.code);
       case ColMessage: return ToQStr(issue.message);
       case ColEID: return (int)firstEID;
-      case ColImpact: return Formatter::Format(issue.impactScore);
+      case ColImpact:
+      {
+        int percent = (int)std::round(issue.impactScore * 100.0);
+        return QString::asprintf("%d%%", percent);
+      }
       default: break;
     }
   }
@@ -125,6 +158,12 @@ AnalyzerIssueSortModel::AnalyzerIssueSortModel(QObject *parent) : QSortFilterPro
 {
 }
 
+void AnalyzerIssueSortModel::SetFilterText(const QString &text)
+{
+  m_FilterText = text.trimmed().toLower();
+  invalidateFilter();
+}
+
 bool AnalyzerIssueSortModel::lessThan(const QModelIndex &sourceLeft,
                                       const QModelIndex &sourceRight) const
 {
@@ -147,6 +186,28 @@ bool AnalyzerIssueSortModel::lessThan(const QModelIndex &sourceLeft,
   }
 
   return QSortFilterProxyModel::lessThan(sourceLeft, sourceRight);
+}
+
+bool AnalyzerIssueSortModel::filterAcceptsRow(int sourceRow, const QModelIndex &sourceParent) const
+{
+  if(m_FilterText.isEmpty())
+    return true;
+
+  if(!sourceModel())
+    return true;
+  const AnalyzerIssueModel *model = static_cast<const AnalyzerIssueModel *>(sourceModel());
+
+  AnalyzerIssue issue = model->IssueAt(sourceRow);
+
+  auto containsText = [this](const rdcstr &value) {
+    return ToQStr(value).toLower().contains(m_FilterText);
+  };
+
+  if(containsText(issue.code) || containsText(issue.message) || containsText(issue.category) ||
+     containsText(issue.recommendation))
+    return true;
+
+  return false;
 }
 
 AnalyzerEventModel::AnalyzerEventModel(QObject *parent) : QAbstractTableModel(parent)
@@ -478,6 +539,7 @@ QVariant AnalyzerShaderModel::headerData(int section, Qt::Orientation orientatio
       case ColStage: return QObject::tr("Stage");
       case ColName: return QObject::tr("Name");
       case ColId: return QObject::tr("Shader");
+      case ColByteSize: return QObject::tr("Size");
       case ColUseCount: return QObject::tr("Use Count");
       case ColFirstEID: return QObject::tr("First EID");
       case ColLastEID: return QObject::tr("Last EID");
@@ -516,6 +578,13 @@ QVariant AnalyzerShaderModel::data(const QModelIndex &index, int role) const
       case ColStage: return ToQStr(shader.stage);
       case ColName: return ToQStr(shader.name);
       case ColId: return ToQStr(shader.id);
+      case ColByteSize:
+      {
+        if(shader.byteSize == 0)
+          return QObject::tr("N/A");
+        double kb = (double)shader.byteSize / 1024.0;
+        return QFormatStr("%1 KB").arg(kb, 0, 'f', 2);
+      }
       case ColUseCount: return (int)shader.useCount;
       case ColFirstEID: return (int)shader.firstEID;
       case ColLastEID: return (int)shader.lastEID;
@@ -604,14 +673,18 @@ void AnalyzerShaderModel::sort(int column, Qt::SortOrder order)
                          if(a.name != b.name)
                            return compareText(a.name, b.name);
                          break;
-                       case ColId:
-                         if(a.id != b.id)
-                           return ascending ? a.id < b.id : b.id < a.id;
-                         break;
-                       case ColUseCount:
-                         if(a.useCount != b.useCount)
-                           return compareUInt(a.useCount, b.useCount);
-                         break;
+                        case ColId:
+                          if(a.id != b.id)
+                            return ascending ? a.id < b.id : b.id < a.id;
+                          break;
+                        case ColByteSize:
+                          if(a.byteSize != b.byteSize)
+                            return compareUInt(a.byteSize, b.byteSize);
+                          break;
+                        case ColUseCount:
+                          if(a.useCount != b.useCount)
+                            return compareUInt(a.useCount, b.useCount);
+                          break;
                        case ColFirstEID:
                          if(a.firstEID != b.firstEID)
                            return compareUInt(a.firstEID, b.firstEID);
@@ -710,6 +783,166 @@ void AnalyzerShaderModel::sort(int column, Qt::SortOrder order)
                       return a.id < b.id;
                     });
   endResetModel();
+}
+
+AnalyzerShaderSortModel::AnalyzerShaderSortModel(QObject *parent)
+    : QSortFilterProxyModel(parent), m_SortColumn(-1),
+      m_SortOrder(Qt::AscendingOrder)
+{
+}
+
+void AnalyzerShaderSortModel::sort(int column, Qt::SortOrder order)
+{
+  m_SortColumn = column;
+  m_SortOrder = order;
+
+  QSortFilterProxyModel::sort(column, Qt::AscendingOrder);
+  invalidate();
+}
+
+bool AnalyzerShaderSortModel::lessThan(const QModelIndex &sourceLeft,
+                                       const QModelIndex &sourceRight) const
+{
+  if(!sourceModel())
+    return QSortFilterProxyModel::lessThan(sourceLeft, sourceRight);
+
+  const AnalyzerShaderModel *model = static_cast<const AnalyzerShaderModel *>(sourceModel());
+  AnalyzerShaderRow left = model->ShaderAt(sourceLeft.row());
+  AnalyzerShaderRow right = model->ShaderAt(sourceRight.row());
+
+  int column = m_SortColumn >= 0 ? m_SortColumn : sourceLeft.column();
+  bool ascending = m_SortOrder == Qt::AscendingOrder;
+
+  auto compareText = [ascending](const rdcstr &a, const rdcstr &b) {
+    return ascending ? a < b : a > b;
+  };
+  auto compareUInt = [ascending](uint32_t a, uint32_t b) { return ascending ? a < b : a > b; };
+  auto compareFloat = [ascending](float a, float b) { return ascending ? a < b : a > b; };
+
+  switch(column)
+  {
+    case AnalyzerShaderModel::ColStage:
+      if(left.stage != right.stage)
+        return compareText(left.stage, right.stage);
+      break;
+    case AnalyzerShaderModel::ColName:
+      if(left.name != right.name)
+        return compareText(left.name, right.name);
+      break;
+    case AnalyzerShaderModel::ColId:
+      if(left.id != right.id)
+        return ascending ? left.id < right.id : right.id < left.id;
+      break;
+    case AnalyzerShaderModel::ColByteSize:
+      if(left.byteSize == 0 || right.byteSize == 0)
+      {
+        if(left.byteSize == 0 && right.byteSize == 0)
+          break;
+        return right.byteSize == 0;
+      }
+      if(left.byteSize != right.byteSize)
+        return compareUInt(left.byteSize, right.byteSize);
+      break;
+    case AnalyzerShaderModel::ColUseCount:
+      if(left.useCount != right.useCount)
+        return compareUInt(left.useCount, right.useCount);
+      break;
+    case AnalyzerShaderModel::ColFirstEID:
+      if(left.firstEID != right.firstEID)
+        return compareUInt(left.firstEID, right.firstEID);
+      break;
+    case AnalyzerShaderModel::ColLastEID:
+      if(left.lastEID != right.lastEID)
+        return compareUInt(left.lastEID, right.lastEID);
+      break;
+    case AnalyzerShaderModel::ColMaliTotalCycles:
+      if(left.maliValid != right.maliValid)
+        return left.maliValid && !right.maliValid;
+      if(left.maliTotalCycles != right.maliTotalCycles)
+        return compareFloat(left.maliTotalCycles, right.maliTotalCycles);
+      break;
+    case AnalyzerShaderModel::ColMaliShortestPath:
+      if(left.maliValid != right.maliValid)
+        return left.maliValid && !right.maliValid;
+      if(left.maliShortestPath != right.maliShortestPath)
+        return compareFloat(left.maliShortestPath, right.maliShortestPath);
+      break;
+    case AnalyzerShaderModel::ColMaliLongestPath:
+      if(left.maliValid != right.maliValid)
+        return left.maliValid && !right.maliValid;
+      if(left.maliLongestPath != right.maliLongestPath)
+        return compareFloat(left.maliLongestPath, right.maliLongestPath);
+      break;
+    case AnalyzerShaderModel::ColMaliUniformRegs:
+      if(left.maliValid != right.maliValid)
+        return left.maliValid && !right.maliValid;
+      if(left.maliUniformRegs != right.maliUniformRegs)
+        return compareUInt(left.maliUniformRegs, right.maliUniformRegs);
+      break;
+    case AnalyzerShaderModel::ColMaliFmaCycles:
+      if(left.maliValid != right.maliValid)
+        return left.maliValid && !right.maliValid;
+      if(left.maliFmaCycles != right.maliFmaCycles)
+        return compareFloat(left.maliFmaCycles, right.maliFmaCycles);
+      break;
+    case AnalyzerShaderModel::ColMaliCvtCycles:
+      if(left.maliValid != right.maliValid)
+        return left.maliValid && !right.maliValid;
+      if(left.maliCvtCycles != right.maliCvtCycles)
+        return compareFloat(left.maliCvtCycles, right.maliCvtCycles);
+      break;
+    case AnalyzerShaderModel::ColMaliSfuCycles:
+      if(left.maliValid != right.maliValid)
+        return left.maliValid && !right.maliValid;
+      if(left.maliSfuCycles != right.maliSfuCycles)
+        return compareFloat(left.maliSfuCycles, right.maliSfuCycles);
+      break;
+    case AnalyzerShaderModel::ColMaliLoadStoreCycles:
+      if(left.maliValid != right.maliValid)
+        return left.maliValid && !right.maliValid;
+      if(left.maliLoadStoreCycles != right.maliLoadStoreCycles)
+        return compareFloat(left.maliLoadStoreCycles, right.maliLoadStoreCycles);
+      break;
+    case AnalyzerShaderModel::ColMaliTextureCycles:
+      if(left.maliValid != right.maliValid)
+        return left.maliValid && !right.maliValid;
+      if(left.maliTextureCycles != right.maliTextureCycles)
+        return compareFloat(left.maliTextureCycles, right.maliTextureCycles);
+      break;
+    case AnalyzerShaderModel::ColMaliVaryingCycles:
+      if(left.maliValid != right.maliValid)
+        return left.maliValid && !right.maliValid;
+      if(left.maliVaryingCycles != right.maliVaryingCycles)
+        return compareFloat(left.maliVaryingCycles, right.maliVaryingCycles);
+      break;
+    case AnalyzerShaderModel::ColMaliWorkRegs:
+      if(left.maliValid != right.maliValid)
+        return left.maliValid && !right.maliValid;
+      if(left.maliWorkRegs != right.maliWorkRegs)
+        return compareUInt(left.maliWorkRegs, right.maliWorkRegs);
+      break;
+    case AnalyzerShaderModel::ColMaliSpillCount:
+      if(left.maliValid != right.maliValid)
+        return left.maliValid && !right.maliValid;
+      if(left.maliSpillCount != right.maliSpillCount)
+        return compareUInt(left.maliSpillCount, right.maliSpillCount);
+      break;
+    case AnalyzerShaderModel::ColMaliCost:
+      if(left.maliValid != right.maliValid)
+        return left.maliValid && !right.maliValid;
+      if(left.maliCost != right.maliCost)
+        return compareFloat(left.maliCost, right.maliCost);
+      break;
+    case AnalyzerShaderModel::ColMaliBound:
+      if(left.maliValid != right.maliValid)
+        return left.maliValid && !right.maliValid;
+      if(left.maliBound != right.maliBound)
+        return compareText(left.maliBound, right.maliBound);
+      break;
+    default: break;
+  }
+
+  return left.id < right.id;
 }
 
 #if ENABLE_UNIT_TESTS

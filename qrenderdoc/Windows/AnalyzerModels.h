@@ -68,9 +68,14 @@ class AnalyzerIssueSortModel : public QSortFilterProxyModel
 {
 public:
   explicit AnalyzerIssueSortModel(QObject *parent = NULL);
+  void SetFilterText(const QString &text);
 
 protected:
   bool lessThan(const QModelIndex &sourceLeft, const QModelIndex &sourceRight) const override;
+  bool filterAcceptsRow(int sourceRow, const QModelIndex &sourceParent) const override;
+
+private:
+  QString m_FilterText;
 };
 
 class AnalyzerEventModel : public QAbstractTableModel
@@ -134,6 +139,7 @@ public:
     ColStage = 0,
     ColName,
     ColId,
+    ColByteSize,
     ColUseCount,
     ColFirstEID,
     ColLastEID,
@@ -174,4 +180,19 @@ public:
 
 private:
   rdcarray<AnalyzerShaderRow> m_Shaders;
+};
+
+class AnalyzerShaderSortModel : public QSortFilterProxyModel
+{
+public:
+  explicit AnalyzerShaderSortModel(QObject *parent = NULL);
+
+  void sort(int column, Qt::SortOrder order = Qt::AscendingOrder) override;
+
+protected:
+  bool lessThan(const QModelIndex &sourceLeft, const QModelIndex &sourceRight) const override;
+
+private:
+  int m_SortColumn;
+  Qt::SortOrder m_SortOrder;
 };
