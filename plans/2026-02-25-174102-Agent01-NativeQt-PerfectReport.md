@@ -914,4 +914,5 @@ bool AnalyzerExporter::WriteAll(const AnalyzerSnapshot &snap, const rdcstr &dir)
   - 文档更新：已完成（阈值/排序/使用方式）
   - 代码更新：已实现 draw/dispatch 计数回退（FrameStatistics 未记录时）
   - unittest：PASS（`qrenderdoc.exe --unittest "[analyzer]"`）
+  - MSBuild：PASS（Development|x64）
   - 手工验收：待执行

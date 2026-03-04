@@ -125,3 +125,4 @@ if(!frame.stats.recorded)
   - 单测：缺少 FrameAnalyzer 测试夹具，未能新增失败用例（记录为 blocker）。
   - unittest：`qrenderdoc.exe --unittest "[analyzer]"`（PASS）
   - 提交：`fix(qrenderdoc-analyzer): fallback draw/dispatch counts when stats missing`
+  - MSBuild：PASS（Development|x64）
