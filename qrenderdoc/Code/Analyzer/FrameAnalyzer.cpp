@@ -106,6 +106,7 @@ AnalyzerSnapshot FrameAnalyzer::Build(ICaptureContext &ctx, IReplayController *r
   FlattenActions(ctx.CurRootActions(), snapshot.events, passIndex);
   snapshot.summary.passCount = passIndex;
 
+  PopulateDrawDispatch(ctx, snapshot);
   PopulateResources(ctx, snapshot);
   PopulateShaderUsage(ctx, snapshot, replay);
 
@@ -143,6 +144,42 @@ void FrameAnalyzer::FlattenActions(const rdcarray<ActionDescription> &actions,
     if(!action.children.empty())
       FlattenActions(action.children, rows, passIndex);
   }
+}
+
+void FrameAnalyzer::FlattenDrawDispatch(const rdcarray<ActionDescription> &actions,
+                                        rdcarray<AnalyzerDrawDispatchRow> &rows) const
+{
+  for(const ActionDescription &action : actions)
+  {
+    if(action.flags & (ActionFlags::Drawcall | ActionFlags::Dispatch))
+    {
+      AnalyzerDrawDispatchRow row;
+      row.eid = action.eventId;
+      row.name = ActionName(action);
+      row.type = ActionType(action);
+      row.numIndices = action.numIndices;
+      row.numInstances = action.numInstances;
+      row.dispatchDim = action.dispatchDimension;
+      row.dispatchThreads = action.dispatchThreadsDimension;
+      row.indirect = !!(action.flags & ActionFlags::Indirect);
+      rows.push_back(row);
+    }
+
+    if(!action.children.empty())
+      FlattenDrawDispatch(action.children, rows);
+  }
+}
+
+void FrameAnalyzer::PopulateDrawDispatch(ICaptureContext &ctx, AnalyzerSnapshot &snapshot) const
+{
+  FlattenDrawDispatch(ctx.CurRootActions(), snapshot.drawDispatch);
+
+  std::sort(snapshot.drawDispatch.begin(), snapshot.drawDispatch.end(),
+            [](const AnalyzerDrawDispatchRow &a, const AnalyzerDrawDispatchRow &b) {
+              if(a.eid != b.eid)
+                return a.eid < b.eid;
+              return a.name < b.name;
+            });
 }
 
 rdcstr FrameAnalyzer::ActionName(const ActionDescription &action) const

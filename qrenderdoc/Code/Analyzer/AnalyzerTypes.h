@@ -32,6 +32,11 @@ struct AnalyzerEvidence
   double value = 0.0;
   rdcstr unit;
   rdcstr detail;
+  bool hasThreshold = false;
+  double threshold = 0.0;
+  rdcstr comparison;
+  rdcstr source;
+  rdcstr scope;
 };
 
 struct AnalyzerIssue
@@ -62,6 +67,18 @@ struct AnalyzerEventRow
   ResourceId ds;
 };
 
+struct AnalyzerDrawDispatchRow
+{
+  uint32_t eid = 0;
+  rdcstr name;
+  rdcstr type;
+  uint32_t numIndices = 0;
+  uint32_t numInstances = 0;
+  rdcfixedarray<uint32_t, 3> dispatchDim = {0, 0, 0};
+  rdcfixedarray<uint32_t, 3> dispatchThreads = {0, 0, 0};
+  bool indirect = false;
+};
+
 struct AnalyzerResourceRow
 {
   ResourceId id;
@@ -82,6 +99,7 @@ struct AnalyzerShaderRow
   ResourceId id;
   rdcstr name;
   rdcstr stage;
+  uint32_t byteSize = 0;
   uint32_t useCount = 0;
   uint32_t firstEID = 0;
   uint32_t lastEID = 0;
@@ -123,6 +141,7 @@ struct AnalyzerSnapshot
   rdcstr schemaVersion = "analysis.native.qt.v1";
   AnalyzerSummary summary;
   rdcarray<AnalyzerEventRow> events;
+  rdcarray<AnalyzerDrawDispatchRow> drawDispatch;
   rdcarray<AnalyzerResourceRow> resources;
   rdcarray<AnalyzerShaderRow> shaders;
   rdcarray<AnalyzerIssue> issues;

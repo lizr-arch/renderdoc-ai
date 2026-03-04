@@ -324,6 +324,175 @@ void AnalyzerEventModel::sort(int column, Qt::SortOrder order)
   endResetModel();
 }
 
+AnalyzerDrawDispatchModel::AnalyzerDrawDispatchModel(QObject *parent) : QAbstractTableModel(parent)
+{
+}
+
+void AnalyzerDrawDispatchModel::SetRows(const rdcarray<AnalyzerDrawDispatchRow> &rows)
+{
+  beginResetModel();
+  m_Rows = rows;
+  endResetModel();
+}
+
+AnalyzerDrawDispatchRow AnalyzerDrawDispatchModel::RowAt(int row) const
+{
+  if(row < 0 || row >= m_Rows.count())
+    return AnalyzerDrawDispatchRow();
+
+  return m_Rows[row];
+}
+
+int AnalyzerDrawDispatchModel::rowCount(const QModelIndex &parent) const
+{
+  if(parent.isValid())
+    return 0;
+
+  return m_Rows.count();
+}
+
+int AnalyzerDrawDispatchModel::columnCount(const QModelIndex &parent) const
+{
+  if(parent.isValid())
+    return 0;
+
+  return ColCount;
+}
+
+QVariant AnalyzerDrawDispatchModel::headerData(int section, Qt::Orientation orientation,
+                                               int role) const
+{
+  if(orientation == Qt::Horizontal && role == Qt::DisplayRole)
+  {
+    switch(section)
+    {
+      case ColEID: return QObject::tr("EID");
+      case ColName: return QObject::tr("Name");
+      case ColType: return QObject::tr("Type");
+      case ColIndices: return QObject::tr("Indices");
+      case ColInstances: return QObject::tr("Instances");
+      case ColDispatchDim: return QObject::tr("Dispatch");
+      case ColDispatchThreads: return QObject::tr("Threads");
+      case ColIndirect: return QObject::tr("Indirect");
+      default: break;
+    }
+  }
+
+  return QVariant();
+}
+
+QVariant AnalyzerDrawDispatchModel::data(const QModelIndex &index, int role) const
+{
+  if(!index.isValid() || index.row() < 0 || index.row() >= m_Rows.count())
+    return QVariant();
+
+  const AnalyzerDrawDispatchRow &row = m_Rows[index.row()];
+
+  if(role == Qt::DisplayRole)
+  {
+    switch(index.column())
+    {
+      case ColEID: return (int)row.eid;
+      case ColName: return ToQStr(row.name);
+      case ColType: return ToQStr(row.type);
+      case ColIndices: return (int)row.numIndices;
+      case ColInstances: return (int)row.numInstances;
+      case ColDispatchDim:
+      {
+        if(row.type != "dispatch")
+          return QObject::tr("-");
+        return QFormatStr("%1x%2x%3")
+            .arg(row.dispatchDim[0])
+            .arg(row.dispatchDim[1])
+            .arg(row.dispatchDim[2]);
+      }
+      case ColDispatchThreads:
+      {
+        if(row.type != "dispatch")
+          return QObject::tr("-");
+        return QFormatStr("%1x%2x%3")
+            .arg(row.dispatchThreads[0])
+            .arg(row.dispatchThreads[1])
+            .arg(row.dispatchThreads[2]);
+      }
+      case ColIndirect: return row.indirect ? QObject::tr("Indirect") : QObject::tr("Direct");
+      default: break;
+    }
+  }
+
+  if(role == EventIdRole)
+    return (int)row.eid;
+
+  return QVariant();
+}
+
+void AnalyzerDrawDispatchModel::sort(int column, Qt::SortOrder order)
+{
+  if(m_Rows.count() <= 1)
+    return;
+
+  bool ascending = order == Qt::AscendingOrder;
+
+  auto compareText = [ascending](const rdcstr &a, const rdcstr &b) {
+    return ascending ? a < b : a > b;
+  };
+  auto compareUInt = [ascending](uint32_t a, uint32_t b) { return ascending ? a < b : a > b; };
+
+  beginResetModel();
+  std::stable_sort(
+      m_Rows.begin(), m_Rows.end(),
+      [column, &compareText, &compareUInt, ascending](const AnalyzerDrawDispatchRow &a,
+                                                      const AnalyzerDrawDispatchRow &b) {
+        switch(column)
+        {
+          case ColEID:
+            if(a.eid != b.eid)
+              return compareUInt(a.eid, b.eid);
+            break;
+          case ColName:
+            if(a.name != b.name)
+              return compareText(a.name, b.name);
+            break;
+          case ColType:
+            if(a.type != b.type)
+              return compareText(a.type, b.type);
+            break;
+          case ColIndices:
+            if(a.numIndices != b.numIndices)
+              return compareUInt(a.numIndices, b.numIndices);
+            break;
+          case ColInstances:
+            if(a.numInstances != b.numInstances)
+              return compareUInt(a.numInstances, b.numInstances);
+            break;
+          case ColDispatchDim:
+            if(a.dispatchDim[0] != b.dispatchDim[0])
+              return compareUInt(a.dispatchDim[0], b.dispatchDim[0]);
+            if(a.dispatchDim[1] != b.dispatchDim[1])
+              return compareUInt(a.dispatchDim[1], b.dispatchDim[1]);
+            if(a.dispatchDim[2] != b.dispatchDim[2])
+              return compareUInt(a.dispatchDim[2], b.dispatchDim[2]);
+            break;
+          case ColDispatchThreads:
+            if(a.dispatchThreads[0] != b.dispatchThreads[0])
+              return compareUInt(a.dispatchThreads[0], b.dispatchThreads[0]);
+            if(a.dispatchThreads[1] != b.dispatchThreads[1])
+              return compareUInt(a.dispatchThreads[1], b.dispatchThreads[1]);
+            if(a.dispatchThreads[2] != b.dispatchThreads[2])
+              return compareUInt(a.dispatchThreads[2], b.dispatchThreads[2]);
+            break;
+          case ColIndirect:
+            if(a.indirect != b.indirect)
+              return ascending ? a.indirect < b.indirect : b.indirect < a.indirect;
+            break;
+          default: break;
+        }
+
+        return a.eid < b.eid;
+      });
+  endResetModel();
+}
+
 AnalyzerResourceModel::AnalyzerResourceModel(QObject *parent) : QAbstractTableModel(parent)
 {
 }
@@ -1005,6 +1174,45 @@ TEST_CASE("Analyzer resource model sorts size numerically", "[analyzer]")
   CHECK(model.ResourceAt(0).bytes == 4096);
   CHECK(model.ResourceAt(1).bytes == 1024);
   CHECK(model.ResourceAt(2).bytes == 16);
+}
+
+TEST_CASE("Analyzer draw dispatch model sorts indices numerically", "[analyzer]")
+{
+  AnalyzerDrawDispatchRow small;
+  small.eid = 10;
+  small.name = "Draw";
+  small.type = "draw";
+  small.numIndices = 4;
+
+  AnalyzerDrawDispatchRow medium;
+  medium.eid = 11;
+  medium.name = "Draw";
+  medium.type = "draw";
+  medium.numIndices = 64;
+
+  AnalyzerDrawDispatchRow large;
+  large.eid = 12;
+  large.name = "Draw";
+  large.type = "draw";
+  large.numIndices = 512;
+
+  rdcarray<AnalyzerDrawDispatchRow> rows;
+  rows.push_back(medium);
+  rows.push_back(large);
+  rows.push_back(small);
+
+  AnalyzerDrawDispatchModel model;
+  model.SetRows(rows);
+
+  model.sort(AnalyzerDrawDispatchModel::ColIndices, Qt::AscendingOrder);
+  CHECK(model.RowAt(0).numIndices == 4);
+  CHECK(model.RowAt(1).numIndices == 64);
+  CHECK(model.RowAt(2).numIndices == 512);
+
+  model.sort(AnalyzerDrawDispatchModel::ColIndices, Qt::DescendingOrder);
+  CHECK(model.RowAt(0).numIndices == 512);
+  CHECK(model.RowAt(1).numIndices == 64);
+  CHECK(model.RowAt(2).numIndices == 4);
 }
 
 TEST_CASE("Analyzer shader model sorts use count numerically", "[analyzer]")

@@ -10,7 +10,7 @@
 
 | # | 维度 | /spec | /plan | 实现状态 | 主要数据源 | 跳转入口 |
 |---|------|-------|-------|----------|------------|----------|
-| 1 | Draw / Dispatch 密度 | ✅ | ✅ | 待做 | ActionDescription + FrameStatistics | Event Browser |
+| 1 | Draw / Dispatch 密度 | ✅ | ✅ | ✅ | ActionDescription + FrameStatistics | Event Browser |
 | 2 | 资源/状态抖动 | ✅ | ✅ | 待做 | FrameStatistics（D3D11） | Event / Pipeline |
 | 3 | Pipeline 带宽 | ✅ | ✅ | 待做 | Replay PipeState | Event / Pipeline |
 | 4 | Overdraw / Triangle Size | ✅ | ✅ | 待做 | Overlay | Overlay 可视化 |

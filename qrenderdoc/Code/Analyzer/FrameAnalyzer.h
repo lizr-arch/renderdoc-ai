@@ -36,12 +36,16 @@ public:
 private:
   void FlattenActions(const rdcarray<ActionDescription> &actions, rdcarray<AnalyzerEventRow> &rows,
                       uint32_t &passIndex) const;
+  void FlattenDrawDispatch(const rdcarray<ActionDescription> &actions,
+                           rdcarray<AnalyzerDrawDispatchRow> &rows) const;
+  void PopulateDrawDispatch(ICaptureContext &ctx, AnalyzerSnapshot &snapshot) const;
   void PopulateResources(ICaptureContext &ctx, AnalyzerSnapshot &snapshot) const;
   void PopulateShaderUsage(ICaptureContext &ctx, AnalyzerSnapshot &snapshot,
                            IReplayController *replay) const;
   void RegisterShaderUse(ICaptureContext &ctx, AnalyzerSnapshot &snapshot,
                          std::map<rdcpair<ResourceId, rdcstr>, size_t> &shaderIndices,
-                         ResourceId shaderId, const char *stageLabel, uint32_t eid) const;
+                         IReplayController *replay, ResourceId shaderId, ShaderStage stage,
+                         ResourceId pipelineId, const char *stageLabel, uint32_t eid) const;
   rdcstr ActionName(const ActionDescription &action) const;
   rdcstr ActionType(const ActionDescription &action) const;
   rdcstr APIName(GraphicsAPI api) const;

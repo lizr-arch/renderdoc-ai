@@ -839,3 +839,35 @@ bool AnalyzerExporter::WriteAll(const AnalyzerSnapshot &snap, const rdcstr &dir)
   - `docs/analysis/codex_rdc_analyzer/DOC_INDEX.md`
 - [ ] **下一步（进行中）**
   - 完成 Shader 维度手工验收，然后开始维度 01（Draw/Dispatch）
+
+### 2026-03-03 (Agent continuation)
+
+- [x] **确认 7 维度追踪文档 + 7 份 /plan 已完成并记录**
+  - `docs/analysis/codex_rdc_analyzer/PERFORMANCE_REPORT_TRACKER.md`
+  - `plans/2026-03-03-210001~210007-Agent01-PerfDim-*.md`
+- [ ] **待授权：重新执行 MSBuild + qrenderdoc unittest（按指定路径）**
+  - 通过后再继续维度 01（Draw/Dispatch）
+
+### 2026-03-04 10:00 (Agent continuation)
+
+- [ ] **MSBuild 验证失败（renderdoc.dll 被占用）**
+  - 命令：`E:\Program Files\Microsoft Visual Studio\2022\Community\MSBuild\Current\Bin\MSBuild.exe renderdoc.sln /p:Configuration=Development /p:Platform=x64 /m`
+  - 结果：`LNK1168`，无法写入 `D:\Code\git\renderdoc\x64\Development\renderdoc.dll`
+  - 处理：等待你关闭占用该 DLL 的进程（通常是 `qrenderdoc.exe`），再重试构建
+  - 备注：构建失败，未执行 `qrenderdoc.exe --unittest`
+
+### 2026-03-04 10:18 (Agent continuation)
+
+- [x] **MSBuild 重新执行（通过）**
+  - 命令：`E:\Program Files\Microsoft Visual Studio\2022\Community\MSBuild\Current\Bin\MSBuild.exe renderdoc.sln /p:Configuration=Development /p:Platform=x64 /m`
+  - 结果：PASS（0 warning, 0 error）
+- [x] **qrenderdoc unittest**
+  - 命令：`D:\Code\git\renderdoc\x64\Development\qrenderdoc.exe --unittest`
+  - 结果：退出码 0
+
+### 2026-03-04 11:15 (Agent continuation)
+
+- [x] **维度 01（Draw/Dispatch）实现与验证**
+  - 关联计划：`plans/2026-03-03-210001-Agent01-PerfDim-01-DrawDispatch.md`
+  - MSBuild：PASS（0 warning, 0 error）
+  - `qrenderdoc.exe --unittest`：PASS（exit 0）

@@ -91,6 +91,29 @@ QJsonObject EventToQJson(const AnalyzerEventRow &event)
   return obj;
 }
 
+QJsonObject DrawDispatchToQJson(const AnalyzerDrawDispatchRow &row)
+{
+  QJsonObject obj;
+  obj[lit("eid")] = (int)row.eid;
+  obj[lit("name")] = ToQStr(row.name);
+  obj[lit("type")] = ToQStr(row.type);
+  obj[lit("num_indices")] = (int)row.numIndices;
+  obj[lit("num_instances")] = (int)row.numInstances;
+  obj[lit("indirect")] = row.indirect;
+
+  QJsonArray dispatchDim;
+  for(uint32_t dim : row.dispatchDim)
+    dispatchDim.push_back((int)dim);
+  obj[lit("dispatch_dim")] = dispatchDim;
+
+  QJsonArray dispatchThreads;
+  for(uint32_t dim : row.dispatchThreads)
+    dispatchThreads.push_back((int)dim);
+  obj[lit("dispatch_threads")] = dispatchThreads;
+
+  return obj;
+}
+
 QJsonObject ResourceToQJson(const AnalyzerResourceRow &resource)
 {
   QJsonObject obj;
@@ -164,6 +187,11 @@ QJsonObject AnalyzerContract::ToQJson(const AnalyzerSnapshot &snapshot)
   for(const AnalyzerEventRow &event : snapshot.events)
     events.push_back(EventToQJson(event));
   root[lit("events")] = events;
+
+  QJsonArray drawDispatch;
+  for(const AnalyzerDrawDispatchRow &row : snapshot.drawDispatch)
+    drawDispatch.push_back(DrawDispatchToQJson(row));
+  root[lit("draw_dispatch")] = drawDispatch;
 
   QJsonArray resources;
   for(const AnalyzerResourceRow &resource : snapshot.resources)

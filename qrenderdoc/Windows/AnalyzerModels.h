@@ -95,6 +95,42 @@ private:
   rdcarray<AnalyzerEventRow> m_Events;
 };
 
+class AnalyzerDrawDispatchModel : public QAbstractTableModel
+{
+public:
+  enum Columns
+  {
+    ColEID = 0,
+    ColName,
+    ColType,
+    ColIndices,
+    ColInstances,
+    ColDispatchDim,
+    ColDispatchThreads,
+    ColIndirect,
+    ColCount,
+  };
+
+  enum Roles
+  {
+    EventIdRole = Qt::UserRole + 1,
+  };
+
+  explicit AnalyzerDrawDispatchModel(QObject *parent = NULL);
+
+  void SetRows(const rdcarray<AnalyzerDrawDispatchRow> &rows);
+  AnalyzerDrawDispatchRow RowAt(int row) const;
+
+  int rowCount(const QModelIndex &parent = QModelIndex()) const override;
+  int columnCount(const QModelIndex &parent = QModelIndex()) const override;
+  QVariant headerData(int section, Qt::Orientation orientation, int role) const override;
+  QVariant data(const QModelIndex &index, int role = Qt::DisplayRole) const override;
+  void sort(int column, Qt::SortOrder order = Qt::AscendingOrder) override;
+
+private:
+  rdcarray<AnalyzerDrawDispatchRow> m_Rows;
+};
+
 class AnalyzerResourceModel : public QAbstractTableModel
 {
 public:

@@ -126,12 +126,12 @@ class AnalyzerDrawDispatchModel : public QAbstractTableModel
 
 ## Task Checklist (2-5 分钟粒度, TDD)
 
-- [ ] 新增失败单测：Draw/Dispatch model 排序（按 indices 升降序）  
-- [ ] 运行 `qrenderdoc.exe --unittest "[analyzer]"`，预期 FAIL  
-- [ ] 实现 AnalyzerTypes / FrameAnalyzer / AnalyzerModels / UI  
-- [ ] 再跑 unittest，预期 PASS  
-- [ ] 手工验收：排序 + 跳转  
-- [ ] 提交（Conventional Commits）
+- [x] 新增失败单测：Draw/Dispatch model 排序（按 indices 升降序）
+- [ ] 运行 `qrenderdoc.exe --unittest "[analyzer]"`，预期 FAIL
+- [x] 实现 AnalyzerTypes / FrameAnalyzer / AnalyzerModels / UI
+- [x] 再跑 unittest，预期 PASS
+- [ ] 手工验收：排序 + 跳转
+- [x] 提交（Conventional Commits）
 
 ---
 
@@ -146,4 +146,12 @@ class AnalyzerDrawDispatchModel : public QAbstractTableModel
 
 ## /do Execution Log
 
-> 待执行
+### 2026-03-04
+
+- [x] 新增 AnalyzerDrawDispatch 数据结构 + JSON 导出
+- [x] 新增 AnalyzerDrawDispatchModel + 排序测试
+- [x] Analyzer Report 增加 Performance Tab（Draw/Dispatch 表格 + 过滤 + 跳转）
+- [x] 构建与 unittest 通过
+
+偏差记录：
+- 未先跑“失败单测”，因为模型结构未落地前无法构造有效测试；已补齐排序单测并通过。
