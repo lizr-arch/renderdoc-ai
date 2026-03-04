@@ -33,8 +33,10 @@
 
 ### 3.1 Draw / Dispatch 密度（小批次）
 - **风险信号**：大量小 Draw / Dispatch，CPU/GPU 提交开销上升  
-- **证据字段**：numIndices / numInstances / dispatchDimension / dispatchThreadsDimension  
-- **排序字段**：小批次数量、低顶点/实例优先  
+- **证据字段**：numIndices（索引或顶点数）/ numInstances / dispatchDimension / dispatchThreadsDimension  
+- **阈值参考**：小批次阈值默认 `< 100 vertices`，占比阈值 `> 10%`（对齐脚本默认阈值）  
+- **排序字段**：低顶点/实例优先（按 Indices/Instances 升序）  
+- **使用方式**：在 Draw/Dispatch 表中过滤 `draw` → 按 Indices **升序**，小批次在前；Dispatch 可观察 dispatchDim/Threads 过小的任务  
 - **跳转入口**：Event Browser  
 - **置信度**：中（基于 ActionDescription 元数据）
 

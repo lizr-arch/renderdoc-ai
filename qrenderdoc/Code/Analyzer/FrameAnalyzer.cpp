@@ -183,6 +183,20 @@ AnalyzerSnapshot FrameAnalyzer::Build(ICaptureContext &ctx, IReplayController *r
   snapshot.summary.passCount = passIndex;
 
   PopulateDrawDispatch(ctx, snapshot);
+  if(!frame.stats.recorded)
+  {
+    uint32_t drawCount = 0;
+    uint32_t dispatchCount = 0;
+    for(const AnalyzerDrawDispatchRow &row : snapshot.drawDispatch)
+    {
+      if(row.type == "draw")
+        drawCount++;
+      else if(row.type == "dispatch")
+        dispatchCount++;
+    }
+    snapshot.summary.drawCount = drawCount;
+    snapshot.summary.dispatchCount = dispatchCount;
+  }
   PopulateStateThrash(ctx, snapshot);
   PopulatePipelineBandwidth(ctx, snapshot, replay);
   PopulateGpuCounters(ctx, snapshot, replay);

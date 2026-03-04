@@ -906,3 +906,12 @@ bool AnalyzerExporter::WriteAll(const AnalyzerSnapshot &snap, const rdcstr &dir)
 
 - [x] **Pipeline Samples 表头明确 + 维度 06（GPU Counters）手工验收**
   - 手工验收：用户确认通过
+
+### 2026-03-04 (Agent continuation)
+
+- [ ] **维度 01（Draw/Dispatch）Refine（文档 + 计数回退）**
+  - 关联计划：`plans/2026-03-04-184500-Agent01-PerfDim-01-DrawDispatch-Refine.md`
+  - 文档更新：已完成（阈值/排序/使用方式）
+  - 代码更新：已实现 draw/dispatch 计数回退（FrameStatistics 未记录时）
+  - unittest：PASS（`qrenderdoc.exe --unittest "[analyzer]"`）
+  - 手工验收：待执行

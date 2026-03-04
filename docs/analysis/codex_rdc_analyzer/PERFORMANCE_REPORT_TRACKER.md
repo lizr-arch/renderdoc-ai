@@ -31,10 +31,11 @@
   - `renderdoc/api/replay/data_types.h:2072-2126`
 - **额外统计**：`FrameStatistics.draws` / `dispatches` 只在 D3D11 记录  
   - `renderdoc/api/replay/data_types.h:1678-1735`
-- **现状**：`FrameAnalyzer` 仅记录事件类型与 EID，不含 draw/dispatch 规模  
-  - `qrenderdoc/Code/Analyzer/FrameAnalyzer.cpp:115-138`
-- **缺口**：需要在 AnalyzerSnapshot 增加 per-event 或聚合字段，用于排序与风险说明  
-  - **假设（待验证）**：`numIndices` 对非 indexed draw 表示顶点数（文档写“indices or vertices”）
+- **现状**：Analyzer 已记录 per-event Draw/Dispatch 规模（EID/type/indices/instances/dispatch dims/threads/indirect）  
+  - `qrenderdoc/Code/Analyzer/AnalyzerTypes.h:70-79`  
+  - `qrenderdoc/Code/Analyzer/FrameAnalyzer.cpp:228-254`
+- **缺口**：Summary 中 draw/dispatch 计数依赖 `FrameStatistics`（Vulkan 可能为 0），需基于 draw/dispatch 列表回退统计  
+  - `qrenderdoc/Code/Analyzer/FrameAnalyzer.cpp:166-167`
 - **输出建议**：提供“小批次 Top N 列表 + 事件跳转”
 - **置信度**：中（RDC 元数据可用，但没有 GPU 时间）
 
