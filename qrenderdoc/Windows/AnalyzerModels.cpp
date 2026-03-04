@@ -634,6 +634,142 @@ void AnalyzerStateThrashModel::sort(int column, Qt::SortOrder order)
   endResetModel();
 }
 
+AnalyzerPipelineBandwidthModel::AnalyzerPipelineBandwidthModel(QObject *parent)
+    : QAbstractTableModel(parent)
+{
+}
+
+void AnalyzerPipelineBandwidthModel::SetRows(const rdcarray<AnalyzerPipelineBandwidthRow> &rows)
+{
+  beginResetModel();
+  m_Rows = rows;
+  endResetModel();
+}
+
+AnalyzerPipelineBandwidthRow AnalyzerPipelineBandwidthModel::RowAt(int row) const
+{
+  if(row < 0 || row >= m_Rows.count())
+    return AnalyzerPipelineBandwidthRow();
+
+  return m_Rows[row];
+}
+
+int AnalyzerPipelineBandwidthModel::rowCount(const QModelIndex &parent) const
+{
+  if(parent.isValid())
+    return 0;
+
+  return m_Rows.count();
+}
+
+int AnalyzerPipelineBandwidthModel::columnCount(const QModelIndex &parent) const
+{
+  if(parent.isValid())
+    return 0;
+
+  return ColCount;
+}
+
+QVariant AnalyzerPipelineBandwidthModel::headerData(int section, Qt::Orientation orientation,
+                                                    int role) const
+{
+  if(orientation == Qt::Horizontal && role == Qt::DisplayRole)
+  {
+    switch(section)
+    {
+      case ColEID: return QObject::tr("EID");
+      case ColName: return QObject::tr("Name");
+      case ColRTCount: return QObject::tr("RTs");
+      case ColSamples: return QObject::tr("Samples");
+      case ColBlendEnabled: return QObject::tr("Blend");
+      case ColDepthWrite: return QObject::tr("Depth Write");
+      default: break;
+    }
+  }
+
+  return QVariant();
+}
+
+QVariant AnalyzerPipelineBandwidthModel::data(const QModelIndex &index, int role) const
+{
+  if(!index.isValid() || index.row() < 0 || index.row() >= m_Rows.count())
+    return QVariant();
+
+  const AnalyzerPipelineBandwidthRow &row = m_Rows[index.row()];
+
+  if(role == Qt::DisplayRole)
+  {
+    switch(index.column())
+    {
+      case ColEID: return (int)row.eid;
+      case ColName: return ToQStr(row.name);
+      case ColRTCount: return (int)row.rtCount;
+      case ColSamples: return (int)row.samples;
+      case ColBlendEnabled: return row.blendEnabled ? QObject::tr("Enabled") : QObject::tr("Off");
+      case ColDepthWrite: return row.depthWrite ? QObject::tr("On") : QObject::tr("Off");
+      default: break;
+    }
+  }
+
+  if(role == EventIdRole)
+    return (int)row.eid;
+
+  return QVariant();
+}
+
+void AnalyzerPipelineBandwidthModel::sort(int column, Qt::SortOrder order)
+{
+  if(m_Rows.count() <= 1)
+    return;
+
+  bool ascending = order == Qt::AscendingOrder;
+
+  auto compareText = [ascending](const rdcstr &a, const rdcstr &b) {
+    return ascending ? a < b : a > b;
+  };
+  auto compareUInt = [ascending](uint32_t a, uint32_t b) { return ascending ? a < b : a > b; };
+
+  beginResetModel();
+  std::stable_sort(m_Rows.begin(), m_Rows.end(),
+                   [column, &compareText, &compareUInt, ascending](
+                       const AnalyzerPipelineBandwidthRow &a,
+                       const AnalyzerPipelineBandwidthRow &b) {
+                     switch(column)
+                     {
+                       case ColEID:
+                         if(a.eid != b.eid)
+                           return compareUInt(a.eid, b.eid);
+                         break;
+                       case ColName:
+                         if(a.name != b.name)
+                           return compareText(a.name, b.name);
+                         break;
+                       case ColRTCount:
+                         if(a.rtCount != b.rtCount)
+                           return compareUInt(a.rtCount, b.rtCount);
+                         break;
+                       case ColSamples:
+                         if(a.samples != b.samples)
+                           return compareUInt(a.samples, b.samples);
+                         break;
+                       case ColBlendEnabled:
+                         if(a.blendEnabled != b.blendEnabled)
+                           return ascending ? a.blendEnabled < b.blendEnabled
+                                            : b.blendEnabled < a.blendEnabled;
+                         break;
+                       case ColDepthWrite:
+                         if(a.depthWrite != b.depthWrite)
+                           return ascending ? a.depthWrite < b.depthWrite
+                                            : b.depthWrite < a.depthWrite;
+                         break;
+                       default: break;
+                     }
+
+                     return a.eid < b.eid;
+                   });
+  endResetModel();
+}
+
 AnalyzerResourceModel::AnalyzerResourceModel(QObject *parent) : QAbstractTableModel(parent)
 {
 }
@@ -1390,6 +1526,50 @@ TEST_CASE("Analyzer state thrash model sorts shader binds numerically", "[analyz
   CHECK(model.RowAt(0).shaderChanges == 1);
   CHECK(model.RowAt(1).shaderChanges == 6);
   CHECK(model.RowAt(2).shaderChanges == 20);
+}
+
+TEST_CASE("Analyzer pipeline bandwidth model sorts targets numerically", "[analyzer]")
+{
+  AnalyzerPipelineBandwidthRow low;
+  low.eid = 100;
+  low.name = "Draw";
+  low.rtCount = 1;
+  low.samples = 1;
+
+  AnalyzerPipelineBandwidthRow mid;
+  mid.eid = 101;
+  mid.name = "Draw";
+  mid.rtCount = 2;
+  mid.samples = 4;
+
+  AnalyzerPipelineBandwidthRow high;
+  high.eid = 102;
+  high.name = "Draw";
+  high.rtCount = 6;
+  high.samples = 8;
+
+  rdcarray<AnalyzerPipelineBandwidthRow> rows;
+  rows.push_back(mid);
+  rows.push_back(high);
+  rows.push_back(low);
+
+  AnalyzerPipelineBandwidthModel model;
+  model.SetRows(rows);
+
+  model.sort(AnalyzerPipelineBandwidthModel::ColRTCount, Qt::AscendingOrder);
+  CHECK(model.RowAt(0).rtCount == 1);
+  CHECK(model.RowAt(1).rtCount == 2);
+  CHECK(model.RowAt(2).rtCount == 6);
+
+  model.sort(AnalyzerPipelineBandwidthModel::ColRTCount, Qt::DescendingOrder);
+  CHECK(model.RowAt(0).rtCount == 6);
+  CHECK(model.RowAt(1).rtCount == 2);
+  CHECK(model.RowAt(2).rtCount == 1);
+
+  model.sort(AnalyzerPipelineBandwidthModel::ColSamples, Qt::DescendingOrder);
+  CHECK(model.RowAt(0).samples == 8);
+  CHECK(model.RowAt(1).samples == 4);
+  CHECK(model.RowAt(2).samples == 1);
 }
 
 TEST_CASE("Analyzer shader model sorts use count numerically", "[analyzer]")

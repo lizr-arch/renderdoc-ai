@@ -374,6 +374,16 @@ AnalyzerReportViewer::AnalyzerReportViewer(ICaptureContext &ctx, QWidget *parent
   ui->stateThrashTable->setSelectionBehavior(QAbstractItemView::SelectRows);
   ui->stateThrashTable->setSelectionMode(QAbstractItemView::SingleSelection);
 
+  m_PipelineModel = new AnalyzerPipelineBandwidthModel(this);
+  m_PipelineFilter = new QSortFilterProxyModel(this);
+  m_PipelineFilter->setSourceModel(m_PipelineModel);
+  m_PipelineFilter->setFilterCaseSensitivity(Qt::CaseInsensitive);
+  m_PipelineFilter->setFilterKeyColumn(-1);
+  ui->pipelineTable->setModel(m_PipelineFilter);
+  ui->pipelineTable->setSortingEnabled(true);
+  ui->pipelineTable->setSelectionBehavior(QAbstractItemView::SelectRows);
+  ui->pipelineTable->setSelectionMode(QAbstractItemView::SingleSelection);
+
   m_ResourceModel = new AnalyzerResourceModel(this);
   m_ResourceFilter = new QSortFilterProxyModel(this);
   m_ResourceFilter->setSourceModel(m_ResourceModel);
@@ -398,6 +408,7 @@ AnalyzerReportViewer::AnalyzerReportViewer(ICaptureContext &ctx, QWidget *parent
   ui->eventFilterEdit->setPlaceholderText(tr("Search events..."));
   ui->drawDispatchFilterEdit->setPlaceholderText(tr("Filter draw/dispatch..."));
   ui->stateThrashFilterEdit->setPlaceholderText(tr("Filter state stats..."));
+  ui->pipelineFilterEdit->setPlaceholderText(tr("Filter pipeline..."));
   ui->resourceFilterEdit->setPlaceholderText(tr("Search resources..."));
   ui->shaderFilterEdit->setPlaceholderText(tr("Search shaders..."));
 
@@ -438,6 +449,8 @@ AnalyzerReportViewer::AnalyzerReportViewer(ICaptureContext &ctx, QWidget *parent
           &AnalyzerReportViewer::OnDrawDispatchFilterChanged);
   connect(ui->stateThrashFilterEdit, &QLineEdit::textChanged, this,
           &AnalyzerReportViewer::OnStateThrashFilterChanged);
+  connect(ui->pipelineFilterEdit, &QLineEdit::textChanged, this,
+          &AnalyzerReportViewer::OnPipelineFilterChanged);
   connect(ui->resourceFilterEdit, &QLineEdit::textChanged, this,
           &AnalyzerReportViewer::OnResourceFilterChanged);
   connect(ui->shaderFilterEdit, &QLineEdit::textChanged, this,
@@ -486,6 +499,7 @@ void AnalyzerReportViewer::OnCaptureClosed()
   ui->eventFilterEdit->clear();
   ui->drawDispatchFilterEdit->clear();
   ui->stateThrashFilterEdit->clear();
+  ui->pipelineFilterEdit->clear();
   ui->resourceFilterEdit->clear();
   ui->shaderFilterEdit->clear();
 
@@ -493,6 +507,7 @@ void AnalyzerReportViewer::OnCaptureClosed()
   rdcarray<AnalyzerEventRow> emptyEvents;
   rdcarray<AnalyzerDrawDispatchRow> emptyDrawDispatch;
   rdcarray<AnalyzerStateThrashRow> emptyStateThrash;
+  rdcarray<AnalyzerPipelineBandwidthRow> emptyPipeline;
   rdcarray<AnalyzerResourceRow> emptyResources;
   rdcarray<AnalyzerShaderRow> emptyShaders;
 
@@ -501,6 +516,7 @@ void AnalyzerReportViewer::OnCaptureClosed()
   m_EventModel->SetEvents(emptyEvents);
   m_DrawDispatchModel->SetRows(emptyDrawDispatch);
   m_StateThrashModel->SetRows(emptyStateThrash);
+  m_PipelineModel->SetRows(emptyPipeline);
   m_ResourceModel->SetResources(emptyResources);
   m_ShaderModel->SetShaders(emptyShaders);
   UpdateOverviewCards();
@@ -548,6 +564,7 @@ void AnalyzerReportViewer::RefreshReport()
           self->PopulateEventTable();
           self->PopulateDrawDispatchTable();
           self->PopulateStateThrashTable();
+          self->PopulatePipelineTable();
           self->PopulateResourceTable();
           self->PopulateShaderTable();
           self->SetBusyState(false, QString());
@@ -854,6 +871,13 @@ void AnalyzerReportViewer::PopulateStateThrashTable()
                                      Qt::DescendingOrder);
 }
 
+void AnalyzerReportViewer::PopulatePipelineTable()
+{
+  m_PipelineModel->SetRows(m_Snapshot.pipelineBandwidth);
+  ui->pipelineTable->sortByColumn(AnalyzerPipelineBandwidthModel::ColRTCount,
+                                  Qt::DescendingOrder);
+}
+
 void AnalyzerReportViewer::PopulateResourceTable()
 {
   m_ResourceModel->SetResources(m_Snapshot.resources);
@@ -892,6 +916,11 @@ void AnalyzerReportViewer::ConfigureTableLayout()
   stateThrashHeader->setStretchLastSection(false);
   stateThrashHeader->setSectionResizeMode(QHeaderView::Interactive);
   stateThrashHeader->resizeSections(QHeaderView::ResizeToContents);
+
+  QHeaderView *pipelineHeader = ui->pipelineTable->horizontalHeader();
+  pipelineHeader->setStretchLastSection(false);
+  pipelineHeader->setSectionResizeMode(QHeaderView::Interactive);
+  pipelineHeader->resizeSections(QHeaderView::ResizeToContents);
 
   QHeaderView *resourceHeader = ui->resourceTable->horizontalHeader();
   resourceHeader->setStretchLastSection(false);
@@ -1018,6 +1047,11 @@ void AnalyzerReportViewer::OnDrawDispatchFilterChanged(const QString &text)
 void AnalyzerReportViewer::OnStateThrashFilterChanged(const QString &text)
 {
   m_StateThrashFilter->setFilterFixedString(text);
+}
+
+void AnalyzerReportViewer::OnPipelineFilterChanged(const QString &text)
+{
+  m_PipelineFilter->setFilterFixedString(text);
 }
 
 void AnalyzerReportViewer::OnResourceFilterChanged(const QString &text)
@@ -1558,6 +1592,34 @@ void AnalyzerReportViewer::on_jumpButton_clicked()
 
     m_Ctx.SetEventID({}, eid, eid, true);
     m_Ctx.ShowEventBrowser();
+    return;
+  }
+
+  if(currentTab == ui->pipelineTab)
+  {
+    QModelIndexList rows = ui->pipelineTable->selectionModel()->selectedRows();
+    if(rows.isEmpty())
+    {
+      QMessageBox::information(
+          this, QString::fromUtf16(u"\u8df3\u8f6c\u5230\u4e8b\u4ef6"),
+          QString::fromUtf16(
+              u"\u8bf7\u5148\u9009\u62e9\u4e00\u884c Pipeline \u6570\u636e\uff0c\u518d\u8df3\u8f6c\u5230 "
+              u"Event Browser \u4e0e Pipeline State\u3002"));
+      return;
+    }
+
+    uint32_t eid = rows[0].data(AnalyzerPipelineBandwidthModel::EventIdRole).toUInt();
+    if(eid == 0)
+    {
+      QMessageBox::warning(
+          this, QString::fromUtf16(u"\u8df3\u8f6c\u5230\u4e8b\u4ef6"),
+          QString::fromUtf16(u"\u6240\u9009\u4e8b\u4ef6\u6ca1\u6709\u6709\u6548\u7684 EID\u3002"));
+      return;
+    }
+
+    m_Ctx.SetEventID({}, eid, eid, true);
+    m_Ctx.ShowEventBrowser();
+    m_Ctx.ShowPipelineViewer();
     return;
   }
 

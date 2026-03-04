@@ -12,7 +12,7 @@
 |---|------|-------|-------|----------|------------|----------|
 | 1 | Draw / Dispatch 密度 | ✅ | ✅ | ✅ | ActionDescription + FrameStatistics | Event Browser |
 | 2 | 资源/状态抖动 | ✅ | ✅ | ✅ | FrameStatistics（D3D11） | Event / Pipeline |
-| 3 | Pipeline 带宽 | ✅ | ✅ | 待做 | Replay PipeState | Event / Pipeline |
+| 3 | Pipeline 带宽 | ✅ | ✅ | ✅ | Replay PipeState | Event / Pipeline |
 | 4 | Overdraw / Triangle Size | ✅ | ✅ | 待做 | Overlay | Overlay 可视化 |
 | 5 | Buffer/Texture 更新与内存压力 | ✅ | ✅ | 待做 | ResourceUpdateStats + Texture/Buffer | Resource / Event |
 | 6 | GPU 计时与计数器 | ✅ | ✅ | 待做 | GPUCounter / FetchCounters | Event Browser |

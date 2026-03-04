@@ -128,6 +128,18 @@ QJsonObject StateThrashToQJson(const AnalyzerStateThrashRow &row)
   return obj;
 }
 
+QJsonObject PipelineBandwidthToQJson(const AnalyzerPipelineBandwidthRow &row)
+{
+  QJsonObject obj;
+  obj[lit("eid")] = (int)row.eid;
+  obj[lit("name")] = ToQStr(row.name);
+  obj[lit("rt_count")] = (int)row.rtCount;
+  obj[lit("samples")] = (int)row.samples;
+  obj[lit("blend_enabled")] = row.blendEnabled;
+  obj[lit("depth_write")] = row.depthWrite;
+  return obj;
+}
+
 QJsonObject ResourceToQJson(const AnalyzerResourceRow &resource)
 {
   QJsonObject obj;
@@ -211,6 +223,11 @@ QJsonObject AnalyzerContract::ToQJson(const AnalyzerSnapshot &snapshot)
   for(const AnalyzerStateThrashRow &row : snapshot.stateThrash)
     stateThrash.push_back(StateThrashToQJson(row));
   root[lit("state_thrash")] = stateThrash;
+
+  QJsonArray pipelineBandwidth;
+  for(const AnalyzerPipelineBandwidthRow &row : snapshot.pipelineBandwidth)
+    pipelineBandwidth.push_back(PipelineBandwidthToQJson(row));
+  root[lit("pipeline_bandwidth")] = pipelineBandwidth;
 
   QJsonArray resources;
   for(const AnalyzerResourceRow &resource : snapshot.resources)

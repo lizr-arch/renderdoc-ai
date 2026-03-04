@@ -91,6 +91,16 @@ struct AnalyzerStateThrashRow
   bool available = false;
 };
 
+struct AnalyzerPipelineBandwidthRow
+{
+  uint32_t eid = 0;
+  rdcstr name;
+  uint32_t rtCount = 0;
+  uint32_t samples = 1;
+  bool blendEnabled = false;
+  bool depthWrite = false;
+};
+
 struct AnalyzerResourceRow
 {
   ResourceId id;
@@ -155,6 +165,7 @@ struct AnalyzerSnapshot
   rdcarray<AnalyzerEventRow> events;
   rdcarray<AnalyzerDrawDispatchRow> drawDispatch;
   rdcarray<AnalyzerStateThrashRow> stateThrash;
+  rdcarray<AnalyzerPipelineBandwidthRow> pipelineBandwidth;
   rdcarray<AnalyzerResourceRow> resources;
   rdcarray<AnalyzerShaderRow> shaders;
   rdcarray<AnalyzerIssue> issues;

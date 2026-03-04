@@ -878,3 +878,11 @@ bool AnalyzerExporter::WriteAll(const AnalyzerSnapshot &snap, const rdcstr &dir)
   - 关联计划：`plans/2026-03-03-210002-Agent01-PerfDim-02-StateThrash.md`
   - MSBuild：PASS（0 warning, 0 error）
   - `qrenderdoc.exe --unittest`：PASS（exit 0）
+
+### 2026-03-04 13:02 (Agent continuation)
+
+- [x] **维度 03（Pipeline 带宽）实现与验证**
+  - 关联计划：`plans/2026-03-03-210003-Agent01-PerfDim-03-PipelineBandwidth.md`
+  - MSBuild：PASS（0 warning, 0 error）
+  - `qrenderdoc.exe --unittest`：PASS（exit 0）
+  - 手工验收：待你侧验证 Pipeline 表格排序 + 跳转到 Pipeline State

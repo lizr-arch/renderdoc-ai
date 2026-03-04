@@ -40,6 +40,8 @@ private:
                            rdcarray<AnalyzerDrawDispatchRow> &rows) const;
   void PopulateDrawDispatch(ICaptureContext &ctx, AnalyzerSnapshot &snapshot) const;
   void PopulateStateThrash(ICaptureContext &ctx, AnalyzerSnapshot &snapshot) const;
+  void PopulatePipelineBandwidth(ICaptureContext &ctx, AnalyzerSnapshot &snapshot,
+                                 IReplayController *replay) const;
   void PopulateResources(ICaptureContext &ctx, AnalyzerSnapshot &snapshot) const;
   void PopulateShaderUsage(ICaptureContext &ctx, AnalyzerSnapshot &snapshot,
                            IReplayController *replay) const;

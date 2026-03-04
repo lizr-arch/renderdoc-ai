@@ -110,12 +110,12 @@ void FrameAnalyzer::PopulatePipelineBandwidth(ICaptureContext &ctx, AnalyzerSnap
 
 ## Task Checklist (2-5 分钟粒度, TDD)
 
-- [ ] 新增失败单测：PipelineBandwidth model 排序（rtCount/samples）  
-- [ ] 运行 unittest，预期 FAIL  
-- [ ] 实现 AnalyzerTypes/FrameAnalyzer/Models/UI  
-- [ ] 再跑 unittest，预期 PASS  
+- [x] 新增失败单测：PipelineBandwidth model 排序（rtCount/samples）  
+- [ ] 运行 unittest，预期 FAIL（本轮未单独跑失败阶段）  
+- [x] 实现 AnalyzerTypes/FrameAnalyzer/Models/UI  
+- [x] 再跑 unittest，预期 PASS  
 - [ ] 手工验收：跳转到 Pipeline State  
-- [ ] 提交（Conventional Commits）
+- [x] 提交（Conventional Commits）
 
 ---
 
@@ -129,4 +129,9 @@ void FrameAnalyzer::PopulatePipelineBandwidth(ICaptureContext &ctx, AnalyzerSnap
 
 ## /do Execution Log
 
-> 待执行
+- 2026-03-04 13:02
+  - 完成 Pipeline 带宽维度：采集 PipeState（RT/MSAA/Blend/DepthWrite），新增模型/表格/排序/跳转。
+  - Build: `MSBuild.exe renderdoc.sln /p:Configuration=Development /p:Platform=x64 /m` ✅
+  - Test: `D:\Code\git\renderdoc\x64\Development\qrenderdoc.exe --unittest` ✅
+  - 备注：未单独跑“预期 FAIL”测试轮次，直接实现后验证 PASS。
+  - Commit: `feat(qrenderdoc-analyzer): add pipeline bandwidth dimension`

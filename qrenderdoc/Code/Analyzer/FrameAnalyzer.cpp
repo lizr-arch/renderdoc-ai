@@ -126,6 +126,7 @@ AnalyzerSnapshot FrameAnalyzer::Build(ICaptureContext &ctx, IReplayController *r
 
   PopulateDrawDispatch(ctx, snapshot);
   PopulateStateThrash(ctx, snapshot);
+  PopulatePipelineBandwidth(ctx, snapshot, replay);
   PopulateResources(ctx, snapshot);
   PopulateShaderUsage(ctx, snapshot, replay);
 
@@ -239,6 +240,96 @@ void FrameAnalyzer::PopulateStateThrash(ICaptureContext &ctx, AnalyzerSnapshot &
 
     snapshot.stateThrash.push_back(row);
   }
+}
+
+void FrameAnalyzer::PopulatePipelineBandwidth(ICaptureContext &ctx, AnalyzerSnapshot &snapshot,
+                                              IReplayController *replay) const
+{
+  if(snapshot.events.empty())
+    return;
+
+  std::map<ResourceId, uint32_t> textureSamples;
+  const rdcarray<TextureDescription> &textures = ctx.GetTextures();
+  for(const TextureDescription &texture : textures)
+    textureSamples[texture.resourceId] = std::max(1U, texture.msSamp);
+
+  auto populateFromReplay = [&snapshot, &textureSamples](IReplayController *r) {
+    for(const AnalyzerEventRow &event : snapshot.events)
+    {
+      if(event.eid == 0 || event.type != "draw")
+        continue;
+
+      r->SetFrameEvent(event.eid, false);
+      const PipeState &pipe = r->GetPipelineState();
+
+      AnalyzerPipelineBandwidthRow row;
+      row.eid = event.eid;
+      row.name = event.name;
+
+      rdcarray<Descriptor> outputs = pipe.GetOutputTargets();
+      for(const Descriptor &rt : outputs)
+      {
+        if(rt.resource != ResourceId())
+          row.rtCount++;
+      }
+
+      rdcarray<ColorBlend> blends = pipe.GetColorBlends();
+      for(const ColorBlend &blend : blends)
+      {
+        if(blend.enabled || blend.logicOperationEnabled)
+        {
+          row.blendEnabled = true;
+          break;
+        }
+      }
+
+      const D3D11Pipe::State *d3d11 = r->GetD3D11PipelineState();
+      const D3D12Pipe::State *d3d12 = r->GetD3D12PipelineState();
+      const GLPipe::State *gl = r->GetGLPipelineState();
+      const VKPipe::State *vk = r->GetVulkanPipelineState();
+
+      if(d3d11)
+        row.depthWrite = d3d11->outputMerger.depthStencilState.depthWrites;
+      else if(d3d12)
+        row.depthWrite = d3d12->outputMerger.depthStencilState.depthWrites;
+      else if(gl)
+        row.depthWrite = gl->depthState.depthWrites;
+      else if(vk)
+        row.depthWrite = vk->depthStencil.depthWriteEnable;
+
+      auto updateSamples = [&row, &textureSamples](ResourceId id) {
+        if(id == ResourceId())
+          return;
+        auto it = textureSamples.find(id);
+        if(it != textureSamples.end())
+          row.samples = std::max(row.samples, it->second);
+      };
+
+      for(const Descriptor &rt : outputs)
+        updateSamples(rt.resource);
+
+      updateSamples(pipe.GetDepthTarget().resource);
+
+      if(d3d12 && d3d12->outputMerger.multiSampleCount > 0)
+        row.samples = std::max(row.samples, d3d12->outputMerger.multiSampleCount);
+      if(vk && vk->multisample.rasterSamples > 0)
+        row.samples = std::max(row.samples, vk->multisample.rasterSamples);
+
+      snapshot.pipelineBandwidth.push_back(row);
+    }
+  };
+
+  if(replay != NULL)
+    populateFromReplay(replay);
+  else
+    ctx.Replay().BlockInvoke([&populateFromReplay](IReplayController *r) { populateFromReplay(r); });
+
+  std::sort(snapshot.pipelineBandwidth.begin(), snapshot.pipelineBandwidth.end(),
+            [](const AnalyzerPipelineBandwidthRow &a, const AnalyzerPipelineBandwidthRow &b) {
+              if(a.eid != b.eid)
+                return a.eid < b.eid;
+              return a.name < b.name;
+            });
 }
 
 rdcstr FrameAnalyzer::ActionName(const ActionDescription &action) const
