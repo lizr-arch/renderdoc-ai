@@ -42,6 +42,8 @@ private:
   void PopulateStateThrash(ICaptureContext &ctx, AnalyzerSnapshot &snapshot) const;
   void PopulatePipelineBandwidth(ICaptureContext &ctx, AnalyzerSnapshot &snapshot,
                                  IReplayController *replay) const;
+  void PopulateGpuCounters(ICaptureContext &ctx, AnalyzerSnapshot &snapshot,
+                           IReplayController *replay) const;
   void PopulateResources(ICaptureContext &ctx, AnalyzerSnapshot &snapshot) const;
   void PopulateShaderUsage(ICaptureContext &ctx, AnalyzerSnapshot &snapshot,
                            IReplayController *replay) const;

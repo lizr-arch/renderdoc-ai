@@ -24,6 +24,7 @@
 
 #include "FrameAnalyzer.h"
 #include <algorithm>
+#include <cctype>
 #include <map>
 
 namespace
@@ -55,6 +56,63 @@ rdcstr StageLabel(ShaderStage stage)
   }
 
   return "Unknown";
+}
+
+rdcstr ToLower(rdcstr text)
+{
+  for(char &c : text)
+    c = (char)tolower(c);
+  return text;
+}
+
+int TextureCounterScore(const CounterDescription &desc)
+{
+  rdcstr text = desc.name + " " + desc.category + " " + desc.description;
+  text = ToLower(text);
+
+  int score = 0;
+  if(text.contains("sample"))
+    score += 4;
+  if(text.contains("texel"))
+    score += 4;
+  if(text.contains("texture"))
+    score += 2;
+  if(text.contains("sampler"))
+    score += 2;
+  if(text.contains("fetch"))
+    score += 1;
+  if(text.contains("read"))
+    score += 1;
+
+  return score;
+}
+
+double CounterToDouble(const CounterResult &result, const CounterDescription &desc)
+{
+  switch(desc.resultType)
+  {
+    case CompType::Float:
+    case CompType::UNorm:
+    case CompType::SNorm:
+    case CompType::UScaled:
+    case CompType::SScaled:
+    case CompType::Depth:
+    case CompType::UNormSRGB:
+      return desc.resultByteWidth == 8 ? result.value.d : (double)result.value.f;
+    case CompType::UInt:
+    case CompType::SInt:
+      return desc.resultByteWidth == 8 ? (double)result.value.u64 : (double)result.value.u32;
+    default: break;
+  }
+
+  return 0.0;
+}
+
+uint64_t CounterToUInt64(const CounterResult &result, const CounterDescription &desc)
+{
+  if(desc.resultByteWidth == 8)
+    return result.value.u64;
+  return (uint64_t)result.value.u32;
 }
 
 ShaderEntryPoint PickEntryPointForStage(const rdcarray<ShaderEntryPoint> &entries,
@@ -127,6 +185,7 @@ AnalyzerSnapshot FrameAnalyzer::Build(ICaptureContext &ctx, IReplayController *r
   PopulateDrawDispatch(ctx, snapshot);
   PopulateStateThrash(ctx, snapshot);
   PopulatePipelineBandwidth(ctx, snapshot, replay);
+  PopulateGpuCounters(ctx, snapshot, replay);
   PopulateResources(ctx, snapshot);
   PopulateShaderUsage(ctx, snapshot, replay);
 
@@ -326,6 +385,143 @@ void FrameAnalyzer::PopulatePipelineBandwidth(ICaptureContext &ctx, AnalyzerSnap
 
   std::sort(snapshot.pipelineBandwidth.begin(), snapshot.pipelineBandwidth.end(),
             [](const AnalyzerPipelineBandwidthRow &a, const AnalyzerPipelineBandwidthRow &b) {
+              if(a.eid != b.eid)
+                return a.eid < b.eid;
+              return a.name < b.name;
+            });
+}
+
+void FrameAnalyzer::PopulateGpuCounters(ICaptureContext &ctx, AnalyzerSnapshot &snapshot,
+                                        IReplayController *replay) const
+{
+  if(snapshot.events.empty())
+    return;
+
+  std::map<uint32_t, rdcstr> eventNames;
+  for(const AnalyzerEventRow &event : snapshot.events)
+  {
+    if(event.eid != 0)
+      eventNames[event.eid] = event.name;
+  }
+
+  auto populateFromReplay = [&snapshot, &eventNames](IReplayController *r) {
+    rdcarray<GPUCounter> available = r->EnumerateCounters();
+    if(available.empty())
+      return;
+
+    auto hasCounter = [&available](GPUCounter counter) {
+      return std::find(available.begin(), available.end(), counter) != available.end();
+    };
+
+    rdcarray<GPUCounter> counters;
+    std::map<GPUCounter, CounterDescription> descriptions;
+
+    auto addCounter = [&counters, &descriptions, r, &hasCounter](GPUCounter counter) {
+      if(!hasCounter(counter))
+        return false;
+      counters.push_back(counter);
+      descriptions[counter] = r->DescribeCounter(counter);
+      return true;
+    };
+
+    addCounter(GPUCounter::EventGPUDuration);
+    addCounter(GPUCounter::VSInvocations);
+    addCounter(GPUCounter::PSInvocations);
+    addCounter(GPUCounter::CSInvocations);
+
+    GPUCounter textureCounter = GPUCounter::Count;
+    CounterDescription textureDesc;
+    int textureScore = 0;
+    for(GPUCounter counter : available)
+    {
+      CounterDescription desc = r->DescribeCounter(counter);
+      int score = TextureCounterScore(desc);
+      if(score > textureScore)
+      {
+        textureScore = score;
+        textureCounter = counter;
+        textureDesc = desc;
+      }
+    }
+
+    if(textureScore > 0)
+    {
+      counters.push_back(textureCounter);
+      descriptions[textureCounter] = textureDesc;
+    }
+
+    if(counters.empty())
+      return;
+
+    rdcarray<CounterResult> results = r->FetchCounters(counters);
+    if(results.empty())
+      return;
+
+    std::map<uint32_t, size_t> rowIndex;
+    auto ensureRow = [&snapshot, &rowIndex, &eventNames](uint32_t eid) -> AnalyzerGpuCounterRow & {
+      auto it = rowIndex.find(eid);
+      if(it != rowIndex.end())
+        return snapshot.gpuCounters[it->second];
+
+      AnalyzerGpuCounterRow row;
+      row.eid = eid;
+      auto nameIt = eventNames.find(eid);
+      if(nameIt != eventNames.end())
+        row.name = nameIt->second;
+      else
+        row.name = "Event";
+      snapshot.gpuCounters.push_back(row);
+      rowIndex[eid] = (size_t)snapshot.gpuCounters.count() - 1;
+      return snapshot.gpuCounters.back();
+    };
+
+    for(const CounterResult &result : results)
+    {
+      if(result.eventId == 0)
+        continue;
+
+      AnalyzerGpuCounterRow &row = ensureRow(result.eventId);
+      const CounterDescription &desc = descriptions[result.counter];
+
+      if(result.counter == GPUCounter::EventGPUDuration)
+      {
+        double value = CounterToDouble(result, desc);
+        if(desc.unit == CounterUnit::Seconds)
+          value *= 1000.0;
+        row.gpuTimeMs = value;
+        row.gpuTimeValid = true;
+      }
+      else if(result.counter == GPUCounter::VSInvocations)
+      {
+        row.vsInvocations = CounterToUInt64(result, desc);
+        row.vsValid = true;
+      }
+      else if(result.counter == GPUCounter::PSInvocations)
+      {
+        row.psInvocations = CounterToUInt64(result, desc);
+        row.psValid = true;
+      }
+      else if(result.counter == GPUCounter::CSInvocations)
+      {
+        row.csInvocations = CounterToUInt64(result, desc);
+        row.csValid = true;
+      }
+      else if(textureScore > 0 && result.counter == textureCounter)
+      {
+        row.textureSamples = CounterToDouble(result, desc);
+        row.textureValid = true;
+        row.textureCounterName = desc.name;
+      }
+    }
+  };
+
+  if(replay != NULL)
+    populateFromReplay(replay);
+  else
+    ctx.Replay().BlockInvoke([&populateFromReplay](IReplayController *r) { populateFromReplay(r); });
+
+  std::sort(snapshot.gpuCounters.begin(), snapshot.gpuCounters.end(),
+            [](const AnalyzerGpuCounterRow &a, const AnalyzerGpuCounterRow &b) {
               if(a.eid != b.eid)
                 return a.eid < b.eid;
               return a.name < b.name;

@@ -680,10 +680,18 @@ QVariant AnalyzerPipelineBandwidthModel::headerData(int section, Qt::Orientation
       case ColEID: return QObject::tr("EID");
       case ColName: return QObject::tr("Name");
       case ColRTCount: return QObject::tr("RTs");
-      case ColSamples: return QObject::tr("Samples");
+      case ColSamples: return QObject::tr("MSAA Samples (RT/DS)");
       case ColBlendEnabled: return QObject::tr("Blend");
       case ColDepthWrite: return QObject::tr("Depth Write");
       default: break;
+    }
+  }
+
+  if(orientation == Qt::Horizontal && role == Qt::ToolTipRole)
+  {
+    if(section == ColSamples)
+    {
+      return QObject::tr("Max MSAA samples among RT/DS. From texture msSamp or pipeline MSAA.");
     }
   }
 
@@ -767,6 +775,198 @@ void AnalyzerPipelineBandwidthModel::sort(int column, Qt::SortOrder order)
 
                      return a.eid < b.eid;
                    });
+  endResetModel();
+}
+
+AnalyzerGpuCounterModel::AnalyzerGpuCounterModel(QObject *parent) : QAbstractTableModel(parent)
+{
+}
+
+void AnalyzerGpuCounterModel::SetRows(const rdcarray<AnalyzerGpuCounterRow> &rows)
+{
+  beginResetModel();
+  m_Rows = rows;
+  endResetModel();
+}
+
+AnalyzerGpuCounterRow AnalyzerGpuCounterModel::RowAt(int row) const
+{
+  if(row < 0 || row >= m_Rows.count())
+    return AnalyzerGpuCounterRow();
+
+  return m_Rows[row];
+}
+
+int AnalyzerGpuCounterModel::rowCount(const QModelIndex &parent) const
+{
+  if(parent.isValid())
+    return 0;
+
+  return m_Rows.count();
+}
+
+int AnalyzerGpuCounterModel::columnCount(const QModelIndex &parent) const
+{
+  if(parent.isValid())
+    return 0;
+
+  return ColCount;
+}
+
+QVariant AnalyzerGpuCounterModel::headerData(int section, Qt::Orientation orientation, int role) const
+{
+  if(orientation == Qt::Horizontal && role == Qt::DisplayRole)
+  {
+    switch(section)
+    {
+      case ColEID: return QObject::tr("EID");
+      case ColName: return QObject::tr("Name");
+      case ColGpuTime: return QObject::tr("GPU Time (ms)");
+      case ColVSInvocations: return QObject::tr("VS Invocations");
+      case ColPSInvocations: return QObject::tr("PS Invocations");
+      case ColCSInvocations: return QObject::tr("CS Invocations");
+      case ColTextureSamples: return QObject::tr("Texture Samples");
+      default: break;
+    }
+  }
+
+  if(orientation == Qt::Horizontal && role == Qt::ToolTipRole)
+  {
+    switch(section)
+    {
+      case ColGpuTime:
+        return QObject::tr("Event GPU duration in milliseconds, if available.");
+      case ColTextureSamples:
+        return QObject::tr("Texture-related counter if available; otherwise N/A.");
+      default: break;
+    }
+  }
+
+  return QVariant();
+}
+
+QVariant AnalyzerGpuCounterModel::data(const QModelIndex &index, int role) const
+{
+  if(!index.isValid() || index.row() < 0 || index.row() >= m_Rows.count())
+    return QVariant();
+
+  const AnalyzerGpuCounterRow &row = m_Rows[index.row()];
+
+  if(role == Qt::DisplayRole)
+  {
+    switch(index.column())
+    {
+      case ColEID: return (int)row.eid;
+      case ColName: return ToQStr(row.name);
+      case ColGpuTime:
+        return row.gpuTimeValid ? QString::number(row.gpuTimeMs, 'f', 3) : QObject::tr("N/A");
+      case ColVSInvocations:
+        return row.vsValid ? QString::number((qulonglong)row.vsInvocations)
+                           : QObject::tr("N/A");
+      case ColPSInvocations:
+        return row.psValid ? QString::number((qulonglong)row.psInvocations)
+                           : QObject::tr("N/A");
+      case ColCSInvocations:
+        return row.csValid ? QString::number((qulonglong)row.csInvocations)
+                           : QObject::tr("N/A");
+      case ColTextureSamples:
+        return row.textureValid ? QString::number(row.textureSamples, 'f', 2)
+                                : QObject::tr("N/A");
+      default: break;
+    }
+  }
+
+  if(role == Qt::ToolTipRole && index.column() == ColTextureSamples && row.textureValid)
+  {
+    if(!row.textureCounterName.empty())
+      return QObject::tr("Counter: %1").arg(ToQStr(row.textureCounterName));
+  }
+
+  if(role == EventIdRole)
+    return (int)row.eid;
+
+  return QVariant();
+}
+
+void AnalyzerGpuCounterModel::sort(int column, Qt::SortOrder order)
+{
+  if(m_Rows.count() <= 1)
+    return;
+
+  bool ascending = order == Qt::AscendingOrder;
+
+  auto compareText = [ascending](const rdcstr &a, const rdcstr &b) {
+    return ascending ? a < b : a > b;
+  };
+  auto compareUInt64 = [ascending](uint64_t a, uint64_t b) { return ascending ? a < b : a > b; };
+  auto compareDouble = [ascending](double a, double b) { return ascending ? a < b : a > b; };
+
+  auto validFirst = [](bool aValid, bool bValid) {
+    if(aValid != bValid)
+      return aValid && !bValid;
+    return false;
+  };
+
+  beginResetModel();
+  std::stable_sort(
+      m_Rows.begin(), m_Rows.end(),
+      [column, &compareText, &compareUInt64, &compareDouble, ascending,
+       &validFirst](const AnalyzerGpuCounterRow &a, const AnalyzerGpuCounterRow &b) {
+        switch(column)
+        {
+          case ColEID:
+            if(a.eid != b.eid)
+              return compareUInt64(a.eid, b.eid);
+            break;
+          case ColName:
+            if(a.name != b.name)
+              return compareText(a.name, b.name);
+            break;
+          case ColGpuTime:
+            if(validFirst(a.gpuTimeValid, b.gpuTimeValid))
+              return true;
+            if(validFirst(b.gpuTimeValid, a.gpuTimeValid))
+              return false;
+            if(a.gpuTimeValid && b.gpuTimeValid && a.gpuTimeMs != b.gpuTimeMs)
+              return compareDouble(a.gpuTimeMs, b.gpuTimeMs);
+            break;
+          case ColVSInvocations:
+            if(validFirst(a.vsValid, b.vsValid))
+              return true;
+            if(validFirst(b.vsValid, a.vsValid))
+              return false;
+            if(a.vsValid && b.vsValid && a.vsInvocations != b.vsInvocations)
+              return compareUInt64(a.vsInvocations, b.vsInvocations);
+            break;
+          case ColPSInvocations:
+            if(validFirst(a.psValid, b.psValid))
+              return true;
+            if(validFirst(b.psValid, a.psValid))
+              return false;
+            if(a.psValid && b.psValid && a.psInvocations != b.psInvocations)
+              return compareUInt64(a.psInvocations, b.psInvocations);
+            break;
+          case ColCSInvocations:
+            if(validFirst(a.csValid, b.csValid))
+              return true;
+            if(validFirst(b.csValid, a.csValid))
+              return false;
+            if(a.csValid && b.csValid && a.csInvocations != b.csInvocations)
+              return compareUInt64(a.csInvocations, b.csInvocations);
+            break;
+          case ColTextureSamples:
+            if(validFirst(a.textureValid, b.textureValid))
+              return true;
+            if(validFirst(b.textureValid, a.textureValid))
+              return false;
+            if(a.textureValid && b.textureValid && a.textureSamples != b.textureSamples)
+              return compareDouble(a.textureSamples, b.textureSamples);
+            break;
+          default: break;
+        }
+
+        return ascending ? a.eid < b.eid : b.eid < a.eid;
+      });
   endResetModel();
 }
 
@@ -1570,6 +1770,49 @@ TEST_CASE("Analyzer pipeline bandwidth model sorts targets numerically", "[analy
   CHECK(model.RowAt(0).samples == 8);
   CHECK(model.RowAt(1).samples == 4);
   CHECK(model.RowAt(2).samples == 1);
+}
+
+TEST_CASE("Analyzer gpu counter model sorts gpu time and texture samples", "[analyzer]")
+{
+  AnalyzerGpuCounterRow low;
+  low.eid = 200;
+  low.name = "Draw";
+  low.gpuTimeMs = 0.5;
+  low.gpuTimeValid = true;
+  low.textureSamples = 12.0;
+  low.textureValid = true;
+
+  AnalyzerGpuCounterRow mid;
+  mid.eid = 201;
+  mid.name = "Draw";
+  mid.gpuTimeMs = 2.0;
+  mid.gpuTimeValid = true;
+  mid.textureSamples = 4.0;
+  mid.textureValid = true;
+
+  AnalyzerGpuCounterRow high;
+  high.eid = 202;
+  high.name = "Draw";
+  high.gpuTimeMs = 5.0;
+  high.gpuTimeValid = true;
+  high.textureSamples = 32.0;
+  high.textureValid = true;
+
+  rdcarray<AnalyzerGpuCounterRow> rows;
+  rows.push_back(mid);
+  rows.push_back(high);
+  rows.push_back(low);
+
+  AnalyzerGpuCounterModel model;
+  model.SetRows(rows);
+
+  model.sort(AnalyzerGpuCounterModel::ColGpuTime, Qt::AscendingOrder);
+  CHECK(model.RowAt(0).gpuTimeMs == Approx(0.5));
+  CHECK(model.RowAt(2).gpuTimeMs == Approx(5.0));
+
+  model.sort(AnalyzerGpuCounterModel::ColTextureSamples, Qt::DescendingOrder);
+  CHECK(model.RowAt(0).textureSamples == Approx(32.0));
+  CHECK(model.RowAt(2).textureSamples == Approx(4.0));
 }
 
 TEST_CASE("Analyzer shader model sorts use count numerically", "[analyzer]")

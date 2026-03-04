@@ -199,6 +199,41 @@ private:
   rdcarray<AnalyzerPipelineBandwidthRow> m_Rows;
 };
 
+class AnalyzerGpuCounterModel : public QAbstractTableModel
+{
+public:
+  enum Columns
+  {
+    ColEID = 0,
+    ColName,
+    ColGpuTime,
+    ColVSInvocations,
+    ColPSInvocations,
+    ColCSInvocations,
+    ColTextureSamples,
+    ColCount,
+  };
+
+  enum Roles
+  {
+    EventIdRole = Qt::UserRole + 1,
+  };
+
+  explicit AnalyzerGpuCounterModel(QObject *parent = NULL);
+
+  void SetRows(const rdcarray<AnalyzerGpuCounterRow> &rows);
+  AnalyzerGpuCounterRow RowAt(int row) const;
+
+  int rowCount(const QModelIndex &parent = QModelIndex()) const override;
+  int columnCount(const QModelIndex &parent = QModelIndex()) const override;
+  QVariant headerData(int section, Qt::Orientation orientation, int role) const override;
+  QVariant data(const QModelIndex &index, int role = Qt::DisplayRole) const override;
+  void sort(int column, Qt::SortOrder order = Qt::AscendingOrder) override;
+
+private:
+  rdcarray<AnalyzerGpuCounterRow> m_Rows;
+};
+
 class AnalyzerResourceModel : public QAbstractTableModel
 {
 public:

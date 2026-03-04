@@ -886,3 +886,23 @@ bool AnalyzerExporter::WriteAll(const AnalyzerSnapshot &snap, const rdcstr &dir)
   - MSBuild：PASS（0 warning, 0 error）
   - `qrenderdoc.exe --unittest`：PASS（exit 0）
   - 手工验收：待你侧验证 Pipeline 表格排序 + 跳转到 Pipeline State
+
+### 2026-03-04 16:22 (Agent continuation)
+
+- [ ] **Pipeline Samples 表头明确 + 维度 06（GPU Counters）实现中**
+  - 关联计划：`plans/2026-03-04-143000-Agent01-PipelineHeader-TextureSamplingCounters.md`
+  - MSBuild：失败（`LNK1168`，`renderdoc.dll` 被占用）
+  - `qrenderdoc.exe --unittest`：未执行
+  - 处理：请关闭占用 `renderdoc.dll` 的进程后再重试构建
+
+### 2026-03-04 16:49 (Agent continuation)
+
+- [x] **Pipeline Samples 表头明确 + 维度 06（GPU Counters）实现与验证**
+  - MSBuild：PASS（0 warning, 0 error）
+  - `qrenderdoc.exe --unittest`：PASS（1399 assertions）
+  - 手工验收：待你侧验证 GPU Counters tab 显示/排序/跳转
+
+### 2026-03-04 (Agent continuation)
+
+- [x] **Pipeline Samples 表头明确 + 维度 06（GPU Counters）手工验收**
+  - 手工验收：用户确认通过

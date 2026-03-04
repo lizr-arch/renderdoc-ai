@@ -101,6 +101,23 @@ struct AnalyzerPipelineBandwidthRow
   bool depthWrite = false;
 };
 
+struct AnalyzerGpuCounterRow
+{
+  uint32_t eid = 0;
+  rdcstr name;
+  double gpuTimeMs = 0.0;
+  bool gpuTimeValid = false;
+  uint64_t vsInvocations = 0;
+  bool vsValid = false;
+  uint64_t psInvocations = 0;
+  bool psValid = false;
+  uint64_t csInvocations = 0;
+  bool csValid = false;
+  double textureSamples = 0.0;
+  bool textureValid = false;
+  rdcstr textureCounterName;
+};
+
 struct AnalyzerResourceRow
 {
   ResourceId id;
@@ -166,6 +183,7 @@ struct AnalyzerSnapshot
   rdcarray<AnalyzerDrawDispatchRow> drawDispatch;
   rdcarray<AnalyzerStateThrashRow> stateThrash;
   rdcarray<AnalyzerPipelineBandwidthRow> pipelineBandwidth;
+  rdcarray<AnalyzerGpuCounterRow> gpuCounters;
   rdcarray<AnalyzerResourceRow> resources;
   rdcarray<AnalyzerShaderRow> shaders;
   rdcarray<AnalyzerIssue> issues;

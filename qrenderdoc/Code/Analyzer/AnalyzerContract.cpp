@@ -140,6 +140,25 @@ QJsonObject PipelineBandwidthToQJson(const AnalyzerPipelineBandwidthRow &row)
   return obj;
 }
 
+QJsonObject GpuCounterToQJson(const AnalyzerGpuCounterRow &row)
+{
+  QJsonObject obj;
+  obj[lit("eid")] = (int)row.eid;
+  obj[lit("name")] = ToQStr(row.name);
+  obj[lit("gpu_time_ms")] = row.gpuTimeValid ? row.gpuTimeMs : 0.0;
+  obj[lit("gpu_time_valid")] = row.gpuTimeValid;
+  obj[lit("vs_invocations")] = row.vsValid ? (double)row.vsInvocations : 0.0;
+  obj[lit("vs_valid")] = row.vsValid;
+  obj[lit("ps_invocations")] = row.psValid ? (double)row.psInvocations : 0.0;
+  obj[lit("ps_valid")] = row.psValid;
+  obj[lit("cs_invocations")] = row.csValid ? (double)row.csInvocations : 0.0;
+  obj[lit("cs_valid")] = row.csValid;
+  obj[lit("texture_samples")] = row.textureValid ? row.textureSamples : 0.0;
+  obj[lit("texture_valid")] = row.textureValid;
+  obj[lit("texture_counter")] = ToQStr(row.textureCounterName);
+  return obj;
+}
+
 QJsonObject ResourceToQJson(const AnalyzerResourceRow &resource)
 {
   QJsonObject obj;
@@ -228,6 +247,11 @@ QJsonObject AnalyzerContract::ToQJson(const AnalyzerSnapshot &snapshot)
   for(const AnalyzerPipelineBandwidthRow &row : snapshot.pipelineBandwidth)
     pipelineBandwidth.push_back(PipelineBandwidthToQJson(row));
   root[lit("pipeline_bandwidth")] = pipelineBandwidth;
+
+  QJsonArray gpuCounters;
+  for(const AnalyzerGpuCounterRow &row : snapshot.gpuCounters)
+    gpuCounters.push_back(GpuCounterToQJson(row));
+  root[lit("gpu_counters")] = gpuCounters;
 
   QJsonArray resources;
   for(const AnalyzerResourceRow &resource : snapshot.resources)

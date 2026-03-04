@@ -105,12 +105,12 @@ void FrameAnalyzer::PopulateGpuCounters(ICaptureContext &ctx, AnalyzerSnapshot &
 
 ## Task Checklist (2-5 分钟粒度, TDD)
 
-- [ ] 新增失败单测：GpuCounter model 排序  
-- [ ] 运行 unittest，预期 FAIL  
-- [ ] 实现 AnalyzerTypes/FrameAnalyzer/Models/UI  
-- [ ] 再跑 unittest，预期 PASS  
-- [ ] 手工验收  
-- [ ] 提交（Conventional Commits）
+- [x] 新增失败单测：GpuCounter model 排序  
+- [ ] 运行 unittest，预期 FAIL（本轮未单独跑失败阶段）  
+- [x] 实现 AnalyzerTypes/FrameAnalyzer/Models/UI  
+- [x] 再跑 unittest，预期 PASS  
+- [x] 手工验收  
+- [x] 提交（Conventional Commits）
 
 ---
 
@@ -124,4 +124,11 @@ void FrameAnalyzer::PopulateGpuCounters(ICaptureContext &ctx, AnalyzerSnapshot &
 
 ## /do Execution Log
 
-> 待执行
+- 2026-03-04 16:22
+  - 已实现 GPU Counters 维度（EventGPUDuration/VS/PS/CS + 纹理采样计数器动态检测）。
+  - Build 失败：`LNK1168`，`D:\Code\git\renderdoc\x64\Development\renderdoc.dll` 被占用。
+  - Test 未执行。
+  - 2026-03-04 16:49 重新构建通过，unittest 通过。
+- 2026-03-04
+  - 用户验收通过。
+  - 提交：`feat(qrenderdoc-analyzer): add gpu counters tab and clarify msaa samples`

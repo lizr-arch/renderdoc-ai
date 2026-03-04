@@ -41,6 +41,7 @@ class AnalyzerEventModel;
 class AnalyzerDrawDispatchModel;
 class AnalyzerStateThrashModel;
 class AnalyzerPipelineBandwidthModel;
+class AnalyzerGpuCounterModel;
 class AnalyzerResourceModel;
 class AnalyzerShaderModel;
 class AnalyzerShaderSortModel;
@@ -77,6 +78,7 @@ private slots:
   void OnDrawDispatchFilterChanged(const QString &text);
   void OnStateThrashFilterChanged(const QString &text);
   void OnPipelineFilterChanged(const QString &text);
+  void OnGpuCounterFilterChanged(const QString &text);
   void OnResourceFilterChanged(const QString &text);
   void OnShaderFilterChanged(const QString &text);
 
@@ -89,6 +91,7 @@ private:
   void PopulateDrawDispatchTable();
   void PopulateStateThrashTable();
   void PopulatePipelineTable();
+  void PopulateGpuCounterTable();
   void PopulateResourceTable();
   void PopulateShaderTable();
   void ConfigureTableLayout();
@@ -134,6 +137,8 @@ private:
   QSortFilterProxyModel *m_StateThrashFilter = NULL;
   AnalyzerPipelineBandwidthModel *m_PipelineModel = NULL;
   QSortFilterProxyModel *m_PipelineFilter = NULL;
+  AnalyzerGpuCounterModel *m_GpuCounterModel = NULL;
+  QSortFilterProxyModel *m_GpuCounterFilter = NULL;
   AnalyzerResourceModel *m_ResourceModel = NULL;
   QSortFilterProxyModel *m_ResourceFilter = NULL;
   AnalyzerShaderModel *m_ShaderModel = NULL;
