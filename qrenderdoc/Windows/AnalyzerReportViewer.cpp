@@ -364,6 +364,16 @@ AnalyzerReportViewer::AnalyzerReportViewer(ICaptureContext &ctx, QWidget *parent
   ui->drawDispatchTable->setSelectionBehavior(QAbstractItemView::SelectRows);
   ui->drawDispatchTable->setSelectionMode(QAbstractItemView::SingleSelection);
 
+  m_StateThrashModel = new AnalyzerStateThrashModel(this);
+  m_StateThrashFilter = new QSortFilterProxyModel(this);
+  m_StateThrashFilter->setSourceModel(m_StateThrashModel);
+  m_StateThrashFilter->setFilterCaseSensitivity(Qt::CaseInsensitive);
+  m_StateThrashFilter->setFilterKeyColumn(-1);
+  ui->stateThrashTable->setModel(m_StateThrashFilter);
+  ui->stateThrashTable->setSortingEnabled(true);
+  ui->stateThrashTable->setSelectionBehavior(QAbstractItemView::SelectRows);
+  ui->stateThrashTable->setSelectionMode(QAbstractItemView::SingleSelection);
+
   m_ResourceModel = new AnalyzerResourceModel(this);
   m_ResourceFilter = new QSortFilterProxyModel(this);
   m_ResourceFilter->setSourceModel(m_ResourceModel);
@@ -387,6 +397,7 @@ AnalyzerReportViewer::AnalyzerReportViewer(ICaptureContext &ctx, QWidget *parent
   ui->issueFilterEdit->setPlaceholderText(tr("Search issues..."));
   ui->eventFilterEdit->setPlaceholderText(tr("Search events..."));
   ui->drawDispatchFilterEdit->setPlaceholderText(tr("Filter draw/dispatch..."));
+  ui->stateThrashFilterEdit->setPlaceholderText(tr("Filter state stats..."));
   ui->resourceFilterEdit->setPlaceholderText(tr("Search resources..."));
   ui->shaderFilterEdit->setPlaceholderText(tr("Search shaders..."));
 
@@ -425,6 +436,8 @@ AnalyzerReportViewer::AnalyzerReportViewer(ICaptureContext &ctx, QWidget *parent
           &AnalyzerReportViewer::OnEventFilterChanged);
   connect(ui->drawDispatchFilterEdit, &QLineEdit::textChanged, this,
           &AnalyzerReportViewer::OnDrawDispatchFilterChanged);
+  connect(ui->stateThrashFilterEdit, &QLineEdit::textChanged, this,
+          &AnalyzerReportViewer::OnStateThrashFilterChanged);
   connect(ui->resourceFilterEdit, &QLineEdit::textChanged, this,
           &AnalyzerReportViewer::OnResourceFilterChanged);
   connect(ui->shaderFilterEdit, &QLineEdit::textChanged, this,
@@ -472,12 +485,14 @@ void AnalyzerReportViewer::OnCaptureClosed()
   ui->issueFilterEdit->clear();
   ui->eventFilterEdit->clear();
   ui->drawDispatchFilterEdit->clear();
+  ui->stateThrashFilterEdit->clear();
   ui->resourceFilterEdit->clear();
   ui->shaderFilterEdit->clear();
 
   rdcarray<AnalyzerIssue> emptyIssues;
   rdcarray<AnalyzerEventRow> emptyEvents;
   rdcarray<AnalyzerDrawDispatchRow> emptyDrawDispatch;
+  rdcarray<AnalyzerStateThrashRow> emptyStateThrash;
   rdcarray<AnalyzerResourceRow> emptyResources;
   rdcarray<AnalyzerShaderRow> emptyShaders;
 
@@ -485,6 +500,7 @@ void AnalyzerReportViewer::OnCaptureClosed()
   m_TopIssueModel->SetIssues(emptyIssues);
   m_EventModel->SetEvents(emptyEvents);
   m_DrawDispatchModel->SetRows(emptyDrawDispatch);
+  m_StateThrashModel->SetRows(emptyStateThrash);
   m_ResourceModel->SetResources(emptyResources);
   m_ShaderModel->SetShaders(emptyShaders);
   UpdateOverviewCards();
@@ -531,6 +547,7 @@ void AnalyzerReportViewer::RefreshReport()
           self->PopulateIssueTable();
           self->PopulateEventTable();
           self->PopulateDrawDispatchTable();
+          self->PopulateStateThrashTable();
           self->PopulateResourceTable();
           self->PopulateShaderTable();
           self->SetBusyState(false, QString());
@@ -830,6 +847,13 @@ void AnalyzerReportViewer::PopulateDrawDispatchTable()
   ui->drawDispatchTable->sortByColumn(AnalyzerDrawDispatchModel::ColIndices, Qt::DescendingOrder);
 }
 
+void AnalyzerReportViewer::PopulateStateThrashTable()
+{
+  m_StateThrashModel->SetRows(m_Snapshot.stateThrash);
+  ui->stateThrashTable->sortByColumn(AnalyzerStateThrashModel::ColShaderChanges,
+                                     Qt::DescendingOrder);
+}
+
 void AnalyzerReportViewer::PopulateResourceTable()
 {
   m_ResourceModel->SetResources(m_Snapshot.resources);
@@ -863,6 +887,11 @@ void AnalyzerReportViewer::ConfigureTableLayout()
   drawDispatchHeader->setStretchLastSection(false);
   drawDispatchHeader->setSectionResizeMode(QHeaderView::Interactive);
   drawDispatchHeader->resizeSections(QHeaderView::ResizeToContents);
+
+  QHeaderView *stateThrashHeader = ui->stateThrashTable->horizontalHeader();
+  stateThrashHeader->setStretchLastSection(false);
+  stateThrashHeader->setSectionResizeMode(QHeaderView::Interactive);
+  stateThrashHeader->resizeSections(QHeaderView::ResizeToContents);
 
   QHeaderView *resourceHeader = ui->resourceTable->horizontalHeader();
   resourceHeader->setStretchLastSection(false);
@@ -984,6 +1013,11 @@ void AnalyzerReportViewer::OnEventFilterChanged(const QString &text)
 void AnalyzerReportViewer::OnDrawDispatchFilterChanged(const QString &text)
 {
   m_DrawDispatchFilter->setFilterFixedString(text);
+}
+
+void AnalyzerReportViewer::OnStateThrashFilterChanged(const QString &text)
+{
+  m_StateThrashFilter->setFilterFixedString(text);
 }
 
 void AnalyzerReportViewer::OnResourceFilterChanged(const QString &text)
@@ -1492,6 +1526,33 @@ void AnalyzerReportViewer::on_jumpButton_clicked()
       QMessageBox::warning(
           this, QString::fromUtf16(u"\u8df3\u8f6c\u5230\u4e8b\u4ef6"),
           QString::fromUtf16(u"\u6240\u9009\u4e8b\u4ef6\u6ca1\u6709\u6709\u6548\u7684 EID\u3002"));
+      return;
+    }
+
+    m_Ctx.SetEventID({}, eid, eid, true);
+    m_Ctx.ShowEventBrowser();
+    return;
+  }
+
+  if(currentTab == ui->stateThrashTab)
+  {
+    QModelIndexList rows = ui->stateThrashTable->selectionModel()->selectedRows();
+    if(rows.isEmpty())
+    {
+      QMessageBox::information(
+          this, QString::fromUtf16(u"\u8df3\u8f6c\u5230\u4e8b\u4ef6"),
+          QString::fromUtf16(
+              u"\u8bf7\u5148\u9009\u62e9\u4e00\u884c\u72b6\u6001\u7edf\u8ba1\uff0c\u518d\u8df3\u8f6c\u5230 "
+              u"Event Browser\u3002"));
+      return;
+    }
+
+    uint32_t eid = rows[0].data(AnalyzerStateThrashModel::EventIdRole).toUInt();
+    if(eid == 0)
+    {
+      QMessageBox::warning(
+          this, QString::fromUtf16(u"\u8df3\u8f6c\u5230\u4e8b\u4ef6"),
+          QString::fromUtf16(u"\u5f53\u524d\u6355\u83b7\u4e0d\u63d0\u4f9b\u6709\u6548\u7684\u4e8b\u4ef6\u4f9d\u636e\u3002"));
       return;
     }
 

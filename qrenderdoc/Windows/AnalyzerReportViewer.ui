@@ -559,6 +559,40 @@
       </item>
      </layout>
     </widget>
+    <widget class="QWidget" name="stateThrashTab">
+     <attribute name="title">
+      <string>State Thrash</string>
+     </attribute>
+     <layout class="QVBoxLayout" name="stateThrashLayout">
+      <item>
+       <layout class="QHBoxLayout" name="stateThrashFilterLayout">
+        <item>
+         <widget class="QLineEdit" name="stateThrashFilterEdit">
+          <property name="placeholderText">
+           <string>Filter state stats...</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <spacer name="stateThrashFilterSpacer">
+          <property name="orientation">
+           <enum>Qt::Horizontal</enum>
+          </property>
+          <property name="sizeHint" stdset="0">
+           <size>
+            <width>40</width>
+            <height>20</height>
+           </size>
+          </property>
+         </spacer>
+        </item>
+       </layout>
+      </item>
+      <item>
+       <widget class="QTableView" name="stateThrashTable"/>
+      </item>
+     </layout>
+    </widget>
     <widget class="QWidget" name="texturesTab">
      <attribute name="title">
       <string>Resources</string>

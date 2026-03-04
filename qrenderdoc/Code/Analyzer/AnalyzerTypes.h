@@ -79,6 +79,18 @@ struct AnalyzerDrawDispatchRow
   bool indirect = false;
 };
 
+struct AnalyzerStateThrashRow
+{
+  rdcstr stage;
+  uint32_t shaderChanges = 0;
+  uint32_t resourceBinds = 0;
+  uint32_t samplerBinds = 0;
+  uint32_t constantBinds = 0;
+  uint32_t redundantShaderBinds = 0;
+  uint32_t fallbackEID = 0;
+  bool available = false;
+};
+
 struct AnalyzerResourceRow
 {
   ResourceId id;
@@ -142,6 +154,7 @@ struct AnalyzerSnapshot
   AnalyzerSummary summary;
   rdcarray<AnalyzerEventRow> events;
   rdcarray<AnalyzerDrawDispatchRow> drawDispatch;
+  rdcarray<AnalyzerStateThrashRow> stateThrash;
   rdcarray<AnalyzerResourceRow> resources;
   rdcarray<AnalyzerShaderRow> shaders;
   rdcarray<AnalyzerIssue> issues;

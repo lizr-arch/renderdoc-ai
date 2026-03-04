@@ -39,6 +39,7 @@ class AnalyzerIssueModel;
 class AnalyzerIssueSortModel;
 class AnalyzerEventModel;
 class AnalyzerDrawDispatchModel;
+class AnalyzerStateThrashModel;
 class AnalyzerResourceModel;
 class AnalyzerShaderModel;
 class AnalyzerShaderSortModel;
@@ -73,6 +74,7 @@ private slots:
   void OnIssueFilterChanged(const QString &text);
   void OnEventFilterChanged(const QString &text);
   void OnDrawDispatchFilterChanged(const QString &text);
+  void OnStateThrashFilterChanged(const QString &text);
   void OnResourceFilterChanged(const QString &text);
   void OnShaderFilterChanged(const QString &text);
 
@@ -83,6 +85,7 @@ private:
   void PopulateIssueTable();
   void PopulateEventTable();
   void PopulateDrawDispatchTable();
+  void PopulateStateThrashTable();
   void PopulateResourceTable();
   void PopulateShaderTable();
   void ConfigureTableLayout();
@@ -124,6 +127,8 @@ private:
   QSortFilterProxyModel *m_EventFilter = NULL;
   AnalyzerDrawDispatchModel *m_DrawDispatchModel = NULL;
   QSortFilterProxyModel *m_DrawDispatchFilter = NULL;
+  AnalyzerStateThrashModel *m_StateThrashModel = NULL;
+  QSortFilterProxyModel *m_StateThrashFilter = NULL;
   AnalyzerResourceModel *m_ResourceModel = NULL;
   QSortFilterProxyModel *m_ResourceFilter = NULL;
   AnalyzerShaderModel *m_ShaderModel = NULL;

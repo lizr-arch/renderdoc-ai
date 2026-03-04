@@ -493,6 +493,147 @@ void AnalyzerDrawDispatchModel::sort(int column, Qt::SortOrder order)
   endResetModel();
 }
 
+AnalyzerStateThrashModel::AnalyzerStateThrashModel(QObject *parent) : QAbstractTableModel(parent)
+{
+}
+
+void AnalyzerStateThrashModel::SetRows(const rdcarray<AnalyzerStateThrashRow> &rows)
+{
+  beginResetModel();
+  m_Rows = rows;
+  endResetModel();
+}
+
+AnalyzerStateThrashRow AnalyzerStateThrashModel::RowAt(int row) const
+{
+  if(row < 0 || row >= m_Rows.count())
+    return AnalyzerStateThrashRow();
+
+  return m_Rows[row];
+}
+
+int AnalyzerStateThrashModel::rowCount(const QModelIndex &parent) const
+{
+  if(parent.isValid())
+    return 0;
+
+  return m_Rows.count();
+}
+
+int AnalyzerStateThrashModel::columnCount(const QModelIndex &parent) const
+{
+  if(parent.isValid())
+    return 0;
+
+  return ColCount;
+}
+
+QVariant AnalyzerStateThrashModel::headerData(int section, Qt::Orientation orientation,
+                                              int role) const
+{
+  if(orientation == Qt::Horizontal && role == Qt::DisplayRole)
+  {
+    switch(section)
+    {
+      case ColStage: return QObject::tr("Stage");
+      case ColShaderChanges: return QObject::tr("Shader Binds");
+      case ColRedundantShaders: return QObject::tr("Shader Redundant");
+      case ColResourceBinds: return QObject::tr("Resource Binds");
+      case ColSamplerBinds: return QObject::tr("Sampler Binds");
+      case ColConstantBinds: return QObject::tr("Constant Binds");
+      default: break;
+    }
+  }
+
+  return QVariant();
+}
+
+QVariant AnalyzerStateThrashModel::data(const QModelIndex &index, int role) const
+{
+  if(!index.isValid() || index.row() < 0 || index.row() >= m_Rows.count())
+    return QVariant();
+
+  const AnalyzerStateThrashRow &row = m_Rows[index.row()];
+
+  if(role == Qt::DisplayRole)
+  {
+    switch(index.column())
+    {
+      case ColStage: return ToQStr(row.stage);
+      case ColShaderChanges:
+        return row.available ? QVariant((int)row.shaderChanges) : QObject::tr("N/A");
+      case ColRedundantShaders:
+        return row.available ? QVariant((int)row.redundantShaderBinds) : QObject::tr("N/A");
+      case ColResourceBinds:
+        return row.available ? QVariant((int)row.resourceBinds) : QObject::tr("N/A");
+      case ColSamplerBinds:
+        return row.available ? QVariant((int)row.samplerBinds) : QObject::tr("N/A");
+      case ColConstantBinds:
+        return row.available ? QVariant((int)row.constantBinds) : QObject::tr("N/A");
+      default: break;
+    }
+  }
+
+  if(role == EventIdRole)
+    return (int)row.fallbackEID;
+
+  return QVariant();
+}
+
+void AnalyzerStateThrashModel::sort(int column, Qt::SortOrder order)
+{
+  if(m_Rows.count() <= 1)
+    return;
+
+  bool ascending = order == Qt::AscendingOrder;
+
+  auto compareText = [ascending](const rdcstr &a, const rdcstr &b) {
+    return ascending ? a < b : a > b;
+  };
+  auto compareUInt = [ascending](uint32_t a, uint32_t b) { return ascending ? a < b : a > b; };
+
+  beginResetModel();
+  std::stable_sort(
+      m_Rows.begin(), m_Rows.end(),
+      [column, &compareText, &compareUInt, ascending](const AnalyzerStateThrashRow &a,
+                                                      const AnalyzerStateThrashRow &b) {
+        if(a.available != b.available)
+          return a.available && !b.available;
+
+        switch(column)
+        {
+          case ColStage:
+            if(a.stage != b.stage)
+              return compareText(a.stage, b.stage);
+            break;
+          case ColShaderChanges:
+            if(a.shaderChanges != b.shaderChanges)
+              return compareUInt(a.shaderChanges, b.shaderChanges);
+            break;
+          case ColRedundantShaders:
+            if(a.redundantShaderBinds != b.redundantShaderBinds)
+              return compareUInt(a.redundantShaderBinds, b.redundantShaderBinds);
+            break;
+          case ColResourceBinds:
+            if(a.resourceBinds != b.resourceBinds)
+              return compareUInt(a.resourceBinds, b.resourceBinds);
+            break;
+          case ColSamplerBinds:
+            if(a.samplerBinds != b.samplerBinds)
+              return compareUInt(a.samplerBinds, b.samplerBinds);
+            break;
+          case ColConstantBinds:
+            if(a.constantBinds != b.constantBinds)
+              return compareUInt(a.constantBinds, b.constantBinds);
+            break;
+          default: break;
+        }
+
+        return a.stage < b.stage;
+      });
+  endResetModel();
+}
+
 AnalyzerResourceModel::AnalyzerResourceModel(QObject *parent) : QAbstractTableModel(parent)
 {
 }
@@ -1213,6 +1354,42 @@ TEST_CASE("Analyzer draw dispatch model sorts indices numerically", "[analyzer]"
   CHECK(model.RowAt(0).numIndices == 512);
   CHECK(model.RowAt(1).numIndices == 64);
   CHECK(model.RowAt(2).numIndices == 4);
+}
+
+TEST_CASE("Analyzer state thrash model sorts shader binds numerically", "[analyzer]")
+{
+  AnalyzerStateThrashRow low;
+  low.stage = "VS";
+  low.available = true;
+  low.shaderChanges = 1;
+
+  AnalyzerStateThrashRow mid;
+  mid.stage = "PS";
+  mid.available = true;
+  mid.shaderChanges = 6;
+
+  AnalyzerStateThrashRow high;
+  high.stage = "CS";
+  high.available = true;
+  high.shaderChanges = 20;
+
+  rdcarray<AnalyzerStateThrashRow> rows;
+  rows.push_back(mid);
+  rows.push_back(high);
+  rows.push_back(low);
+
+  AnalyzerStateThrashModel model;
+  model.SetRows(rows);
+
+  model.sort(AnalyzerStateThrashModel::ColShaderChanges, Qt::DescendingOrder);
+  CHECK(model.RowAt(0).shaderChanges == 20);
+  CHECK(model.RowAt(1).shaderChanges == 6);
+  CHECK(model.RowAt(2).shaderChanges == 1);
+
+  model.sort(AnalyzerStateThrashModel::ColShaderChanges, Qt::AscendingOrder);
+  CHECK(model.RowAt(0).shaderChanges == 1);
+  CHECK(model.RowAt(1).shaderChanges == 6);
+  CHECK(model.RowAt(2).shaderChanges == 20);
 }
 
 TEST_CASE("Analyzer shader model sorts use count numerically", "[analyzer]")

@@ -871,3 +871,10 @@ bool AnalyzerExporter::WriteAll(const AnalyzerSnapshot &snap, const rdcstr &dir)
   - 关联计划：`plans/2026-03-03-210001-Agent01-PerfDim-01-DrawDispatch.md`
   - MSBuild：PASS（0 warning, 0 error）
   - `qrenderdoc.exe --unittest`：PASS（exit 0）
+
+### 2026-03-04 11:35 (Agent continuation)
+
+- [x] **维度 02（State Thrash）实现与验证**
+  - 关联计划：`plans/2026-03-03-210002-Agent01-PerfDim-02-StateThrash.md`
+  - MSBuild：PASS（0 warning, 0 error）
+  - `qrenderdoc.exe --unittest`：PASS（exit 0）

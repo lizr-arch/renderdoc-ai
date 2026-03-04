@@ -114,6 +114,20 @@ QJsonObject DrawDispatchToQJson(const AnalyzerDrawDispatchRow &row)
   return obj;
 }
 
+QJsonObject StateThrashToQJson(const AnalyzerStateThrashRow &row)
+{
+  QJsonObject obj;
+  obj[lit("stage")] = ToQStr(row.stage);
+  obj[lit("shader_changes")] = (int)row.shaderChanges;
+  obj[lit("redundant_shader_binds")] = (int)row.redundantShaderBinds;
+  obj[lit("resource_binds")] = (int)row.resourceBinds;
+  obj[lit("sampler_binds")] = (int)row.samplerBinds;
+  obj[lit("constant_binds")] = (int)row.constantBinds;
+  obj[lit("available")] = row.available;
+  obj[lit("fallback_eid")] = (int)row.fallbackEID;
+  return obj;
+}
+
 QJsonObject ResourceToQJson(const AnalyzerResourceRow &resource)
 {
   QJsonObject obj;
@@ -192,6 +206,11 @@ QJsonObject AnalyzerContract::ToQJson(const AnalyzerSnapshot &snapshot)
   for(const AnalyzerDrawDispatchRow &row : snapshot.drawDispatch)
     drawDispatch.push_back(DrawDispatchToQJson(row));
   root[lit("draw_dispatch")] = drawDispatch;
+
+  QJsonArray stateThrash;
+  for(const AnalyzerStateThrashRow &row : snapshot.stateThrash)
+    stateThrash.push_back(StateThrashToQJson(row));
+  root[lit("state_thrash")] = stateThrash;
 
   QJsonArray resources;
   for(const AnalyzerResourceRow &resource : snapshot.resources)

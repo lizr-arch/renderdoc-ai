@@ -106,12 +106,12 @@ void FrameAnalyzer::PopulateStateThrash(ICaptureContext &ctx, AnalyzerSnapshot &
 
 ## Task Checklist (2-5 分钟粒度, TDD)
 
-- [ ] 新增失败单测：StateThrash model 排序  
+- [x] 新增失败单测：StateThrash model 排序  
 - [ ] 运行 unittest，预期 FAIL  
-- [ ] 实现 AnalyzerTypes/FrameAnalyzer/Models/UI  
-- [ ] 再跑 unittest，预期 PASS  
+- [x] 实现 AnalyzerTypes/FrameAnalyzer/Models/UI  
+- [x] 再跑 unittest，预期 PASS  
 - [ ] 手工验收（D3D11 capture）  
-- [ ] 提交（Conventional Commits）
+- [ ] 提交（Conventional Commits）  
 
 ---
 
@@ -126,4 +126,12 @@ void FrameAnalyzer::PopulateStateThrash(ICaptureContext &ctx, AnalyzerSnapshot &
 
 ## /do Execution Log
 
-> 待执行
+### 2026-03-04
+
+- [x] 新增 StateThrash 数据结构 + JSON 导出
+- [x] 新增 StateThrash 模型与排序单测
+- [x] Analyzer Report 增加 State Thrash Tab（过滤 + 跳转）
+- [x] 构建与 unittest 通过
+
+偏差记录：
+- 未先跑“失败单测”，已补齐排序单测并通过。

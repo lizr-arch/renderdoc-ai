@@ -39,6 +39,24 @@ ShaderStage StageFromLabel(const rdcstr &stage)
   return ShaderStage::Count;
 }
 
+rdcstr StageLabel(ShaderStage stage)
+{
+  switch(stage)
+  {
+    case ShaderStage::Vertex: return "VS";
+    case ShaderStage::Hull: return "HS";
+    case ShaderStage::Domain: return "DS";
+    case ShaderStage::Geometry: return "GS";
+    case ShaderStage::Pixel: return "PS";
+    case ShaderStage::Compute: return "CS";
+    case ShaderStage::Task: return "AS";
+    case ShaderStage::Mesh: return "MS";
+    default: break;
+  }
+
+  return "Unknown";
+}
+
 ShaderEntryPoint PickEntryPointForStage(const rdcarray<ShaderEntryPoint> &entries,
                                         ShaderStage preferredStage)
 {
@@ -107,6 +125,7 @@ AnalyzerSnapshot FrameAnalyzer::Build(ICaptureContext &ctx, IReplayController *r
   snapshot.summary.passCount = passIndex;
 
   PopulateDrawDispatch(ctx, snapshot);
+  PopulateStateThrash(ctx, snapshot);
   PopulateResources(ctx, snapshot);
   PopulateShaderUsage(ctx, snapshot, replay);
 
@@ -180,6 +199,46 @@ void FrameAnalyzer::PopulateDrawDispatch(ICaptureContext &ctx, AnalyzerSnapshot 
                 return a.eid < b.eid;
               return a.name < b.name;
             });
+}
+
+void FrameAnalyzer::PopulateStateThrash(ICaptureContext &ctx, AnalyzerSnapshot &snapshot) const
+{
+  const FrameStatistics &stats = ctx.FrameInfo().stats;
+
+  uint32_t fallbackEID = 0;
+  for(const AnalyzerEventRow &event : snapshot.events)
+  {
+    if(event.type == "draw" || event.type == "dispatch")
+    {
+      fallbackEID = event.eid;
+      break;
+    }
+  }
+
+  const ShaderStage stages[] = {ShaderStage::Vertex, ShaderStage::Hull,    ShaderStage::Domain,
+                                ShaderStage::Geometry, ShaderStage::Pixel, ShaderStage::Compute};
+
+  for(ShaderStage stage : stages)
+  {
+    int idx = (int)stage;
+    AnalyzerStateThrashRow row;
+    row.stage = StageLabel(stage);
+    row.available = stats.recorded;
+    row.fallbackEID = fallbackEID;
+
+    if(stats.recorded && idx >= 0 && idx < stats.shaders.count() &&
+       idx < stats.resources.count() && idx < stats.samplers.count() &&
+       idx < stats.constants.count())
+    {
+      row.shaderChanges = stats.shaders[idx].sets;
+      row.redundantShaderBinds = stats.shaders[idx].redundants;
+      row.resourceBinds = stats.resources[idx].sets;
+      row.samplerBinds = stats.samplers[idx].sets;
+      row.constantBinds = stats.constants[idx].sets;
+    }
+
+    snapshot.stateThrash.push_back(row);
+  }
 }
 
 rdcstr FrameAnalyzer::ActionName(const ActionDescription &action) const
