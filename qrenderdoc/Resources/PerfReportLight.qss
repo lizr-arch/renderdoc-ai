@@ -1,0 +1,78 @@
+#perfReportRoot {
+  background: #F6F7FB;
+}
+
+#perfReportRoot QFrame[perfCard="true"] {
+  background: #FFFFFF;
+  border: 1px solid #E5E7EB;
+  border-radius: 8px;
+}
+
+#perfReportRoot QLabel[perfH1="true"] {
+  color: #111827;
+  font-size: 20px;
+  font-weight: 600;
+}
+
+#perfReportRoot QLabel[perfH2="true"] {
+  color: #111827;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+#perfReportRoot QLabel[perfCaption="true"] {
+  color: #6B7280;
+  font-size: 11px;
+}
+
+#perfReportRoot QTableView {
+  background: #FFFFFF;
+  gridline-color: #E5E7EB;
+  selection-background-color: #DBEAFE;
+  selection-color: #111827;
+}
+
+#perfReportRoot QHeaderView::section {
+  background: #F3F4F6;
+  padding: 6px;
+  border: none;
+  font-weight: 600;
+}
+
+#perfReportRoot QPushButton {
+  background: #FFFFFF;
+  border: 1px solid #E5E7EB;
+  border-radius: 6px;
+  padding: 4px 10px;
+}
+
+#perfReportRoot QPushButton[perfPrimary="true"] {
+  background: #2563EB;
+  color: #FFFFFF;
+  border: 1px solid #2563EB;
+}
+
+#perfReportRoot QLineEdit, #perfReportRoot QComboBox {
+  background: #FFFFFF;
+  border: 1px solid #E5E7EB;
+  border-radius: 6px;
+  padding: 4px 8px;
+}
+
+#perfReportRoot QTabWidget::pane {
+  border: 1px solid #E5E7EB;
+  border-radius: 8px;
+  margin-top: 4px;
+}
+
+#perfReportRoot QTabBar::tab {
+  background: #F3F4F6;
+  padding: 6px 12px;
+  margin-right: 4px;
+  border-top-left-radius: 6px;
+  border-top-right-radius: 6px;
+}
+
+#perfReportRoot QTabBar::tab:selected {
+  background: #FFFFFF;
+}
