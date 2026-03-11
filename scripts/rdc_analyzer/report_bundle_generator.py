@@ -129,6 +129,7 @@ def validate_payload_schema(payload, schema_path: Path):
 
 
 class ReportBundleGenerator:
+    # Legacy fallback/compat renderer. Primary long-term route is snapshot.v1 shared renderer.
     """4 页面报告包生成器"""
     
     # Schema 文件映射
@@ -139,7 +140,8 @@ class ReportBundleGenerator:
     }
     
     def __init__(self, output_dir: Union[str, Path], capture_name: str, 
-                 validate_schema: bool = False, external_data: bool = False):
+                 validate_schema: bool = False, external_data: bool = False,
+                 compat_mode: bool = True):
         """
         初始化生成器
         
@@ -153,6 +155,7 @@ class ReportBundleGenerator:
         self.capture_name = capture_name
         self.timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         self.validate_schema = validate_schema
+        self.compat_mode = compat_mode
         self.external_data = external_data  # P7C.4: 是否启用外部数据模式
         
         # 数据存储
@@ -1531,6 +1534,7 @@ class ReportBundleGenerator:
         return {
             "version": "1.0",
             "generator": "RDC Report Bundle Generator",
+            "mode": "legacy-fallback" if self.compat_mode else "legacy-direct",
             "generated_at": self.timestamp,
             "capture": {
                 "name": self.capture_name,
