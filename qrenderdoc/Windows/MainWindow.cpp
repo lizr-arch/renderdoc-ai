@@ -2643,6 +2643,16 @@ void MainWindow::on_action_Analyzer_Report_triggered()
     ui->toolWindowManager->addToolWindow(report, mainToolArea());
 }
 
+void MainWindow::on_action_Performance_Report_triggered()
+{
+  QWidget *report = m_Ctx.GetPerformanceReportViewer()->Widget();
+
+  if(ui->toolWindowManager->toolWindows().contains(report))
+    ToolWindowManager::raiseToolWindow(report);
+  else
+    ui->toolWindowManager->addToolWindow(report, mainToolArea());
+}
+
 void MainWindow::on_action_Timeline_triggered()
 {
   QWidget *stats = m_Ctx.GetTimelineBar()->Widget();

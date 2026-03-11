@@ -113,7 +113,7 @@ def convert_rdc_to_xml(
         "convert",
         "-c", "xml",
         "-o", str(xml_path),
-        str(rdc_file)
+        "-f", str(rdc_file),
     ]
     
     result = subprocess.run(

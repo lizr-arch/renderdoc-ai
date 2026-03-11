@@ -41,6 +41,7 @@
 #include "Widgets/AnnotationDisplay.h"
 #include "Windows/APIInspector.h"
 #include "Windows/AnalyzerReportViewer.h"
+#include "Windows/PerformanceReportViewer.h"
 #include "Windows/BufferViewer.h"
 #include "Windows/CommentView.h"
 #include "Windows/DebugMessageView.h"
@@ -2409,6 +2410,18 @@ IAnalyzerReportViewer *CaptureContext::GetAnalyzerReportViewer()
   return m_AnalyzerReportViewer;
 }
 
+IPerformanceReportViewer *CaptureContext::GetPerformanceReportViewer()
+{
+  if(m_PerformanceReportViewer)
+    return m_PerformanceReportViewer;
+
+  m_PerformanceReportViewer = new PerformanceReportViewer(*this, m_MainWindow);
+  m_PerformanceReportViewer->setObjectName(lit("performanceReportViewer"));
+  setupDockWindow(m_PerformanceReportViewer, true);
+
+  return m_PerformanceReportViewer;
+}
+
 ITimelineBar *CaptureContext::GetTimelineBar()
 {
   if(m_TimelineBar)
@@ -2508,6 +2521,11 @@ void CaptureContext::ShowStatisticsViewer()
 void CaptureContext::ShowAnalyzerReportViewer()
 {
   m_MainWindow->showAnalyzerReportViewer();
+}
+
+void CaptureContext::ShowPerformanceReportViewer()
+{
+  m_MainWindow->showPerformanceReportViewer();
 }
 
 void CaptureContext::ShowTimelineBar()
@@ -2755,6 +2773,10 @@ QWidget *CaptureContext::CreateBuiltinWindow(const rdcstr &objectName)
   {
     return GetAnalyzerReportViewer()->Widget();
   }
+  else if(objectName == "performanceReportViewer")
+  {
+    return GetPerformanceReportViewer()->Widget();
+  }
   else if(objectName == "timelineBar")
   {
     return GetTimelineBar()->Widget();
@@ -2799,6 +2821,8 @@ void CaptureContext::BuiltinWindowClosed(QWidget *window)
     m_StatisticsViewer = NULL;
   else if(m_AnalyzerReportViewer && m_AnalyzerReportViewer->Widget() == window)
     m_AnalyzerReportViewer = NULL;
+  else if(m_PerformanceReportViewer && m_PerformanceReportViewer->Widget() == window)
+    m_PerformanceReportViewer = NULL;
   else if(m_TimelineBar && m_TimelineBar->Widget() == window)
     m_TimelineBar = NULL;
   else if(m_PythonShell && m_PythonShell->Widget() == window)

@@ -152,6 +152,38 @@ def open_webui_callback(ctx, _data):
 - [x] 更新文档：`WEBUI_AND_UI_EXTENSION.md` 扩展安装/使用说明
 - [x] **提交（需用户确认）**：`docs(ui-extension): document install and usage`
 
+- [x] 写失败测试：`test_run_analysis_uses_alias_package`（避免 UI 扩展包名冲突导致导入失败）
+- [x] 运行测试并确认失败：`py -3 -m pytest scripts/rdc_analyzer/tests -k test_run_analysis_uses_alias_package -v`
+- [x] 最小实现：`run_analysis` 使用 `_load_analyzer_package` + `importlib.import_module` 按别名包导入 `renderdoc_shell_analyze`
+- [x] 复跑测试确认通过：`py -3 -m pytest scripts/rdc_analyzer/tests -k test_run_analysis_uses_alias_package -v`
+- [ ] 手工验证：重装扩展并移除旧 `rdc_analyzer` 扩展目录，GUI 中不再报 `No module named 'rdc_analyzer.tools'`
+
+- [x] 写失败测试：缺失 `dataclasses` 时应提示“内嵌 Python 不完整/版本过旧”并写入日志
+- [x] 运行测试并确认失败：`py -3 -m pytest scripts/rdc_analyzer/tests -k test_ui_extension_logs_missing_dataclasses -v`
+- [x] 最小实现：在 `analyzer_extension.py` 中加入日志系统（文件路径固定、包含 Python 版本/`sys.path`/异常栈）
+- [x] 最小实现：在 `run_analysis` 或启动前检测 `import dataclasses`，失败时友好提示 + 记录日志后退出
+- [x] 复跑测试确认通过：`py -3 -m pytest scripts/rdc_analyzer/tests -k test_ui_extension_logs_missing_dataclasses -v`
+- [x] 更新文档：`WEBUI_AND_UI_EXTENSION.md` 增加日志位置 + Python 版本要求
+
+- [x] 写失败测试：`test_tools_init_does_not_import_install_ui_extension`（避免 tools/__init__ 触发 3.6 SyntaxError）
+- [x] 运行测试并确认失败：`py -3 -m pytest scripts/rdc_analyzer/tests -k test_tools_init_does_not_import_install_ui_extension -v`
+- [x] 最小实现：`scripts/rdc_analyzer/tools/__init__.py` 不再自动 import 安装脚本
+- [x] 复跑测试确认通过：`py -3 -m pytest scripts/rdc_analyzer/tests -k test_tools_init_does_not_import_install_ui_extension -v`
+
+- [x] 写失败测试：`test_gui_pipeline_files_avoid_future_annotations`（GUI 路径关键文件不能含 future annotations）
+- [x] 运行测试并确认失败：`py -3 -m pytest scripts/rdc_analyzer/tests -k test_gui_pipeline_files_avoid_future_annotations -v`
+- [x] 最小实现：移除 `tools/renderdoc_shell_analyze.py` 与 `webui/server.py` 的 `from __future__ import annotations`
+- [x] 复跑测试确认通过：`py -3 -m pytest scripts/rdc_analyzer/tests -k test_gui_pipeline_files_avoid_future_annotations -v`
+
+- [x] 写失败测试：`test_create_summary_handles_issue_objects`（_create_summary 应支持 Issue 对象）
+- [x] 运行测试并确认失败：`py -3 -m pytest scripts/rdc_analyzer/tests -k test_create_summary_handles_issue_objects -v`
+- [x] 最小实现：_create_summary 支持 dict + Issue 混合统计
+- [x] 复跑测试确认通过：`py -3 -m pytest scripts/rdc_analyzer/tests -k test_create_summary_handles_issue_objects -v`
+
+- [x] 写失败测试：`test_webui_falls_back_when_socket_missing`（嵌入 Python 缺 _socket 时外部 WebUI 回退）
+- [x] 运行测试并确认失败：`py -3 -m pytest scripts/rdc_analyzer/tests -k test_webui_falls_back_when_socket_missing -v`
+- [x] 最小实现：WebUI server import 失败时启用外部 Python 服务器（py -3）
+- [x] 复跑测试确认通过：`py -3 -m pytest scripts/rdc_analyzer/tests -k test_webui_falls_back_when_socket_missing -v`
 ## Risks & Blockers
 - RenderDoc 版本无 PySide2/QtWebEngine → 仅外部浏览器可用。
 - 扩展加载路径与脚本路径不一致 → 需安装脚本写入配置。
@@ -168,3 +200,14 @@ def open_webui_callback(ctx, _data):
 ## Open Questions
 - 你是否允许 **每个任务完成后提交**？（当前按“需确认”执行）
 - 默认输出目录是否固定为 `capture_dir/rdc_analyzer/<capture_name>`？
+
+## /do Log
+- 2026-02-23: 已重新安装扩展到 `C:\Users\lizhirui01\AppData\Roaming\qrenderdoc\extensions\rdc_analyzer_ext`；旧目录 `...\\rdc_analyzer` 已删除；GUI 手工验证待执行。
+- 2026-02-24: 新增扩展日志系统 + 缺失 `dataclasses` 自检提示；补测试与文档；TDD 测试 `test_ui_extension_logs_missing_dataclasses` 通过。
+- 2026-02-24: 重新安装扩展以同步最新代码（含日志/自检），等待 GUI 侧复现并生成日志。
+- 2026-02-24: 确认嵌入 Python=3.6.4 缺 `dataclasses`；新增 vendor 回退加载逻辑 + 测试通过；下载 dataclasses backport 到 `scripts/rdc_analyzer/_vendor/dataclasses` 并重装扩展。
+- 2026-02-24: 修复 `tools/__init__.py` 自动导入导致的 Python 3.6 `SyntaxError`；新增测试并通过。
+- 2026-02-24: 移除 GUI 关键路径文件的 `from __future__ import annotations`（renderdoc_shell_analyze.py / webui/server.py），避免 3.6 语法错误；新增测试通过。
+- 2026-02-24: 修复 `_create_summary` 对 Issue 对象统计崩溃（TypeError）；新增测试并通过。
+- 2026-02-24: 嵌入 Python 缺 _socket 时改用外部 Python 启动 WebUI；新增测试并通过；日志文件改为时间戳 + latest。
+- 2026-02-24: 外部 WebUI 服务器启动改为 unbuffered 输出并解析真实端口（port=0 自选）；失败则明确报错；重新安装扩展。

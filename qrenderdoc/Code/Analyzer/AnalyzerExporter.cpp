@@ -25,12 +25,13 @@
 #include "AnalyzerExporter.h"
 #include <QDir>
 #include <QFile>
+#include <QJsonDocument>
 #include <QTextStream>
-#include "AnalyzerContract.h"
 #include "Code/QRDUtils.h"
+#include "AnalyzerContract.h"
 
 bool AnalyzerExporter::WriteAll(const AnalyzerSnapshot &snapshot, const QString &directory,
-                                QString *error) const
+                                const QJsonObject &captureContext, QString *error) const
 {
   QDir dir(directory);
   if(!dir.exists() && !dir.mkpath(lit(".")))
@@ -43,6 +44,7 @@ bool AnalyzerExporter::WriteAll(const AnalyzerSnapshot &snapshot, const QString 
   const QString jsonPath = dir.absoluteFilePath(lit("analysis.json"));
   const QString csvPath = dir.absoluteFilePath(lit("issues_export.csv"));
   const QString mdPath = dir.absoluteFilePath(lit("issues_export.md"));
+  const QString captureContextPath = dir.absoluteFilePath(lit("capture_context.json"));
 
   if(!WriteAnalysisJSON(snapshot, jsonPath, error))
     return false;
@@ -51,6 +53,9 @@ bool AnalyzerExporter::WriteAll(const AnalyzerSnapshot &snapshot, const QString 
     return false;
 
   if(!WriteIssuesMarkdown(snapshot, mdPath, error))
+    return false;
+
+  if(!WriteCaptureContextJSON(captureContext, captureContextPath, error))
     return false;
 
   return true;
@@ -74,16 +79,15 @@ bool AnalyzerExporter::WriteIssuesCSV(const AnalyzerSnapshot &snapshot, const QS
   {
     uint32_t eid = issue.eventIds.empty() ? 0 : issue.eventIds[0];
 
-    QString line =
-        QFormatStr("\"%1\",\"%2\",\"%3\",\"%4\",%5,%6,\"%7\",\"%8\"\n")
-            .arg(ToQStr(issue.severity).replace(lit("\""), lit("\"\"")))
-            .arg(ToQStr(issue.code).replace(lit("\""), lit("\"\"")))
-            .arg(ToQStr(issue.category).replace(lit("\""), lit("\"\"")))
-            .arg(ToQStr(issue.message).replace(lit("\""), lit("\"\"")))
-            .arg(eid)
-            .arg(issue.impactScore)
-            .arg(ToQStr(issue.confidence).replace(lit("\""), lit("\"\"")))
-            .arg(ToQStr(issue.recommendation).replace(lit("\""), lit("\"\"")));
+    QString line = QFormatStr("\"%1\",\"%2\",\"%3\",\"%4\",%5,%6,\"%7\",\"%8\"\n")
+                       .arg(ToQStr(issue.severity).replace(lit("\""), lit("\"\"")))
+                       .arg(ToQStr(issue.code).replace(lit("\""), lit("\"\"")))
+                       .arg(ToQStr(issue.category).replace(lit("\""), lit("\"\"")))
+                       .arg(ToQStr(issue.message).replace(lit("\""), lit("\"\"")))
+                       .arg(eid)
+                       .arg(issue.impactScore)
+                       .arg(ToQStr(issue.confidence).replace(lit("\""), lit("\"\"")))
+                       .arg(ToQStr(issue.recommendation).replace(lit("\""), lit("\"\"")));
 
     stream << line;
   }
@@ -115,6 +119,16 @@ bool AnalyzerExporter::WriteIssuesMarkdown(const AnalyzerSnapshot &snapshot, con
   stream.flush();
 
   return WriteBytes(path, data, error);
+}
+
+bool AnalyzerExporter::WriteCaptureContextJSON(const QJsonObject &captureContext,
+                                               const QString &path, QString *error) const
+{
+  QJsonObject root = captureContext;
+  if(!root.contains(lit("schema_version")))
+    root[lit("schema_version")] = lit("capture_context.v1");
+
+  return WriteBytes(path, QJsonDocument(root).toJson(QJsonDocument::Indented), error);
 }
 
 bool AnalyzerExporter::WriteBytes(const QString &path, const QByteArray &bytes, QString *error) const

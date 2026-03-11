@@ -289,5 +289,13 @@ ColMaliBound,
 - [ ] **Next pending**
   - 你侧重新 Run Mali Analysis，确认 `Mali status` 出现 hash/id 命中统计
 
+### 2026-03-01 15:13 (Agent continuation)
+
+- [x] **增加 entry_name + size 兜底匹配**
+  - JSON 侧已有 `entry_name/size`，C++ 侧新增 `entry` 匹配通道
+  - Mali status 摘要增加 entry 命中数与冲突计数
+- [ ] **Next pending**
+  - 你侧重新 Run Mali Analysis，确认 `Mali status` 出现 entry 命中
+
 ## Next Step
 - Manual GUI validation by you, then we can commit and proceed to next dimension work.

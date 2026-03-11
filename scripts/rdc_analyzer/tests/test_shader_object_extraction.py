@@ -33,3 +33,16 @@ def test_extract_spirv_blobs_from_chunk_finds_one(tmp_path):
 
     assert len(shaders) == 1
     assert shaders[0].is_valid_spirv
+
+
+def test_extract_from_chunks_fallback_scans_unknown_chunk_ids(tmp_path):
+    """未知 chunk_id 时也应能回退扫描 SPIR-V blob"""
+    blob = _make_spirv_blob()
+    data = b"\x00" * 32 + blob + b"\x00" * 32
+    chunk = ChunkInfo(chunk_id=9999, flags=0, length=len(data), data_offset=0)
+
+    extractor = ShaderExtractor()
+    shaders = extractor.extract_from_chunks(data, [chunk])
+
+    assert len(shaders) == 1
+    assert shaders[0].is_valid_spirv

@@ -54,6 +54,83 @@
       </widget>
      </item>
      <item>
+      <widget class="QFrame" name="timingNoticeFrame">
+       <property name="sizePolicy">
+        <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+         <horstretch>0</horstretch>
+         <verstretch>0</verstretch>
+        </sizepolicy>
+       </property>
+       <property name="minimumSize">
+        <size>
+         <width>240</width>
+         <height>0</height>
+        </size>
+       </property>
+       <property name="toolTip">
+        <string>Timing 为回放采样的 GPU timestamp 差，仅适合热点排序；不可作为真实帧耗时或跨设备对比。</string>
+       </property>
+       <property name="frameShape">
+        <enum>QFrame::StyledPanel</enum>
+       </property>
+       <layout class="QVBoxLayout" name="timingNoticeLayout">
+        <property name="leftMargin">
+         <number>8</number>
+        </property>
+        <property name="rightMargin">
+         <number>8</number>
+        </property>
+        <property name="topMargin">
+         <number>6</number>
+        </property>
+        <property name="bottomMargin">
+         <number>6</number>
+        </property>
+        <item>
+         <layout class="QHBoxLayout" name="timingBadgeLayout">
+          <item>
+           <widget class="QLabel" name="timingTitleLabel">
+            <property name="text">
+             <string>Timing 口径</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QWidget" name="timingBadgeHost"/>
+          </item>
+          <item>
+           <spacer name="timingBadgeSpacer">
+            <property name="orientation">
+             <enum>Qt::Horizontal</enum>
+            </property>
+            <property name="sizeHint" stdset="0">
+             <size>
+              <width>20</width>
+              <height>10</height>
+             </size>
+            </property>
+           </spacer>
+          </item>
+         </layout>
+        </item>
+        <item>
+         <widget class="QLabel" name="timingSummaryLabel">
+          <property name="text">
+           <string>回放 GPU timestamp（近似）</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QLabel" name="timingDetailLabel">
+          <property name="text">
+           <string>当前可信度：低</string>
+          </property>
+         </widget>
+        </item>
+       </layout>
+      </widget>
+     </item>
+     <item>
       <widget class="QProgressBar" name="progressBar">
        <property name="minimumSize">
         <size>
@@ -460,6 +537,47 @@
              <property name="text">
               <string/>
              </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QFrame" name="timingNoteFrame">
+             <property name="toolTip">
+              <string>Timing 为回放采样的 GPU timestamp 差，仅适合热点排序；不可作为真实帧耗时或跨设备对比。</string>
+             </property>
+             <property name="frameShape">
+              <enum>QFrame::StyledPanel</enum>
+             </property>
+             <layout class="QVBoxLayout" name="timingNoteLayout">
+              <property name="leftMargin">
+               <number>8</number>
+              </property>
+              <property name="rightMargin">
+               <number>8</number>
+              </property>
+              <property name="topMargin">
+               <number>6</number>
+              </property>
+              <property name="bottomMargin">
+               <number>6</number>
+              </property>
+              <item>
+               <widget class="QLabel" name="timingNoteTitle">
+                <property name="text">
+                 <string>Timing 口径说明</string>
+                </property>
+               </widget>
+              </item>
+              <item>
+               <widget class="QLabel" name="timingNoteBody">
+                <property name="text">
+                 <string>来源：回放 GPU timestamp（EventGPUDuration）&#10;适用：同一 capture 内热点排序&#10;不适用：真实帧耗时 / 跨设备对比&#10;当前可信度：低</string>
+                </property>
+                <property name="wordWrap">
+                 <bool>true</bool>
+                </property>
+               </widget>
+              </item>
+             </layout>
             </widget>
            </item>
            <item>

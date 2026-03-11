@@ -120,6 +120,33 @@ class TestConvertRdcToXml:
                 assert "-c" in call_args
                 assert "xml" in call_args
 
+    def test_conversion_uses_filename_flag(self, tmp_path):
+        """RenderDoc 1.38+ requires -f/--filename for convert."""
+        rdc_file = tmp_path / "test.rdc"
+        rdc_file.write_bytes(b"dummy rdc")
+
+        xml_output = tmp_path / "output.xml"
+
+        with patch('rdc_analyzer.parsers.rdc_loader.find_renderdoccmd') as mock_find:
+            mock_find.return_value = "/usr/bin/renderdoccmd"
+
+            with patch('subprocess.run') as mock_run:
+                mock_result = MagicMock()
+                mock_result.returncode = 0
+                mock_run.return_value = mock_result
+
+                result = convert_rdc_to_xml(
+                    str(rdc_file),
+                    output_path=str(xml_output),
+                    renderdoccmd="/usr/bin/renderdoccmd"
+                )
+
+                assert result == str(xml_output)
+
+                call_args = mock_run.call_args[0][0]
+                assert "-f" in call_args
+                assert str(rdc_file) in call_args
+
 
 class TestLoadCaptureFile:
     """Tests for load_capture_file function."""

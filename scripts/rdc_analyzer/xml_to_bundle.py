@@ -32,6 +32,8 @@ sys.path.insert(0, str(SCRIPTS_DIR))
 # 直接导入解析器（避免 package 相对导入问题）
 import xml.etree.ElementTree as ET
 from report_bundle_generator import ReportBundleGenerator
+# 统一查询/过滤层（与 MCP 对齐）
+from query_layer import Query, filter_draw_calls
 
 
 class SimpleXmlParser:
@@ -458,6 +460,19 @@ def parse_args():
                         help='Maximum number of thumbnails to generate (default: 50)')
     parser.add_argument('--thumbnail-size', type=int, default=512,
                         help='Max thumbnail dimension in pixels (default: 512)')
+    # Filtering options (aligned with MCP Query DSL subset)
+    parser.add_argument('--marker-filter', dest='marker_filter', default=None,
+                        help='Include only actions under markers containing this substring (if markers available)')
+    parser.add_argument('--exclude-markers', dest='exclude_markers', default=None,
+                        help='Comma-separated marker substrings to exclude (if markers available)')
+    parser.add_argument('--event-id-min', dest='event_id_min', type=int, default=None,
+                        help='Minimum event_id to include')
+    parser.add_argument('--event-id-max', dest='event_id_max', type=int, default=None,
+                        help='Maximum event_id to include')
+    parser.add_argument('--only-actions', dest='only_actions', action='store_true',
+                        help='Exclude marker-like actions if present')
+    parser.add_argument('--flags-filter', dest='flags_filter', default=None,
+                        help='Comma-separated action types to include: Drawcall,Dispatch,Clear,Copy,Present')
     parser.add_argument('-v', '--verbose', action='store_true',
                         help='Verbose output')
     return parser.parse_args()
@@ -965,6 +980,34 @@ def main():
     buffers = data.get("buffers", [])
     driver = data.get("driver", "Unknown")
     
+    # Prepare filters (comma-separated strings -> list)
+    exclude_markers = (
+        [m.strip() for m in args.exclude_markers.split(",") if m.strip()]
+        if args.exclude_markers else None
+    )
+    flags_filter = (
+        [f.strip() for f in args.flags_filter.split(",") if f.strip()]
+        if args.flags_filter else None
+    )
+
+    query = Query(
+        marker_filter=args.marker_filter,
+        exclude_markers=exclude_markers,
+        event_id_min=args.event_id_min,
+        event_id_max=args.event_id_max,
+        only_actions=args.only_actions,
+        flags_filter=flags_filter,
+    )
+
+    if any([
+        query.marker_filter, query.exclude_markers,
+        query.event_id_min is not None, query.event_id_max is not None,
+        query.only_actions, query.flags_filter
+    ]):
+        before = len(draw_calls)
+        draw_calls = filter_draw_calls(draw_calls, query)
+        print(f"      Filters applied: from {before} -> {len(draw_calls)} draw calls")
+
     print(f"      Driver: {driver}")
     print(f"      Draw Calls: {len(draw_calls)}")
     print(f"      Textures: {len(textures_raw)}")

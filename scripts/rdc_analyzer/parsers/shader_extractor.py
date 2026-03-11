@@ -13,6 +13,7 @@ Shader data structure in vkCreateShaderModule chunk:
 - offset 0x18-0x1F: duplicate codeSize
 - offset 0x20-0x5F: padding (zeros)
 - offset 0x60+: SPIR-V data (64-byte aligned)
+- tail (last 8 bytes): ResourceId (shader module)
 
 Extracted from rdc_parser.py for better modularity.
 """
@@ -73,6 +74,13 @@ class ShaderExtractor:
                     shaders.append(shader)
             elif create_shaders_ext is not None and chunk.chunk_id == create_shaders_ext:
                 shaders.extend(self._extract_spirv_blobs(data, chunk))
+
+        # Fallback: if no shaders found, scan all chunks for SPIR-V blobs.
+        if not shaders:
+            for chunk in chunks:
+                if chunk.length < 20:
+                    continue
+                shaders.extend(self._extract_spirv_blobs(data, chunk))
         
         if self._deduplicate:
             return self._deduplicate_shaders(shaders)
@@ -114,8 +122,10 @@ class ShaderExtractor:
             if chunk.length < 0x64:  # 最小有效长度
                 return None
             
-            # 读取 ResourceId (偏移 0x00)
-            resource_id = struct.unpack_from('<Q', data, offset)[0]
+            # 读取 ShaderModule ResourceId（序列化在 chunk 末尾）
+            resource_id = 0
+            if chunk.length >= 8:
+                resource_id = struct.unpack_from('<Q', data, chunk_end - 8)[0]
             
             # 读取 codeSize (偏移 0x10)
             code_size = struct.unpack_from('<Q', data, offset + 0x10)[0]

@@ -25,6 +25,7 @@
 #pragma once
 
 #include <QFrame>
+#include <QJsonObject>
 #include "Code/Analyzer/AnalyzerExporter.h"
 #include "Code/Analyzer/FrameAnalyzer.h"
 #include "Code/Analyzer/IssueEngine.h"
@@ -47,6 +48,7 @@ class AnalyzerShaderModel;
 class AnalyzerShaderSortModel;
 class AnalyzerSeverityBadgeDelegate;
 class AnalyzerImpactBarDelegate;
+class AnalyzerTimingBadgeWidget;
 class QSortFilterProxyModel;
 class QProcess;
 
@@ -86,6 +88,8 @@ private:
   void ApplyLightTheme();
   void UpdateSummaryText();
   void UpdateOverviewCards();
+  QString ComputeTimingConfidence() const;
+  void UpdateTimingNotice();
   void PopulateIssueTable();
   void PopulateEventTable();
   void PopulateDrawDispatchTable();
@@ -116,6 +120,7 @@ private:
   void BuildIssueEvidenceForm(const AnalyzerIssue &issue);
   double ComputeIssueWeight(const AnalyzerIssue &issue) const;
   double ScoreFromWeight(double weight) const;
+  QJsonObject BuildCaptureContextExport() const;
 
   Ui::AnalyzerReportViewer *ui = NULL;
   ICaptureContext &m_Ctx;
@@ -129,6 +134,7 @@ private:
   AnalyzerIssueSortModel *m_TopIssueSortModel = NULL;
   AnalyzerSeverityBadgeDelegate *m_SeverityDelegate = NULL;
   AnalyzerImpactBarDelegate *m_ImpactDelegate = NULL;
+  AnalyzerTimingBadgeWidget *m_TimingBadge = NULL;
   AnalyzerEventModel *m_EventModel = NULL;
   QSortFilterProxyModel *m_EventFilter = NULL;
   AnalyzerDrawDispatchModel *m_DrawDispatchModel = NULL;

@@ -4,8 +4,6 @@
 RenderDoc Python Shell helper for generating analysis.json with shader data.
 """
 
-from __future__ import annotations
-
 import os
 import shutil
 import sys

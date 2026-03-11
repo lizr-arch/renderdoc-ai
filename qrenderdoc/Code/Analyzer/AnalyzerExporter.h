@@ -24,19 +24,23 @@
 
 #pragma once
 
+#include <QJsonObject>
 #include <QString>
 #include "AnalyzerTypes.h"
 
 class AnalyzerExporter
 {
 public:
-  bool WriteAll(const AnalyzerSnapshot &snapshot, const QString &directory, QString *error) const;
+  bool WriteAll(const AnalyzerSnapshot &snapshot, const QString &directory,
+                const QJsonObject &captureContext, QString *error) const;
 
 private:
   bool WriteAnalysisJSON(const AnalyzerSnapshot &snapshot, const QString &path, QString *error) const;
   bool WriteIssuesCSV(const AnalyzerSnapshot &snapshot, const QString &path, QString *error) const;
   bool WriteIssuesMarkdown(const AnalyzerSnapshot &snapshot, const QString &path,
                            QString *error) const;
+  bool WriteCaptureContextJSON(const QJsonObject &captureContext, const QString &path,
+                               QString *error) const;
 
   bool WriteBytes(const QString &path, const QByteArray &bytes, QString *error) const;
 };

@@ -25,6 +25,7 @@
 #pragma once
 
 #include <QFrame>
+#include <QStringList>
 #include <functional>
 #include "Code/Interface/QRDInterface.h"
 
@@ -111,7 +112,31 @@ private slots:
   void lineEdit_keyPress(QKeyEvent *);
 
 private:
+  struct AndroidPreflightReport
+  {
+    rdcstr host;
+    rdcstr packageAndActivity;
+    bool remoteConnected = false;
+    bool adbProtocol = false;
+    bool packageSpecified = false;
+    bool debuggable = false;
+    bool rootAccess = false;
+    bool sdkPathProvided = false;
+    bool sdkPathExists = false;
+    QString sdkPath;
+    bool jdkPathProvided = false;
+    bool jdkPathExists = false;
+    QString jdkPath;
+    uint32_t maxConnectTimeout = 30;
+    QStringList blockers;
+    QStringList warnings;
+    QStringList suggestions;
+  };
+
   void SetExecutableFilename(const rdcstr &filename, bool remoteSelection);
+  AndroidPreflightReport BuildAndroidPreflightReport(const QString &filename) const;
+  QString BuildAndroidPreflightHTML(const AndroidPreflightReport &report) const;
+  void ApplyAndroidPreflightReport(const AndroidPreflightReport &report);
 
   Ui::CaptureDialog *ui;
   ICaptureContext &m_Ctx;
@@ -134,4 +159,5 @@ private:
 
   void CheckAndroidSetup(QString &filename);
   AndroidFlags m_AndroidFlags;
+  AndroidPreflightReport m_AndroidPreflight;
 };

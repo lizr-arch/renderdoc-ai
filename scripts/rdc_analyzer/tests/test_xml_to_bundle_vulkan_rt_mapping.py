@@ -65,7 +65,10 @@ def test_simple_xml_parser_tracks_vulkan_render_targets(tmp_path: Path):
     first = draw_calls[0]
     assert first["event_id"] == 101
     assert first["render_targets"] == [{"id": "IMG_COLOR", "slot": 0}]
-    assert first["depth_target"] == "IMG_DEPTH"
+    assert first["depth_target"] == {
+        "id": "IMG_DEPTH",
+        "aspect": "VK_IMAGE_ASPECT_DEPTH_BIT",
+    }
 
     second = draw_calls[1]
     assert second["event_id"] == 102
@@ -74,6 +77,9 @@ def test_simple_xml_parser_tracks_vulkan_render_targets(tmp_path: Path):
 
     events = xb.xml_to_bundle_events_dict(draw_calls)
     assert events[0]["renderTargets"] == [{"id": "IMG_COLOR", "slot": 0}]
-    assert events[0]["depthTarget"] == {"id": "IMG_DEPTH"}
+    assert events[0]["depthTarget"] == {
+        "id": "IMG_DEPTH",
+        "aspect": "VK_IMAGE_ASPECT_DEPTH_BIT",
+    }
     assert events[1].get("renderTargets", []) == []
     assert "depthTarget" not in events[1]

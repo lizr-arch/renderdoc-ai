@@ -80,19 +80,20 @@ void AnalyzerReportViewer::RunMaliAnalysis()
 - **Risk**: 依赖 `py -3` 与 `malioc`；缺失时需提示并降级为 N/A。
 
 ## Task Checklist (2–5 min granularity)
-- [ ] 创建风险维度文档 `report_risk_dimensions_v1.md`（含：风险维度→证据→排序→跳转→置信度）
-- [ ] 更新 `DOC_INDEX.md` 收录新文档
-- [ ] 扩展 `AnalyzerShaderRow`（Mali 字段 + hash）
-- [ ] `AnalyzerContract` 导出 Mali 字段到 analysis.json
-- [ ] Shader model 增加 Mali 列 + 排序逻辑 + N/A 展示
-- [ ] Shaders Tab UI：GPU 选择 + “Run Mali” 按钮 + 状态文本
-- [ ] 实现 Mali 分析流程（QProcess 调用 + JSON 解析 + hash 映射）
-- [ ] 增加 unit test：Mali Cost 列排序
+- [x] 创建风险维度文档 `report_risk_dimensions_v1.md`（含：风险维度→证据→排序→跳转→置信度）
+- [x] 更新 `DOC_INDEX.md` 收录新文档
+- [x] 扩展 `AnalyzerShaderRow`（Mali 字段 + hash）
+- [x] `AnalyzerContract` 导出 Mali 字段到 analysis.json
+- [x] Shader model 增加 Mali 列 + 排序逻辑 + N/A 展示
+- [x] Shaders Tab UI：GPU 选择 + “Run Mali” 按钮 + 状态文本
+- [x] 实现 Mali 分析流程（QProcess 调用 + JSON 解析 + hash 映射）
+- [x] 增加 unit test：Mali Cost 列排序
 
 ## Risks / Blockers
 - `malioc` 未安装或路径不可用 → 需要显式提示与降级。
 - `py -3` 不可用 → Mali 分析入口失效（仅展示基础列）。
 - Vulkan 之外的 API 无 SPIR-V → 无法计算 hash/映射。
+- LNK1168：`qrenderdoc.exe` 被占用，无法完成本轮 MSBuild 与 unittest 验证。
 
 ## Decisions
 - Mali 分析来源采用 `scripts/rdc_analyzer/analyze_rdc.py --json`（复用现有链路）。

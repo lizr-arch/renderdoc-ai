@@ -24,7 +24,6 @@
 
 #include "AnalyzerReportViewer.h"
 #include <QAbstractItemView>
-#include <cmath>
 #include <QColor>
 #include <QCoreApplication>
 #include <QCryptographicHash>
@@ -32,9 +31,9 @@
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
-#include <QHeaderView>
-#include <QHash>
 #include <QHBoxLayout>
+#include <QHash>
+#include <QHeaderView>
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
@@ -43,6 +42,7 @@
 #include <QPointer>
 #include <QProcess>
 #include <QSortFilterProxyModel>
+#include <cmath>
 #include "Code/QRDUtils.h"
 #include "AnalyzerModels.h"
 #include "AnalyzerReportWidgets.h"
@@ -79,6 +79,17 @@ QString LocalizeConfidenceLabel(const rdcstr &confidence)
   if(confidence == "low")
     return QString::fromUtf16(u"\u4f4e");
   return ToQStr(confidence);
+}
+
+QString LocalizeConfidenceLabel(const QString &confidence)
+{
+  if(confidence.compare(lit("high"), Qt::CaseInsensitive) == 0)
+    return QString::fromUtf16(u"\u9ad8");
+  if(confidence.compare(lit("medium"), Qt::CaseInsensitive) == 0)
+    return QString::fromUtf16(u"\u4e2d");
+  if(confidence.compare(lit("low"), Qt::CaseInsensitive) == 0)
+    return QString::fromUtf16(u"\u4f4e");
+  return confidence;
 }
 
 QString LocalizeCategoryLabel(const rdcstr &category)
@@ -159,6 +170,22 @@ QString LocalizeEvidenceUnit(const rdcstr &unit)
   if(unit == "px")
     return QString::fromUtf16(u"\u50cf\u7d20");
   return ToQStr(unit);
+}
+
+QString ConfigStringOrEmpty(const char *settingName)
+{
+  if(const SDObject *setting = RENDERDOC_GetConfigSetting(settingName))
+    return QString::fromUtf8(setting->AsString().c_str()).trimmed();
+
+  return QString();
+}
+
+uint32_t ConfigUIntOrDefault(const char *settingName, uint32_t defaultValue)
+{
+  if(const SDObject *setting = RENDERDOC_GetConfigSetting(settingName))
+    return setting->AsUInt32();
+
+  return defaultValue;
 }
 
 uint32_t PickIssueEventId(const AnalyzerIssue &issue)
@@ -315,12 +342,19 @@ AnalyzerReportViewer::AnalyzerReportViewer(ICaptureContext &ctx, QWidget *parent
   ui->topIssuesTitle->setProperty("arH2", true);
   ui->issueDetailTitle->setProperty("arH2", true);
   ui->issueDetailMeta->setProperty("arCaption", true);
+  ui->timingTitleLabel->setProperty("arH2", true);
+  ui->timingSummaryLabel->setProperty("arCaption", true);
+  ui->timingDetailLabel->setProperty("arCaption", true);
+  ui->timingNoteTitle->setProperty("arH2", true);
+  ui->timingNoteBody->setProperty("arCaption", true);
 
   ui->scoreFrame->setProperty("arCard", true);
   ui->topIssuesFrame->setProperty("arCard", true);
   ui->statsFrame->setProperty("arCard", true);
   ui->issueListFrame->setProperty("arCard", true);
   ui->issueDetailFrame->setProperty("arCard", true);
+  ui->timingNoticeFrame->setProperty("arCard", true);
+  ui->timingNoteFrame->setProperty("arCard", true);
   ui->subscoreCard1->setProperty("arCard", true);
   ui->subscoreCard2->setProperty("arCard", true);
   ui->subscoreCard3->setProperty("arCard", true);
@@ -440,6 +474,15 @@ AnalyzerReportViewer::AnalyzerReportViewer(ICaptureContext &ctx, QWidget *parent
   ui->topIssuesTable->setItemDelegateForColumn(AnalyzerIssueModel::ColSeverity, m_SeverityDelegate);
   ui->topIssuesTable->setItemDelegateForColumn(AnalyzerIssueModel::ColImpact, m_ImpactDelegate);
 
+  m_TimingBadge = new AnalyzerTimingBadgeWidget(ui->timingBadgeHost);
+  QHBoxLayout *timingLayout = qobject_cast<QHBoxLayout *>(ui->timingBadgeHost->layout());
+  if(timingLayout == NULL)
+  {
+    timingLayout = new QHBoxLayout(ui->timingBadgeHost);
+    timingLayout->setContentsMargins(0, 0, 0, 0);
+  }
+  timingLayout->addWidget(m_TimingBadge);
+
   ui->overviewScroll->setFrameShape(QFrame::NoFrame);
 
   ui->overallTitle->setProperty("arCaption", true);
@@ -541,6 +584,7 @@ void AnalyzerReportViewer::OnCaptureLoaded()
   ClearIssueDetails();
   ResetMaliState();
   SetBusyState(false, QString());
+  UpdateTimingNotice();
 }
 
 void AnalyzerReportViewer::OnCaptureClosed()
@@ -578,6 +622,7 @@ void AnalyzerReportViewer::OnCaptureClosed()
   ClearIssueDetails();
   ResetMaliState();
   SetBusyState(false, QString());
+  UpdateTimingNotice();
 }
 
 void AnalyzerReportViewer::RefreshReport()
@@ -640,6 +685,7 @@ void AnalyzerReportViewer::UpdateSummaryText()
                              .arg(summary.frameNumber));
 
   UpdateOverviewCards();
+  UpdateTimingNotice();
 }
 
 double AnalyzerReportViewer::ComputeIssueWeight(const AnalyzerIssue &issue) const
@@ -794,6 +840,49 @@ void AnalyzerReportViewer::UpdateOverviewCards()
   ui->topIssuesTable->sortByColumn(AnalyzerIssueModel::ColImpact, Qt::DescendingOrder);
 }
 
+QString AnalyzerReportViewer::ComputeTimingConfidence() const
+{
+  if(m_Snapshot.gpuCounters.empty())
+    return lit("low");
+
+  int validCount = 0;
+  for(const AnalyzerGpuCounterRow &row : m_Snapshot.gpuCounters)
+  {
+    if(row.gpuTimeValid && row.gpuTimeMs > 0.0)
+      validCount++;
+  }
+
+  if(validCount == 0)
+    return lit("low");
+
+  double ratio = (double)validCount / (double)m_Snapshot.gpuCounters.count();
+  if(ratio >= 0.75)
+    return lit("high");
+  if(ratio >= 0.35)
+    return lit("medium");
+  return lit("low");
+}
+
+void AnalyzerReportViewer::UpdateTimingNotice()
+{
+  QString confidence = ComputeTimingConfidence();
+  if(m_TimingBadge != NULL)
+    m_TimingBadge->SetConfidence(confidence);
+
+  QString localized = LocalizeConfidenceLabel(confidence);
+  ui->timingDetailLabel->setText(
+      QString::fromUtf16(u"\u5f53\u524d\u53ef\u4fe1\u5ea6: %1").arg(localized));
+
+  QString body =
+      QString::fromUtf16(
+          u"\u6765\u6e90: \u56de\u653e GPU timestamp (EventGPUDuration)\n"
+          u"\u9002\u7528: \u540c\u4e00 capture \u5185\u70ed\u70b9\u6392\u5e8f\n"
+          u"\u4e0d\u9002\u7528: \u771f\u5b9e\u5e27\u8017\u65f6 / \u8de8\u8bbe\u5907\u5bf9\u6bd4\n"
+          u"\u5f53\u524d\u53ef\u4fe1\u5ea6: %1")
+          .arg(localized);
+  ui->timingNoteBody->setText(body);
+}
+
 void AnalyzerReportViewer::ClearIssueDetails()
 {
   ui->issueDetailTitle->setText(QString::fromUtf16(u"\u8bf7\u9009\u62e9\u4e00\u4e2a\u95ee\u9898"));
@@ -851,9 +940,8 @@ void AnalyzerReportViewer::BuildIssueEvidenceForm(const AnalyzerIssue &issue)
     {
       if(!tooltipText.isEmpty())
         tooltipText += QLatin1Char('\n');
-      tooltipText += QFormatStr("%1: %2")
-                         .arg(QString::fromUtf16(u"\u6765\u6e90"))
-                         .arg(ToQStr(evidence.source));
+      tooltipText +=
+          QFormatStr("%1: %2").arg(QString::fromUtf16(u"\u6765\u6e90")).arg(ToQStr(evidence.source));
     }
     if(!tooltipText.isEmpty())
       value->setToolTip(tooltipText);
@@ -869,20 +957,21 @@ void AnalyzerReportViewer::UpdateIssueDetails(const AnalyzerIssue &issue)
   int impactPercent = (int)std::round(issue.impactScore * 100.0);
   QString meta =
       QString::fromUtf16(
-          u"\u4e25\u91cd\u6027: %1  |  \u5f71\u54cd\u8bc4\u5206: %2%% (%3)  |  "
+          u"\u4e25\u91cd\u6027: %1  |  \u5f71\u54cd\u8bc4\u4f30: %2%% (%3)  |  "
           u"\u53ef\u4fe1\u5ea6: %4  |  \u7c7b\u522b: %5  |  \u89c4\u5219\u7f16\u53f7: %6")
-                     .arg(LocalizeSeverityLabel(issue.severity))
-                     .arg(impactPercent)
-                     .arg(ImpactLevelLabel(issue.impactScore))
-                     .arg(LocalizeConfidenceLabel(issue.confidence))
-                     .arg(LocalizeCategoryLabel(issue.category))
-                     .arg(ToQStr(issue.code));
+          .arg(LocalizeSeverityLabel(issue.severity))
+          .arg(impactPercent)
+          .arg(ImpactLevelLabel(issue.impactScore))
+          .arg(LocalizeConfidenceLabel(issue.confidence))
+          .arg(LocalizeCategoryLabel(issue.category))
+          .arg(ToQStr(issue.code));
   ui->issueDetailMeta->setText(meta);
-  ui->issueDetailMeta->setToolTip(
-      QString::fromUtf16(
-          u"\u89c4\u5219\u7f16\u53f7\u7528\u4e8e\u5b9a\u4f4d\u89c4\u5219\u4e0e\u5bfc\u51fa\u5bf9\u9f50\u3002"
-          u"\u5f71\u54cd\u8bc4\u5206\u4e3a 0-1 \u7684\u4f30\u8ba1\u503c\uff0c\u8d8a\u5927\u4ee3\u8868"
-          u"\u5f71\u54cd\u8d8a\u9ad8\u3002"));
+  ui->issueDetailMeta->setToolTip(QString::fromUtf16(
+      u"\u89c4\u5219\u7f16\u53f7\u7528\u4e8e\u5b9a\u4f4d\u89c4\u5219\u4e0e\u5bfc\u51fa\u5bf9\u9f50"
+      u"\u3002"
+      u"\u5f71\u54cd\u8bc4\u4f30\u4e3a 0-1 \u7684\u4f30\u7b97\u503c\uff0c\u57fa\u4e8e\u56de\u653e"
+      u" GPU "
+      u"\u65f6\u95f4\u6233\uff1b\u4f4e\u53ef\u4fe1\u5ea6\u65f6\u4ec5\u4f9b\u53c2\u8003\u3002"));
 
   if(issue.recommendation.empty())
     ui->issueRecommendationLabel->setText(QString::fromUtf16(u"\u5efa\u8bae: -"));
@@ -923,15 +1012,13 @@ void AnalyzerReportViewer::PopulateDrawDispatchTable()
 void AnalyzerReportViewer::PopulateStateThrashTable()
 {
   m_StateThrashModel->SetRows(m_Snapshot.stateThrash);
-  ui->stateThrashTable->sortByColumn(AnalyzerStateThrashModel::ColShaderChanges,
-                                     Qt::DescendingOrder);
+  ui->stateThrashTable->sortByColumn(AnalyzerStateThrashModel::ColShaderChanges, Qt::DescendingOrder);
 }
 
 void AnalyzerReportViewer::PopulatePipelineTable()
 {
   m_PipelineModel->SetRows(m_Snapshot.pipelineBandwidth);
-  ui->pipelineTable->sortByColumn(AnalyzerPipelineBandwidthModel::ColRTCount,
-                                  Qt::DescendingOrder);
+  ui->pipelineTable->sortByColumn(AnalyzerPipelineBandwidthModel::ColRTCount, Qt::DescendingOrder);
 }
 
 void AnalyzerReportViewer::PopulateGpuCounterTable()
@@ -1014,17 +1101,13 @@ void AnalyzerReportViewer::PopulateMaliGpuList()
   ui->maliGpuCombo->clear();
   ui->maliGpuCombo->setEditable(true);
 
-  const char *gpuList[] = {"Mali-G1",    "Immortalis-G925", "Immortalis-G720",
-                           "Mali-G725", "Mali-G720",        "Mali-G625",
-                           "Mali-G620", "Immortalis-G715",  "Mali-G715",
-                           "Mali-G710", "Mali-G615",        "Mali-G610",
-                           "Mali-G510", "Mali-G310",        "Mali-G78AE",
-                           "Mali-G78",  "Mali-G77",         "Mali-G68",
-                           "Mali-G57",  "Mali-G76",         "Mali-G72",
-                           "Mali-G71",  "Mali-G52",         "Mali-G51",
-                           "Mali-G31",  "Mali-T880",        "Mali-T860",
-                           "Mali-T830", "Mali-T820",        "Mali-T760",
-                           "Mali-T720"};
+  const char *gpuList[] = {
+      "Mali-G1",   "Immortalis-G925", "Immortalis-G720", "Mali-G725", "Mali-G720", "Mali-G625",
+      "Mali-G620", "Immortalis-G715", "Mali-G715",       "Mali-G710", "Mali-G615", "Mali-G610",
+      "Mali-G510", "Mali-G310",       "Mali-G78AE",      "Mali-G78",  "Mali-G77",  "Mali-G68",
+      "Mali-G57",  "Mali-G76",        "Mali-G72",        "Mali-G71",  "Mali-G52",  "Mali-G51",
+      "Mali-G31",  "Mali-T880",       "Mali-T860",       "Mali-T830", "Mali-T820", "Mali-T760",
+      "Mali-T720"};
   for(const char *gpu : gpuList)
     ui->maliGpuCombo->addItem(QString::fromLatin1(gpu));
 
@@ -1141,6 +1224,43 @@ void AnalyzerReportViewer::on_refreshButton_clicked()
   RefreshReport();
 }
 
+QJsonObject AnalyzerReportViewer::BuildCaptureContextExport() const
+{
+  QJsonObject context;
+  context[lit("schema_version")] = lit("capture_context.v1");
+  context[lit("source")] = lit("qrenderdoc.analyzer_report_viewer");
+  context[lit("capture_loaded")] = m_Ctx.IsCaptureLoaded();
+  context[lit("capture_file")] = QDir::toNativeSeparators(m_Ctx.GetCaptureFilename());
+  context[lit("current_event_eid")] = (int)m_Ctx.CurEvent();
+  context[lit("selected_event_eid")] = (int)m_Ctx.CurSelectedEvent();
+
+  RemoteHost remote = m_Ctx.Replay().CurrentRemote();
+  QJsonObject remoteObj;
+  remoteObj[lit("valid")] = remote.IsValid();
+  remoteObj[lit("connected")] = remote.IsConnected();
+  remoteObj[lit("hostname")] = ToQStr(remote.Hostname());
+  remoteObj[lit("display_name")] = ToQStr(remote.Name());
+  remoteObj[lit("protocol")] =
+      remote.Protocol() ? ToQStr(remote.Protocol()->GetProtocolName()) : QString();
+  context[lit("remote")] = remoteObj;
+
+  const QString sdkPath = ConfigStringOrEmpty("Android.SDKDirPath");
+  const QString jdkPath = ConfigStringOrEmpty("Android.JDKDirPath");
+  const uint32_t timeout = ConfigUIntOrDefault("Android.MaxConnectTimeout", 30);
+
+  QJsonObject androidObj;
+  androidObj[lit("sdk_path")] = sdkPath;
+  androidObj[lit("sdk_path_provided")] = !sdkPath.isEmpty();
+  androidObj[lit("sdk_path_exists")] = sdkPath.isEmpty() || QDir(sdkPath).exists();
+  androidObj[lit("jdk_path")] = jdkPath;
+  androidObj[lit("jdk_path_provided")] = !jdkPath.isEmpty();
+  androidObj[lit("jdk_path_exists")] = jdkPath.isEmpty() || QDir(jdkPath).exists();
+  androidObj[lit("max_connect_timeout")] = (int)timeout;
+  context[lit("android")] = androidObj;
+
+  return context;
+}
+
 void AnalyzerReportViewer::on_exportButton_clicked()
 {
   if(!m_Ctx.IsCaptureLoaded())
@@ -1168,15 +1288,18 @@ void AnalyzerReportViewer::on_exportButton_clicked()
   if(outDir.isEmpty())
     return;
 
+  QJsonObject captureContext = BuildCaptureContextExport();
+
   QString error;
-  if(!m_Exporter.WriteAll(m_Snapshot, outDir, &error))
+  if(!m_Exporter.WriteAll(m_Snapshot, outDir, captureContext, &error))
   {
     QMessageBox::critical(this, tr("Analyzer Export"), error);
     return;
   }
 
   QMessageBox::information(this, tr("Analyzer Export"),
-                           tr("Exported analysis.json and issues_export.{csv,md} to:\n%1")
+                           tr("Exported analysis.json, capture_context.json, and "
+                              "issues_export.{csv,md} to:\n%1")
                                .arg(QDir::toNativeSeparators(outDir)));
 }
 
@@ -1202,8 +1325,7 @@ void AnalyzerReportViewer::StartMaliAnalysis()
 {
   if(m_MaliProcess && m_MaliProcess->state() != QProcess::NotRunning)
   {
-    QMessageBox::information(this, tr("Mali Analysis"),
-                             tr("Mali analysis is already running."));
+    QMessageBox::information(this, tr("Mali Analysis"), tr("Mali analysis is already running."));
     return;
   }
 
@@ -1231,9 +1353,8 @@ void AnalyzerReportViewer::StartMaliAnalysis()
   }
 
   m_MaliGpu = gpuName;
-  m_MaliOutputPath =
-      QDir::tempPath() + QDir::separator() +
-      QString(lit("renderdoc_mali_%1.json")).arg(QCoreApplication::applicationPid());
+  m_MaliOutputPath = QDir::tempPath() + QDir::separator() +
+                     QString(lit("renderdoc_mali_%1.json")).arg(QCoreApplication::applicationPid());
 
   if(m_MaliProcess)
   {
@@ -1251,20 +1372,19 @@ void AnalyzerReportViewer::StartMaliAnalysis()
                    this, [this](int exitCode, QProcess::ExitStatus status) {
                      HandleMaliProcessFinished(exitCode, status != QProcess::NormalExit);
                    });
-  QObject::connect(m_MaliProcess, &QProcess::errorOccurred, this,
-                   [this](QProcess::ProcessError) {
-                     ui->maliRunButton->setEnabled(m_Ctx.IsCaptureLoaded() && !m_BuildInFlight);
-                     ui->maliGpuCombo->setEnabled(m_Ctx.IsCaptureLoaded() && !m_BuildInFlight);
-                     ui->maliStatusLabel->setText(tr("Mali analysis failed"));
-                     QMessageBox::warning(this, tr("Mali Analysis"),
-                                          tr("Failed to start Mali analysis.\n\n%1")
-                                              .arg(m_MaliProcess->errorString()));
-                     if(m_MaliProcess)
-                     {
-                       m_MaliProcess->deleteLater();
-                       m_MaliProcess = NULL;
-                     }
-                   });
+  QObject::connect(m_MaliProcess, &QProcess::errorOccurred, this, [this](QProcess::ProcessError) {
+    ui->maliRunButton->setEnabled(m_Ctx.IsCaptureLoaded() && !m_BuildInFlight);
+    ui->maliGpuCombo->setEnabled(m_Ctx.IsCaptureLoaded() && !m_BuildInFlight);
+    ui->maliStatusLabel->setText(tr("Mali analysis failed"));
+    QMessageBox::warning(
+        this, tr("Mali Analysis"),
+        tr("Failed to start Mali analysis.\n\n%1").arg(m_MaliProcess->errorString()));
+    if(m_MaliProcess)
+    {
+      m_MaliProcess->deleteLater();
+      m_MaliProcess = NULL;
+    }
+  });
 
   ui->maliStatusLabel->setText(tr("Running Mali analysis..."));
   ui->maliRunButton->setEnabled(false);
@@ -1285,8 +1405,7 @@ void AnalyzerReportViewer::HandleMaliProcessFinished(int exitCode, bool crashed)
   if(crashed || exitCode != 0)
   {
     ui->maliStatusLabel->setText(tr("Mali analysis failed"));
-    QMessageBox::warning(this, tr("Mali Analysis"),
-                         tr("Mali analysis failed.\n\n%1").arg(stdErr));
+    QMessageBox::warning(this, tr("Mali Analysis"), tr("Mali analysis failed.\n\n%1").arg(stdErr));
     if(m_MaliProcess)
     {
       m_MaliProcess->deleteLater();
@@ -1372,8 +1491,8 @@ bool AnalyzerReportViewer::ApplyMaliAnalysisResults(const QString &jsonPath, con
     m.valid = obj.value(lit("valid")).toBool(false);
     m.totalCycles = obj.value(lit("total_cycles")).toDouble(0.0);
     m.shortestPath = obj.value(lit("shortest_path")).toDouble(0.0);
-    m.longestPath = obj.value(lit("longest_path")).toDouble(
-        obj.value(lit("total_cycles")).toDouble(0.0));
+    m.longestPath =
+        obj.value(lit("longest_path")).toDouble(obj.value(lit("total_cycles")).toDouble(0.0));
     m.fmaCycles = obj.value(lit("fma_cycles")).toDouble(0.0);
     m.cvtCycles = obj.value(lit("cvt_cycles")).toDouble(0.0);
     m.sfuCycles = obj.value(lit("sfu_cycles")).toDouble(0.0);
@@ -1496,11 +1615,9 @@ bool AnalyzerReportViewer::ApplyMaliAnalysisResults(const QString &jsonPath, con
         if(missSamples.count() < missSampleLimit)
         {
           QString sample = lit("stage=%1 hash=%2 entry=%3 bytes=%4 entryName=%5")
-                               .arg(stageKey,
-                                    hashKey.isEmpty() ? lit("<none>") : hashKey,
+                               .arg(stageKey, hashKey.isEmpty() ? lit("<none>") : hashKey,
                                     entryKey.isEmpty() ? lit("<none>") : entryKey,
-                                    QString::number(byteSize),
-                                    ToQStr(entryName));
+                                    QString::number(byteSize), ToQStr(entryName));
           missSamples << sample;
         }
         if(hash.empty())
@@ -1552,16 +1669,15 @@ bool AnalyzerReportViewer::ApplyMaliAnalysisResults(const QString &jsonPath, con
   {
     const AnalyzerShaderRow &sample = m_Snapshot.shaders[0];
     qInfo().noquote() << "Mali UI sample row:"
-                      << "name=" << ToQStr(sample.name)
-                      << "stage=" << ToQStr(sample.stage)
-                      << "valid=" << sample.maliValid
-                      << "total=" << sample.maliTotalCycles
+                      << "name=" << ToQStr(sample.name) << "stage=" << ToQStr(sample.stage)
+                      << "valid=" << sample.maliValid << "total=" << sample.maliTotalCycles
                       << "cost=" << sample.maliCost;
   }
 
   if(summary)
   {
-    *summary = tr("found %1/%2 (hash %3, id %4, entry %5, valid %6, invalid %7, no data %8, no SPIR-V %9, unsupported %10)")
+    *summary = tr("found %1/%2 (hash %3, id %4, entry %5, valid %6, invalid %7, no data %8, no "
+                  "SPIR-V %9, unsupported %10)")
                    .arg(foundShaders)
                    .arg(totalShaders)
                    .arg(foundByHash)
@@ -1646,18 +1762,18 @@ void AnalyzerReportViewer::on_jumpButton_clicked()
     {
       QMessageBox::information(
           this, QString::fromUtf16(u"\u8df3\u8f6c\u5230\u4e8b\u4ef6"),
-          QString::fromUtf16(
-              u"\u8bf7\u5148\u9009\u62e9\u4e00\u884c\u72b6\u6001\u7edf\u8ba1\uff0c\u518d\u8df3\u8f6c\u5230 "
-              u"Event Browser\u3002"));
+          QString::fromUtf16(u"\u8bf7\u5148\u9009\u62e9\u4e00\u884c\u72b6\u6001\u7edf\u8ba1\uff0c"
+                             u"\u518d\u8df3\u8f6c\u5230 "
+                             u"Event Browser\u3002"));
       return;
     }
 
     uint32_t eid = rows[0].data(AnalyzerStateThrashModel::EventIdRole).toUInt();
     if(eid == 0)
     {
-      QMessageBox::warning(
-          this, QString::fromUtf16(u"\u8df3\u8f6c\u5230\u4e8b\u4ef6"),
-          QString::fromUtf16(u"\u5f53\u524d\u6355\u83b7\u4e0d\u63d0\u4f9b\u6709\u6548\u7684\u4e8b\u4ef6\u4f9d\u636e\u3002"));
+      QMessageBox::warning(this, QString::fromUtf16(u"\u8df3\u8f6c\u5230\u4e8b\u4ef6"),
+                           QString::fromUtf16(u"\u5f53\u524d\u6355\u83b7\u4e0d\u63d0\u4f9b\u6709"
+                                              u"\u6548\u7684\u4e8b\u4ef6\u4f9d\u636e\u3002"));
       return;
     }
 
@@ -1671,11 +1787,10 @@ void AnalyzerReportViewer::on_jumpButton_clicked()
     QModelIndexList rows = ui->pipelineTable->selectionModel()->selectedRows();
     if(rows.isEmpty())
     {
-      QMessageBox::information(
-          this, QString::fromUtf16(u"\u8df3\u8f6c\u5230\u4e8b\u4ef6"),
-          QString::fromUtf16(
-              u"\u8bf7\u5148\u9009\u62e9\u4e00\u884c Pipeline \u6570\u636e\uff0c\u518d\u8df3\u8f6c\u5230 "
-              u"Event Browser \u4e0e Pipeline State\u3002"));
+      QMessageBox::information(this, QString::fromUtf16(u"\u8df3\u8f6c\u5230\u4e8b\u4ef6"),
+                               QString::fromUtf16(u"\u8bf7\u5148\u9009\u62e9\u4e00\u884c Pipeline "
+                                                  u"\u6570\u636e\uff0c\u518d\u8df3\u8f6c\u5230 "
+                                                  u"Event Browser \u4e0e Pipeline State\u3002"));
       return;
     }
 
@@ -1701,9 +1816,9 @@ void AnalyzerReportViewer::on_jumpButton_clicked()
     {
       QMessageBox::information(
           this, QString::fromUtf16(u"\u8df3\u8f6c\u5230\u4e8b\u4ef6"),
-          QString::fromUtf16(
-              u"\u8bf7\u5148\u9009\u62e9\u4e00\u884c GPU \u8ba1\u6570\u5668\u6570\u636e\uff0c\u518d\u8df3\u8f6c\u5230 "
-              u"Event Browser\u3002"));
+          QString::fromUtf16(u"\u8bf7\u5148\u9009\u62e9\u4e00\u884c GPU "
+                             u"\u8ba1\u6570\u5668\u6570\u636e\uff0c\u518d\u8df3\u8f6c\u5230 "
+                             u"Event Browser\u3002"));
       return;
     }
 
@@ -1723,10 +1838,9 @@ void AnalyzerReportViewer::on_jumpButton_clicked()
 
   if(currentTab != ui->issuesTab)
   {
-    QMessageBox::information(
-        this, QString::fromUtf16(u"\u8df3\u8f6c\u5230\u754c\u9762"),
-        QString::fromUtf16(
-            u"\u5f53\u524d\u4ec5\u652f\u6301\u5bf9 Issues \u548c Events \u8fdb\u884c\u8df3\u8f6c\u3002"));
+    QMessageBox::information(this, QString::fromUtf16(u"\u8df3\u8f6c\u5230\u754c\u9762"),
+                             QString::fromUtf16(u"\u5f53\u524d\u4ec5\u652f\u6301\u5bf9 Issues "
+                                                u"\u548c Events \u8fdb\u884c\u8df3\u8f6c\u3002"));
     return;
   }
 
