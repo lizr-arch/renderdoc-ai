@@ -1,0 +1,278 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>PerformanceReportViewer</class>
+ <widget class="QFrame" name="PerformanceReportViewer">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>1120</width>
+    <height>760</height>
+   </rect>
+  </property>
+  <property name="windowTitle">
+   <string>Performance Report</string>
+  </property>
+  <layout class="QVBoxLayout" name="rootLayout">
+   <property name="leftMargin">
+    <number>6</number>
+   </property>
+   <property name="topMargin">
+    <number>6</number>
+   </property>
+   <property name="rightMargin">
+    <number>6</number>
+   </property>
+   <property name="bottomMargin">
+    <number>6</number>
+   </property>
+   <item>
+    <layout class="QHBoxLayout" name="headerLayout">
+     <item>
+      <widget class="QLabel" name="titleLabel">
+       <property name="text">
+        <string>Performance Report</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QLabel" name="infoLabel">
+       <property name="text">
+        <string>No capture loaded</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <spacer name="headerSpacer">
+       <property name="orientation">
+        <enum>Qt::Horizontal</enum>
+       </property>
+       <property name="sizeHint" stdset="0">
+        <size>
+         <width>40</width>
+         <height>20</height>
+        </size>
+       </property>
+      </spacer>
+     </item>
+     <item>
+      <widget class="QPushButton" name="refreshButton">
+       <property name="text">
+        <string>Refresh</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QPushButton" name="exportHtmlButton">
+       <property name="text">
+        <string>Export HTML</string>
+       </property>
+      </widget>
+     </item>
+    </layout>
+   </item>
+   <item>
+    <widget class="QTabWidget" name="tabWidget">
+     <widget class="QWidget" name="overviewTab">
+      <attribute name="title">
+       <string>Overview</string>
+      </attribute>
+      <layout class="QVBoxLayout" name="overviewLayout">
+       <item>
+        <widget class="QScrollArea" name="overviewScroll">
+         <property name="widgetResizable">
+          <bool>true</bool>
+         </property>
+         <widget class="QWidget" name="overviewScrollContents">
+          <layout class="QVBoxLayout" name="overviewScrollLayout">
+           <item>
+            <widget class="QFrame" name="scoreFrame">
+             <layout class="QHBoxLayout" name="scoreLayout">
+              <item>
+               <widget class="QWidget" name="scoreRingHost"/>
+              </item>
+              <item>
+               <layout class="QGridLayout" name="subscoreGrid">
+                <item row="0" column="0">
+                 <widget class="QFrame" name="subscoreCard1"/>
+                </item>
+                <item row="0" column="1">
+                 <widget class="QFrame" name="subscoreCard2"/>
+                </item>
+                <item row="1" column="0">
+                 <widget class="QFrame" name="subscoreCard3"/>
+                </item>
+                <item row="1" column="1">
+                 <widget class="QFrame" name="subscoreCard4"/>
+                </item>
+               </layout>
+              </item>
+             </layout>
+            </widget>
+           </item>
+           <item>
+            <widget class="QFrame" name="oppsFrame">
+             <layout class="QVBoxLayout" name="oppsLayout">
+              <item>
+               <widget class="QLabel" name="oppsTitle">
+                <property name="text">
+                 <string>Top Opportunities</string>
+                </property>
+               </widget>
+              </item>
+              <item>
+               <widget class="QTableView" name="oppsTable"/>
+              </item>
+             </layout>
+            </widget>
+           </item>
+           <item>
+            <widget class="QFrame" name="summaryFrame">
+             <layout class="QHBoxLayout" name="summaryLayout">
+              <item>
+               <widget class="QFrame" name="statCard1"/>
+              </item>
+              <item>
+               <widget class="QFrame" name="statCard2"/>
+              </item>
+              <item>
+               <widget class="QFrame" name="statCard3"/>
+              </item>
+              <item>
+               <widget class="QFrame" name="statCard4"/>
+              </item>
+             </layout>
+            </widget>
+           </item>
+           <item>
+            <spacer name="overviewSpacer">
+             <property name="orientation">
+              <enum>Qt::Vertical</enum>
+             </property>
+             <property name="sizeHint" stdset="0">
+              <size>
+               <width>20</width>
+               <height>40</height>
+              </size>
+             </property>
+            </spacer>
+           </item>
+          </layout>
+         </widget>
+        </widget>
+       </item>
+      </layout>
+     </widget>
+     <widget class="QWidget" name="evidenceTab">
+      <attribute name="title">
+       <string>Evidence</string>
+      </attribute>
+      <layout class="QVBoxLayout" name="evidenceLayout">
+       <item>
+        <widget class="QSplitter" name="evidenceSplitter">
+         <property name="orientation">
+          <enum>Qt::Horizontal</enum>
+         </property>
+         <widget class="QWidget" name="evidenceLeft">
+          <layout class="QVBoxLayout" name="evidenceLeftLayout">
+           <item>
+            <widget class="QLabel" name="evidenceTitle">
+             <property name="text">
+              <string>No selection</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <layout class="QFormLayout" name="evidenceForm"/>
+           </item>
+           <item>
+            <layout class="QHBoxLayout" name="evidenceButtons">
+             <item>
+              <widget class="QPushButton" name="jumpOpportunityButton">
+               <property name="text">
+                <string>Jump</string>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <widget class="QWidget" name="timingBadgeHost"/>
+             </item>
+             <item>
+              <spacer name="evidenceSpacer">
+               <property name="orientation">
+                <enum>Qt::Horizontal</enum>
+               </property>
+               <property name="sizeHint" stdset="0">
+                <size>
+                 <width>40</width>
+                 <height>20</height>
+                </size>
+               </property>
+              </spacer>
+             </item>
+            </layout>
+           </item>
+          </layout>
+         </widget>
+         <widget class="QWidget" name="evidenceRight">
+          <layout class="QVBoxLayout" name="evidenceRightLayout">
+           <item>
+            <layout class="QHBoxLayout" name="eventFilterLayout">
+             <item>
+              <widget class="QLineEdit" name="eventSearch">
+               <property name="placeholderText">
+                <string>Search events</string>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <widget class="QComboBox" name="eventFilter">
+               <item>
+                <property name="text">
+                 <string>All</string>
+                </property>
+               </item>
+              </widget>
+             </item>
+            </layout>
+           </item>
+           <item>
+            <widget class="QTableView" name="eventTable"/>
+           </item>
+          </layout>
+         </widget>
+        </widget>
+       </item>
+       <item>
+        <widget class="QFrame" name="previewFrame">
+         <layout class="QVBoxLayout" name="previewLayout">
+          <item>
+           <widget class="QStackedWidget" name="previewStack">
+            <widget class="QWidget" name="previewPlaceholderPage">
+             <layout class="QVBoxLayout" name="previewPlaceholderLayout">
+              <item>
+               <widget class="QLabel" name="previewPlaceholder">
+                <property name="text">
+                 <string>No preview available</string>
+                </property>
+                <property name="alignment">
+                 <set>Qt::AlignCenter</set>
+                </property>
+               </widget>
+              </item>
+             </layout>
+            </widget>
+           </widget>
+          </item>
+         </layout>
+        </widget>
+       </item>
+      </layout>
+     </widget>
+    </widget>
+   </item>
+  </layout>
+ </widget>
+ <resources/>
+ <connections/>
+</ui>
