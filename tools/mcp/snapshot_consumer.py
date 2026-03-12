@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import time
 from dataclasses import dataclass
 from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple
 
@@ -479,12 +480,23 @@ def recovery_hint_for_error(code: str) -> str:
 
 
 def _bridge_call(bridge: Any, method: str, params: Dict[str, Any]) -> Any:
-    try:
-        return bridge.call(method, params)
-    except TypeError:
-        if params:
-            raise
-        return bridge.call(method)
+    # File-based IPC occasionally hits transient response file lock conflicts
+    # on Windows. Retry a few times before bubbling up.
+    attempts = 3
+    for idx in range(attempts):
+        try:
+            return bridge.call(method, params)
+        except TypeError:
+            if params:
+                raise
+            return bridge.call(method)
+        except Exception as exc:
+            text = str(exc)
+            is_lock_conflict = "WinError 32" in text or "response.json" in text
+            if (not is_lock_conflict) or idx == attempts - 1:
+                raise
+            time.sleep(0.05 * (idx + 1))
+    raise RuntimeError("unreachable")
 
 
 def _extract_capture_loaded(payload: Any) -> bool:
