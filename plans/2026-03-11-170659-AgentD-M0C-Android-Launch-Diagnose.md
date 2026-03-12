@@ -336,3 +336,14 @@ AndroidLaunchDiagnosis MainWindow::BuildAndroidLaunchDiagnosis(const ExecuteResu
   - 功能口径（M0-C 代码提交已入基线）：通过（`56308e4c2`, `5a9654def`）
   - 分支口径（`agentd_is_ancestor`）：当前为 `False`（cherry-pick 合流模型，非 merge 祖先链）
   - 工作区口径（D 分支 tracked clean）：通过
+
+## /do Execution Log (AgentD, 2026-03-12 - Strict Lineage Merge)
+
+- 用户指令：执行“严格并线”。
+- 实施方式（真实基线 `codex/integration/renderdoc-ai-20260311`）：
+  - 执行 `git merge --no-ff -s ours codex/agentd/m0c-android-launch -m "merge(agentd): strict lineage alignment for M0-C gate"`。
+  - 该方式只建立祖先关系，不引入 D 分支额外代码差异；`git show --name-status -n 1` 无文件改动。
+- 结果：
+  - 产生 merge 提交 `fded9b135`。
+  - 口径校验：`agentd_is_ancestor=True`。
+  - 已推送：`806f4b29b..fded9b135 -> codex/integration/renderdoc-ai-20260311`。
