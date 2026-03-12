@@ -17,7 +17,7 @@
 - 核心策略：
   - **优先** `renderdoccmd convert -c zip.xml` 生成 `*.zip.xml + *.zip`（为真实缩略图资产做准备）
   - **失败自动回退**到 `-c xml`（保证“报告一定能出”，而不是全链路失败）
-  - 自动调用 `xml_to_bundle.py` 生成 4+ 页面 Bundle
+  - 自动调用 `xml_to_bundle.py` 生成 legacy 页面 Bundle（默认兼容路径）
   - 可选跑 `ui_headless_smoke.py` 做无 GUI 回归门禁
 
 ---
@@ -29,7 +29,7 @@
 给定输出目录 `<out_dir>`，必须存在并且“刚刚更新”的文件：
 
 - `<out_dir>/index.html`
-- `<out_dir>/events.html`
+- `<out_dir>/events.html`（可选：legacy 路由可能缺失）
 - `<out_dir>/textures.html`
 - `<out_dir>/shaders.html`
 - `<out_dir>/manifest.json`
@@ -87,7 +87,7 @@
 - `py -3 scripts/rdc_analyzer/xml_to_bundle.py output.zip.xml -o out_dir --zip output.zip --rdc input.rdc`
 
 判定：
-- ✅ PASS：生成 4 页 + manifest，并打印缩略图/Shader 的数据质量统计
+- ✅ PASS：生成 legacy 页面 + manifest，并打印缩略图/Shader 的数据质量统计（`events.html` 在 legacy 路由可选）
 - ❌ FAIL：退出码 4 或输出目录缺页
 
 ### 3.4 Headless Smoke（无 GUI 回归门禁）
@@ -100,6 +100,12 @@
 - ❌ FAIL：`overall_pass: false` 或脚本退出码 5
 
 ---
+
+### 3.5 Snapshot 路由补充（非 one-click 默认）
+
+如果你需要 `snapshot.v1.json` 与 snapshot 页面集合（含 `events.html` + `recommendations.html`），请直接调用：
+
+- `py -3 scripts/rdc_analyzer/xml_to_bundle.py output.zip.xml -o out_dir --zip output.zip --rdc input.rdc --emit-snapshot-v1 --renderer-mode snapshot`
 
 ## 4. 视觉验收（你最终看的东西）
 
@@ -147,7 +153,7 @@ sequenceDiagram
     C-->>O: 产出 *.xml
   end
 
-  O->>X: xml_to_bundle.py <xml|zip.xml> -o out --rdc rdc [--zip zip]
+  O->>X: xml_to_bundle.py <xml|zip.xml> -o out --rdc rdc [--zip zip] --renderer-mode legacy
   X-->>OUT: 生成 index/events/textures/shaders + manifest
 
   opt 启用 smoke（预设默认启用）

@@ -83,13 +83,13 @@
 使用 `xml_to_bundle.py` 生成多页面 HTML 报告：
 
 ```bash
-# 基础用法
-py -3 scripts/rdc_analyzer/xml_to_bundle.py capture.xml -o output_dir/
+# 基础用法（legacy fallback，默认）
+py -3 scripts/rdc_analyzer/xml_to_bundle.py capture.xml -o output_dir/ --renderer-mode legacy
 
-# 带 Schema 验证
-py -3 scripts/rdc_analyzer/xml_to_bundle.py capture.xml -o output_dir/ --validate
+# 推荐：snapshot 主路径（共享 renderer + snapshot.v1）
+py -3 scripts/rdc_analyzer/xml_to_bundle.py capture.xml -o output_dir/ --emit-snapshot-v1 --renderer-mode snapshot
 
-# 指定纹理 ZIP 文件
+# 指定纹理 ZIP 文件（可与 snapshot/legacy 路由组合）
 py -3 scripts/rdc_analyzer/xml_to_bundle.py capture.xml -o output_dir/ --zip capture.zip
 
 # 指定 RDC 文件 (用于 Vulkan Shader 提取)
@@ -110,10 +110,16 @@ output_dir/
 └── thumbnails/         # 纹理缩略图 (如有)
 ```
 
+> 路由差异说明：
+> - `--renderer-mode legacy`（默认）输出兼容页面集合。
+> - `--renderer-mode snapshot` 输出 `index/events/textures/shaders/recommendations/manifest`，并建议配合 `--emit-snapshot-v1` 产出 `snapshot.v1.json`。
+
 **关键选项**:
 | 选项 | 说明 |
 |------|------|
-| `--validate` | 启用 JSON Schema 验证 |
+| `--emit-snapshot-v1` | 输出 `snapshot.v1.json` |
+| `--renderer-mode snapshot` | 走 snapshot + shared renderer 路由 |
+| `--renderer-mode legacy` | 走 legacy fallback 路由（默认） |
 | `--zip PATH` | 指定纹理 ZIP 文件路径 |
 | `--rdc PATH` | 指定 RDC 文件 (Vulkan Shader) |
 | `--spirv-cross PATH` | SPIR-V 转 GLSL 工具路径 |
@@ -175,7 +181,7 @@ Phase 6 引入了 JSON Schema 验证，确保数据完整性：
 
 ```bash
 # 验证报告数据
-py -3 scripts/rdc_analyzer/xml_to_bundle.py capture.xml -o output/ --validate
+py -3 scripts/rdc_analyzer/xml_to_bundle.py capture.xml -o output/ --emit-snapshot-v1 --renderer-mode snapshot
 ```
 
 **Schema 文件位置**: `scripts/rdc_analyzer/schema/`
@@ -222,7 +228,7 @@ jobs:
       
       - name: Generate Report
         run: |
-          python scripts/rdc_analyzer/xml_to_bundle.py capture.xml -o report/ --validate
+          python scripts/rdc_analyzer/xml_to_bundle.py capture.xml -o report/ --emit-snapshot-v1 --renderer-mode snapshot
       
       - name: Run Regression Check
         run: |

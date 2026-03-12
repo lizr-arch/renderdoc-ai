@@ -27,6 +27,7 @@
 #include <app/renderdoc_app.h>
 #include <replay/version.h>
 #include <map>
+#include <set>
 #include <string>
 
 rdcstr conv(const std::string &s)
@@ -663,7 +664,9 @@ private:
   bool software_render = false;
   bool export_metadata = false;
   bool export_bindings = false;
+  bool export_shaders = false;
   uint32_t max_dimension = 0;
+  std::string shader_target;
 
 public:
   ExportCommand() : Command() {}
@@ -680,6 +683,9 @@ public:
     parser.add<std::string>("remote-host", '\0', "Replay on remote host instead of locally.", false);
     parser.add("metadata", 'm', "Export texture metadata as JSON.");
     parser.add("bindings", 'b', "Export resource bindings with CB member data as JSON.");
+    parser.add("shaders", '\0', "Export shader disassembly as JSON.");
+    parser.add<std::string>("shader-target", '\0',
+                            "Preferred disassembly target substring (optional).", false);
   }
 
   virtual const char *Description() { return "Export all textures from a capture to image files."; }
@@ -708,6 +714,10 @@ public:
     software_render = parser.exist("software-render");
     export_metadata = parser.exist("metadata");
     export_bindings = parser.exist("bindings");
+    export_shaders = parser.exist("shaders");
+
+    if(parser.exist("shader-target"))
+      shader_target = parser.get<std::string>("shader-target");
 
     if(parser.exist("remote-host"))
       remote_host = parser.get<std::string>("remote-host");
@@ -777,6 +787,20 @@ private:
       int bindingsRet = ExportBindings(controller);
       if(bindingsRet != 0)
         ret = bindingsRet;
+    }
+
+    if(export_shaders)
+    {
+      int shadersRet = ExportShaders(controller);
+      if(shadersRet != 0)
+        ret = shadersRet;
+    }
+
+    if(export_shaders)
+    {
+      int shadersRet = ExportShaders(controller);
+      if(shadersRet != 0)
+        ret = shadersRet;
     }
 
     controller->Shutdown();
@@ -1121,6 +1145,170 @@ private:
       case ShaderStage::Compute: return &gl->computeShader;
       default: return NULL;
     }
+  }
+
+  int ExportShaders(IReplayController *controller)
+  {
+    std::cout << "Exporting shader disassembly..." << std::endl;
+
+    APIProperties apiProps = controller->GetAPIProperties();
+    GraphicsAPI api = apiProps.pipelineType;
+
+    rdcarray<rdcstr> targets = controller->GetDisassemblyTargets(true);
+    rdcstr target;
+
+    if(!shader_target.empty())
+    {
+      for(const rdcstr &t : targets)
+      {
+        std::string targetStr = conv(t);
+        if(targetStr.find(shader_target) != std::string::npos)
+        {
+          target = t;
+          break;
+        }
+      }
+    }
+
+    if(target.empty() && !targets.empty())
+      target = targets[0];
+
+    rdcarray<ActionDescription> rootActions = controller->GetRootActions();
+    rdcarray<ActionDescription> allActions;
+    FlattenActions(rootActions, allActions);
+
+    const rdcarray<ResourceDescription> &resources = controller->GetResources();
+    std::map<ResourceId, std::string> resourceNames;
+    for(size_t i = 0; i < resources.size(); i++)
+      resourceNames[resources[i].resourceId] = conv(resources[i].name);
+
+    std::set<ResourceId> seen;
+    std::vector<std::string> shaderEntries;
+
+    ShaderStage stages[] = {ShaderStage::Vertex, ShaderStage::Hull, ShaderStage::Domain,
+                            ShaderStage::Geometry, ShaderStage::Pixel, ShaderStage::Compute};
+
+    auto addShader = [&](const ShaderReflection *refl, ResourceId shaderResId, ShaderStage stage,
+                         ResourceId pipelineId) {
+      if(!refl || shaderResId == ResourceId())
+        return;
+      if(seen.find(shaderResId) != seen.end())
+        return;
+      seen.insert(shaderResId);
+
+      uint64_t resIdValue = *reinterpret_cast<const uint64_t *>(&shaderResId);
+
+      std::string shaderName;
+      auto it = resourceNames.find(shaderResId);
+      if(it != resourceNames.end() && !it->second.empty())
+        shaderName = it->second;
+      else
+        shaderName = std::string(ShaderStageName(stage)) + " Shader";
+
+      rdcstr disasm = controller->DisassembleShader(pipelineId, refl, target);
+
+      std::ostringstream json;
+      json << "  {";
+      json << "\"id\":" << resIdValue << ",";
+      json << "\"name\":\"" << EscapeJson(conv(shaderName)) << "\",";
+      json << "\"type\":\"" << ShaderStageName(stage) << "\",";
+      json << "\"stage\":\"" << ShaderStageName(stage) << "\",";
+      json << "\"entryPoint\":\"" << EscapeJson(refl->entryPoint) << "\",";
+      json << "\"encoding\":\"" << EscapeJson(ToStr(refl->encoding)) << "\",";
+      json << "\"source\":\"" << EscapeJson(disasm) << "\"";
+      json << "}";
+      shaderEntries.push_back(json.str());
+    };
+
+    for(size_t actIdx = 0; actIdx < allActions.size(); actIdx++)
+    {
+      const ActionDescription &action = allActions[actIdx];
+
+      if(!(action.flags & (ActionFlags::Drawcall | ActionFlags::Dispatch)))
+        continue;
+
+      controller->SetFrameEvent(action.eventId, true);
+
+      if(api == GraphicsAPI::Vulkan)
+      {
+        const VKPipe::State *vk = controller->GetVulkanPipelineState();
+        if(vk)
+        {
+          ResourceId pipeObj =
+              (action.flags & ActionFlags::Dispatch) ? vk->compute.pipelineResourceId : vk->graphics.pipelineResourceId;
+
+          for(int stageIdx = 0; stageIdx < 6; stageIdx++)
+          {
+            ShaderStage stage = stages[stageIdx];
+            const VKPipe::Shader *shader = GetVulkanShader(vk, stage);
+            if(shader && shader->reflection)
+              addShader(shader->reflection, shader->resourceId, stage, pipeObj);
+          }
+        }
+      }
+      else if(api == GraphicsAPI::D3D12)
+      {
+        const D3D12Pipe::State *d3d12 = controller->GetD3D12PipelineState();
+        if(d3d12)
+        {
+          ResourceId pipeObj = d3d12->pipelineResourceId;
+          for(int stageIdx = 0; stageIdx < 6; stageIdx++)
+          {
+            ShaderStage stage = stages[stageIdx];
+            const D3D12Pipe::Shader *shader = GetD3D12Shader(d3d12, stage);
+            if(shader && shader->reflection)
+              addShader(shader->reflection, shader->resourceId, stage, pipeObj);
+          }
+        }
+      }
+      else if(api == GraphicsAPI::D3D11)
+      {
+        const D3D11Pipe::State *d3d11 = controller->GetD3D11PipelineState();
+        if(d3d11)
+        {
+          ResourceId pipeObj = ResourceId();
+          for(int stageIdx = 0; stageIdx < 6; stageIdx++)
+          {
+            ShaderStage stage = stages[stageIdx];
+            const D3D11Pipe::Shader *shader = GetD3D11Shader(d3d11, stage);
+            if(shader && shader->reflection)
+              addShader(shader->reflection, shader->resourceId, stage, pipeObj);
+          }
+        }
+      }
+      else if(api == GraphicsAPI::OpenGL)
+      {
+        const GLPipe::State *gl = controller->GetGLPipelineState();
+        if(gl)
+        {
+          ResourceId pipeObj = gl->pipelineResourceId;
+          for(int stageIdx = 0; stageIdx < 6; stageIdx++)
+          {
+            ShaderStage stage = stages[stageIdx];
+            const GLPipe::Shader *shader = GetGLShader(gl, stage);
+            if(shader && shader->reflection)
+              addShader(shader->reflection, shader->shaderResourceId, stage, pipeObj);
+          }
+        }
+      }
+    }
+
+    std::string outPath = outdir + "/shaders_data.json";
+    FILE *f = fopen(outPath.c_str(), "w");
+    if(!f)
+    {
+      std::cerr << "Failed to write shaders to: " << outPath << std::endl;
+      return 1;
+    }
+
+    fprintf(f, "[\n");
+    for(size_t i = 0; i < shaderEntries.size(); i++)
+      fprintf(f, "%s%s\n", shaderEntries[i].c_str(), (i + 1 < shaderEntries.size()) ? "," : "");
+    fprintf(f, "]\n");
+    fclose(f);
+
+    std::cout << "Shaders written to: " << outPath << std::endl;
+    return 0;
   }
 
   // Main function: Export resource bindings with CB data

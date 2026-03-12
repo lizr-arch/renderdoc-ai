@@ -84,7 +84,7 @@ QVariant AnalyzerIssueModel::headerData(int section, Qt::Orientation orientation
       case ColCode: return QString::fromUtf16(u"\u89c4\u5219\u7f16\u53f7");
       case ColMessage: return QString::fromUtf16(u"\u95ee\u9898");
       case ColEID: return QString::fromUtf16(u"\u4e8b\u4ef6ID");
-      case ColImpact: return QString::fromUtf16(u"\u5f71\u54cd\u8bc4\u5206");
+      case ColImpact: return QString::fromUtf16(u"\u5f71\u54cd\u8bc4\u4f30\uff08\u4f30\u7b97\uff09");
       default: break;
     }
   }
@@ -95,8 +95,9 @@ QVariant AnalyzerIssueModel::headerData(int section, Qt::Orientation orientation
     {
       case ColImpact:
         return QString::fromUtf16(
-            u"\u5f71\u54cd\u8bc4\u5206\u4e3a 0-1 \u7684\u4f30\u8ba1\u503c\uff0c"
-            u"\u8d8a\u5927\u4ee3\u8868\u5f71\u54cd\u8d8a\u9ad8\u3002");
+            u"\u5f71\u54cd\u8bc4\u4f30\u4e3a 0-1 \u7684\u4f30\u7b97\u503c\uff0c"
+            u"\u57fa\u4e8e\u56de\u653e GPU \u65f6\u95f4\u6233\uff1b\u4f4e\u53ef\u4fe1\u5ea6\u65f6"
+            u"\u4ec5\u4f9b\u53c2\u8003\u3002");
       case ColCode:
         return QString::fromUtf16(
             u"\u89c4\u5219\u7f16\u53f7\u7528\u4e8e\u5b9a\u4f4d\u89c4\u5219\u4e0e"
@@ -127,10 +128,26 @@ QVariant AnalyzerIssueModel::data(const QModelIndex &index, int role) const
       case ColImpact:
       {
         int percent = (int)std::round(issue.impactScore * 100.0);
-        return QString::asprintf("%d%%", percent);
+        QString base = QString::asprintf("%d%%", percent);
+        if(issue.confidence == "low")
+          return base + QString::fromUtf16(u" \u4f4e\u53ef\u4fe1");
+        return base + QString::fromUtf16(u" \u4f30\u7b97");
       }
       default: break;
     }
+  }
+
+  if(role == Qt::ToolTipRole && index.column() == ColImpact)
+  {
+    if(issue.confidence == "low")
+    {
+      return QString::fromUtf16(
+          u"\u5f71\u54cd\u8bc4\u4f30\u4e3a\u4f30\u7b97\u503c\uff0c\u57fa\u4e8e\u56de\u653e GPU "
+          u"\u65f6\u95f4\u6233\uff1b\u5f53\u524d\u53ef\u4fe1\u5ea6\u4f4e\uff0c\u4ec5\u4f9b\u53c2\u8003\u3002");
+    }
+    return QString::fromUtf16(
+        u"\u5f71\u54cd\u8bc4\u4f30\u4e3a\u4f30\u7b97\u503c\uff0c\u57fa\u4e8e\u56de\u653e GPU "
+        u"\u65f6\u95f4\u6233\uff1b\u4ec5\u7528\u4e8e\u540c\u4e00 capture \u5185\u7684\u6392\u5e8f\u6bd4\u8f83\u3002");
   }
 
   if(role == EventIdRole)

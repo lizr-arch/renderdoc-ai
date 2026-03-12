@@ -73,14 +73,18 @@ renderdoccmd.exe convert -f input.rdc -o output.zip.xml -c zip.xml
 
 #### 步骤 2: ZIP+XML → Bundle 报告
 ```bash
-py -3 scripts/rdc_analyzer/xml_to_bundle.py output.zip.xml -o bundle_output/ --zip output.zip --rdc input.rdc
+# 兼容路径（默认 legacy）
+py -3 scripts/rdc_analyzer/xml_to_bundle.py output.zip.xml -o bundle_output/ --zip output.zip --rdc input.rdc --renderer-mode legacy
+
+# 推荐路径（snapshot + shared renderer）
+py -3 scripts/rdc_analyzer/xml_to_bundle.py output.zip.xml -o bundle_output/ --zip output.zip --rdc input.rdc --emit-snapshot-v1 --renderer-mode snapshot
 ```
 
 #### 失败回退（自动化脚本内置）
 ```bash
 # 如果 zip.xml 转换失败，回退到纯 XML
 renderdoccmd.exe convert -f input.rdc -o output.xml -c xml
-py -3 scripts/rdc_analyzer/xml_to_bundle.py output.xml -o bundle_output/ --rdc input.rdc
+py -3 scripts/rdc_analyzer/xml_to_bundle.py output.xml -o bundle_output/ --rdc input.rdc --renderer-mode legacy
 ```
 
 ### 一键自动化（推荐，无手动串联）
@@ -101,13 +105,14 @@ scripts\rdc_analyzer\one_click_bundle_preset.bat
 - 自动拼接 `xml_to_bundle.py` 参数（`--zip` / `--rdc`）
 - 可选执行 `ui_headless_smoke.py` 做无 GUI 验收
 
-### 输出（与路线 A 相同）
+### 输出（按路由区分）
 - `index.html` - 仪表盘
 - `events.html` - 事件列表
 - `textures.html` - 纹理浏览器
 - `shaders.html` - Shader 查看器
 - `recommendations.html` - 优化建议
 - `manifest.json` - 页面元数据
+- `snapshot.v1.json` - 仅 snapshot 路由输出（开启 `--emit-snapshot-v1` 或 `--renderer-mode snapshot`）
 
 ### 适用场景
 - CI/CD 自动化流程
@@ -241,6 +246,12 @@ renderdoccmd.exe convert -f input.rdc -o output.zip.xml -c zip.xml
 # ❌ 旧写法（可能失败）
 # renderdoccmd.exe convert -c xml -o output.xml input.rdc
 ```
+
+### 问题: 如何选择 legacy / snapshot 路由
+
+- 默认不加参数时走 `--renderer-mode legacy`（兼容 fallback）。
+- 需要统一事实快照和新页面集合时，使用 `--emit-snapshot-v1 --renderer-mode snapshot`。
+- one_click 当前仍按兼容策略调用 legacy 路由。
 
 ### 问题: xml_to_bundle.py 报 ImportError
 

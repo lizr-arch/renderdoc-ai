@@ -33,6 +33,36 @@ py -3 -m rdc_analyzer audit capture.json --platform mobile -o audit.html
 
 ---
 
+## 🧭 WebUI 本地查看（analysis.json）
+
+WebUI 仅消费 `analysis.json`，需先生成 JSON 输出：
+
+```bash
+py -3 -m rdc_analyzer analyze capture.rdc -o ./output --format json
+py -3 -m rdc_analyzer.webui.server --root ./output --port 8765
+```
+
+访问 `http://127.0.0.1:8765/` 查看基础统计与列表。
+
+**限制说明**：
+- 当前仅提供基础统计与列表渲染（详情懒加载尚未接入）。
+- `--root` 目录必须包含 `analysis.json`。
+
+---
+
+## 🧩 GUI 扩展（MiniQtHelper）
+
+GUI 扩展以 RenderDoc 内部面板的形式展示统计卡片与基础列表，数据来源为 `QRenderDocProvider`。
+
+**状态**：扩展脚本骨架规划中，具体入口与菜单挂载将在完成后更新（详见开发文档）。
+
+**预期流程（实现后）**：
+1. 在 RenderDoc GUI 中加载捕获文件。
+2. 通过菜单打开 Analyzer 面板。
+3. 面板展示 Shader/Texture/Event 计数卡片与基础列表。
+
+---
+
 ## 📊 命令详解
 
 ### `analyze` - 单帧分析

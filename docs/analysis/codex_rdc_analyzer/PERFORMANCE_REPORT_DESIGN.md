@@ -430,6 +430,52 @@
 | 帧统计结构 | `renderdoc/api/replay/data_types.h` (`FrameStatistics`) |
 | Vulkan 计数器 | `renderdoc/driver/vulkan/vk_replay.h` (`EnumerateCounters`) |
 
+### C. RenderDoc 官方性能分析工具对标（GUI 能力，记录用）
+
+> 目的：作为“GUI 内 Analyzer Report 的对标清单”，后续逐项补齐/融合。
+
+- **Performance Counter Viewer（GPU 硬件计数器采样）**  
+  采样每个事件的 GPU counters；用于定量瓶颈定位。  
+  参考：`docs/offline_reference/docs/window/performance_counter_viewer.html`
+- **Event Browser - Timing actions（GPU 动作计时）**  
+  可显示每个 action 的 GPU duration（可快速定位热点）。  
+  参考：`docs/offline_reference/docs/window/event_browser.html`
+- **Timeline Bar（全帧时间轴 + 资源使用分布）**  
+  全帧鸟瞰 + 选中资源在帧内的读/写分布；用于快速定位与依赖理解。  
+  参考：`docs/offline_reference/docs/window/timeline_bar.html`
+- **Pixel History（逐像素历史）**  
+  追踪单像素所有修改事件；用于发现过度绘制与遮挡路径。  
+  参考：`docs/offline_reference/docs/how/how_inspect_pixel.html`
+- **Statistics Viewer（统计报告）**  
+  Draw/Dispatch/绑定/光栅/输出等统计分区；用于宏观结构诊断。  
+  参考：`qrenderdoc/Windows/StatisticsViewer.cpp`
+- **RGP 集成（AMD Radeon GPU Profiler）**  
+  从 RenderDoc 捕获生成 RGP profile，并可互选事件。  
+  参考：`docs/offline_reference/docs/how/how_rgp_profile.html`
+
+> 设计落点：GUI 内 Analyzer Report 应优先覆盖 **计时、计数器、事件热点、资源使用** 四类快速定位能力。
+
+### D. Analyzer Report 当前可分析项（代码快照）
+
+> 目的：明确“当前可输出的数据边界”，避免 GUI/HTML 展示过度承诺。
+
+- **性能规则（PERF001~PERF007）**：过度绘制（启发式）、状态冗余、小批次绘制、大纹理、未压缩纹理、Alpha 混合过度、频繁绑定。  
+  参考：`scripts/rdc_analyzer/analyzers/performance_analyzer.py`
+- **PerformanceReport 指标**：  
+  总 draw/dispatch/triangles/vertices、状态变更统计、资源统计、overall_score、recommendations 等。  
+  参考：`scripts/rdc_analyzer/core/types.py`
+- **主报告输出字段**：  
+  `overall_score / issues / metrics / recommendations` 写入 performance_report。  
+  参考：`scripts/rdc_analyzer/main.py`
+- **FrameSummary（帧级统计）**：  
+  draw/dispatch/vertex/primitive、pass/RT 切换、shader/blend/depth/rasterizer 变化、资源内存、viewport 等。  
+  参考：`scripts/rdc_analyzer/core/types.py`
+- **Mali Shader 性能分析（可选）**：  
+  依赖 `malioc` 时输出 Mali 报告（指令周期/寄存器等）。  
+  参考：`scripts/rdc_analyzer/main.py`, `docs/analysis/codex_rdc_analyzer/README.md`
+
+> 备注：GUI 内 Analyzer Report 用于“快速定位”，HTML 报告用于“导出/对比”。两者共享同一事实来源与规则输出。
+
 ---
 
 **文档状态**: 草案，待评审
