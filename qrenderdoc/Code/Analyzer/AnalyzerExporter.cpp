@@ -29,6 +29,7 @@
 #include <QTextStream>
 #include "Code/QRDUtils.h"
 #include "AnalyzerContract.h"
+#include "AnalyzerSnapshotAdapter.h"
 
 bool AnalyzerExporter::WriteAll(const AnalyzerSnapshot &snapshot, const QString &directory,
                                 const QJsonObject &captureContext, QString *error) const
@@ -45,6 +46,7 @@ bool AnalyzerExporter::WriteAll(const AnalyzerSnapshot &snapshot, const QString 
   const QString csvPath = dir.absoluteFilePath(lit("issues_export.csv"));
   const QString mdPath = dir.absoluteFilePath(lit("issues_export.md"));
   const QString captureContextPath = dir.absoluteFilePath(lit("capture_context.json"));
+  const QString snapshotV1Path = dir.absoluteFilePath(lit("snapshot.v1.json"));
 
   if(!WriteAnalysisJSON(snapshot, jsonPath, error))
     return false;
@@ -56,6 +58,9 @@ bool AnalyzerExporter::WriteAll(const AnalyzerSnapshot &snapshot, const QString 
     return false;
 
   if(!WriteCaptureContextJSON(captureContext, captureContextPath, error))
+    return false;
+
+  if(!WriteSnapshotV1JSON(snapshot, captureContext, snapshotV1Path, error))
     return false;
 
   return true;
@@ -128,6 +133,14 @@ bool AnalyzerExporter::WriteCaptureContextJSON(const QJsonObject &captureContext
   if(!root.contains(lit("schema_version")))
     root[lit("schema_version")] = lit("capture_context.v1");
 
+  return WriteBytes(path, QJsonDocument(root).toJson(QJsonDocument::Indented), error);
+}
+
+bool AnalyzerExporter::WriteSnapshotV1JSON(const AnalyzerSnapshot &snapshot,
+                                           const QJsonObject &captureContext, const QString &path,
+                                           QString *error) const
+{
+  QJsonObject root = AnalyzerSnapshotAdapter::ToSnapshotV1(snapshot, captureContext);
   return WriteBytes(path, QJsonDocument(root).toJson(QJsonDocument::Indented), error);
 }
 

@@ -610,6 +610,7 @@
     <ClCompile Include="Code\ScintillaSyntax.cpp" />
     <ClCompile Include="Code\Analyzer\AnalyzerContract.cpp" />
     <ClCompile Include="Code\Analyzer\AnalyzerExporter.cpp" />
+    <ClCompile Include="Code\Analyzer\AnalyzerSnapshotAdapter.cpp" />
     <ClCompile Include="Code\Analyzer\FrameAnalyzer.cpp" />
     <ClCompile Include="Code\Analyzer\IssueEngine.cpp" />
     <ClCompile Include="Code\Analyzer\PerformanceReportBuilder.cpp" />
@@ -1028,6 +1029,7 @@
     <ClInclude Include="Code\RGPInterop.h" />
     <ClInclude Include="Code\Analyzer\AnalyzerContract.h" />
     <ClInclude Include="Code\Analyzer\AnalyzerExporter.h" />
+    <ClInclude Include="Code\Analyzer\AnalyzerSnapshotAdapter.h" />
     <ClInclude Include="Code\Analyzer\AnalyzerTypes.h" />
     <ClInclude Include="Code\Analyzer\FrameAnalyzer.h" />
     <ClInclude Include="Code\Analyzer\IssueEngine.h" />
