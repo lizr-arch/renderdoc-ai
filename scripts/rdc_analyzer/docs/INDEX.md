@@ -38,7 +38,7 @@
 
 |------|------|--------|
 
-| [EXPORT_ROUTES.md](EXPORT_ROUTES.md) | **RDC 报告导出路线图** - 新增 one_click 一键导出（zip.xml 优先 + xml 回退 + headless smoke）⭐ | 导出路线, one-click, Bundle, zip.xml, 无GPU |
+| [EXPORT_ROUTES.md](EXPORT_ROUTES.md) | **RDC 报告导出路线图** - one_click（legacy 默认）+ snapshot 路由（`--emit-snapshot-v1 --renderer-mode snapshot`）⭐ | 导出路线, one-click, Bundle, zip.xml, snapshot.v1, legacy |
 | [ONE_CLICK_ACCEPTANCE.md](ONE_CLICK_ACCEPTANCE.md) | **One-click 验收清单**（v1.0.0）- 一键导出流程/判定标准/时序图 | one-click, 验收, checklist, smoke |
 | [UI_XML_BUNDLE_UPDATE_2026-02-08.md](UI_XML_BUNDLE_UPDATE_2026-02-08.md) | **UI + xml_to_bundle 更新记录**（v2.6.1）- 仪表盘 UI 统一 + ZIP 缩略图 + Vulkan Shader 提取 | UI, dashboard, xml_to_bundle, zip, rdc, spirv-cross |
 | [VISUAL_ACCEPTANCE_CHECKLIST.md](VISUAL_ACCEPTANCE_CHECKLIST.md) | **一页式视觉验收清单**（v1.0.0）- 专业仪表盘验收评分 + 缺陷分级模板 | 验收, 视觉, dashboard, UX, checklist |
@@ -236,7 +236,7 @@
 | **如何做 Bundle 报告视觉验收？** | [VISUAL_ACCEPTANCE_CHECKLIST.md](VISUAL_ACCEPTANCE_CHECKLIST.md) ⭐ |
 | **视觉验收结果怎么记录？** | [VISUAL_ACCEPTANCE_RESULT_TEMPLATE.md](VISUAL_ACCEPTANCE_RESULT_TEMPLATE.md) ⭐ |
 | **端到端工作流指南？** | [E2E_WORKFLOW_GUIDE.md](E2E_WORKFLOW_GUIDE.md) ⭐ |
-| **数据 Schema 验证？** | [E2E_WORKFLOW_GUIDE.md](E2E_WORKFLOW_GUIDE.md) (JSON Schema 章节) |
+| **如何使用 snapshot/legacy 路由参数？** | [E2E_WORKFLOW_GUIDE.md](E2E_WORKFLOW_GUIDE.md) (Step 2 章节) |
 | **如何使用热力图功能？** | [UI_FEATURES_GUIDE.md](UI_FEATURES_GUIDE.md) (M4.1 章节) ⭐ |
 | **如何使用 Pass 分组？** | [UI_FEATURES_GUIDE.md](UI_FEATURES_GUIDE.md) (M4.2 章节) ⭐ |
 | **如何启用外部数据加载？** | [UI_FEATURES_GUIDE.md](UI_FEATURES_GUIDE.md) (Phase 7C 章节) |
@@ -249,13 +249,13 @@
 
 | 文档 | 说明 | 关键词 |
 |------|------|--------|
-| [E2E_WORKFLOW_GUIDE.md](E2E_WORKFLOW_GUIDE.md) | **端到端工作流指南** - RDC→XML→Bundle 完整流程 ⭐ | E2E, 工作流, CI/CD, Schema |
+| [E2E_WORKFLOW_GUIDE.md](E2E_WORKFLOW_GUIDE.md) | **端到端工作流指南** - RDC→XML→Bundle（legacy/snapshot 双路由）⭐ | E2E, 工作流, CI/CD, snapshot, legacy |
 
 **Phase 6 (P0 报告完善) 功能摘要**:
 - **P0.1** 纹理缩略图：从 ZIP 提取 + 解码 + 生成 PNG
 - **P0.2** Shader 源码：Vulkan SPIR-V → GLSL 转换
 - **P0.3** RT 快照：RenderTarget 可视化 (RDC API 路径)
-- **P0.4** JSON Schema：数据完整性验证 (`--validate` 选项)
+- **P0.4** Snapshot 完整性：`snapshot.v1.json` 最小字段与路由一致性验证
 
 **Schema 文件位置**: `scripts/rdc_analyzer/schema/`
 | Schema | 验证目标 |
