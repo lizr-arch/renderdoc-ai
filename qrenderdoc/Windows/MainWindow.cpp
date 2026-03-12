@@ -62,6 +62,32 @@
 extern "C" void *__stdcall GetModuleHandleA(const char *);
 #endif
 
+namespace
+{
+bool IsAndroidLaunchDiagnosisCode(ResultCode code)
+{
+  switch(code)
+  {
+    case ResultCode::JDWPFailure:
+    case ResultCode::AndroidLayerConfFailed:
+    case ResultCode::AndroidAPKInstallFailed:
+    case ResultCode::InjectionFailed: return true;
+    default: break;
+  }
+
+  return false;
+}
+
+bool IsInjectionTimeout(const ResultDetails &result)
+{
+  if(result.code != ResultCode::InjectionFailed)
+    return false;
+
+  return ToQStr(result.Message())
+      .contains(lit("Timeout was reached waiting for app to start."), Qt::CaseInsensitive);
+}
+}    // namespace
+
 NetworkWorker::NetworkWorker() : QObject(NULL)
 {
 }
@@ -731,24 +757,11 @@ void MainWindow::OnCaptureTrigger(const QString &exe, const QString &workingDir,
         m_Ctx.Replay().ExecuteAndInject(exe, workingDir, cmdLine, env, capturefile, opts);
 
     GUIInvoke::call(this, [this, exe, ret, callback]() {
-      if(ret.result.code == ResultCode::JDWPFailure)
-      {
-        RDDialog::critical(
-            this, tr("Error connecting to debugger"),
-            tr("<html>Error launching %1 for capture.\n\n"
-               "Something went wrong connecting to the debugger on the Android device.\n\n"
-               "This can happen if the package is not marked as debuggable, the device is not "
-               "configured to allow app debugging, if the intent arguments are badly specified, or "
-               "if another android tool such as Android Studio is interfering with the debug "
-               "connection.\n\n"
-               "Close <b>all</b> instances of Android Studio or other Android programs "
-               "and try again.</html>")
-                .arg(exe));
-        return;
-      }
-
       if(ret.result.code != ResultCode::Succeeded)
       {
+        if(showAndroidLaunchFailure(exe, ret.result, true))
+          return;
+
         RDDialog::critical(
             this, tr("Error launching capture"),
             tr("Error launching %1 for capture.\n\n%2").arg(exe).arg(ret.result.Message()));
@@ -3305,6 +3318,12 @@ bool MainWindow::LoadLayout(int layout)
 
 void MainWindow::showLaunchError(ResultDetails result)
 {
+  if(IsAndroidLaunchDiagnosisCode(result.code))
+  {
+    GUIInvoke::call(this, [this, result]() { showAndroidLaunchFailure(QString(), result, false); });
+    return;
+  }
+
   QString message;
   switch(result.code)
   {
@@ -3341,6 +3360,77 @@ void MainWindow::showLaunchError(ResultDetails result)
   GUIInvoke::call(this, [this, message]() {
     RDDialog::warning(this, tr("Problems launching RenderDoc remote server"), message);
   });
+}
+
+bool MainWindow::showAndroidLaunchFailure(const QString &target, ResultDetails result,
+                                          bool captureLaunch)
+{
+  if(!IsAndroidLaunchDiagnosisCode(result.code))
+    return false;
+
+  QString reason;
+  QStringList actions;
+
+  switch(result.code)
+  {
+    case ResultCode::JDWPFailure:
+      reason = tr("Debugger connection (JDWP) could not be established.");
+      actions << tr("Close all Android Studio sessions or other tools using adb debugger access.")
+              << tr("Ensure the package/activity is debuggable and USB debugging is authorized.")
+              << tr("Verify package/activity and intent arguments in Launch Application settings.");
+      break;
+    case ResultCode::AndroidLayerConfFailed:
+      reason = tr("Android GPU debug layer configuration failed.");
+      actions << tr("Check RenderDoc Android remote components and GPU debug layer support.")
+              << tr("Reconnect the device and relaunch the RenderDoc remote server.")
+              << tr("Re-run Launch Application after validating layer installation state.");
+      break;
+    case ResultCode::AndroidAPKInstallFailed:
+      reason = tr("Installing RenderDoc Android APK components failed.");
+      actions << tr("Check adb connectivity and that the device is visible via `adb devices`.")
+              << tr("Ensure installing APKs over USB is allowed and storage is available.")
+              << tr("Retry after reconnecting USB/debug authorization on the device.");
+      break;
+    case ResultCode::InjectionFailed:
+      if(IsInjectionTimeout(result))
+      {
+        reason = tr("Timed out while waiting for the app process to start.");
+        actions << tr("Increase Settings > Android > Max Connection Timeout and retry.")
+                << tr("Verify package/activity and launch arguments are valid.")
+                << tr("Launch the app once manually, then retry capture.");
+      }
+      else
+      {
+        reason = tr("RenderDoc injection failed while launching the Android app.");
+        actions << tr("Verify package/activity and launch arguments are correct.")
+                << tr("Check `adb logcat` for process startup or permission errors.")
+                << tr("Close Android Studio/other tooling that may interfere with injection.");
+      }
+      break;
+    default: return false;
+  }
+
+  QString message;
+  if(captureLaunch && !target.isEmpty())
+    message = tr("Error launching %1 for capture.\n\n").arg(target);
+  else
+    message = tr("Error encountered while launching Android capture.\n\n");
+
+  message += tr("Reason: %1\n\nSuggested fixes:\n").arg(reason);
+  for(const QString &action : actions)
+    message += tr("- %1\n").arg(action);
+
+  message += tr("\nRaw error: %1").arg(result.Message());
+
+  QString title = captureLaunch ? tr("Error launching capture")
+                                : tr("Problems launching RenderDoc remote server");
+  QMessageBox::StandardButton choice = RDDialog::question(
+      this, title, message + tr("\n\nOpen Launch Application for detailed Android diagnosis?"),
+      QMessageBox::Yes | QMessageBox::No);
+  if(choice == QMessageBox::Yes)
+    on_action_Launch_Application_triggered();
+
+  return true;
 }
 
 bool MainWindow::isUnshareableDeviceInUse()
