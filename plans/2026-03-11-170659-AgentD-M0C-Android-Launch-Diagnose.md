@@ -313,3 +313,26 @@ AndroidLaunchDiagnosis MainWindow::BuildAndroidLaunchDiagnosis(const ExecuteResu
 - 结果：
   - 真实基线分支已包含本任务两条代码提交。
   - 远端分支推送成功，等待其它负责人继续复检。
+
+## /do Execution Log (AgentD, 2026-03-12 - D Branch Cleanup & Final Alignment Gate)
+
+- 用户验收要求（本轮）：
+  - 清理 D 工作区污染（至少 tracked clean）。
+  - 处理 D 分支剩余 2 个 `docs(plan)` 提交。
+  - 给出最终对齐验收口径结果。
+- 实施动作：
+  - 在 `D:\\Code\\git\\renderdoc-agentd` 执行 `git restore`，仅回滚非 D 边界的 tracked 变更：
+    - `qrenderdoc/Resources/PerfReportLight.qss`
+    - `qrenderdoc/Windows/AnalyzerReportWidgets.*`
+    - `qrenderdoc/Windows/PerformanceReportModels.*`
+    - `qrenderdoc/Windows/PerformanceReportViewer.*`
+    - `qrenderdoc/Windows/PerformanceReportWidgets.*`
+  - 清理后 `status --porcelain` 仅剩 `test_output/` 下 3 个 untracked 日志，tracked 项为 0。
+  - 选择“合入基线”方案处理 2 个 docs 提交，在 `D:\\Code\\git\\renderdoc-integration` 执行：
+    - `cherry-pick f6437df48` -> `10cf1f220`
+    - `cherry-pick 400c0afce` -> `8d70ddd4f`
+    - `push renderdoc-ai HEAD:codex/integration/renderdoc-ai-20260311`（成功）
+- 最终口径检查：
+  - 功能口径（M0-C 代码提交已入基线）：通过（`56308e4c2`, `5a9654def`）
+  - 分支口径（`agentd_is_ancestor`）：当前为 `False`（cherry-pick 合流模型，非 merge 祖先链）
+  - 工作区口径（D 分支 tracked clean）：通过
