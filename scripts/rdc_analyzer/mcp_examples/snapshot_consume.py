@@ -26,6 +26,12 @@ def _parse_args() -> argparse.Namespace:
         default=5,
         help="Maximum event count used for pipeline supplement planning (default: 5)",
     )
+    parser.add_argument(
+        "--max-texture-queries",
+        type=int,
+        default=32,
+        help="Maximum texture supplement queries when thumbnails are missing (default: 32)",
+    )
     parser.add_argument("--out-md", help="Optional output markdown path")
     parser.add_argument("--out-cmd", help="Optional output command list path")
     parser.add_argument("--out-json", help="Optional output analyzed JSON path")
@@ -58,6 +64,7 @@ def main() -> int:
         snapshot,
         execute=bool(args.execute),
         max_events=int(args.max_events),
+        texture_query_limit=int(args.max_texture_queries),
     )
 
     markdown = str(result.get("markdown", ""))

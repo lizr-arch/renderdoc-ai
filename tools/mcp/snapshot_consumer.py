@@ -163,8 +163,9 @@ class SnapshotGapDetector:
 
 
 class MCPQueryPlanner:
-    def __init__(self, max_events: int = 5):
+    def __init__(self, max_events: int = 5, texture_query_limit: int = 32):
         self._max_events = max(1, int(max_events))
+        self._texture_query_limit = max(1, int(texture_query_limit))
 
     def build(self, snapshot: Dict[str, Any], gaps: Sequence[Dict[str, Any]]) -> List[Dict[str, Any]]:
         gap_fields = {str(g.get("field_path")) for g in gaps}
@@ -194,7 +195,7 @@ class MCPQueryPlanner:
                     "shaders.source_code",
                 )
         if "resources.textures.thumbnail" in gap_fields:
-            for rid in candidates["texture_resource_ids"]:
+            for rid in candidates["texture_resource_ids"][: self._texture_query_limit]:
                 add(
                     "get_texture_data",
                     {"resource_id": str(rid), "mip": 0, "slice": 0, "sample": 0},
@@ -400,10 +401,11 @@ def analyze_snapshot(
     *,
     execute: bool = False,
     max_events: int = 5,
+    texture_query_limit: int = 32,
     bridge_factory: Optional[Callable[[], Any]] = None,
 ) -> Dict[str, Any]:
     gaps = SnapshotGapDetector(max_events=max_events).detect(snapshot)
-    queries = MCPQueryPlanner(max_events=max_events).build(snapshot, gaps)
+    queries = MCPQueryPlanner(max_events=max_events, texture_query_limit=texture_query_limit).build(snapshot, gaps)
     commands = build_command_list(queries)
     enrichment = MCPEnricher(bridge_factory=bridge_factory).run(queries=queries, execute=execute)
     markdown = SkillMarkdownBuilder().build(
@@ -455,7 +457,7 @@ def classify_mcp_error(message: str) -> str:
         return "not_found"
     if "unsupported" in text:
         return "unsupported_api"
-    if "timeout" in text:
+    if "timeout" in text or "timed out" in text:
         return "timeout"
     return "internal_error"
 
@@ -593,4 +595,3 @@ def _as_int(value: Any) -> Optional[int]:
 
 def _stable_object(value: Any) -> Any:
     return json.loads(json.dumps(value, ensure_ascii=False, sort_keys=True))
-

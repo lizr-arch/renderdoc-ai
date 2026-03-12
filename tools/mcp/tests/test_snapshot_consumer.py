@@ -64,6 +64,20 @@ def _unresolvable_snapshot() -> Dict[str, Any]:
     }
 
 
+def _texture_heavy_snapshot(count: int = 80) -> Dict[str, Any]:
+    textures = [{"resource_id": f"tex-{i:03d}", "thumbnail": ""} for i in range(count)]
+    return {
+        "schema_version": "snapshot.v1",
+        "meta": {"capture_name": "many_textures.rdc", "graphics_api": "Vulkan"},
+        "availability": {"status": "partial", "missing_fields": [], "notes": []},
+        "timings": {"available": True},
+        "pipelines": [{"event_id": 1}],
+        "actions": [{"event_id": 1, "type": "Draw", "render_targets": [{}], "depth_target": {}}],
+        "resources": {"textures": textures, "buffers": []},
+        "shaders": [],
+    }
+
+
 class _MockBridge:
     def __init__(self, responses: Dict[str, Any]):
         self._responses = responses
@@ -118,6 +132,16 @@ def test_missing_snapshot_query_order_and_dedup_stable():
     commands = build_command_list(queries_a)
     assert len(commands) == len(queries_a)
     assert all("run_query.py --method " in cmd for cmd in commands)
+
+
+def test_texture_query_limit_cap_applies():
+    snapshot = _texture_heavy_snapshot(80)
+    gaps = SnapshotGapDetector(max_events=5).detect(snapshot)
+    queries = MCPQueryPlanner(max_events=5, texture_query_limit=12).build(snapshot, gaps)
+    texture_queries = [q for q in queries if q["method"] == "get_texture_data"]
+    assert len(texture_queries) == 12
+    assert texture_queries[0]["params"]["resource_id"] == "tex-000"
+    assert texture_queries[-1]["params"]["resource_id"] == "tex-011"
 
 
 def test_unresolvable_fields_marked_non_supplementable():
@@ -193,4 +217,3 @@ def test_markdown_contains_required_sections_and_sources():
         enrichment=analysis["enrichment"],
     )
     assert "Snapshot Facts" in rendered
-
