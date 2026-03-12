@@ -139,6 +139,7 @@ public:
   void showCommentView() { on_action_Comments_triggered(); }
   void showStatisticsViewer() { on_action_Statistics_Viewer_triggered(); }
   void showAnalyzerReportViewer() { on_action_Analyzer_Report_triggered(); }
+  void showPerformanceReportViewer() { on_action_Performance_Report_triggered(); }
   void showTimelineBar() { on_action_Timeline_triggered(); }
   void showPythonShell() { on_action_Python_Shell_triggered(); }
   void showPerformanceCounterViewer() { on_action_Counter_Viewer_triggered(); }
@@ -167,6 +168,7 @@ private slots:
   void on_action_Comments_triggered();
   void on_action_Statistics_Viewer_triggered();
   void on_action_Analyzer_Report_triggered();
+  void on_action_Performance_Report_triggered();
   void on_action_Timeline_triggered();
   void on_action_Python_Shell_triggered();
   void on_action_Inject_into_Process_triggered();

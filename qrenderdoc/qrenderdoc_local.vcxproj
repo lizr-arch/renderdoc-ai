@@ -613,6 +613,7 @@
     <ClCompile Include="Code\Analyzer\AnalyzerSnapshotAdapter.cpp" />
     <ClCompile Include="Code\Analyzer\FrameAnalyzer.cpp" />
     <ClCompile Include="Code\Analyzer\IssueEngine.cpp" />
+    <ClCompile Include="Code\Analyzer\PerformanceReportBuilder.cpp" />
     <ClCompile Include="$(IntDir)generated\moc_RDStyle.cpp" />
     <ClCompile Include="$(IntDir)generated\moc_RDTweakedNativeStyle.cpp" />
     <ClCompile Include="$(IntDir)generated\moc_AboutDialog.cpp" />
@@ -664,6 +665,10 @@
     <ClCompile Include="$(IntDir)generated\moc_RDTextEdit.cpp" />
     <ClCompile Include="$(IntDir)generated\moc_MainWindow.cpp" />
     <ClCompile Include="$(IntDir)generated\moc_AnalyzerReportViewer.cpp" />
+    <ClCompile Include="$(IntDir)generated\moc_AnalyzerReportWidgets.cpp" />
+    <ClCompile Include="$(IntDir)generated\moc_PerformanceReportViewer.cpp" />
+    <ClCompile Include="$(IntDir)generated\moc_PerformanceReportModels.cpp" />
+    <ClCompile Include="$(IntDir)generated\moc_PerformanceReportWidgets.cpp" />
     <ClCompile Include="$(IntDir)generated\moc_RDListView.cpp" />
     <ClCompile Include="$(IntDir)generated\moc_RDListWidget.cpp" />
     <ClCompile Include="$(IntDir)generated\moc_RDTableView.cpp" />
@@ -790,7 +795,11 @@
     <ClCompile Include="Widgets\Extended\RDTextEdit.cpp" />
     <ClCompile Include="Windows\MainWindow.cpp" />
     <ClCompile Include="Windows\AnalyzerReportViewer.cpp" />
+    <ClCompile Include="Windows\AnalyzerReportWidgets.cpp" />
     <ClCompile Include="Windows\AnalyzerModels.cpp" />
+    <ClCompile Include="Windows\PerformanceReportViewer.cpp" />
+    <ClCompile Include="Windows\PerformanceReportModels.cpp" />
+    <ClCompile Include="Windows\PerformanceReportWidgets.cpp" />
     <ClCompile Include="Code\ReplayManager.cpp" />
     <ClCompile Include="Windows\PipelineState\D3D11PipelineStateViewer.cpp" />
     <ClCompile Include="Windows\PipelineState\D3D12PipelineStateViewer.cpp" />
@@ -993,6 +1002,8 @@
     <ClInclude Include="$(IntDir)generated\ui_LiveCapture.h" />
     <ClInclude Include="$(IntDir)generated\ui_MainWindow.h" />
     <ClInclude Include="$(IntDir)generated\ui_AnalyzerReportViewer.h" />
+    <ClInclude Include="Windows\AnalyzerReportWidgets.h" />
+    <ClInclude Include="$(IntDir)generated\ui_PerformanceReportViewer.h" />
     <ClInclude Include="$(IntDir)generated\ui_EnvironmentEditor.h" />
     <ClInclude Include="$(IntDir)generated\ui_RemoteManager.h" />
     <ClInclude Include="$(IntDir)generated\ui_ExtensionManager.h" />
@@ -1022,6 +1033,7 @@
     <ClInclude Include="Code\Analyzer\AnalyzerTypes.h" />
     <ClInclude Include="Code\Analyzer\FrameAnalyzer.h" />
     <ClInclude Include="Code\Analyzer\IssueEngine.h" />
+    <ClInclude Include="Code\Analyzer\PerformanceReportBuilder.h" />
     <ClInclude Include="Code\CaptureContext.h" />
     <ClInclude Include="Styles\StyleData.h" />
     <ClInclude Include="Code\qprocessinfo.h" />
@@ -1394,6 +1406,30 @@
       <Message>MOC %(Filename).h</Message>
       <Outputs>$(IntDir)generated\moc_%(Filename).cpp</Outputs>
     </CustomBuild>
+    <CustomBuild Include="Windows\AnalyzerReportWidgets.h">
+      <AdditionalInputs>%(Fullpath);$(QtBinDir)\moc.exe;%(AdditionalInputs)</AdditionalInputs>
+      <Command>"$(QtBinDir)\moc.exe" -DUNICODE -DWIN32 -DWIN64 -D_WIN32 -D_WIN64 -DRENDERDOC_PLATFORM_WIN32 -DSCINTILLA_QT=1 -DSCI_LEXER=1 -DQT_NO_DEBUG -DQT_WIDGETS_LIB -DQT_GUI_LIB -DQT_CORE_LIB -D_MSC_VER=1900 -I"$(ProjectDir)." -I"$(SolutionDir)\renderdoc\api\replay" -I"$(QtIncludeDir)" -I"$(QtIncludeDir)\QtWidgets" -I"$(QtIncludeDir)\QtGui" -I"$(QtIncludeDir)\QtCore" "%(Fullpath)" -o "$(IntDir)generated\moc_%(Filename).cpp"</Command>
+      <Message>MOC %(Filename).h</Message>
+      <Outputs>$(IntDir)generated\moc_%(Filename).cpp</Outputs>
+    </CustomBuild>
+    <CustomBuild Include="Windows\PerformanceReportViewer.h">
+      <AdditionalInputs>%(Fullpath);$(QtBinDir)\moc.exe;%(AdditionalInputs)</AdditionalInputs>
+      <Command>"$(QtBinDir)\moc.exe" -DUNICODE -DWIN32 -DWIN64 -D_WIN32 -D_WIN64 -DRENDERDOC_PLATFORM_WIN32 -DSCINTILLA_QT=1 -DSCI_LEXER=1 -DQT_NO_DEBUG -DQT_WIDGETS_LIB -DQT_GUI_LIB -DQT_CORE_LIB -D_MSC_VER=1900 -I"$(ProjectDir)." -I"$(SolutionDir)\renderdoc\api\replay" -I"$(QtIncludeDir)" -I"$(QtIncludeDir)\QtWidgets" -I"$(QtIncludeDir)\QtGui" -I"$(QtIncludeDir)\QtCore" "%(Fullpath)" -o "$(IntDir)generated\moc_%(Filename).cpp"</Command>
+      <Message>MOC %(Filename).h</Message>
+      <Outputs>$(IntDir)generated\moc_%(Filename).cpp</Outputs>
+    </CustomBuild>
+    <CustomBuild Include="Windows\PerformanceReportModels.h">
+      <AdditionalInputs>%(Fullpath);$(QtBinDir)\moc.exe;%(AdditionalInputs)</AdditionalInputs>
+      <Command>"$(QtBinDir)\moc.exe" -DUNICODE -DWIN32 -DWIN64 -D_WIN32 -D_WIN64 -DRENDERDOC_PLATFORM_WIN32 -DSCINTILLA_QT=1 -DSCI_LEXER=1 -DQT_NO_DEBUG -DQT_WIDGETS_LIB -DQT_GUI_LIB -DQT_CORE_LIB -D_MSC_VER=1900 -I"$(ProjectDir)." -I"$(SolutionDir)\renderdoc\api\replay" -I"$(QtIncludeDir)" -I"$(QtIncludeDir)\QtWidgets" -I"$(QtIncludeDir)\QtGui" -I"$(QtIncludeDir)\QtCore" "%(Fullpath)" -o "$(IntDir)generated\moc_%(Filename).cpp"</Command>
+      <Message>MOC %(Filename).h</Message>
+      <Outputs>$(IntDir)generated\moc_%(Filename).cpp</Outputs>
+    </CustomBuild>
+    <CustomBuild Include="Windows\PerformanceReportWidgets.h">
+      <AdditionalInputs>%(Fullpath);$(QtBinDir)\moc.exe;%(AdditionalInputs)</AdditionalInputs>
+      <Command>"$(QtBinDir)\moc.exe" -DUNICODE -DWIN32 -DWIN64 -D_WIN32 -D_WIN64 -DRENDERDOC_PLATFORM_WIN32 -DSCINTILLA_QT=1 -DSCI_LEXER=1 -DQT_NO_DEBUG -DQT_WIDGETS_LIB -DQT_GUI_LIB -DQT_CORE_LIB -D_MSC_VER=1900 -I"$(ProjectDir)." -I"$(SolutionDir)\renderdoc\api\replay" -I"$(QtIncludeDir)" -I"$(QtIncludeDir)\QtWidgets" -I"$(QtIncludeDir)\QtGui" -I"$(QtIncludeDir)\QtCore" "%(Fullpath)" -o "$(IntDir)generated\moc_%(Filename).cpp"</Command>
+      <Message>MOC %(Filename).h</Message>
+      <Outputs>$(IntDir)generated\moc_%(Filename).cpp</Outputs>
+    </CustomBuild>
     <ClInclude Include="Windows\AnalyzerModels.h" />
     <CustomBuild Include="Windows\PipelineState\D3D11PipelineStateViewer.h">
       <AdditionalInputs>%(Fullpath);$(QtBinDir)\moc.exe;%(AdditionalInputs)</AdditionalInputs>
@@ -1709,6 +1745,12 @@
       <Outputs>$(IntDir)generated\ui_%(Filename).h</Outputs>
     </CustomBuild>
     <CustomBuild Include="Windows\AnalyzerReportViewer.ui">
+      <AdditionalInputs>%(Fullpath);$(QtBinDir)\uic.exe;%(AdditionalInputs)</AdditionalInputs>
+      <Command>"$(QtBinDir)\uic.exe" "%(Fullpath)" -o "$(IntDir)generated\ui_%(Filename).h"</Command>
+      <Message>UIC %(Filename).ui</Message>
+      <Outputs>$(IntDir)generated\ui_%(Filename).h</Outputs>
+    </CustomBuild>
+    <CustomBuild Include="Windows\PerformanceReportViewer.ui">
       <AdditionalInputs>%(Fullpath);$(QtBinDir)\uic.exe;%(AdditionalInputs)</AdditionalInputs>
       <Command>"$(QtBinDir)\uic.exe" "%(Fullpath)" -o "$(IntDir)generated\ui_%(Filename).h"</Command>
       <Message>UIC %(Filename).ui</Message>

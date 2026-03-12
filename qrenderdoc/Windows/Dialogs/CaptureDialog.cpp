@@ -55,6 +55,39 @@ static QString GetDescription(const EnvironmentModification &env)
   return ret;
 }
 
+static QString ConfigStringOrEmpty(const char *settingName)
+{
+  if(const SDObject *setting = RENDERDOC_GetConfigSetting(settingName))
+    return QString::fromUtf8(setting->AsString().c_str()).trimmed();
+
+  return QString();
+}
+
+static uint32_t ConfigUIntOrDefault(const char *settingName, uint32_t defaultValue)
+{
+  if(const SDObject *setting = RENDERDOC_GetConfigSetting(settingName))
+    return setting->AsUInt32();
+
+  return defaultValue;
+}
+
+static QString HTMLListOrNone(const QStringList &items)
+{
+  if(items.isEmpty())
+    return QObject::tr("<p>None</p>");
+
+  QString html = lit("<ul>");
+  for(const QString &item : items)
+    html += lit("<li>%1</li>").arg(item.toHtmlEscaped());
+  html += lit("</ul>");
+  return html;
+}
+
+static QString HTMLBool(bool value)
+{
+  return value ? QObject::tr("Yes") : QObject::tr("No");
+}
+
 Q_DECLARE_METATYPE(CaptureSettings);
 
 void CaptureDialog::initWarning(RDLabel *warning)
@@ -562,34 +595,213 @@ void CaptureDialog::vulkanLayerWarn_mouseClick()
   }
 }
 
+CaptureDialog::AndroidPreflightReport CaptureDialog::BuildAndroidPreflightReport(
+    const QString &filename) const
+{
+  AndroidPreflightReport report;
+
+  RemoteHost remote = m_Ctx.Replay().CurrentRemote();
+  if(remote.IsValid())
+    remote.CheckStatus();
+
+  report.host = remote.IsValid() ? remote.Hostname() : rdcstr();
+  report.packageAndActivity = filename.trimmed();
+  report.remoteConnected = remote.IsValid() && remote.IsConnected();
+  report.adbProtocol = remote.Protocol() && remote.Protocol()->GetProtocolName() == "adb";
+  report.packageSpecified = !ToQStr(report.packageAndActivity).isEmpty();
+
+  report.sdkPath = ConfigStringOrEmpty("Android.SDKDirPath");
+  report.sdkPathProvided = !report.sdkPath.isEmpty();
+  report.sdkPathExists = !report.sdkPathProvided || QDir(report.sdkPath).exists();
+
+  report.jdkPath = ConfigStringOrEmpty("Android.JDKDirPath");
+  report.jdkPathProvided = !report.jdkPath.isEmpty();
+  report.jdkPathExists = !report.jdkPathProvided || QDir(report.jdkPath).exists();
+
+  report.maxConnectTimeout = ConfigUIntOrDefault("Android.MaxConnectTimeout", 30);
+
+  if(!remote.IsValid())
+  {
+    report.blockers << tr(
+        "No remote Android context selected. Pick an Android device from the "
+        "Remote Context list first.");
+  }
+  else
+  {
+    if(!report.remoteConnected)
+      report.blockers << tr("Android server is disconnected. Reconnect to the device and retry.");
+
+    if(!report.adbProtocol)
+    {
+      report.blockers << tr(
+          "Current remote protocol is not adb. Android capture requires an adb "
+          "remote context.");
+    }
+  }
+
+  if(!report.packageSpecified)
+  {
+    report.blockers << tr(
+        "No package/activity selected. Choose an Android package in "
+        "'Executable Path'.");
+  }
+
+  AndroidFlags flags = AndroidFlags::NoFlags;
+  if(report.remoteConnected && report.adbProtocol && report.packageSpecified)
+    RENDERDOC_CheckAndroidPackage(report.host, report.packageAndActivity, &flags);
+
+  report.debuggable = bool(flags & AndroidFlags::Debuggable);
+  report.rootAccess = bool(flags & AndroidFlags::RootAccess);
+
+  if(report.remoteConnected && report.adbProtocol && report.packageSpecified)
+  {
+    if(!report.debuggable && !report.rootAccess)
+    {
+      report.blockers << tr(
+          "Package is not debuggable and no root access is available. RenderDoc "
+          "can't attach the debugger.");
+      report.suggestions << tr(
+          "Build a debuggable package. UE: disable 'For Distribution'; Unity: "
+          "enable 'Development Build'.");
+    }
+    else if(!report.debuggable && report.rootAccess)
+    {
+      report.warnings << tr(
+          "Package is not debuggable. Capture depends on root-only fallback "
+          "behaviour and may be unstable.");
+    }
+  }
+
+  if(report.sdkPathProvided && !report.sdkPathExists)
+  {
+    report.blockers << tr("Configured Android SDK path does not exist: %1").arg(report.sdkPath);
+  }
+  else if(!report.sdkPathProvided)
+  {
+    report.suggestions << tr(
+        "If device discovery fails, set Android SDK root path in Settings > "
+        "Android.");
+  }
+
+  if(report.jdkPathProvided && !report.jdkPathExists)
+  {
+    report.warnings << tr("Configured Java JDK path does not exist: %1").arg(report.jdkPath);
+  }
+  else if(!report.jdkPathProvided)
+  {
+    report.suggestions << tr(
+        "If Java tools are missing, set Java JDK root path in Settings > "
+        "Android.");
+  }
+
+  if(report.maxConnectTimeout < 30)
+  {
+    report.warnings << tr("Max Connection Timeout is %1s, below the default 30s. Slow-starting "
+                          "packages may fail to attach.")
+                           .arg(report.maxConnectTimeout);
+  }
+  else if(report.maxConnectTimeout < 60)
+  {
+    report.suggestions << tr("For heavy startup games, consider increasing Max Connection Timeout "
+                             "(current %1s).")
+                              .arg(report.maxConnectTimeout);
+  }
+
+  if(report.adbProtocol)
+  {
+    report.suggestions << tr(
+        "Close Android Studio (or disable ADB integration) when capture "
+        "launching fails with JDWP conflicts.");
+  }
+
+  report.blockers.removeDuplicates();
+  report.warnings.removeDuplicates();
+  report.suggestions.removeDuplicates();
+
+  return report;
+}
+
+QString CaptureDialog::BuildAndroidPreflightHTML(const AndroidPreflightReport &report) const
+{
+  QString status = tr("Ready");
+  if(!report.blockers.isEmpty())
+    status = tr("Blocked");
+  else if(!report.warnings.isEmpty())
+    status = tr("Warnings");
+
+  QString sdkDisplay = report.sdkPathProvided ? report.sdkPath : tr("(auto-detect)");
+  QString jdkDisplay = report.jdkPathProvided ? report.jdkPath : tr("(auto-detect)");
+
+  QString html = tr("<html><head/><body>");
+  html += tr("<h3>Android Capture Diagnosis</h3>");
+  html += tr("<p><b>Status:</b> %1</p>").arg(status);
+  html += lit("<table cellspacing=\"4\" cellpadding=\"2\">");
+  html +=
+      tr("<tr><td><b>Host</b></td><td>%1</td></tr>")
+          .arg(ToQStr(report.host).toHtmlEscaped().isEmpty() ? tr("(none)")
+                                                             : ToQStr(report.host).toHtmlEscaped());
+  html += tr("<tr><td><b>Package/Activity</b></td><td>%1</td></tr>")
+              .arg(ToQStr(report.packageAndActivity).toHtmlEscaped().isEmpty()
+                       ? tr("(none)")
+                       : ToQStr(report.packageAndActivity).toHtmlEscaped());
+  html +=
+      tr("<tr><td><b>Remote Connected</b></td><td>%1</td></tr>").arg(HTMLBool(report.remoteConnected));
+  html += tr("<tr><td><b>ADB Protocol</b></td><td>%1</td></tr>").arg(HTMLBool(report.adbProtocol));
+  html += tr("<tr><td><b>Debuggable</b></td><td>%1</td></tr>").arg(HTMLBool(report.debuggable));
+  html += tr("<tr><td><b>Root Access</b></td><td>%1</td></tr>").arg(HTMLBool(report.rootAccess));
+  html += tr("<tr><td><b>SDK Path</b></td><td>%1</td></tr>").arg(sdkDisplay.toHtmlEscaped());
+  html += tr("<tr><td><b>JDK Path</b></td><td>%1</td></tr>").arg(jdkDisplay.toHtmlEscaped());
+  html +=
+      tr("<tr><td><b>Max Connect Timeout</b></td><td>%1s</td></tr>").arg(report.maxConnectTimeout);
+  html += lit("</table>");
+  html += tr("<h4>Blockers</h4>%1").arg(HTMLListOrNone(report.blockers));
+  html += tr("<h4>Warnings</h4>%1").arg(HTMLListOrNone(report.warnings));
+  html += tr("<h4>Suggestions</h4>%1").arg(HTMLListOrNone(report.suggestions));
+  html += tr("</body></html>");
+
+  return html;
+}
+
+void CaptureDialog::ApplyAndroidPreflightReport(const AndroidPreflightReport &report)
+{
+  m_AndroidFlags = AndroidFlags::NoFlags;
+  if(report.debuggable)
+    m_AndroidFlags |= AndroidFlags::Debuggable;
+  if(report.rootAccess)
+    m_AndroidFlags |= AndroidFlags::RootAccess;
+
+  ui->androidScan->setVisible(false);
+
+  const bool hasIssues = !report.blockers.isEmpty() || !report.warnings.isEmpty();
+  ui->androidWarn->setVisible(hasIssues);
+
+  if(!hasIssues)
+    return;
+
+  QString line = tr("Android capture has warnings.<br/>Click here to view diagnosis and fixes.");
+  if(!report.blockers.isEmpty())
+    line = tr("Android capture has blockers.<br/>Click here to view diagnosis and fixes.");
+
+  ui->androidWarn->setText(
+      tr("<html><head/><body><table><tr><td valign=\"middle\"><img width=\"16\" "
+         "src=\":/information.png\"/></td><td><p>%1</p></td></tr></table></body></html>")
+          .arg(line));
+}
+
 void CaptureDialog::CheckAndroidSetup(QString &filename)
 {
   ui->androidScan->setVisible(true);
   ui->androidWarn->setVisible(false);
 
-  LambdaThread *scan = new LambdaThread([this, filename]() {
-    rdcstr host = m_Ctx.Replay().CurrentRemote().Hostname();
-    RENDERDOC_CheckAndroidPackage(host, filename, &m_AndroidFlags);
+  const QString packageAndActivity = filename.trimmed();
 
-    const bool debuggable = bool(m_AndroidFlags & AndroidFlags::Debuggable);
-    const bool hasroot = bool(m_AndroidFlags & AndroidFlags::RootAccess);
+  LambdaThread *scan = new LambdaThread([this, packageAndActivity]() {
+    AndroidPreflightReport report = BuildAndroidPreflightReport(packageAndActivity);
 
-    if(!debuggable && !hasroot)
-    {
-      // Check failed - set the warning visible
-      GUIInvoke::call(this, [this]() {
-        ui->androidScan->setVisible(false);
-        ui->androidWarn->setVisible(true);
-      });
-    }
-    else
-    {
-      // Check passed, either app is debuggable or we have root - no warnings needed
-      GUIInvoke::call(this, [this]() {
-        ui->androidScan->setVisible(false);
-        ui->androidWarn->setVisible(false);
-      });
-    }
+    GUIInvoke::call(this, [this, report]() {
+      m_AndroidPreflight = report;
+      ApplyAndroidPreflightReport(m_AndroidPreflight);
+    });
   });
 
   scan->setName(lit("CheckAndroidSetup"));
@@ -599,28 +811,11 @@ void CaptureDialog::CheckAndroidSetup(QString &filename)
 
 void CaptureDialog::androidWarn_mouseClick()
 {
-  QString exe = ui->exePath->text();
+  m_AndroidPreflight = BuildAndroidPreflightReport(ui->exePath->text());
+  ApplyAndroidPreflightReport(m_AndroidPreflight);
 
-  RemoteHost remote = m_Ctx.Replay().CurrentRemote();
-
-  if(!remote.IsValid())
-  {
-    RDDialog::critical(this, tr("Android server disconnected"),
-                       tr("You've been disconnected from the android server.\n\n"
-                          "Please reconnect before attempting to fix package problems."));
-    return;
-  }
-
-  rdcstr host = remote.Hostname();
-
-  QString caption = tr("Application is not debuggable");
-
-  QString msg = tr(R"(In order to debug on Android, the package must be <b>debuggable</b>.
-<br><br>
-On UE4 you must disable <em>for distribution</em>, on Unity enable <em>development mode</em>.
-)");
-
-  RDDialog::information(this, caption, msg);
+  RDDialog::information(this, tr("Android Capture Diagnosis"),
+                        BuildAndroidPreflightHTML(m_AndroidPreflight));
 }
 
 void CaptureDialog::lineEdit_keyPress(QKeyEvent *ev)

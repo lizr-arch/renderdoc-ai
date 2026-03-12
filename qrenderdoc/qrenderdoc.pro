@@ -180,6 +180,7 @@ SOURCES += Code/qrenderdoc.cpp \
     Code/Analyzer/AnalyzerSnapshotAdapter.cpp \
     Code/Analyzer/FrameAnalyzer.cpp \
     Code/Analyzer/IssueEngine.cpp \
+    Code/Analyzer/PerformanceReportBuilder.cpp \
     Code/RGPInterop.cpp \
     Code/pyrenderdoc/PythonContext.cpp \
     Code/Interface/QRDInterface.cpp \
@@ -237,6 +238,10 @@ SOURCES += Code/qrenderdoc.cpp \
     Windows/CommentView.cpp \
     Windows/StatisticsViewer.cpp \
     Windows/AnalyzerReportViewer.cpp \
+    Windows/AnalyzerReportWidgets.cpp \
+    Windows/PerformanceReportViewer.cpp \
+    Windows/PerformanceReportModels.cpp \
+    Windows/PerformanceReportWidgets.cpp \
     Windows/TimelineBar.cpp \
     Windows/Dialogs/SettingsDialog.cpp \
     Widgets/OrderedListEditor.cpp \
@@ -275,6 +280,7 @@ HEADERS += Code/CaptureContext.h \
     Code/Analyzer/AnalyzerSnapshotAdapter.h \
     Code/Analyzer/FrameAnalyzer.h \
     Code/Analyzer/IssueEngine.h \
+    Code/Analyzer/PerformanceReportBuilder.h \
     Code/RGPInterop.h \
     Code/pyrenderdoc/PythonContext.h \
     Code/pyrenderdoc/pyconversion.h \
@@ -334,6 +340,10 @@ HEADERS += Code/CaptureContext.h \
     Windows/CommentView.h \
     Windows/StatisticsViewer.h \
     Windows/AnalyzerReportViewer.h \
+    Windows/AnalyzerReportWidgets.h \
+    Windows/PerformanceReportViewer.h \
+    Windows/PerformanceReportModels.h \
+    Windows/PerformanceReportWidgets.h \
     Windows/TimelineBar.h \
     Windows/Dialogs/SettingsDialog.h \
     Widgets/OrderedListEditor.h \
@@ -388,6 +398,7 @@ FORMS    += Windows/Dialogs/AboutDialog.ui \
     Windows/CommentView.ui \
     Windows/StatisticsViewer.ui \
     Windows/AnalyzerReportViewer.ui \
+    Windows/PerformanceReportViewer.ui \
     Windows/Dialogs/SettingsDialog.ui \
     Windows/Dialogs/SuggestRemoteDialog.ui \
     Windows/Dialogs/VirtualFileDialog.ui \

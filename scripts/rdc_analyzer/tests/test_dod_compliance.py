@@ -580,5 +580,27 @@ class TestVerificationPlanSchema:
         assert 'metrics' in vp and 'expected_direction' in vp and 'how_to_capture' in vp
 
 
+def test_create_summary_handles_issue_objects():
+    """_create_summary 应同时支持 Issue 对象和 dict"""
+    from rdc_analyzer.main import AnalysisPipeline
+    from rdc_analyzer.core.types import Issue
+
+    pipeline = AnalysisPipeline.__new__(AnalysisPipeline)
+    pipeline.rdc_path = "fake.rdc"
+    pipeline._api = "Mock"
+    pipeline._events = []
+    pipeline._draw_calls = []
+    pipeline._resources = {"textures": {}, "buffers": {}}
+    pipeline._issues = [
+        Issue(severity="error", category="performance", code="X", message="boom"),
+        {"severity": "warning", "code": "Y", "message": "warn"},
+    ]
+
+    summary = AnalysisPipeline._create_summary(pipeline, 0.1, [])
+    assert summary.error_count == 1
+    assert summary.warning_count == 1
+    assert summary.info_count == 0
+
+
 if __name__ == '__main__':
     pytest.main([__file__, '-v'])

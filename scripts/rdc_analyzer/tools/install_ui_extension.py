@@ -33,7 +33,7 @@ def install_extension(
     source_dir: Path,
     scripts_root: Path,
     dest_root: Optional[Path] = None,
-    name: str = "rdc_analyzer",
+    name: str = "rdc_analyzer_ext",
 ) -> Path:
     dest_base = dest_root or get_extensions_root()
     dest_dir = dest_base / name
@@ -62,7 +62,7 @@ def _parse_args() -> argparse.Namespace:
         default=None,
         help="Override destination extensions root (optional)",
     )
-    parser.add_argument("--name", default="rdc_analyzer", help="Extension package name")
+    parser.add_argument("--name", default="rdc_analyzer_ext", help="Extension package name")
     return parser.parse_args()
 
 

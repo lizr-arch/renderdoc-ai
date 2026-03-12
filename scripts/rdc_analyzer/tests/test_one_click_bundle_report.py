@@ -86,3 +86,25 @@ def test_default_output_dir_for_rdc(tmp_path: Path):
     rdc = tmp_path / "demo.rdc"
     expected = tmp_path / "demo_report"
     assert cli.default_output_dir_for_rdc(rdc) == expected
+
+
+def test_build_thumbnail_audit_command():
+    cmd = cli.build_thumbnail_audit_command(
+        python_exec="py",
+        audit_script=Path("thumbnail_audit.py"),
+        report_dir=Path("out_dir"),
+        texture_dir=Path("out_dir/textures"),
+        sentinel_count=12,
+        verbose=True,
+    )
+    assert cmd == [
+        "py",
+        "thumbnail_audit.py",
+        "--report-dir",
+        "out_dir",
+        "--texture-dir",
+        str(Path("out_dir") / "textures"),
+        "--count",
+        "12",
+        "-v",
+    ]

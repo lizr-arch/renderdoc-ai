@@ -1173,6 +1173,31 @@ protected:
 
 DECLARE_REFLECTION_STRUCT(IAnalyzerReportViewer);
 
+DOCUMENT(R"(The performance report window.
+
+This window is retrieved by calling :meth:`CaptureContext.GetPerformanceReportViewer`.
+)");
+struct IPerformanceReportViewer
+{
+  DOCUMENT(R"(Retrieves the PySide2 QWidget for this :class:`PerformanceReportViewer` if PySide2 is available, or otherwise
+returns a unique opaque pointer that can be passed back to any RenderDoc functions expecting a
+QWidget.
+
+:return: Return the widget handle, either a PySide2 handle or an opaque handle.
+:rtype: QWidget
+)");
+  virtual QWidget *Widget() = 0;
+
+  DOCUMENT("Refreshes the performance report from the current capture state.");
+  virtual void RefreshReport() = 0;
+
+protected:
+  IPerformanceReportViewer() = default;
+  ~IPerformanceReportViewer() = default;
+};
+
+DECLARE_REFLECTION_STRUCT(IPerformanceReportViewer);
+
 DOCUMENT(R"(The timeline bar.
 
 This window is retrieved by calling :meth:`CaptureContext.GetTimelineBar`.
@@ -2637,6 +2662,13 @@ on the UI thread.
 )");
   virtual IAnalyzerReportViewer *GetAnalyzerReportViewer() = 0;
 
+  DOCUMENT(R"(Retrieve the current singleton :class:`PerformanceReportViewer`.
+
+:return: The current window, which is created (but not shown) it there wasn't one open.
+:rtype: PerformanceReportViewer
+)");
+  virtual IPerformanceReportViewer *GetPerformanceReportViewer() = 0;
+
   DOCUMENT(R"(Retrieve the current singleton :class:`TimelineBar`.
 
 :return: The current window, which is created (but not shown) it there wasn't one open.
@@ -2748,6 +2780,11 @@ on the UI thread.
 :rtype: bool
 )");
   virtual bool HasAnalyzerReportViewer() = 0;
+  DOCUMENT(R"(Check if there is a current :class:`PerformanceReportViewer` open.
+
+:return: ``True`` if a :class:`PerformanceReportViewer` exists.
+)");
+  virtual bool HasPerformanceReportViewer() = 0;
 
   DOCUMENT(R"(Check if there is a current :class:`TimelineBar` open.
 
@@ -2806,6 +2843,9 @@ place if needed.
   DOCUMENT(
       "Raise the current :class:`AnalyzerReportViewer`, showing it in the default place if needed.");
   virtual void ShowAnalyzerReportViewer() = 0;
+  DOCUMENT(
+      "Raise the current :class:`PerformanceReportViewer`, showing it in the default place if needed.");
+  virtual void ShowPerformanceReportViewer() = 0;
   DOCUMENT("Raise the current :class:`TimelineBar`, showing it in the default place if needed.");
   virtual void ShowTimelineBar() = 0;
   DOCUMENT("Raise the current :class:`PythonShell`, showing it in the default place if needed.");

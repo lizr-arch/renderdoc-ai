@@ -165,6 +165,7 @@
     <addaction name="action_Timeline"/>
     <addaction name="action_Statistics_Viewer"/>
     <addaction name="action_Analyzer_Report"/>
+    <addaction name="action_Performance_Report"/>
     <addaction name="action_Counter_Viewer"/>
     <addaction name="action_Resource_Inspector"/>
     <addaction name="action_Comments"/>
@@ -425,6 +426,14 @@
    </property>
    <property name="shortcut">
     <string>Ctrl+Alt+A</string>
+   </property>
+  </action>
+  <action name="action_Performance_Report">
+   <property name="text">
+    <string>&amp;Performance Report</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+Alt+P</string>
    </property>
   </action>
   <action name="action_Show_Tips">

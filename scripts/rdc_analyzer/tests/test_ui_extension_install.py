@@ -7,6 +7,7 @@ UI extension install script tests.
 from __future__ import annotations
 
 from pathlib import Path
+import sys
 
 
 def test_install_extension_copies_and_writes_config(tmp_path):
@@ -31,3 +32,11 @@ def test_install_extension_copies_and_writes_config(tmp_path):
     assert (dest / "__init__.py").exists()
     assert (dest / "extension.json").exists()
     assert (dest / "extension_config.json").exists()
+
+
+def test_parse_args_defaults_to_ext_name(monkeypatch):
+    from rdc_analyzer.tools import install_ui_extension as installer
+
+    monkeypatch.setattr(sys, "argv", ["install_ui_extension"])
+    args = installer._parse_args()
+    assert args.name == "rdc_analyzer_ext"

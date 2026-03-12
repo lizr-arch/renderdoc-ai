@@ -1,6 +1,6 @@
 # Codex Project Configuration: RenderDoc (Graphics Debugger / C++)
 
-> **Version**: 1.2.0 | **Updated**: 2026-02-25 | **For**: Codex Executor
+> **Version**: 1.3.1 | **Updated**: 2026-03-10 | **For**: Codex Executor
 > 
 > **项目简介**: RenderDoc 是一个开源的帧捕获图形调试器，支持 Vulkan、D3D11、D3D12、OpenGL 和 OpenGL ES。
 >
@@ -28,6 +28,10 @@
   - 说明：该文件已改为"索引页"，指向 5 份主题文档（架构/路线/Schema/验证/路线图）。
 - **工具文档索引**：`scripts/rdc_analyzer/docs/INDEX.md`
   - 说明：包含纹理提取、Unity 导出、RDC 格式规范等实用指南。
+- **RenderDoc AI 开发总纲**：`docs/product/development_charter.md`
+  - 说明：冻结三条主线、职责边界、开发顺序与验收总线。
+- **RenderDoc AI 统一契约**：`docs/product/snapshot_schema_v1.md`、`docs/product/template_contract_v1.md`、`docs/product/mcp_query_contract_v1.md`
+  - 说明：统一 GUI/离线快照、HTML 模板输入与 MCP 查询口径。
 
 ## Context MCP（开发辅助）
 
@@ -46,12 +50,13 @@
 
 ### MCP 触发规则（防遗忘强制）
 
-- 会话开始必须调用 `get_project_index`。
-- 进入 `/spec` 或 `/plan` 前，至少一次 `search_docs`（使用 1-3 个任务关键词）。
-- 涉及既有功能/脚本/规范/结论时，必须 `search_docs` 或 `read_doc` 并给出证据路径。
-- 连续 10+ 轮未调用上述 MCP 工具且仍在 RenderDoc 任务中，强制一次 `search_docs`。
-- 无检索结果时必须标注 **假设（待验证）**。
-- **频率底线**：每次会话至少 1 次 `get_project_index` + 1 次 `search_docs`。
+- 会话开始优先调用 `get_project_index`：用于快速恢复项目全局上下文；**新会话默认执行 1 次**。
+- 进入 `/spec` 或 `/plan` 前，如**不知道文档入口**或**需要做主题发现**，优先使用 `search_docs`；查询词应为 **1-3 个精确关键词** 或标题片段，避免长自然语言句子。
+- 如果**已经知道文档路径/模块范围**，允许直接使用 `read_doc` 或 `rg -n`，不再强制补一次 `search_docs`。
+- 涉及既有功能/脚本/规范/结论时，必须给出证据路径；证据可来自 `search_docs`、`read_doc` 或本地 `rg -n`。
+- `search_docs` 返回 0 或结果质量低时，立即切换到 `list_doc_topics` / `read_doc` / `rg -n`，并注明「基于本地检索（MCP search 低召回）」。
+- 连续 10+ 轮未重新确认文档上下文且任务范围已明显变化时，再补一次 `get_project_index` 或 `search_docs`。
+- **频率底线**：每次新会话至少 1 次 `get_project_index`；`search_docs` 为推荐工具，不再作为机械强制项。
 - 若 MCP 工具不可用：改用 `rg -n` + 直接读取文档路径，并在结论中注明「基于本地检索（MCP unavailable）」。
 
 ### 数据源
@@ -96,6 +101,26 @@ make -C build-android
 - Text: `rg -n "pattern" renderdoc/`
 - Syntax (sg if available): `sg -g "*.cpp" 'class_spec(name == "ReplayController")'`
 
+### Codemap (OpenGrok + Zoekt)
+```powershell
+# 1) 全量索引（OpenGrok + Zoekt）
+pwsh -NoProfile -File D:\Code\git\renderdoc\scripts\codemap\index_all.ps1
+
+# 2) 启动查询服务（OpenGrok + Zoekt + Gateway）
+pwsh -NoProfile -File D:\Code\git\renderdoc\scripts\codemap\codemap_web_all.ps1
+
+# 3) 健康检查
+curl.exe -s http://127.0.0.1:6190/health
+
+# 4) 统一单次查询（推荐入口）
+pwsh -NoProfile -File D:\Code\git\renderdoc\scripts\codemap\codemap_query.ps1 -Query ReplayController -TopK 10 -StrictNonHttp -Explain
+```
+
+- 索引与运行资产根目录：`D:\codemap\renderdoc`
+- 端口：Zoekt=`6170`，OpenGrok=`6180`，Gateway=`6190`
+- 默认 provider（non-HTTP-first）：`zoekt=local_cli`、`opengrok=headless_daemon`
+- 查询入口建议：优先走 Gateway 单次调用，不手动拆两次 OpenGrok/Zoekt 查询
+
 ## 0.1 AGENT ROLES
 角色文件：`~/.codex/prompts/`，调用：`/prompts:<name>`（新建后需重启生效）
 - `role-docs` / `role-test` / `role-lint`
@@ -104,10 +129,31 @@ make -C build-android
 
 **Stage-Gated**: 只有收到 `/spec` `/plan` `/do` 明确指令才进入对应阶段；需求变更→回退上一阶段确认。
 
+### 新增协作约定（RenderDoc AI 增强版）
+- 模板统一：GUI/离线报告共用 HTML/JS/CSS 模板，数据适配器区分来源（ReplayController vs XML/JSON）。
+- MCP 定位：仅做实时查询/补数据，不生成整份报告；需要整份报告走 GUI/离线路径。
+- Skill 定位：负责安装/自检 + 高阶 AI 分析（瓶颈归因、Shader 公式提取、管线审阅等），不重复报告生成。
+- Analyzer Report 定位：它不是与 GUI/离线/MCP/Skill 并列的第四套系统，而是“报告产品线”的事实引擎；GUI 与离线只是它的两种交付方式。
+- 分工参考：Dev A= MCP+Skill；Dev B= GUI 报告；Dev C= 离线报告+模板。跨模块变更需提前同步相关负责人。
+- 新功能提案必须先声明属于 `底座 / 报告 / 智能` 哪一主线，并说明是否与 GUI/离线/MCP/Skill 现有能力重叠。
+
+### 开发总纲入口（RenderDoc AI SSOT）
+- 开发总纲：`docs/product/development_charter.md`
+- 统一快照契约：`docs/product/snapshot_schema_v1.md`
+- 模板契约：`docs/product/template_contract_v1.md`
+- MCP 查询契约：`docs/product/mcp_query_contract_v1.md`
+- 程序总控 handoff：`docs/debug/session_archives/2026-03-11-RenderDoc-AI-Program-Control/HANDOFF.md`
+- 多 Codex 总控计划：`plans/2026-03-11-170659-Lead-Program-Control.md`
+- Context MCP 流程评估：`docs/analysis/context_mcp_efficiency_review.md`
+- 涉及 GUI/离线/MCP/Skill 的 `/spec`、`/plan`、`/do`，必须先读取“开发总纲 + 对应契约文档”。
+- 若要新增功能、页面、API 或 Skill 动作，必须先写明：所属主线、主负责人、依赖契约、是否替代或复用现有功能。
+- 若需求会生成“第二套模板 / 第二套快照 / 第二套报告系统”，默认判定为高风险重复开发，必须先回到 `/plan` 论证。
+
 ### Phase 1: /spec (Specification & Context)
 - **Goal**: Understand requirement, map codebase.
 - **Permissions**: READ-ONLY.
 - **Mandatory Actions**:
+  - 若任务涉及 GUI/离线/MCP/Skill，先读取开发总纲 + 对应契约文档。
   1. Search (rg/sg) 定位相关代码。
   2. 阅读关键文件，理解数据结构和调用关系。
   3. 总结需求和发现。
@@ -121,6 +167,7 @@ make -C build-android
 - **Goal**: Design solution.
 - **Permissions**: READ-ONLY.
 - **Mandatory Actions**:
+  - 若任务涉及 GUI/离线/MCP/Skill，先对照开发总纲声明主线归属、依赖契约与冗余检查结果。
   1. File List (精确到行号范围).
   2. Pseudo-code.
   3. Impact Analysis.
@@ -146,6 +193,7 @@ make -C build-android
 - **Goal**: Apply changes.
 - **Permissions**: WRITE ALLOWED (代码文件), **可执行验证命令** (测试/lint).
 - **Mandatory Actions**:
+  - 若实现触及快照 / 模板 / MCP 查询口径，必须同步更新对应契约文档或明确说明“不受影响”。
   1. Incremental Edits.
   2. Encoding Check (GBK vs UTF-8).
   3. 同步更新 plan.md：勾选完成项，记录阻塞/偏差。

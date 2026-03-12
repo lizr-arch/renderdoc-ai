@@ -51,6 +51,7 @@ class CommentView;
 class PerformanceCounterViewer;
 class StatisticsViewer;
 class AnalyzerReportViewer;
+class PerformanceReportViewer;
 class TimelineBar;
 class PythonShell;
 class ResourceInspector;
@@ -225,6 +226,7 @@ public:
   IPerformanceCounterViewer *GetPerformanceCounterViewer() override;
   IStatisticsViewer *GetStatisticsViewer() override;
   IAnalyzerReportViewer *GetAnalyzerReportViewer() override;
+  IPerformanceReportViewer *GetPerformanceReportViewer() override;
   ITimelineBar *GetTimelineBar() override;
   IPythonShell *GetPythonShell() override;
   IResourceInspector *GetResourceInspector() override;
@@ -242,6 +244,7 @@ public:
   bool HasPerformanceCounterViewer() override { return m_PerformanceCounterViewer != NULL; }
   bool HasStatisticsViewer() override { return m_StatisticsViewer != NULL; }
   bool HasAnalyzerReportViewer() override { return m_AnalyzerReportViewer != NULL; }
+  bool HasPerformanceReportViewer() override { return m_PerformanceReportViewer != NULL; }
   bool HasTimelineBar() override { return m_TimelineBar != NULL; }
   bool HasPythonShell() override { return m_PythonShell != NULL; }
   bool HasResourceInspector() override { return m_ResourceInspector != NULL; }
@@ -258,6 +261,7 @@ public:
   void ShowPerformanceCounterViewer() override;
   void ShowStatisticsViewer() override;
   void ShowAnalyzerReportViewer() override;
+  void ShowPerformanceReportViewer() override;
   void ShowTimelineBar() override;
   void ShowPythonShell() override;
   void ShowResourceInspector() override;
@@ -454,6 +458,7 @@ private:
   PerformanceCounterViewer *m_PerformanceCounterViewer = NULL;
   StatisticsViewer *m_StatisticsViewer = NULL;
   AnalyzerReportViewer *m_AnalyzerReportViewer = NULL;
+  PerformanceReportViewer *m_PerformanceReportViewer = NULL;
   TimelineBar *m_TimelineBar = NULL;
   PythonShell *m_PythonShell = NULL;
   ResourceInspector *m_ResourceInspector = NULL;
