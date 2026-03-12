@@ -300,3 +300,16 @@ AndroidLaunchDiagnosis MainWindow::BuildAndroidLaunchDiagnosis(const ExecuteResu
   - 未重做 preflight。
   - 未重做 analyzer 导出。
   - 未扩展 M0-C 之外产品范围。
+
+## /do Execution Log (AgentD, 2026-03-12 - Baseline Branch Correction)
+
+- 背景：
+  - 用户指出本任务基线应为 `codex/integration/renderdoc-ai-20260311`，不是 `codex/integration/renderdoc-ai-20260311-linear-v2`。
+- 纠正动作（在 `D:\\Code\\git\\renderdoc-integration` worktree）：
+  - `fetch renderdoc-ai codex/agentd/m0c-android-launch`
+  - `cherry-pick d8b61bd48` -> `56308e4c2`
+  - `cherry-pick 605ae5547` -> `5a9654def`
+  - `push renderdoc-ai HEAD:codex/integration/renderdoc-ai-20260311`
+- 结果：
+  - 真实基线分支已包含本任务两条代码提交。
+  - 远端分支推送成功，等待其它负责人继续复检。
