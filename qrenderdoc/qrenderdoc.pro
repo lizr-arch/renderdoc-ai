@@ -177,6 +177,7 @@ SOURCES += Code/qrenderdoc.cpp \
     Code/Resources.cpp \
     Code/Analyzer/AnalyzerContract.cpp \
     Code/Analyzer/AnalyzerExporter.cpp \
+    Code/Analyzer/AnalyzerSnapshotAdapter.cpp \
     Code/Analyzer/FrameAnalyzer.cpp \
     Code/Analyzer/IssueEngine.cpp \
     Code/Analyzer/PerformanceReportBuilder.cpp \
@@ -276,6 +277,7 @@ HEADERS += Code/CaptureContext.h \
     Code/Analyzer/AnalyzerTypes.h \
     Code/Analyzer/AnalyzerContract.h \
     Code/Analyzer/AnalyzerExporter.h \
+    Code/Analyzer/AnalyzerSnapshotAdapter.h \
     Code/Analyzer/FrameAnalyzer.h \
     Code/Analyzer/IssueEngine.h \
     Code/Analyzer/PerformanceReportBuilder.h \

@@ -19,9 +19,11 @@ XML → 4 页面 Bundle 报告生成器
 
 import sys
 import argparse
+import json
 from pathlib import Path
 from datetime import datetime
 from typing import Dict, List, Any, Optional
+from dataclasses import dataclass, field
 
 # 确保脚本目录和父目录在路径中
 SCRIPT_DIR = Path(__file__).parent
@@ -32,8 +34,24 @@ sys.path.insert(0, str(SCRIPTS_DIR))
 # 直接导入解析器（避免 package 相对导入问题）
 import xml.etree.ElementTree as ET
 from report_bundle_generator import ReportBundleGenerator
+from providers.offline_snapshot_builder import OfflineSnapshotBuilder
+from providers.snapshot_template_renderer import SnapshotTemplateRenderer
 # 统一查询/过滤层（与 MCP 对齐）
-from query_layer import Query, filter_draw_calls
+try:
+    from query_layer import Query, filter_draw_calls
+except Exception:
+    @dataclass
+    class Query:  # type: ignore[override]
+        marker_filter: Optional[str] = None
+        exclude_markers: Optional[List[str]] = None
+        event_id_min: Optional[int] = None
+        event_id_max: Optional[int] = None
+        only_actions: bool = False
+        flags_filter: Optional[List[str]] = field(default_factory=list)
+
+    def filter_draw_calls(draw_calls: List[Dict[str, Any]], _query: Query) -> List[Dict[str, Any]]:
+        # Keep behavior stable when query_layer is unavailable.
+        return draw_calls
 
 
 class SimpleXmlParser:
@@ -473,6 +491,11 @@ def parse_args():
                         help='Exclude marker-like actions if present')
     parser.add_argument('--flags-filter', dest='flags_filter', default=None,
                         help='Comma-separated action types to include: Drawcall,Dispatch,Clear,Copy,Present')
+    parser.add_argument('--emit-snapshot-v1', dest='emit_snapshot_v1', action='store_true',
+                        help='Emit snapshot.v1.json to output directory')
+    parser.add_argument('--renderer-mode', dest='renderer_mode', choices=['snapshot', 'legacy'],
+                        default='legacy',
+                        help='Render route: snapshot(shared renderer) or legacy(bundle fallback)')
     parser.add_argument('-v', '--verbose', action='store_true',
                         help='Verbose output')
     return parser.parse_args()
@@ -1111,37 +1134,62 @@ def main():
     # 生成 Bundle 报告
     # ========================================================================
     
-    print("[3/3] Generating bundle report...")
-    
-    generator = ReportBundleGenerator(str(output_dir), capture_name)
-    
-    # 设置数据
-    generator.events = events
-    generator.textures = textures
-    generator.shaders = shaders
-    
-    # 更新统计
-    generator.stats.update({
-        "total_textures": len(textures),
-        "total_events": len(events),
-        "total_shaders": len(shaders),
-        "draw_calls": draw_count,
-        "dispatch_calls": dispatch_count,
-        "clear_calls": clear_count,
-        "vram_usage": vram_total,
-        "issues_count": 0,
-        "issues": [],
-    })
-    
-    # 生成所有页面
-    generator.generate_all()
+    print("[3/3] Building snapshot and rendering...")
+
+    snapshot_builder = OfflineSnapshotBuilder()
+    snapshot = snapshot_builder.build(
+        capture_name=capture_name,
+        xml_path=str(xml_path),
+        driver=driver,
+        draw_calls=draw_calls,
+        textures=textures,
+        buffers=buffers,
+        shaders=shaders,
+    )
+
+    output_dir.mkdir(parents=True, exist_ok=True)
+    emit_snapshot = args.emit_snapshot_v1 or args.renderer_mode == "snapshot"
+    if emit_snapshot:
+        snapshot_path = output_dir / "snapshot.v1.json"
+        snapshot_path.write_text(
+            json.dumps(snapshot, ensure_ascii=False, indent=2),
+            encoding="utf-8",
+        )
+        print(f"      [OK] Emitted: {snapshot_path.name}")
+
+    if args.renderer_mode == "snapshot":
+        print("      Renderer route: snapshot (shared renderer)")
+        renderer = SnapshotTemplateRenderer(output_dir=output_dir, capture_name=capture_name)
+        renderer.render(snapshot)
+    else:
+        print("      Renderer route: legacy (fallback/compat)")
+        generator = ReportBundleGenerator(str(output_dir), capture_name)
+
+        # legacy data wiring (compat mode)
+        generator.events = events
+        generator.textures = textures
+        generator.shaders = shaders
+
+        generator.stats.update({
+            "total_textures": len(textures),
+            "total_events": len(events),
+            "total_shaders": len(shaders),
+            "draw_calls": draw_count,
+            "dispatch_calls": dispatch_count,
+            "clear_calls": clear_count,
+            "vram_usage": vram_total,
+            "issues_count": 0,
+            "issues": [],
+        })
+
+        generator.generate_all()
 
     thumbnail_attached = sum(1 for t in textures if t.get("thumbnail"))
     print(f"      Data quality: thumbnails {thumbnail_attached}/{len(textures)}, shaders {len(shaders)}")
     if thumbnail_attached == 0 and len(textures) > 0:
-        print("      [NOTE] textures.html placeholders are expected without extracted thumbnails")
+        print("      [NOTE] textures placeholders are expected without extracted thumbnails")
     if len(shaders) == 0:
-        print("      [NOTE] shaders.html empty state is expected when shader extraction yields no results")
+        print("      [NOTE] shaders empty state is expected when shader extraction yields no results")
 
     print()
     print("=" * 60)
@@ -1153,6 +1201,10 @@ def main():
     print(f"    - events.html")
     print(f"    - textures.html")
     print(f"    - shaders.html")
+    if args.renderer_mode == "snapshot":
+        print(f"    - recommendations.html")
+    if emit_snapshot:
+        print(f"    - snapshot.v1.json")
     print()
     print(f"  Open: file:///{output_dir}/index.html")
     

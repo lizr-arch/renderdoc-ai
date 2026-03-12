@@ -331,6 +331,7 @@ AnalyzerReportViewer::AnalyzerReportViewer(ICaptureContext &ctx, QWidget *parent
     : QFrame(parent), ui(new Ui::AnalyzerReportViewer), m_Ctx(ctx)
 {
   ui->setupUi(this);
+  m_AutoExportDir = QString::fromUtf8(qgetenv("RENDERDOC_ANALYZER_AUTO_EXPORT_DIR")).trimmed();
 
   setWindowTitle(tr("Analyzer Report"));
 
@@ -543,6 +544,7 @@ void AnalyzerReportViewer::OnCaptureLoaded()
 {
   m_BuildSerial++;
   m_BuildInFlight = false;
+  m_AutoExportDone = false;
   m_Snapshot = AnalyzerSnapshot();
 
   const AnalyzerSummary &summary = m_Snapshot.summary;
@@ -669,6 +671,7 @@ void AnalyzerReportViewer::RefreshReport()
           self->PopulateResourceTable();
           self->PopulateShaderTable();
           self->SetBusyState(false, QString());
+          self->TryAutoExport();
         });
       });
 }
@@ -1227,10 +1230,14 @@ void AnalyzerReportViewer::on_refreshButton_clicked()
 QJsonObject AnalyzerReportViewer::BuildCaptureContextExport() const
 {
   QJsonObject context;
+  const QString captureFile = m_Ctx.GetCaptureFilename();
   context[lit("schema_version")] = lit("capture_context.v1");
   context[lit("source")] = lit("qrenderdoc.analyzer_report_viewer");
   context[lit("capture_loaded")] = m_Ctx.IsCaptureLoaded();
-  context[lit("capture_file")] = QDir::toNativeSeparators(m_Ctx.GetCaptureFilename());
+  context[lit("capture_file")] = QDir::toNativeSeparators(captureFile);
+  context[lit("capture_path")] = QDir::toNativeSeparators(captureFile);
+  context[lit("capture_name")] = QFileInfo(captureFile).fileName();
+  context[lit("report_surface")] = lit("gui_html");
   context[lit("current_event_eid")] = (int)m_Ctx.CurEvent();
   context[lit("selected_event_eid")] = (int)m_Ctx.CurSelectedEvent();
 
@@ -1259,6 +1266,39 @@ QJsonObject AnalyzerReportViewer::BuildCaptureContextExport() const
   context[lit("android")] = androidObj;
 
   return context;
+}
+
+void AnalyzerReportViewer::TryAutoExport()
+{
+  if(m_AutoExportDone || m_AutoExportDir.isEmpty())
+    return;
+
+  QDir outDir(m_AutoExportDir);
+  if(!outDir.exists() && !outDir.mkpath(lit(".")))
+  {
+    qWarning() << "Analyzer auto export failed to create directory:" << m_AutoExportDir;
+    m_AutoExportDone = true;
+    return;
+  }
+
+  QJsonObject captureContext = BuildCaptureContextExport();
+  QString error;
+  if(!m_Exporter.WriteAll(m_Snapshot, outDir.absolutePath(), captureContext, &error))
+    qWarning() << "Analyzer auto export failed:" << error;
+  else
+    qInfo() << "Analyzer auto export wrote files to" << outDir.absolutePath();
+
+  m_AutoExportDone = true;
+
+  const QString autoExit = QString::fromUtf8(qgetenv("RENDERDOC_ANALYZER_AUTO_EXPORT_EXIT")).trimmed();
+  if(autoExit == lit("1") || autoExit.compare(lit("true"), Qt::CaseInsensitive) == 0)
+  {
+    IMainWindow *mainWindow = m_Ctx.GetMainWindow();
+    if(mainWindow && mainWindow->Widget())
+      mainWindow->Widget()->close();
+    else
+      QCoreApplication::quit();
+  }
 }
 
 void AnalyzerReportViewer::on_exportButton_clicked()
@@ -1298,7 +1338,7 @@ void AnalyzerReportViewer::on_exportButton_clicked()
   }
 
   QMessageBox::information(this, tr("Analyzer Export"),
-                           tr("Exported analysis.json, capture_context.json, and "
+                           tr("Exported analysis.json, snapshot.v1.json, capture_context.json, and "
                               "issues_export.{csv,md} to:\n%1")
                                .arg(QDir::toNativeSeparators(outDir)));
 }

@@ -306,6 +306,7 @@ private:
 
   void FillRemotesMenu(QMenu *menu, bool includeLocalhost);
 
+  bool showAndroidLaunchFailure(const QString &target, ResultDetails result, bool captureLaunch);
   void showLaunchError(ResultDetails result);
 
   bool isUnshareableDeviceInUse();
