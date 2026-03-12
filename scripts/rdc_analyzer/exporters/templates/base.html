@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{title}</title>
+    <style>
+{styles}
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <div>
+                <h1>🎮 {title}</h1>
+                <div class="header-meta">
+                    {header_meta}
+                </div>
+            </div>
+            <div class="header-meta">
+                Generated: {export_time}
+            </div>
+        </div>
+        
+        <!-- Statistics -->
+        <div class="stats-grid" id="stats-grid">
+            {statistics_html}
+        </div>
+        
+        <!-- Toolbar -->
+        <div class="toolbar">
+            <div class="search-box">
+                <input type="text" id="search-input" placeholder="Search draw calls, resources, issues...">
+            </div>
+            <div class="filter-group">
+                <button class="filter-btn active" data-filter="all">All</button>
+                <button class="filter-btn" data-filter="issues">With Issues</button>
+                <button class="filter-btn" data-filter="deps">With Dependencies</button>
+            </div>
+        </div>
+        
+        <!-- Main Content -->
+        <div class="main-content">
+            <!-- Call List -->
+            <div class="call-list-panel">
+                <div class="panel-header">
+                    <span>Draw Calls</span>
+                    <span id="call-count">{call_count}</span>
+                </div>
+                <div class="call-list" id="call-list">
+                    {call_list_html}
+                </div>
+            </div>
+            
+            <!-- Detail Panel -->
+            <div class="detail-panel">
+                <div class="tabs">
+                    <div class="tab active" data-tab="pipeline">Pipeline State</div>
+                    <div class="tab" data-tab="shaders">Shaders</div>
+                    <div class="tab" data-tab="issues">Issues <span id="issues-badge"></span></div>
+                    <div class="tab" data-tab="deps">Dependencies</div>
+                    <div class="tab" data-tab="resources">Resources</div>
+                    <div class="tab" data-tab="performance">Performance</div>
+                    <div class="tab" data-tab="mali">Mali GPU</div>
+                </div>
+                
+                <div class="tab-content active" id="tab-pipeline">
+                    <div class="empty-state" id="pipeline-empty">
+                        <div class="empty-state-icon">📋</div>
+                        <p>Select a draw call to view pipeline state</p>
+                    </div>
+                    <div id="pipeline-content"></div>
+                </div>
+                
+                <div class="tab-content" id="tab-issues">
+                    {issues_html}
+                </div>
+                
+                <div class="tab-content" id="tab-deps">
+                    {dependencies_html}
+                </div>
+                
+                <div class="tab-content" id="tab-resources">
+                    {resources_html}
+                </div>
+                
+                <div class="tab-content" id="tab-shaders">
+                    <div class="empty-state" id="shaders-empty">
+                        <div class="empty-state-icon">💻</div>
+                        <p>Select a draw call to view shaders</p>
+                    </div>
+                    <div id="shaders-content"></div>
+                </div>
+                
+                <div class="tab-content" id="tab-performance">
+                    {performance_html}
+                </div>
+                
+                <div class="tab-content" id="tab-mali">
+                    {mali_html}
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Shader Code Modal -->
+    <div class="modal-overlay" id="shader-modal">
+        <div class="modal shader-modal">
+            <div class="modal-header">
+                <div class="modal-title">
+                    <span id="shader-modal-name">Shader</span>
+                    <span class="resource-type-badge" id="shader-modal-stage">VS</span>
+                </div>
+                <button class="modal-close" onclick="closeShaderModal()">&times;</button>
+            </div>
+            <div class="modal-body shader-modal-body" id="shader-modal-body">
+                <div class="shader-info-header" id="shader-info-header"></div>
+                <div class="shader-code-tabs">
+                    <button class="shader-code-tab active" data-code="asm">ASM</button>
+                    <button class="shader-code-tab" data-code="hlsl">HLSL</button>
+                </div>
+                <div class="shader-code-container">
+                    <pre class="shader-code" id="shader-code-content"><code></code></pre>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="export-btn export-btn-secondary" onclick="copyShaderCode()">
+                    📋 Copy Code
+                </button>
+                <button class="export-btn export-btn-primary" onclick="closeShaderModal()">
+                    Close
+                </button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Resource Detail Modal -->
+    <div class="modal-overlay" id="resource-modal">
+        <div class="modal">
+            <div class="modal-header">
+                <div class="modal-title">
+                    <span id="modal-resource-name">Resource</span>
+                    <span class="resource-type-badge" id="modal-resource-type">BUFFER</span>
+                </div>
+                <button class="modal-close" onclick="closeResourceModal()">&times;</button>
+            </div>
+            <div class="modal-body" id="modal-body">
+                <!-- Dynamic content -->
+            </div>
+            <div class="modal-footer">
+                <button class="export-btn export-btn-secondary" onclick="exportResourceJSON()">
+                    📋 Export JSON
+                </button>
+                <button class="export-btn export-btn-secondary" onclick="exportResourceHex()">
+                    🔢 Export Hex
+                </button>
+                <button class="export-btn export-btn-primary" onclick="closeResourceModal()">
+                    Close
+                </button>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+{scripts}
+    </script>
+</body>
+</html>

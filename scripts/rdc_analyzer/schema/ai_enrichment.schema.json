@@ -1,0 +1,165 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://renderdoc.org/schemas/ai_enrichment.schema.json",
+  "title": "RDC Event AI Enrichment Sidecar",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "schema_path",
+    "event_id",
+    "api",
+    "generator",
+    "naming_suggestions",
+    "material_semantics",
+    "assumptions",
+    "generated_at_utc"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string"
+    },
+    "schema_path": {
+      "type": "string"
+    },
+    "event_id": {
+      "type": "integer"
+    },
+    "api": {
+      "type": "string"
+    },
+    "generator": {
+      "type": "object",
+      "required": [
+        "name",
+        "version",
+        "mode"
+      ],
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "version": {
+          "type": "string"
+        },
+        "mode": {
+          "type": "string"
+        }
+      }
+    },
+    "naming_suggestions": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/namingSuggestion"
+      }
+    },
+    "material_semantics": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/materialSemantic"
+      }
+    },
+    "assumptions": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "generated_at_utc": {
+      "type": "string"
+    }
+  },
+  "$defs": {
+    "namingSuggestion": {
+      "type": "object",
+      "required": [
+        "target_type",
+        "source_name",
+        "suggested_name",
+        "confidence",
+        "reason"
+      ],
+      "properties": {
+        "target_type": {
+          "type": "string"
+        },
+        "source_name": {
+          "type": "string"
+        },
+        "suggested_name": {
+          "type": "string"
+        },
+        "confidence": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "reason": {
+          "type": "string"
+        }
+      }
+    },
+    "materialSemantic": {
+      "type": "object",
+      "required": [
+        "material",
+        "shader",
+        "texture_bindings"
+      ],
+      "properties": {
+        "material": {
+          "type": "string"
+        },
+        "shader": {
+          "type": "string"
+        },
+        "texture_bindings": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/textureBinding"
+          }
+        }
+      }
+    },
+    "textureBinding": {
+      "type": "object",
+      "required": [
+        "slot",
+        "sampler",
+        "texture_id",
+        "semantic",
+        "confidence",
+        "reason",
+        "status",
+        "output_path"
+      ],
+      "properties": {
+        "slot": {
+          "type": "string"
+        },
+        "sampler": {
+          "type": "string"
+        },
+        "texture_id": {
+          "type": "integer"
+        },
+        "semantic": {
+          "type": "string"
+        },
+        "confidence": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "reason": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string"
+        },
+        "output_path": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}

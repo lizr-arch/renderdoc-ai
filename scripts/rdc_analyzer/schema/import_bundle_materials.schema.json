@@ -1,0 +1,102 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://renderdoc.org/schemas/import_bundle_materials.schema.json",
+  "title": "RDC Import Bundle Materials",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "schema_path",
+    "event_id",
+    "materials"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string"
+    },
+    "schema_path": {
+      "type": "string"
+    },
+    "event_id": {
+      "type": "integer"
+    },
+    "materials": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "name",
+          "shader",
+          "textures",
+          "constants"
+        ],
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "shader": {
+            "type": "string"
+          },
+          "textures": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "slot",
+                "sampler",
+                "texture_id",
+                "source_path",
+                "output_path",
+                "status",
+                "width",
+                "height",
+                "format"
+              ],
+              "properties": {
+                "slot": {
+                  "type": "string"
+                },
+                "sampler": {
+                  "type": "string"
+                },
+                "texture_id": {
+                  "type": "integer"
+                },
+                "source_path": {
+                  "type": "string"
+                },
+                "output_path": {
+                  "type": "string"
+                },
+                "status": {
+                  "type": "string",
+                  "enum": [
+                    "decoded_rgba8_png",
+                    "rgba_bytes_png",
+                    "copied_image",
+                    "raw_copy",
+                    "missing_source"
+                  ]
+                },
+                "width": {
+                  "type": "integer"
+                },
+                "height": {
+                  "type": "integer"
+                },
+                "format": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "constants": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,1491 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RDC Call Chain Analyzer</title>
+    <style>
+        :root {
+            --bg-primary: #0d1117;
+            --bg-secondary: #161b22;
+            --bg-tertiary: #21262d;
+            --text-primary: #e6edf3;
+            --text-secondary: #8b949e;
+            --accent: #4a9eff;
+            --accent-hover: #6bb3ff;
+            --error: #ff6b6b;
+            --warning: #ffa94d;
+            --info: #74c0fc;
+            --success: #69db7c;
+            --border: #30363d;
+        }
+        
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.6;
+        }
+        
+        .container {
+            max-width: 1600px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        /* Header */
+        .header {
+            background: var(--bg-secondary);
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 16px;
+        }
+        
+        .header h1 {
+            font-size: 24px;
+            font-weight: 600;
+            color: var(--accent);
+        }
+        
+        .header-meta {
+            font-size: 14px;
+            color: var(--text-secondary);
+        }
+        
+        /* Statistics Cards */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+            margin-bottom: 20px;
+        }
+        
+        .stat-card {
+            background: var(--bg-secondary);
+            border-radius: 12px;
+            padding: 20px;
+            text-align: center;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        
+        .stat-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(0,0,0,0.3);
+        }
+        
+        .stat-value {
+            font-size: 32px;
+            font-weight: 700;
+            color: var(--accent);
+        }
+        
+        .stat-label {
+            font-size: 14px;
+            color: var(--text-secondary);
+            margin-top: 4px;
+        }
+        
+        .stat-card.error .stat-value { color: var(--error); }
+        .stat-card.warning .stat-value { color: var(--warning); }
+        .stat-card.success .stat-value { color: var(--success); }
+        
+        /* Toolbar */
+        .toolbar {
+            background: var(--bg-secondary);
+            border-radius: 12px;
+            padding: 16px;
+            margin-bottom: 20px;
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+        
+        .search-box {
+            flex: 1;
+            min-width: 250px;
+            position: relative;
+        }
+        
+        .search-box input {
+            width: 100%;
+            padding: 10px 16px 10px 40px;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+            font-size: 14px;
+        }
+        
+        .search-box input:focus {
+            outline: none;
+            border-color: var(--accent);
+        }
+        
+        .search-box::before {
+            content: "🔍";
+            position: absolute;
+            left: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+        }
+        
+        .filter-group {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+        
+        .filter-btn {
+            padding: 8px 16px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+            cursor: pointer;
+            font-size: 13px;
+            transition: all 0.2s;
+        }
+        
+        .filter-btn:hover {
+            border-color: var(--accent);
+            color: var(--accent);
+        }
+        
+        .filter-btn.active {
+            background: var(--accent);
+            border-color: var(--accent);
+            color: white;
+        }
+        
+        /* Main Content Layout */
+        .main-content {
+            display: grid;
+            grid-template-columns: 350px 1fr;
+            gap: 20px;
+        }
+        
+        @media (max-width: 1024px) {
+            .main-content {
+                grid-template-columns: 1fr;
+            }
+        }
+        
+        /* Call List Panel */
+        .call-list-panel {
+            background: var(--bg-secondary);
+            border-radius: 12px;
+            overflow: hidden;
+            max-height: 800px;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .panel-header {
+            padding: 16px;
+            border-bottom: 1px solid var(--border);
+            font-weight: 600;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .call-list {
+            flex: 1;
+            overflow-y: auto;
+        }
+        
+        .call-item {
+            padding: 12px 16px;
+            border-bottom: 1px solid var(--border);
+            cursor: pointer;
+            transition: background 0.2s;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .call-item:hover {
+            background: var(--bg-tertiary);
+        }
+        
+        .call-item.selected {
+            background: var(--accent);
+            color: white;
+        }
+        
+        .call-item.has-issues {
+            border-left: 3px solid var(--error);
+        }
+        
+        .call-id {
+            font-family: 'Monaco', 'Menlo', monospace;
+            font-size: 12px;
+            color: var(--text-secondary);
+            background: var(--bg-tertiary);
+            padding: 2px 6px;
+            border-radius: 4px;
+        }
+        
+        .call-item.selected .call-id {
+            background: rgba(255,255,255,0.2);
+            color: white;
+        }
+        
+        .call-name {
+            font-size: 14px;
+            flex: 1;
+            margin: 0 12px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        
+        .issue-badge {
+            background: var(--error);
+            color: white;
+            font-size: 11px;
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-weight: 600;
+        }
+        
+        /* Detail Panel */
+        .detail-panel {
+            background: var(--bg-secondary);
+            border-radius: 12px;
+            overflow: hidden;
+        }
+        
+        .tabs {
+            display: flex;
+            border-bottom: 1px solid var(--border);
+            background: var(--bg-tertiary);
+        }
+        
+        .tab {
+            padding: 12px 24px;
+            cursor: pointer;
+            border-bottom: 2px solid transparent;
+            transition: all 0.2s;
+            font-size: 14px;
+        }
+        
+        .tab:hover {
+            background: var(--bg-secondary);
+        }
+        
+        .tab.active {
+            border-bottom-color: var(--accent);
+            color: var(--accent);
+        }
+        
+        .tab-content {
+            padding: 20px;
+            display: none;
+            max-height: 700px;
+            overflow-y: auto;
+        }
+        
+        .tab-content.active {
+            display: block;
+        }
+        
+        /* Pipeline State */
+        .state-section {
+            margin-bottom: 24px;
+        }
+        
+        .state-section h3 {
+            font-size: 16px;
+            margin-bottom: 12px;
+            color: var(--accent);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .state-section h3::before {
+            content: "";
+            width: 4px;
+            height: 16px;
+            background: var(--accent);
+            border-radius: 2px;
+        }
+        
+        .state-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 12px;
+        }
+        
+        .state-item {
+            background: var(--bg-tertiary);
+            padding: 12px;
+            border-radius: 8px;
+        }
+        
+        .state-label {
+            font-size: 12px;
+            color: var(--text-secondary);
+            margin-bottom: 4px;
+        }
+        
+        .state-value {
+            font-family: 'Monaco', 'Menlo', monospace;
+            font-size: 14px;
+            word-break: break-all;
+        }
+        
+        /* Resource Bindings Table */
+        .binding-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+        }
+        
+        .binding-table th,
+        .binding-table td {
+            padding: 10px 12px;
+            text-align: left;
+            border-bottom: 1px solid var(--border);
+        }
+        
+        .binding-table th {
+            background: var(--bg-tertiary);
+            font-weight: 600;
+            color: var(--text-secondary);
+            position: sticky;
+            top: 0;
+        }
+        
+        .binding-table tr:hover td {
+            background: var(--bg-tertiary);
+        }
+        
+        /* Issues Panel */
+        .issue-item {
+            background: var(--bg-tertiary);
+            border-radius: 8px;
+            padding: 16px;
+            margin-bottom: 12px;
+            border-left: 4px solid var(--error);
+        }
+        
+        .issue-item.warning {
+            border-left-color: var(--warning);
+        }
+        
+        .issue-item.info {
+            border-left-color: var(--info);
+        }
+        
+        .issue-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+        
+        .issue-rule {
+            font-weight: 600;
+            color: var(--error);
+        }
+        
+        .issue-item.warning .issue-rule {
+            color: var(--warning);
+        }
+        
+        .issue-item.info .issue-rule {
+            color: var(--info);
+        }
+        
+        .issue-severity {
+            font-size: 11px;
+            padding: 2px 8px;
+            border-radius: 4px;
+            text-transform: uppercase;
+        }
+        
+        .severity-error { background: var(--error); color: white; }
+        .severity-warning { background: var(--warning); color: black; }
+        .severity-info { background: var(--info); color: black; }
+        
+        .issue-message {
+            font-size: 14px;
+            line-height: 1.5;
+        }
+        
+        /* Dependencies Graph */
+        .dep-graph {
+            background: var(--bg-tertiary);
+            border-radius: 8px;
+            padding: 16px;
+            min-height: 300px;
+        }
+        
+        .dep-item {
+            display: flex;
+            align-items: center;
+            padding: 8px 0;
+            border-bottom: 1px dashed var(--border);
+        }
+        
+        .dep-item:last-child {
+            border-bottom: none;
+        }
+        
+        .dep-node {
+            padding: 6px 12px;
+            background: var(--accent);
+            color: white;
+            border-radius: 6px;
+            font-size: 13px;
+            font-family: monospace;
+        }
+        
+        .dep-arrow {
+            margin: 0 12px;
+            color: var(--text-secondary);
+            font-size: 18px;
+        }
+        
+        .dep-type {
+            font-size: 11px;
+            padding: 2px 8px;
+            border-radius: 4px;
+            background: var(--bg-secondary);
+            margin-left: 12px;
+        }
+        
+        .dep-type.RAW { color: var(--info); border: 1px solid var(--info); }
+        .dep-type.WAR { color: var(--warning); border: 1px solid var(--warning); }
+        .dep-type.WAW { color: var(--error); border: 1px solid var(--error); }
+        
+        /* Resource Lifetime */
+        .lifetime-item {
+            background: var(--bg-tertiary);
+            border-radius: 8px;
+            padding: 16px;
+            margin-bottom: 12px;
+        }
+        
+        .lifetime-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+        
+        .lifetime-name {
+            font-weight: 600;
+            font-family: monospace;
+        }
+        
+        .lifetime-type {
+            font-size: 12px;
+            padding: 2px 8px;
+            background: var(--bg-secondary);
+            border-radius: 4px;
+            color: var(--text-secondary);
+        }
+        
+        .lifetime-bar {
+            height: 24px;
+            background: var(--bg-secondary);
+            border-radius: 4px;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .lifetime-range {
+            position: absolute;
+            height: 100%;
+            background: linear-gradient(90deg, var(--success), var(--accent));
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 11px;
+            color: white;
+            font-weight: 600;
+        }
+        
+        .lifetime-stats {
+            display: flex;
+            gap: 16px;
+            margin-top: 12px;
+            font-size: 13px;
+            color: var(--text-secondary);
+        }
+        
+        /* Scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        
+        ::-webkit-scrollbar-track {
+            background: var(--bg-tertiary);
+            border-radius: 4px;
+        }
+        
+        ::-webkit-scrollbar-thumb {
+            background: var(--border);
+            border-radius: 4px;
+        }
+        
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--accent);
+        }
+        
+        /* Empty State */
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: var(--text-secondary);
+        }
+        
+        .empty-state-icon {
+            font-size: 48px;
+            margin-bottom: 16px;
+        }
+        
+        /* Loading */
+        .loading {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 40px;
+        }
+        
+        .spinner {
+            width: 32px;
+            height: 32px;
+            border: 3px solid var(--border);
+            border-top-color: var(--accent);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <div>
+                <h1>🎮 RDC Call Chain Analyzer</h1>
+                <div class="header-meta">
+                    Source: test.rdc | API: D3D11
+                </div>
+            </div>
+            <div class="header-meta">
+                Generated: 2026-01-16T11:11:12.924029
+            </div>
+        </div>
+        
+        <!-- Statistics -->
+        <div class="stats-grid" id="stats-grid">
+            
+                <div class="stat-card ">
+                    <div class="stat-value">📊 3</div>
+                    <div class="stat-label">Draw Calls</div>
+                </div>
+            
+
+                <div class="stat-card error">
+                    <div class="stat-value">⚠️ 3</div>
+                    <div class="stat-label">Issues</div>
+                </div>
+            
+
+                <div class="stat-card ">
+                    <div class="stat-value">🔗 2</div>
+                    <div class="stat-label">Dependencies</div>
+                </div>
+            
+
+                <div class="stat-card ">
+                    <div class="stat-value">📦 4</div>
+                    <div class="stat-label">Resources</div>
+                </div>
+            
+        </div>
+        
+        <!-- Toolbar -->
+        <div class="toolbar">
+            <div class="search-box">
+                <input type="text" id="search-input" placeholder="Search draw calls, resources, issues...">
+            </div>
+            <div class="filter-group">
+                <button class="filter-btn active" data-filter="all">All</button>
+                <button class="filter-btn" data-filter="issues">With Issues</button>
+                <button class="filter-btn" data-filter="deps">With Dependencies</button>
+            </div>
+        </div>
+        
+        <!-- Main Content -->
+        <div class="main-content">
+            <!-- Call List -->
+            <div class="call-list-panel">
+                <div class="panel-header">
+                    <span>Draw Calls</span>
+                    <span id="call-count">3</span>
+                </div>
+                <div class="call-list" id="call-list">
+                    
+                <div class="call-item " data-event-id="100">
+                    <span class="call-id">#100</span>
+                    <span class="call-name">DrawIndexed</span>
+                    
+                </div>
+            
+
+                <div class="call-item has-issues" data-event-id="101">
+                    <span class="call-id">#101</span>
+                    <span class="call-name">DrawIndexed</span>
+                    <span class="issue-badge">1</span>
+                </div>
+            
+
+                <div class="call-item has-issues" data-event-id="102">
+                    <span class="call-id">#102</span>
+                    <span class="call-name">Draw</span>
+                    <span class="issue-badge">2</span>
+                </div>
+            
+                </div>
+            </div>
+            
+            <!-- Detail Panel -->
+            <div class="detail-panel">
+                <div class="tabs">
+                    <div class="tab active" data-tab="pipeline">Pipeline State</div>
+                    <div class="tab" data-tab="issues">Issues <span id="issues-badge"></span></div>
+                    <div class="tab" data-tab="deps">Dependencies</div>
+                    <div class="tab" data-tab="resources">Resources</div>
+                </div>
+                
+                <div class="tab-content active" id="tab-pipeline">
+                    <div class="empty-state" id="pipeline-empty">
+                        <div class="empty-state-icon">📋</div>
+                        <p>Select a draw call to view pipeline state</p>
+                    </div>
+                    <div id="pipeline-content"></div>
+                </div>
+                
+                <div class="tab-content" id="tab-issues">
+                    
+                <div class="issue-item ">
+                    <div class="issue-header">
+                        <span class="issue-rule">[BIND002] Event #101</span>
+                        <span class="issue-severity severity-error">error</span>
+                    </div>
+                    <div class="issue-message">Indexed draw call with no index buffer bound</div>
+                </div>
+            
+
+                <div class="issue-item ">
+                    <div class="issue-header">
+                        <span class="issue-rule">[BIND003] Event #102</span>
+                        <span class="issue-severity severity-error">error</span>
+                    </div>
+                    <div class="issue-message">Draw call with no vertex shader bound</div>
+                </div>
+            
+
+                <div class="issue-item warning">
+                    <div class="issue-header">
+                        <span class="issue-rule">[BIND007] Event #102</span>
+                        <span class="issue-severity severity-warning">warning</span>
+                    </div>
+                    <div class="issue-message">Binding PS:shader was rebound 3 times without being used</div>
+                </div>
+            
+                </div>
+                
+                <div class="tab-content" id="tab-deps">
+                    <div class="dep-graph">
+
+                <div class="dep-item">
+                    <span class="dep-node">#100</span>
+                    <span class="dep-arrow">→</span>
+                    <span class="dep-node">#101</span>
+                    <span class="dep-type 3">3</span>
+                    <span style="margin-left: auto; color: var(--text-secondary); font-size: 12px;">
+                        Resource_3001
+                    </span>
+                </div>
+            
+
+                <div class="dep-item">
+                    <span class="dep-node">#101</span>
+                    <span class="dep-arrow">→</span>
+                    <span class="dep-node">#102</span>
+                    <span class="dep-type 3">3</span>
+                    <span style="margin-left: auto; color: var(--text-secondary); font-size: 12px;">
+                        Resource_3001
+                    </span>
+                </div>
+            
+</div>
+                </div>
+                
+                <div class="tab-content" id="tab-resources">
+                    
+                <div class="lifetime-item">
+                    <div class="lifetime-header">
+                        <span class="lifetime-name">Resource_1001</span>
+                        <span class="lifetime-type">BUFFER</span>
+                    </div>
+                    <div class="lifetime-bar">
+                        <div class="lifetime-range" style="left: 5000.0%; width: 100.0%;">
+                            #100 - #102
+                        </div>
+                    </div>
+                    <div class="lifetime-stats">
+                        <span>📖 Reads: 3</span>
+                        <span>✏️ Writes: 0</span>
+                        
+                    </div>
+                </div>
+            
+
+                <div class="lifetime-item">
+                    <div class="lifetime-header">
+                        <span class="lifetime-name">Resource_1002</span>
+                        <span class="lifetime-type">BUFFER</span>
+                    </div>
+                    <div class="lifetime-bar">
+                        <div class="lifetime-range" style="left: 5000.0%; width: 5%;">
+                            #100 - #100
+                        </div>
+                    </div>
+                    <div class="lifetime-stats">
+                        <span>📖 Reads: 1</span>
+                        <span>✏️ Writes: 0</span>
+                        
+                    </div>
+                </div>
+            
+
+                <div class="lifetime-item">
+                    <div class="lifetime-header">
+                        <span class="lifetime-name">Resource_3002</span>
+                        <span class="lifetime-type">DEPTH_STENCIL</span>
+                    </div>
+                    <div class="lifetime-bar">
+                        <div class="lifetime-range" style="left: 5000.0%; width: 5%;">
+                            #100 - #100
+                        </div>
+                    </div>
+                    <div class="lifetime-stats">
+                        <span>📖 Reads: 1</span>
+                        <span>✏️ Writes: 1</span>
+                        
+                    </div>
+                </div>
+            
+
+                <div class="lifetime-item">
+                    <div class="lifetime-header">
+                        <span class="lifetime-name">Resource_3001</span>
+                        <span class="lifetime-type">RENDER_TARGET</span>
+                    </div>
+                    <div class="lifetime-bar">
+                        <div class="lifetime-range" style="left: 5000.0%; width: 100.0%;">
+                            #100 - #102
+                        </div>
+                    </div>
+                    <div class="lifetime-stats">
+                        <span>📖 Reads: 0</span>
+                        <span>✏️ Writes: 3</span>
+                         <span style="color: var(--warning);">⚠️ Written but never read</span>
+                    </div>
+                </div>
+            
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        // Embedded data
+        const analysisData = {
+  "metadata": {
+    "export_time": "2026-01-16T11:11:12.924029",
+    "analyzer_version": "1.0.0",
+    "source_file": "test.rdc",
+    "api_type": "D3D11",
+    "frame_number": null,
+    "total_events": 3,
+    "total_draw_calls": 3
+  },
+  "draw_calls": [
+    {
+      "event_id": 100,
+      "name": "DrawIndexed",
+      "draw_type": "DRAW_INDEXED",
+      "vertex_count": 0,
+      "instance_count": 1,
+      "index_offset": 0,
+      "vertex_offset": 0,
+      "pipeline_state": {
+        "input_assembly": {
+          "topology": "TRIANGLE_LIST",
+          "vertex_buffers": [
+            {
+              "slot": 0,
+              "resource_id": 1001,
+              "resource_type": 2,
+              "depth": 1,
+              "array_size": 1,
+              "mip_levels": 1,
+              "stride": 32
+            }
+          ],
+          "index_buffer": {
+            "slot": 0,
+            "resource_id": 1002,
+            "resource_type": 2,
+            "format": "R16_UINT",
+            "depth": 1,
+            "array_size": 1,
+            "mip_levels": 1
+          }
+        },
+        "vs_bindings": {
+          "shader_resource_id": 2001,
+          "shader_name": "VSMain"
+        },
+        "ps_bindings": {
+          "shader_resource_id": 2002,
+          "shader_name": "PSMain"
+        },
+        "rasterizer": {
+          "fill_mode": "SOLID",
+          "cull_mode": "BACK",
+          "front_ccw": false,
+          "depth_bias": 0,
+          "scissor_enabled": false
+        },
+        "output_merger": {
+          "render_targets": [
+            {
+              "slot": 0,
+              "resource_id": 3001,
+              "resource_name": "",
+              "format": "R8G8B8A8_UNORM",
+              "width": 1920,
+              "height": 1080,
+              "load_action": "Load",
+              "store_action": "Store"
+            }
+          ],
+          "depth_stencil": {
+            "resource_id": 3002,
+            "resource_name": "",
+            "format": "D24_UNORM_S8_UINT",
+            "width": 1920,
+            "height": 1080,
+            "depth_test_enabled": true,
+            "depth_write_enabled": true,
+            "depth_func": "Less",
+            "stencil_enabled": false
+          }
+        }
+      },
+      "issues": [],
+      "resource_reads": [],
+      "resource_writes": []
+    },
+    {
+      "event_id": 101,
+      "name": "DrawIndexed",
+      "draw_type": "DRAW_INDEXED",
+      "vertex_count": 0,
+      "instance_count": 1,
+      "index_offset": 0,
+      "vertex_offset": 0,
+      "pipeline_state": {
+        "input_assembly": {
+          "topology": "TRIANGLE_LIST",
+          "vertex_buffers": [
+            {
+              "slot": 0,
+              "resource_id": 1001,
+              "resource_type": 2,
+              "depth": 1,
+              "array_size": 1,
+              "mip_levels": 1,
+              "stride": 32
+            }
+          ]
+        },
+        "vs_bindings": {
+          "shader_resource_id": 2001,
+          "shader_name": "VSMain"
+        },
+        "ps_bindings": {
+          "shader_resource_id": 2002,
+          "shader_name": "PSMain"
+        },
+        "rasterizer": {
+          "fill_mode": "SOLID",
+          "cull_mode": "BACK",
+          "front_ccw": false,
+          "depth_bias": 0,
+          "scissor_enabled": false
+        },
+        "output_merger": {
+          "render_targets": [
+            {
+              "slot": 0,
+              "resource_id": 3001,
+              "resource_name": "",
+              "format": "R8G8B8A8_UNORM",
+              "width": 1920,
+              "height": 1080,
+              "load_action": "Load",
+              "store_action": "Store"
+            }
+          ]
+        }
+      },
+      "issues": [],
+      "resource_reads": [],
+      "resource_writes": []
+    },
+    {
+      "event_id": 102,
+      "name": "Draw",
+      "draw_type": "DRAW",
+      "vertex_count": 100,
+      "instance_count": 1,
+      "index_offset": 0,
+      "vertex_offset": 0,
+      "pipeline_state": {
+        "input_assembly": {
+          "topology": "TRIANGLE_LIST",
+          "vertex_buffers": [
+            {
+              "slot": 0,
+              "resource_id": 1001,
+              "resource_type": 2,
+              "depth": 1,
+              "array_size": 1,
+              "mip_levels": 1,
+              "stride": 32
+            }
+          ]
+        },
+        "ps_bindings": {
+          "shader_resource_id": 2002,
+          "shader_name": "PSMain"
+        },
+        "rasterizer": {
+          "fill_mode": "SOLID",
+          "cull_mode": "BACK",
+          "front_ccw": false,
+          "depth_bias": 0,
+          "scissor_enabled": false
+        },
+        "output_merger": {
+          "render_targets": [
+            {
+              "slot": 0,
+              "resource_id": 3001,
+              "resource_name": "",
+              "format": "R8G8B8A8_UNORM",
+              "width": 1920,
+              "height": 1080,
+              "load_action": "Load",
+              "store_action": "Store"
+            }
+          ]
+        }
+      },
+      "issues": [],
+      "resource_reads": [],
+      "resource_writes": []
+    }
+  ],
+  "issues": [
+    {
+      "event_id": 101,
+      "rule_id": "BIND002",
+      "severity": "error",
+      "category": "correctness",
+      "message": "Indexed draw call with no index buffer bound",
+      "details": {}
+    },
+    {
+      "event_id": 102,
+      "rule_id": "BIND003",
+      "severity": "error",
+      "category": "correctness",
+      "message": "Draw call with no vertex shader bound",
+      "details": {}
+    },
+    {
+      "event_id": 102,
+      "rule_id": "BIND007",
+      "severity": "warning",
+      "category": "redundancy",
+      "message": "Binding PS:shader was rebound 3 times without being used",
+      "details": {
+        "binding_key": "PS:shader",
+        "bind_count": 3
+      }
+    }
+  ],
+  "dependencies": [
+    {
+      "source_event": 100,
+      "target_event": 101,
+      "resource_id": 3001,
+      "resource_name": "Resource_3001",
+      "dependency_type": 3,
+      "access_detail": "WRITE -> WRITE"
+    },
+    {
+      "source_event": 101,
+      "target_event": 102,
+      "resource_id": 3001,
+      "resource_name": "Resource_3001",
+      "dependency_type": 3,
+      "access_detail": "WRITE -> WRITE"
+    }
+  ],
+  "resource_lifetimes": [
+    {
+      "resource_id": 1001,
+      "resource_name": "Resource_1001",
+      "resource_type": "BUFFER",
+      "first_access_event": 100,
+      "last_access_event": 102,
+      "read_count": 3,
+      "write_count": 0,
+      "hazards": [],
+      "is_written_never_read": false
+    },
+    {
+      "resource_id": 1002,
+      "resource_name": "Resource_1002",
+      "resource_type": "BUFFER",
+      "first_access_event": 100,
+      "last_access_event": 100,
+      "read_count": 1,
+      "write_count": 0,
+      "hazards": [],
+      "is_written_never_read": false
+    },
+    {
+      "resource_id": 3002,
+      "resource_name": "Resource_3002",
+      "resource_type": "DEPTH_STENCIL",
+      "first_access_event": 100,
+      "last_access_event": 100,
+      "read_count": 1,
+      "write_count": 1,
+      "hazards": [],
+      "is_written_never_read": false
+    },
+    {
+      "resource_id": 3001,
+      "resource_name": "Resource_3001",
+      "resource_type": "RENDER_TARGET",
+      "first_access_event": 100,
+      "last_access_event": 102,
+      "read_count": 0,
+      "write_count": 3,
+      "hazards": [],
+      "is_written_never_read": true
+    }
+  ],
+  "statistics": {
+    "total_draw_calls": 3,
+    "total_issues": 3,
+    "issues_by_severity": {
+      "error": 2,
+      "warning": 1
+    },
+    "issues_by_category": {
+      "correctness": 2,
+      "redundancy": 1
+    },
+    "issues_by_rule": {
+      "BIND002": 1,
+      "BIND003": 1,
+      "BIND007": 1
+    },
+    "total_resources": 4,
+    "total_dependencies": 2,
+    "dependencies_by_type": {
+      "3": 2
+    },
+    "redundant_bindings": 0,
+    "missing_resources": 0,
+    "unused_resources": 1
+  }
+};
+        
+        // State
+        let selectedCallId = null;
+        let currentFilter = 'all';
+        
+        // DOM elements
+        const searchInput = document.getElementById('search-input');
+        const callList = document.getElementById('call-list');
+        const callCount = document.getElementById('call-count');
+        
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            initTabs();
+            initFilters();
+            initSearch();
+            initCallList();
+        });
+        
+        // Tab switching
+        function initTabs() {
+            document.querySelectorAll('.tab').forEach(tab => {
+                tab.addEventListener('click', () => {
+                    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+                    document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+                    tab.classList.add('active');
+                    document.getElementById('tab-' + tab.dataset.tab).classList.add('active');
+                });
+            });
+        }
+        
+        // Filter buttons
+        function initFilters() {
+            document.querySelectorAll('.filter-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+                    btn.classList.add('active');
+                    currentFilter = btn.dataset.filter;
+                    filterCallList();
+                });
+            });
+        }
+        
+        // Search functionality
+        function initSearch() {
+            searchInput.addEventListener('input', debounce(() => {
+                filterCallList();
+            }, 200));
+        }
+        
+        // Call list interactions
+        function initCallList() {
+            document.querySelectorAll('.call-item').forEach(item => {
+                item.addEventListener('click', () => {
+                    selectCall(parseInt(item.dataset.eventId));
+                });
+            });
+        }
+        
+        function selectCall(eventId) {
+            selectedCallId = eventId;
+            
+            // Update UI
+            document.querySelectorAll('.call-item').forEach(item => {
+                item.classList.toggle('selected', parseInt(item.dataset.eventId) === eventId);
+            });
+            
+            // Update detail panel
+            const call = analysisData.draw_calls.find(d => d.event_id === eventId);
+            if (call) {
+                renderPipelineState(call);
+                updateIssuesBadge(eventId);
+            }
+        }
+        
+        function renderPipelineState(call) {
+            const container = document.getElementById('pipeline-content');
+            const empty = document.getElementById('pipeline-empty');
+            
+            if (!call.pipeline_state) {
+                empty.style.display = 'block';
+                container.innerHTML = '';
+                return;
+            }
+            
+            empty.style.display = 'none';
+            
+            let html = `
+                <div class="state-section">
+                    <h3>Draw Call Info</h3>
+                    <div class="state-grid">
+                        <div class="state-item">
+                            <div class="state-label">Event ID</div>
+                            <div class="state-value">#${call.event_id}</div>
+                        </div>
+                        <div class="state-item">
+                            <div class="state-label">Draw Type</div>
+                            <div class="state-value">${call.draw_type || 'N/A'}</div>
+                        </div>
+                        <div class="state-item">
+                            <div class="state-label">Vertex Count</div>
+                            <div class="state-value">${call.vertex_count}</div>
+                        </div>
+                        <div class="state-item">
+                            <div class="state-label">Instance Count</div>
+                            <div class="state-value">${call.instance_count}</div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            const ps = call.pipeline_state;
+            
+            // Input Assembly
+            if (ps.input_assembly) {
+                const ia = ps.input_assembly;
+                html += `
+                    <div class="state-section">
+                        <h3>Input Assembly</h3>
+                        <div class="state-grid">
+                            <div class="state-item">
+                                <div class="state-label">Topology</div>
+                                <div class="state-value">${ia.topology}</div>
+                            </div>
+                        </div>
+                        ${ia.vertex_buffers && ia.vertex_buffers.length > 0 ? `
+                            <table class="binding-table" style="margin-top: 12px;">
+                                <thead>
+                                    <tr>
+                                        <th>Slot</th>
+                                        <th>Resource ID</th>
+                                        <th>Stride</th>
+                                        <th>Size</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${ia.vertex_buffers.map(vb => `
+                                        <tr>
+                                            <td>${vb.slot}</td>
+                                            <td>${vb.resource_id}</td>
+                                            <td>${vb.stride || 'N/A'}</td>
+                                            <td>${formatBytes(vb.size_bytes)}</td>
+                                        </tr>
+                                    `).join('')}
+                                </tbody>
+                            </table>
+                        ` : ''}
+                    </div>
+                `;
+            }
+            
+            // Rasterizer
+            if (ps.rasterizer) {
+                const rs = ps.rasterizer;
+                html += `
+                    <div class="state-section">
+                        <h3>Rasterizer</h3>
+                        <div class="state-grid">
+                            <div class="state-item">
+                                <div class="state-label">Fill Mode</div>
+                                <div class="state-value">${rs.fill_mode}</div>
+                            </div>
+                            <div class="state-item">
+                                <div class="state-label">Cull Mode</div>
+                                <div class="state-value">${rs.cull_mode}</div>
+                            </div>
+                            <div class="state-item">
+                                <div class="state-label">Front CCW</div>
+                                <div class="state-value">${rs.front_ccw}</div>
+                            </div>
+                            <div class="state-item">
+                                <div class="state-label">Depth Bias</div>
+                                <div class="state-value">${rs.depth_bias}</div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+            
+            // Shader Stages
+            const shaderStages = ['vs', 'hs', 'ds', 'gs', 'ps', 'cs'];
+            const stageNames = {
+                'vs': 'Vertex Shader',
+                'hs': 'Hull Shader',
+                'ds': 'Domain Shader',
+                'gs': 'Geometry Shader',
+                'ps': 'Pixel Shader',
+                'cs': 'Compute Shader'
+            };
+            
+            shaderStages.forEach(stage => {
+                const bindings = ps[stage + '_bindings'];
+                if (bindings && bindings.shader_resource_id) {
+                    html += `
+                        <div class="state-section">
+                            <h3>${stageNames[stage]}</h3>
+                            <div class="state-grid">
+                                <div class="state-item">
+                                    <div class="state-label">Shader ID</div>
+                                    <div class="state-value">${bindings.shader_resource_id}</div>
+                                </div>
+                                ${bindings.shader_name ? `
+                                    <div class="state-item">
+                                        <div class="state-label">Name</div>
+                                        <div class="state-value">${bindings.shader_name}</div>
+                                    </div>
+                                ` : ''}
+                            </div>
+                            ${renderBindingsTable('Constant Buffers', bindings.constant_buffers)}
+                            ${renderBindingsTable('Shader Resources', bindings.shader_resources)}
+                            ${renderBindingsTable('UAVs', bindings.uavs)}
+                        </div>
+                    `;
+                }
+            });
+            
+            // Output Merger
+            if (ps.output_merger) {
+                const om = ps.output_merger;
+                html += `
+                    <div class="state-section">
+                        <h3>Output Merger</h3>
+                        ${om.render_targets && om.render_targets.length > 0 ? `
+                            <table class="binding-table">
+                                <thead>
+                                    <tr>
+                                        <th>Slot</th>
+                                        <th>Resource</th>
+                                        <th>Format</th>
+                                        <th>Size</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${om.render_targets.map(rt => `
+                                        <tr>
+                                            <td>${rt.slot}</td>
+                                            <td>${rt.resource_name || rt.resource_id}</td>
+                                            <td>${rt.format}</td>
+                                            <td>${rt.width}x${rt.height}</td>
+                                        </tr>
+                                    `).join('')}
+                                </tbody>
+                            </table>
+                        ` : ''}
+                        ${om.depth_stencil ? `
+                            <div style="margin-top: 16px;">
+                                <strong>Depth Stencil:</strong> ${om.depth_stencil.resource_name || om.depth_stencil.resource_id}
+                                (${om.depth_stencil.format}, ${om.depth_stencil.width}x${om.depth_stencil.height})
+                            </div>
+                        ` : ''}
+                    </div>
+                `;
+            }
+            
+            container.innerHTML = html;
+        }
+        
+        function renderBindingsTable(title, bindings) {
+            if (!bindings || bindings.length === 0) return '';
+            
+            return `
+                <div style="margin-top: 12px;">
+                    <strong style="font-size: 13px; color: var(--text-secondary);">${title}</strong>
+                    <table class="binding-table" style="margin-top: 8px;">
+                        <thead>
+                            <tr>
+                                <th>Slot</th>
+                                <th>Resource</th>
+                                <th>Type</th>
+                                <th>Size</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${bindings.map(b => `
+                                <tr>
+                                    <td>${b.slot}</td>
+                                    <td>${b.resource_name || b.resource_id}</td>
+                                    <td>${b.resource_type || 'N/A'}</td>
+                                    <td>${b.width ? `${b.width}x${b.height}` : formatBytes(b.size_bytes)}</td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                </div>
+            `;
+        }
+        
+        function updateIssuesBadge(eventId) {
+            const issues = analysisData.issues.filter(i => i.event_id === eventId);
+            const badge = document.getElementById('issues-badge');
+            badge.textContent = issues.length > 0 ? `(${issues.length})` : '';
+        }
+        
+        function filterCallList() {
+            const searchTerm = searchInput.value.toLowerCase();
+            let visibleCount = 0;
+            
+            document.querySelectorAll('.call-item').forEach(item => {
+                const eventId = parseInt(item.dataset.eventId);
+                const call = analysisData.draw_calls.find(d => d.event_id === eventId);
+                const hasIssues = analysisData.issues.some(i => i.event_id === eventId);
+                const hasDeps = analysisData.dependencies.some(d => 
+                    d.source_event === eventId || d.target_event === eventId
+                );
+                
+                let visible = true;
+                
+                // Filter by type
+                if (currentFilter === 'issues' && !hasIssues) visible = false;
+                if (currentFilter === 'deps' && !hasDeps) visible = false;
+                
+                // Filter by search
+                if (searchTerm && visible) {
+                    const searchText = `${eventId} ${call?.name || ''}`.toLowerCase();
+                    visible = searchText.includes(searchTerm);
+                }
+                
+                item.style.display = visible ? 'flex' : 'none';
+                if (visible) visibleCount++;
+            });
+            
+            callCount.textContent = visibleCount;
+        }
+        
+        // Utilities
+        function formatBytes(bytes) {
+            if (!bytes) return 'N/A';
+            if (bytes < 1024) return bytes + ' B';
+            if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+            return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+        }
+        
+        function debounce(func, wait) {
+            let timeout;
+            return function executedFunction(...args) {
+                const later = () => {
+                    clearTimeout(timeout);
+                    func(...args);
+                };
+                clearTimeout(timeout);
+                timeout = setTimeout(later, wait);
+            };
+        }
+    </script>
+</body>
+</html>

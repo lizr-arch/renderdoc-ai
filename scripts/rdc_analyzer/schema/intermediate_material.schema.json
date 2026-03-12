@@ -1,0 +1,72 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://renderdoc.org/schemas/intermediate_material.schema.json",
+  "title": "RDC Intermediate Material",
+  "type": "object",
+  "required": [
+    "material"
+  ],
+  "properties": {
+    "material": {
+      "type": "object",
+      "required": [
+        "name",
+        "shader",
+        "textures",
+        "constants"
+      ],
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "shader": {
+          "type": "string"
+        },
+        "textures": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "slot": {
+                "type": "string"
+              },
+              "texture_id": {
+                "type": "integer"
+              },
+              "path": {
+                "type": "string"
+              },
+              "sampler": {
+                "type": "string"
+              },
+              "width": {
+                "type": "integer"
+              },
+              "height": {
+                "type": "integer"
+              },
+              "format": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "constants": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "type": {
+                "type": "string"
+              },
+              "value": {}
+            }
+          }
+        }
+      }
+    }
+  }
+}

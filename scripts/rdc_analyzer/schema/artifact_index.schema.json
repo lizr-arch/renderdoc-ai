@@ -1,0 +1,380 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://renderdoc.org/schemas/artifact_index.schema.json",
+  "title": "RDC Event Asset Orchestrator Artifact Index",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "schema_path",
+    "event_id",
+    "api",
+    "engine_targets",
+    "engines",
+    "sources",
+    "options",
+    "stages",
+    "artifacts",
+    "status_counts",
+    "statistics",
+    "generated_at_utc"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string"
+    },
+    "schema_path": {
+      "type": "string"
+    },
+    "event_id": {
+      "type": "integer"
+    },
+    "api": {
+      "type": "string"
+    },
+    "engine_targets": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": [
+          "unity",
+          "unreal",
+          "messiah"
+        ]
+      }
+    },
+    "engines": {
+      "type": "object",
+      "required": [
+        "unity",
+        "unreal",
+        "messiah"
+      ],
+      "properties": {
+        "unity": {
+          "$ref": "#/$defs/engineStatus"
+        },
+        "unreal": {
+          "$ref": "#/$defs/engineStatus"
+        },
+        "messiah": {
+          "$ref": "#/$defs/engineStatus"
+        }
+      }
+    },
+    "sources": {
+      "type": "object",
+      "required": [
+        "intermediate_dir",
+        "zip_xml",
+        "zip_bin"
+      ],
+      "properties": {
+        "intermediate_dir": {
+          "type": "string"
+        },
+        "zip_xml": {
+          "type": "string"
+        },
+        "zip_bin": {
+          "type": "string"
+        }
+      }
+    },
+    "options": {
+      "type": "object",
+      "required": [
+        "texture_mode",
+        "raw_source_kinds",
+        "allow_missing_fbx_backend"
+      ],
+      "properties": {
+        "texture_mode": {
+          "type": "string",
+          "enum": [
+            "auto",
+            "decoded",
+            "raw"
+          ]
+        },
+        "raw_source_kinds": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "allow_missing_fbx_backend": {
+          "type": "boolean"
+        },
+        "enable_ai_enrichment": {
+          "type": "boolean"
+        }
+      }
+    },
+    "stages": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "name",
+          "status",
+          "message"
+        ],
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "artifacts": {
+      "type": "object",
+      "required": [
+        "bundle_manifest",
+        "mesh_obj",
+        "mesh_mtl",
+        "materials",
+        "textures_dir",
+        "unity_fbx",
+        "unreal_fbx",
+        "unity_shader_plan",
+        "unreal_shader_plan",
+        "stats"
+      ],
+      "properties": {
+        "bundle_manifest": {
+          "type": "string"
+        },
+        "mesh_obj": {
+          "type": "string"
+        },
+        "mesh_mtl": {
+          "type": "string"
+        },
+        "materials": {
+          "type": "string"
+        },
+        "textures_dir": {
+          "type": "string"
+        },
+        "unity_fbx": {
+          "type": "string"
+        },
+        "unreal_fbx": {
+          "type": "string"
+        },
+        "unity_shader_plan": {
+          "type": "string"
+        },
+        "unreal_shader_plan": {
+          "type": "string"
+        },
+        "stats": {
+          "type": "string"
+        },
+        "ai_enrichment": {
+          "type": "string"
+        }
+      }
+    },
+    "status_counts": {
+      "type": "object",
+      "required": [
+        "texture",
+        "shader"
+      ],
+      "properties": {
+        "texture": {
+          "type": "object",
+          "required": [
+            "decoded_rgba8_png",
+            "rgba_bytes_png",
+            "copied_image",
+            "raw_copy",
+            "missing_source",
+            "other",
+            "total"
+          ],
+          "properties": {
+            "decoded_rgba8_png": {
+              "type": "integer"
+            },
+            "rgba_bytes_png": {
+              "type": "integer"
+            },
+            "copied_image": {
+              "type": "integer"
+            },
+            "raw_copy": {
+              "type": "integer"
+            },
+            "missing_source": {
+              "type": "integer"
+            },
+            "other": {
+              "type": "integer"
+            },
+            "total": {
+              "type": "integer"
+            }
+          }
+        },
+        "shader": {
+          "type": "object",
+          "required": [
+            "unity",
+            "unreal",
+            "total"
+          ],
+          "properties": {
+            "unity": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "integer"
+              }
+            },
+            "unreal": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "integer"
+              }
+            },
+            "total": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "integer"
+              }
+            }
+          }
+        }
+      }
+    },
+    "statistics": {
+      "type": "object",
+      "required": [
+        "bundle",
+        "mesh"
+      ],
+      "properties": {
+        "bundle": {
+          "type": "object"
+        },
+        "mesh": {
+          "type": "object"
+        }
+      }
+    },
+    "generated_at_utc": {
+      "type": "string"
+    },
+    "ai_enrichment": {
+      "$ref": "#/$defs/aiEnrichmentStatus"
+    }
+  },
+  "$defs": {
+    "engineStatus": {
+      "type": "object",
+      "required": [
+        "requested",
+        "status",
+        "mesh_format",
+        "shader_format",
+        "material_format",
+        "coordinate_system",
+        "artifacts",
+        "notes"
+      ],
+      "properties": {
+        "requested": {
+          "type": "boolean"
+        },
+        "status": {
+          "type": "string"
+        },
+        "mesh_format": {
+          "type": "string"
+        },
+        "shader_format": {
+          "type": "string"
+        },
+        "material_format": {
+          "type": "string"
+        },
+        "coordinate_system": {
+          "type": "object",
+          "required": [
+            "up_axis",
+            "unit"
+          ],
+          "properties": {
+            "up_axis": {
+              "type": "string"
+            },
+            "unit": {
+              "type": "string"
+            }
+          }
+        },
+        "artifacts": {
+          "type": "object",
+          "required": [
+            "mesh",
+            "shader_plan",
+            "materials",
+            "textures_dir"
+          ],
+          "properties": {
+            "mesh": {
+              "type": "string"
+            },
+            "shader_plan": {
+              "type": "string"
+            },
+            "materials": {
+              "type": "string"
+            },
+            "textures_dir": {
+              "type": "string"
+            }
+          }
+        },
+        "notes": {
+          "type": "string"
+        }
+      }
+    },
+    "aiEnrichmentStatus": {
+      "type": "object",
+      "required": [
+        "status",
+        "file",
+        "generator",
+        "message"
+      ],
+      "properties": {
+        "status": {
+          "type": "string",
+          "enum": [
+            "not_requested",
+            "ok",
+            "degraded_non_blocking"
+          ]
+        },
+        "file": {
+          "type": "string"
+        },
+        "generator": {
+          "type": "string"
+        },
+        "message": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}

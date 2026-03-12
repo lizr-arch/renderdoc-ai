@@ -28,6 +28,7 @@ obj/
 *.VC.*db
 .vs/
 .vscode/
+.serena/
 *.pdb
 *.sln.ide/
 *.so
@@ -48,3 +49,50 @@ qrenderdoc/3rdparty/pyside
 .DS_Store
 plugins-*/
 __pycache__
+# Local data files  
+Resource/  
+output/  
+rdc_analyzer/  
+.codemaker/  
+*.rdc  
+__pycache__/  
+.pytest_cache/ 
+
+# Local logs & analysis artifacts
+logs/
+docs/analysis/codex_rdc_analyzer/html_review/
+docs/offline_reference/
+docs/analysis/md_scan_*.md
+docs/analysis/md_scan_*.txt
+
+# Local tool artifacts (user-specific)
+.sdd/
+rdoc_capture_py27.obj
+util/rdoc_quick_capture_py27/out/
+plans/2026-01-29-170725-Agent01-RenderDoc-NoBuild-Attach.md
+plans/2026-01-30-140000-Agent01-UnityExport.md
+
+# RDC analyzer local outputs
+scripts/rdc_analyzer/output/
+scripts/rdc_analyzer/test_output/
+scripts/rdc_analyzer/test_output_d3d12/
+scripts/rdc_analyzer/.pytest_cache/
+scripts/rdc_analyzer/**/__pycache__/
+scripts/rdc_analyzer/**/*.pyc
+scripts/rdc_analyzer/*.html
+scripts/rdc_analyzer/--output
+scripts/rdc_analyzer/-o
+scripts/_tmp_*
+scripts/rdc_analyzer/scripts/_tmp_*
+  
+# Local test configuration  
+tests/conftest_local.py 
+
+# Allow tracked tests under scripts/rdc_analyzer (override broad ignore)
+!scripts/rdc_analyzer/
+!scripts/rdc_analyzer/tests/
+!scripts/rdc_analyzer/tests/**/*.py
+!scripts/rdc_analyzer/exporters/templates/*.html
+!scripts/rdc_analyzer/test_captures/**/*.html
+
+# Re-ignore specific local files (overrides allowlist above)

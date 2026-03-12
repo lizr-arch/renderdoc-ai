@@ -712,6 +712,10 @@ struct CaptureContextInvoker : ObjectForwarder<ICaptureContext>
   {
     return InvokeRetFunction<IStatisticsViewer *>(&ICaptureContext::GetStatisticsViewer);
   }
+  virtual IAnalyzerReportViewer *GetAnalyzerReportViewer() override
+  {
+    return InvokeRetFunction<IAnalyzerReportViewer *>(&ICaptureContext::GetAnalyzerReportViewer);
+  }
   virtual ITimelineBar *GetTimelineBar() override
   {
     return InvokeRetFunction<ITimelineBar *>(&ICaptureContext::GetTimelineBar);
@@ -772,6 +776,10 @@ struct CaptureContextInvoker : ObjectForwarder<ICaptureContext>
   {
     return InvokeRetFunction<bool>(&ICaptureContext::HasStatisticsViewer);
   }
+  virtual bool HasAnalyzerReportViewer() override
+  {
+    return InvokeRetFunction<bool>(&ICaptureContext::HasAnalyzerReportViewer);
+  }
   virtual bool HasTimelineBar() override
   {
     return InvokeRetFunction<bool>(&ICaptureContext::HasTimelineBar);
@@ -826,6 +834,10 @@ struct CaptureContextInvoker : ObjectForwarder<ICaptureContext>
   virtual void ShowStatisticsViewer() override
   {
     InvokeVoidFunction(&ICaptureContext::ShowStatisticsViewer);
+  }
+  virtual void ShowAnalyzerReportViewer() override
+  {
+    InvokeVoidFunction(&ICaptureContext::ShowAnalyzerReportViewer);
   }
   virtual void ShowTimelineBar() override { InvokeVoidFunction(&ICaptureContext::ShowTimelineBar); }
   virtual void ShowPythonShell() override { InvokeVoidFunction(&ICaptureContext::ShowPythonShell); }

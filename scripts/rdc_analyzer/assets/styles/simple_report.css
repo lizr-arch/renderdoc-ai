@@ -1,0 +1,111 @@
+/**
+ * Simple Report Styles
+ * ====================
+ * 用于 generate_simple_report.py 生成的纹理分析报告
+ * 
+ * 提取日期: 2025-07-25
+ */
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+    font-family: 'Segoe UI', Arial, sans-serif;
+    background: #0d1117;
+    color: #e6edf3;
+    padding: 20px;
+}
+
+.header {
+    background: #161b22;
+    padding: 20px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+}
+
+.header h1 { color: #58a6ff; margin-bottom: 10px; }
+.header .meta { color: #8b949e; font-size: 14px; }
+
+.summary {
+    display: flex;
+    gap: 15px;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+}
+
+.summary-card {
+    background: #161b22;
+    padding: 15px 20px;
+    border-radius: 8px;
+    border-left: 4px solid #58a6ff;
+    min-width: 200px;
+}
+
+.summary-card.warning { border-left-color: #f0883e; }
+.summary-card.danger { border-left-color: #e94560; }
+.summary-card h3 { font-size: 14px; color: #8b949e; margin-bottom: 8px; }
+.summary-card .stat { font-size: 28px; font-weight: bold; }
+.summary-card .detail { font-size: 12px; color: #8b949e; margin-top: 5px; }
+
+.texture-list {
+    background: #161b22;
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.list-header {
+    display: grid;
+    grid-template-columns: 80px 1fr 120px 150px 100px;
+    gap: 10px;
+    padding: 12px 15px;
+    background: #21262d;
+    font-weight: bold;
+    color: #8b949e;
+    font-size: 12px;
+    text-transform: uppercase;
+}
+
+.tex-item {
+    display: grid;
+    grid-template-columns: 80px 1fr 120px 150px 100px;
+    gap: 10px;
+    padding: 12px 15px;
+    border-bottom: 1px solid #30363d;
+    cursor: pointer;
+    transition: background 0.15s;
+}
+
+.tex-item:hover { background: #21262d; }
+.tex-item:nth-child(odd) { background: #0d1117; }
+.tex-item:nth-child(odd):hover { background: #21262d; }
+
+.tex-id { color: #58a6ff; font-weight: bold; }
+.tex-name { color: #e6edf3; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tex-size { color: #8b949e; }
+.tex-format { 
+    color: #3fb950; 
+    font-family: monospace;
+    font-size: 12px;
+}
+.tex-vram { color: #f0883e; text-align: right; }
+
+.search-bar {
+    margin-bottom: 15px;
+}
+
+.search-bar input {
+    width: 100%;
+    max-width: 400px;
+    padding: 10px 15px;
+    border: 1px solid #30363d;
+    border-radius: 6px;
+    background: #0d1117;
+    color: #e6edf3;
+    font-size: 14px;
+}
+
+.search-bar input:focus {
+    outline: none;
+    border-color: #58a6ff;
+}
+
+.count { color: #8b949e; margin-bottom: 10px; }

@@ -175,6 +175,11 @@ SOURCES += Code/qrenderdoc.cpp \
     Code/MiniQtHelper.cpp \
     Code/BufferFormatter.cpp \
     Code/Resources.cpp \
+    Code/Analyzer/AnalyzerContract.cpp \
+    Code/Analyzer/AnalyzerExporter.cpp \
+    Code/Analyzer/AnalyzerSnapshotAdapter.cpp \
+    Code/Analyzer/FrameAnalyzer.cpp \
+    Code/Analyzer/IssueEngine.cpp \
     Code/RGPInterop.cpp \
     Code/pyrenderdoc/PythonContext.cpp \
     Code/Interface/QRDInterface.cpp \
@@ -194,6 +199,7 @@ SOURCES += Code/qrenderdoc.cpp \
     Windows/ShaderViewer.cpp \
     Windows/ShaderMessageViewer.cpp \
     Windows/DescriptorViewer.cpp \
+    Windows/AnalyzerModels.cpp \
     Widgets/Extended/RDLineEdit.cpp \
     Widgets/Extended/RDTextEdit.cpp \
     Widgets/Extended/RDLabel.cpp \
@@ -230,6 +236,7 @@ SOURCES += Code/qrenderdoc.cpp \
     Windows/LogView.cpp \
     Windows/CommentView.cpp \
     Windows/StatisticsViewer.cpp \
+    Windows/AnalyzerReportViewer.cpp \
     Windows/TimelineBar.cpp \
     Windows/Dialogs/SettingsDialog.cpp \
     Widgets/OrderedListEditor.cpp \
@@ -262,6 +269,12 @@ HEADERS += Code/CaptureContext.h \
     Code/QRDUtils.h \
     Code/MiniQtHelper.h \
     Code/Resources.h \
+    Code/Analyzer/AnalyzerTypes.h \
+    Code/Analyzer/AnalyzerContract.h \
+    Code/Analyzer/AnalyzerExporter.h \
+    Code/Analyzer/AnalyzerSnapshotAdapter.h \
+    Code/Analyzer/FrameAnalyzer.h \
+    Code/Analyzer/IssueEngine.h \
     Code/RGPInterop.h \
     Code/pyrenderdoc/PythonContext.h \
     Code/pyrenderdoc/pyconversion.h \
@@ -283,6 +296,7 @@ HEADERS += Code/CaptureContext.h \
     Windows/ShaderViewer.h \
     Windows/ShaderMessageViewer.h \
     Windows/DescriptorViewer.h \
+    Windows/AnalyzerModels.h \
     Widgets/Extended/RDLineEdit.h \
     Widgets/Extended/RDTextEdit.h \
     Widgets/Extended/RDLabel.h \
@@ -319,6 +333,7 @@ HEADERS += Code/CaptureContext.h \
     Windows/LogView.h \
     Windows/CommentView.h \
     Windows/StatisticsViewer.h \
+    Windows/AnalyzerReportViewer.h \
     Windows/TimelineBar.h \
     Windows/Dialogs/SettingsDialog.h \
     Widgets/OrderedListEditor.h \
@@ -372,6 +387,7 @@ FORMS    += Windows/Dialogs/AboutDialog.ui \
     Windows/LogView.ui \
     Windows/CommentView.ui \
     Windows/StatisticsViewer.ui \
+    Windows/AnalyzerReportViewer.ui \
     Windows/Dialogs/SettingsDialog.ui \
     Windows/Dialogs/SuggestRemoteDialog.ui \
     Windows/Dialogs/VirtualFileDialog.ui \

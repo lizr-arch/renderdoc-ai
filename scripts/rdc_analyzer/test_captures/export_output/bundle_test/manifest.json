@@ -1,0 +1,25 @@
+{
+  "version": "1.0",
+  "generator": "RDC Report Bundle Generator",
+  "generated_at": "2026-02-04 11:43:00",
+  "capture": {
+    "name": "G145_Test",
+    "frame_thumbnail": false
+  },
+  "pages": {
+    "index": "index.html",
+    "textures": "textures.html",
+    "events": "events.html",
+    "shaders": "shaders.html",
+    "recommendations": "recommendations.html"
+  },
+  "stats": {
+    "textures": 100,
+    "events": 180,
+    "shaders": 0,
+    "draw_calls": 136,
+    "dispatch_calls": 12,
+    "vram_bytes": 172749199,
+    "issues": 0
+  }
+}

@@ -1,0 +1,79 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://renderdoc.org/schemas/mesh_shader_manifest.schema.json",
+  "title": "RDC Mesh/Shader Extraction Manifest",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "rdc_path",
+    "event_id",
+    "outputs",
+    "data_provenance",
+    "status"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string"
+    },
+    "schema_path": {
+      "type": "string"
+    },
+    "rdc_path": {
+      "type": "string"
+    },
+    "event_id": {
+      "type": "integer"
+    },
+    "outputs": {
+      "type": "object",
+      "required": [
+        "vertex_buffers",
+        "index_buffers",
+        "shaders"
+      ],
+      "properties": {
+        "vertex_buffers": {
+          "type": "string"
+        },
+        "index_buffers": {
+          "type": "string"
+        },
+        "shaders": {
+          "type": "string"
+        }
+      }
+    },
+    "data_provenance": {
+      "type": "object",
+      "required": [
+        "pipeline_state",
+        "buffers",
+        "shader_disassembly"
+      ],
+      "properties": {
+        "pipeline_state": {
+          "type": "string"
+        },
+        "buffers": {
+          "type": "string"
+        },
+        "shader_disassembly": {
+          "type": "string"
+        }
+      }
+    },
+    "api": {
+      "type": "string"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "ok",
+        "error"
+      ]
+    },
+    "error": {
+      "type": "string"
+    }
+  }
+}

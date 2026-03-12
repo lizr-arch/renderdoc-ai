@@ -1,0 +1,719 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RDC 分析报告 - G145_Test</title>
+    <link rel="stylesheet" href="common.css">
+    <style>
+        /* ========== Index 页面专用样式 ========== */
+        /* 注意: 卡片基础样式已移至 common.css */
+        
+        /* 概览布局 - 固定 3 列网格，允许自然滚动 */
+        .overview-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 20px;
+            padding: 24px 32px;
+            padding-bottom: 48px; /* 底部留白 */
+            /* 移除 max-width 限制，铺满整个屏幕 */
+            background: var(--bg-darkest);
+        }
+        
+        /* 统计卡片 - 横跨 2 列 */
+        .stats-card {
+            grid-column: span 2;
+        }
+        
+        /* 快速导航卡片 - 横跨 3 列确保完整显示 */
+        .nav-card {
+            grid-column: span 3;
+        }
+        
+        .stats-row {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 16px;
+        }
+        
+        /* VRAM 卡片 */
+        .vram-chart-container {
+            display: flex;
+            gap: 24px;
+            align-items: center;
+        }
+        
+        .vram-donut {
+            position: relative;
+            width: 120px;
+            height: 120px;
+            flex-shrink: 0;
+        }
+        
+        .vram-donut svg {
+            width: 100%;
+            height: 100%;
+            transform: rotate(-90deg);
+        }
+        
+        .vram-donut-center {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+        }
+        
+        .vram-total {
+            font-size: 18px;
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+        
+        .vram-unit {
+            font-size: 10px;
+            color: var(--text-muted);
+        }
+        
+        .vram-legend {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        
+        .vram-legend-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 11px;
+        }
+        
+        .vram-legend-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 2px;
+            flex-shrink: 0;
+        }
+        
+        .vram-legend-label {
+            flex: 1;
+            min-width: 0;
+            color: var(--text-secondary);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        
+        .vram-legend-value {
+            flex-shrink: 0;
+            color: var(--text-primary);
+            font-weight: 500;
+            font-family: var(--font-mono);
+            white-space: nowrap;
+        }
+        
+        /* 快速导航卡片 - 横跨整行时使用 6 列布局 */
+        .nav-grid {
+            display: grid;
+            grid-template-columns: repeat(6, 1fr);
+            gap: 12px;
+            width: 100%;
+            box-sizing: border-box;
+        }
+        
+        .nav-item {
+            display: flex;
+            flex-direction: row;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 12px;
+            min-height: auto;
+            background: var(--bg-darkest);
+            border-radius: var(--radius-md);
+            border: 1px solid var(--border);
+            text-decoration: none;
+            transition: all 0.2s;
+            box-sizing: border-box;
+        }
+        
+        .nav-item:hover {
+            background: var(--bg-dark);
+            border-color: var(--accent-blue);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+        }
+        
+        .nav-item-icon {
+            font-size: 18px;
+            line-height: 1;
+            flex-shrink: 0;
+        }
+        
+        .nav-item-text {
+            display: flex;
+            flex-direction: column;
+            min-width: 0;
+        }
+        
+        .nav-item-label {
+            font-size: 11px;
+            font-weight: 500;
+            color: var(--text-primary);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        
+        .nav-item-count {
+            font-size: 9px;
+            color: var(--text-muted);
+        }
+        
+        /* 问题列表卡片 */
+        .issues-list {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        
+        .issue-item {
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+            padding: 10px 12px;
+            background: var(--bg-darkest);
+            border-radius: var(--radius-md);
+            border-left: 3px solid var(--accent-yellow);
+            cursor: pointer;
+            transition: background 0.15s;
+        }
+        
+        .issue-item:hover {
+            background: var(--bg-dark);
+        }
+        
+        .issue-item.error {
+            border-left-color: var(--accent-red);
+        }
+        
+        .issue-item.info {
+            border-left-color: var(--accent-blue);
+        }
+        
+        .issue-icon {
+            font-size: 14px;
+            flex-shrink: 0;
+        }
+        
+        .issue-content {
+            flex: 1;
+            min-width: 0;
+        }
+        
+        .issue-title {
+            font-size: 11px;
+            color: var(--text-primary);
+            font-weight: 500;
+        }
+        
+        .issue-desc {
+            font-size: 10px;
+            color: var(--text-muted);
+            margin-top: 2px;
+        }
+        
+        .issue-action {
+            font-size: 10px;
+            color: var(--accent-blue);
+            text-decoration: none;
+        }
+        
+        .issue-action:hover {
+            text-decoration: underline;
+        }
+        
+        /* 捕获信息卡片 */
+        .capture-info-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+        }
+        
+        .capture-info-item {
+            padding: 8px 10px;
+            background: var(--bg-darkest);
+            border-radius: var(--radius-md);
+        }
+        
+        .capture-info-label {
+            font-size: 9px;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .capture-info-value {
+            font-size: 12px;
+            color: var(--text-primary);
+            margin-top: 2px;
+            word-break: break-all;
+        }
+        
+        /* 帧缩略图 */
+        .frame-preview {
+            width: 100%;
+            border-radius: var(--radius-md);
+            background: var(--bg-darkest);
+            aspect-ratio: 16/9;
+            object-fit: contain;
+            cursor: pointer;
+            border: 1px solid var(--border);
+            transition: border-color 0.2s;
+        }
+        
+        .frame-preview:hover {
+            border-color: var(--accent-blue);
+        }
+        
+        /* 空状态 */
+        .empty-state {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 40px 20px;
+            color: var(--text-muted);
+        }
+        
+        .empty-state-icon {
+            font-size: 48px;
+            opacity: 0.3;
+            margin-bottom: 12px;
+        }
+        
+        .empty-state-text {
+            font-size: 12px;
+        }
+        
+        /* 格式分布条 */
+        .format-bar {
+            display: flex;
+            height: 24px;
+            border-radius: var(--radius-md);
+            overflow: hidden;
+            background: var(--bg-darkest);
+        }
+        
+        .format-segment {
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 9px;
+            color: white;
+            font-weight: 500;
+            min-width: 30px;
+            transition: filter 0.2s;
+        }
+        
+        .format-segment:hover {
+            filter: brightness(1.2);
+        }
+        
+        .format-legend {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 12px;
+        }
+        
+        .format-legend-item {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            font-size: 10px;
+            color: var(--text-secondary);
+        }
+        
+        .format-legend-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 2px;
+        }
+    </style>
+</head>
+<body>
+    <div class="app-container">
+        <!-- 顶部菜单栏 -->
+        <header class="app-menubar">
+            <div class="app-title">
+                <div class="logo"></div>
+                <span>RDC Analyzer</span>
+            </div>
+            
+            <nav class="app-menu">
+                <a href="index.html" class="menu-item active">📊 概览</a>
+                <a href="textures.html" class="menu-item">🖼️ 纹理</a>
+                <a href="events.html" class="menu-item">📋 事件</a>
+                <a href="shaders.html" class="menu-item">🎨 Shaders</a>
+                <a href="recommendations.html" class="menu-item">💡 优化</a>
+            </nav>
+            
+            <div class="app-meta">
+                <span>G145_Test</span>
+                <span>|</span>
+                <span>2026-02-04 11:43:00</span>
+            </div>
+        </header>
+        
+        <!-- 主内容区 -->
+        <main class="overview-grid">
+            <!-- 统计概览卡片 -->
+            <div class="card stats-card">
+                <div class="card-header">
+                    <div class="card-title">
+                        <span class="card-title-icon">📈</span>
+                        捕获统计
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="stats-row">
+                        <div class="stat-item clickable" onclick="location.href='textures.html'">
+                            <div class="stat-value">100</div>
+                            <div class="stat-label">纹理</div>
+                            <div class="stat-sublabel">164.7 MB VRAM</div>
+                        </div>
+                        <div class="stat-item clickable" onclick="location.href='events.html'">
+                            <div class="stat-value">136</div>
+                            <div class="stat-label">Draw Calls</div>
+                            <div class="stat-sublabel">180 事件</div>
+                        </div>
+                        <div class="stat-item clickable" onclick="location.href='shaders.html'">
+                            <div class="stat-value">0</div>
+                            <div class="stat-label">Shaders</div>
+                            <div class="stat-sublabel">0 Pipelines</div>
+                        </div>
+                        <div class="stat-item ">
+                            <div class="stat-value success">0</div>
+                            <div class="stat-label">优化建议</div>
+                            <div class="stat-sublabel">0 严重</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- VRAM 分布卡片 -->
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title">
+                        <span class="card-title-icon">💾</span>
+                        VRAM 分布
+                    </div>
+                    <div class="card-badge">164.7 MB</div>
+                </div>
+                <div class="card-body">
+                    <div class="vram-chart-container">
+                        <div class="vram-donut">
+                            <svg viewBox="0 0 36 36">
+                                <!-- 背景圆 -->
+                                <circle cx="18" cy="18" r="15.5" fill="none" stroke="var(--bg-darkest)" stroke-width="3"/>
+                                <!-- 数据段 - 由 JS 动态生成 -->
+                                
+                    <circle cx="18" cy="18" r="15.5" fill="none" 
+                        stroke="#58a6ff" stroke-width="3" 
+                        stroke-dasharray="23.4 74.0"
+                        stroke-dashoffset="-0.0"/>
+                    <circle cx="18" cy="18" r="15.5" fill="none" 
+                        stroke="#3fb950" stroke-width="3" 
+                        stroke-dasharray="18.7 78.6"
+                        stroke-dashoffset="-23.4"/>
+                    <circle cx="18" cy="18" r="15.5" fill="none" 
+                        stroke="#f0883e" stroke-width="3" 
+                        stroke-dasharray="15.8 81.6"
+                        stroke-dashoffset="-42.2"/>
+                    <circle cx="18" cy="18" r="15.5" fill="none" 
+                        stroke="#a371f7" stroke-width="3" 
+                        stroke-dasharray="12.4 84.9"
+                        stroke-dashoffset="-58.0"/>
+                    <circle cx="18" cy="18" r="15.5" fill="none" 
+                        stroke="#f9c513" stroke-width="3" 
+                        stroke-dasharray="10.9 86.5"
+                        stroke-dashoffset="-70.4"/>
+                    <circle cx="18" cy="18" r="15.5" fill="none" 
+                        stroke="#8b949e" stroke-width="3" 
+                        stroke-dasharray="7.8 89.6"
+                        stroke-dashoffset="-81.3"/>
+                            </svg>
+                            <div class="vram-donut-center">
+                                <div class="vram-total">164.7</div>
+                                <div class="vram-unit">MB</div>
+                            </div>
+                        </div>
+                        <div class="vram-legend">
+                            
+                    <div class="vram-legend-item">
+                        <span class="vram-legend-dot" style="background:#58a6ff"></span>
+                        <span class="vram-legend-label">37</span>
+                        <span class="vram-legend-value">39.6 MB</span>
+                    </div>
+                    <div class="vram-legend-item">
+                        <span class="vram-legend-dot" style="background:#3fb950"></span>
+                        <span class="vram-legend-label">172</span>
+                        <span class="vram-legend-value">31.7 MB</span>
+                    </div>
+                    <div class="vram-legend-item">
+                        <span class="vram-legend-dot" style="background:#f0883e"></span>
+                        <span class="vram-legend-label">122</span>
+                        <span class="vram-legend-value">26.8 MB</span>
+                    </div>
+                    <div class="vram-legend-item">
+                        <span class="vram-legend-dot" style="background:#a371f7"></span>
+                        <span class="vram-legend-label">76</span>
+                        <span class="vram-legend-value">21.0 MB</span>
+                    </div>
+                    <div class="vram-legend-item">
+                        <span class="vram-legend-dot" style="background:#f9c513"></span>
+                        <span class="vram-legend-label">50</span>
+                        <span class="vram-legend-value">18.4 MB</span>
+                    </div>
+                    <div class="vram-legend-item">
+                        <span class="vram-legend-dot" style="background:#8b949e"></span>
+                        <span class="vram-legend-label">9</span>
+                        <span class="vram-legend-value">13.2 MB</span>
+                    </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 快速导航卡片 - 横跨整行 -->
+            <div class="card nav-card">
+                <div class="card-header">
+                    <div class="card-title">
+                        <span class="card-title-icon">🔗</span>
+                        快速导航
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="nav-grid">
+                        <a href="textures.html" class="nav-item">
+                            <span class="nav-item-icon">🖼️</span>
+                            <div class="nav-item-text">
+                                <span class="nav-item-label">纹理浏览器</span>
+                                <span class="nav-item-count">100 项</span>
+                            </div>
+                        </a>
+                        <a href="textures.html?filter=issues" class="nav-item">
+                            <span class="nav-item-icon">⚠️</span>
+                            <div class="nav-item-text">
+                                <span class="nav-item-label">问题纹理</span>
+                                <span class="nav-item-count">0 项</span>
+                            </div>
+                        </a>
+                        <a href="events.html" class="nav-item">
+                            <span class="nav-item-icon">📋</span>
+                            <div class="nav-item-text">
+                                <span class="nav-item-label">事件列表</span>
+                                <span class="nav-item-count">180 项</span>
+                            </div>
+                        </a>
+                        <a href="events.html?filter=drawcall" class="nav-item">
+                            <span class="nav-item-icon">🎯</span>
+                            <div class="nav-item-text">
+                                <span class="nav-item-label">Draw Calls</span>
+                                <span class="nav-item-count">136 项</span>
+                            </div>
+                        </a>
+                        <a href="shaders.html" class="nav-item">
+                            <span class="nav-item-icon">🎨</span>
+                            <div class="nav-item-text">
+                                <span class="nav-item-label">Shader 分析</span>
+                                <span class="nav-item-count">0 项</span>
+                            </div>
+                        </a>
+                        <a href="shaders.html?filter=mali" class="nav-item">
+                            <span class="nav-item-icon">📊</span>
+                            <div class="nav-item-text">
+                                <span class="nav-item-label">Mali 性能</span>
+                                <span class="nav-item-count">0 项</span>
+                            </div>
+                        </a>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 优化建议卡片 -->
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title">
+                        <span class="card-title-icon">💡</span>
+                        优化建议
+                    </div>
+                    <div class="card-badge">0 条</div>
+                </div>
+                <div class="card-body">
+                    
+                    <div class="empty-state">
+                        <div class="empty-state-icon">✅</div>
+                        <div class="empty-state-text">没有发现明显问题</div>
+                    </div>
+                    
+                </div>
+            </div>
+            
+            <!-- Shader 性能排序卡片 (Mali Offline Compiler) -->
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title">
+                        <span class="card-title-icon">⚡</span>
+                        Shader 性能
+                    </div>
+                    <div class="card-badge">Mali</div>
+                </div>
+                <div class="card-body">
+                    
+                    <div class="empty-state mini">
+                        <div class="empty-state-icon">📊</div>
+                        <div class="empty-state-text">暂无 Mali 分析数据</div>
+                        <div class="empty-state-hint">使用 malioc 分析 Shader 后可显示性能排序</div>
+                    </div>
+                    
+                </div>
+            </div>
+            
+            <!-- 捕获信息卡片 -->
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title">
+                        <span class="card-title-icon">ℹ️</span>
+                        捕获信息
+                    </div>
+                </div>
+                <div class="card-body">
+                    <!-- 帧缩略图 -->
+                    
+                    
+                    <div class="capture-info-grid" style="margin-top: 12px;">
+                        <div class="capture-info-item">
+                            <div class="capture-info-label">文件名</div>
+                            <div class="capture-info-value">G145_Test</div>
+                        </div>
+                        <div class="capture-info-item">
+                            <div class="capture-info-label">捕获时间</div>
+                            <div class="capture-info-value">2026-02-04 11:43:00</div>
+                        </div>
+                        <div class="capture-info-item">
+                            <div class="capture-info-label">图形 API</div>
+                            <div class="capture-info-value">Unknown</div>
+                        </div>
+                        <div class="capture-info-item">
+                            <div class="capture-info-label">GPU</div>
+                            <div class="capture-info-value">Unknown</div>
+                        </div>
+                        <div class="capture-info-item">
+                            <div class="capture-info-label">分辨率</div>
+                            <div class="capture-info-value">Unknown</div>
+                        </div>
+                        <div class="capture-info-item">
+                            <div class="capture-info-label">报告生成</div>
+                            <div class="capture-info-value">2026-02-04 11:43:00</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+    
+    <!-- Lightbox 弹窗 -->
+    <div class="lightbox-overlay" id="lightbox" onclick="closeLightbox()">
+        <span class="lightbox-close" onclick="closeLightbox()">&times;</span>
+        <img class="lightbox-img" id="lightbox-img" src="" alt="Preview">
+    </div>
+    
+    <script>
+        // ========== 公共工具函数 ==========
+        
+        /**
+         * 打开 Lightbox
+         */
+        function openLightbox(src) {
+            const lightbox = document.getElementById('lightbox');
+            const img = document.getElementById('lightbox-img');
+            img.src = src;
+            lightbox.classList.add('active');
+        }
+        
+        /**
+         * 关闭 Lightbox
+         */
+        function closeLightbox() {
+            document.getElementById('lightbox').classList.remove('active');
+        }
+        
+        // ESC 关闭 Lightbox
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                closeLightbox();
+            }
+        });
+        
+        // ========== 数据驱动渲染 ==========
+        
+        /**
+         * 从 manifest.json 加载数据
+         */
+        async function loadManifest() {
+            try {
+                const response = await fetch('manifest.json');
+                if (!response.ok) {
+                    console.warn('manifest.json not found, using embedded data');
+                    return null;
+                }
+                return await response.json();
+            } catch (e) {
+                console.warn('Failed to load manifest:', e);
+                return null;
+            }
+        }
+        
+        /**
+         * 格式化字节大小
+         */
+        function formatBytes(bytes) {
+            if (bytes === 0) return '0 B';
+            const k = 1024;
+            const sizes = ['B', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        }
+        
+        /**
+         * 生成 VRAM 圆环图 SVG 路径
+         */
+        function generateDonutSegment(startAngle, endAngle, color) {
+            const radius = 15.5;
+            const circumference = 2 * Math.PI * radius;
+            const startOffset = (startAngle / 360) * circumference;
+            const length = ((endAngle - startAngle) / 360) * circumference;
+            
+            return `<circle cx="18" cy="18" r="${radius}" fill="none" 
+                stroke="${color}" stroke-width="3" 
+                stroke-dasharray="${length} ${circumference - length}"
+                stroke-dashoffset="${-startOffset}"
+                style="transition: stroke-dasharray 0.3s"/>`;
+        }
+        
+        // 初始化
+        document.addEventListener('DOMContentLoaded', async () => {
+            const manifest = await loadManifest();
+            if (manifest) {
+                console.log('Loaded manifest:', manifest);
+                // 可以在这里用 manifest 数据动态更新页面
+                // 但模板变量已由 Python 生成器填充
+            }
+        });
+    </script>
+</body>
+</html>

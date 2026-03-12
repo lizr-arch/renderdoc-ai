@@ -1,0 +1,347 @@
+{
+  "": "https://renderdoc.org/schemas/batch_import_bundle_summary.schema.json",
+  "title": "RDC Import Bundle Batch Summary",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "schema_path",
+    "root",
+    "out",
+    "events_total",
+    "success_count",
+    "failed_count",
+    "failed_event_ids",
+    "retry_events_arg",
+    "retry_command",
+    "results"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string"
+    },
+    "schema_path": {
+      "type": "string"
+    },
+    "root": {
+      "type": "string"
+    },
+    "out": {
+      "type": "string"
+    },
+    "events_total": {
+      "type": "integer"
+    },
+    "success_count": {
+      "type": "integer"
+    },
+    "failed_count": {
+      "type": "integer"
+    },
+    "failed_event_ids": {
+      "type": "array",
+      "items": {
+        "type": "integer"
+      }
+    },
+    "retry_events_arg": {
+      "type": "string"
+    },
+    "retry_command": {
+      "type": "string"
+    },
+    "results": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "event_id",
+          "status",
+          "bundle_dir",
+          "error"
+        ],
+        "properties": {
+          "event_id": {
+            "type": "integer"
+          },
+          "status": {
+            "type": "string"
+          },
+          "bundle_dir": {
+            "type": "string"
+          },
+          "error": {
+            "type": "string"
+          },
+          "statistics": {
+            "type": "object",
+            "required": [
+              "vertex_count",
+              "index_count",
+              "triangle_count",
+              "shader_count",
+              "texture_count",
+              "decoded_texture_count"
+            ],
+            "properties": {
+              "vertex_count": {
+                "type": "integer"
+              },
+              "index_count": {
+                "type": "integer"
+              },
+              "triangle_count": {
+                "type": "integer"
+              },
+              "shader_count": {
+                "type": "integer"
+              },
+              "texture_count": {
+                "type": "integer"
+              },
+              "decoded_texture_count": {
+                "type": "integer"
+              }
+            }
+          },
+          "texture_status_counts": {
+            "type": "object",
+            "required": [
+              "decoded_rgba8_png",
+              "rgba_bytes_png",
+              "copied_image",
+              "raw_copy",
+              "missing_source",
+              "other",
+              "total"
+            ],
+            "properties": {
+              "decoded_rgba8_png": {
+                "type": "integer"
+              },
+              "rgba_bytes_png": {
+                "type": "integer"
+              },
+              "copied_image": {
+                "type": "integer"
+              },
+              "raw_copy": {
+                "type": "integer"
+              },
+              "missing_source": {
+                "type": "integer"
+              },
+              "other": {
+                "type": "integer"
+              },
+              "total": {
+                "type": "integer"
+              }
+            }
+          },
+          "skip_reason": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "source_summary": {
+      "type": "string"
+    },
+    "retry_files": {
+      "type": "object",
+      "required": [
+        "failed_events",
+        "retry_command"
+      ],
+      "properties": {
+        "failed_events": {
+          "type": "string"
+        },
+        "retry_command": {
+          "type": "string"
+        }
+      }
+    },
+    "skip_files": {
+      "type": "object",
+      "required": [
+        "skip_diagnostics",
+        "skip_report"
+      ],
+      "properties": {
+        "skip_diagnostics": {
+          "type": "string"
+        },
+        "skip_report": {
+          "type": "string"
+        }
+      }
+    },
+    "options": {
+      "type": "object",
+      "required": [
+        "texture_mode",
+        "raw_source_kinds"
+      ],
+      "properties": {
+        "texture_mode": {
+          "type": "string"
+        },
+        "raw_source_kinds": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "skip_mesh_incompatible": {
+          "type": "boolean"
+        },
+        "scan_rank": {
+          "type": "string"
+        }
+      }
+    },
+    "texture_status_totals": {
+      "type": "object",
+      "required": [
+        "decoded_rgba8_png",
+        "rgba_bytes_png",
+        "copied_image",
+        "raw_copy",
+        "missing_source",
+        "other",
+        "total"
+      ],
+      "properties": {
+        "decoded_rgba8_png": {
+          "type": "integer"
+        },
+        "rgba_bytes_png": {
+          "type": "integer"
+        },
+        "copied_image": {
+          "type": "integer"
+        },
+        "raw_copy": {
+          "type": "integer"
+        },
+        "missing_source": {
+          "type": "integer"
+        },
+        "other": {
+          "type": "integer"
+        },
+        "total": {
+          "type": "integer"
+        }
+      }
+    },
+    "selection": {
+      "type": "object",
+      "required": [
+        "source",
+        "top_textured",
+        "min_textures",
+        "selected"
+      ],
+      "properties": {
+        "source": {
+          "type": "string"
+        },
+        "top_textured": {
+          "type": "integer"
+        },
+        "min_textures": {
+          "type": "integer"
+        },
+        "selected": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "event_id",
+              "texture_count",
+              "index_count",
+              "pipeline"
+            ],
+            "properties": {
+              "event_id": {
+                "type": "integer"
+              },
+              "texture_count": {
+                "type": "integer"
+              },
+              "index_count": {
+                "type": "integer"
+              },
+              "pipeline": {
+                "type": "integer"
+              }
+            }
+          }
+        },
+        "scan_rank": {
+          "type": "string"
+        }
+      }
+    },
+    "inputs": {
+      "type": "object",
+      "required": [
+        "mode"
+      ],
+      "properties": {
+        "mode": {
+          "type": "string"
+        },
+        "xml": {
+          "type": "string"
+        },
+        "zip": {
+          "type": "string"
+        },
+        "vertex_stride": {
+          "type": "integer"
+        }
+      }
+    },
+    "skipped_count": {
+      "type": "integer"
+    },
+    "skipped_event_ids": {
+      "type": "array",
+      "items": {
+        "type": "integer"
+      }
+    },
+    "skip_diagnostics": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "event_id",
+          "status",
+          "reason_code",
+          "error"
+        ],
+        "properties": {
+          "event_id": {
+            "type": "integer"
+          },
+          "status": {
+            "type": "string"
+          },
+          "reason_code": {
+            "type": "string"
+          },
+          "error": {
+            "type": "string"
+          },
+          "scan_hints": {
+            "type": "object"
+          }
+        }
+      }
+    }
+  }
+}

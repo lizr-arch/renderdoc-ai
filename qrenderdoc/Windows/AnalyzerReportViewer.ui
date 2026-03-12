@@ -1,0 +1,779 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>AnalyzerReportViewer</class>
+ <widget class="QFrame" name="AnalyzerReportViewer">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>1120</width>
+    <height>760</height>
+   </rect>
+  </property>
+  <property name="windowTitle">
+   <string>Analyzer Report</string>
+  </property>
+  <layout class="QVBoxLayout" name="rootLayout">
+   <property name="leftMargin">
+    <number>6</number>
+   </property>
+   <property name="topMargin">
+    <number>6</number>
+   </property>
+   <property name="rightMargin">
+    <number>6</number>
+   </property>
+   <property name="bottomMargin">
+    <number>6</number>
+   </property>
+   <item>
+    <layout class="QHBoxLayout" name="headerLayout">
+     <item>
+      <layout class="QVBoxLayout" name="headerTextLayout">
+       <item>
+        <widget class="QLabel" name="titleLabel">
+         <property name="text">
+          <string>Analyzer Report</string>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QLabel" name="infoLabel">
+         <property name="text">
+          <string>No capture loaded</string>
+         </property>
+        </widget>
+       </item>
+      </layout>
+     </item>
+     <item>
+      <widget class="QLabel" name="statusLabel">
+       <property name="text">
+        <string/>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QProgressBar" name="progressBar">
+       <property name="minimumSize">
+        <size>
+         <width>120</width>
+         <height>0</height>
+        </size>
+       </property>
+       <property name="minimum">
+        <number>0</number>
+       </property>
+       <property name="maximum">
+        <number>0</number>
+       </property>
+       <property name="value">
+        <number>0</number>
+       </property>
+       <property name="textVisible">
+        <bool>false</bool>
+       </property>
+       <property name="visible">
+        <bool>false</bool>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <spacer name="horizontalSpacer">
+       <property name="orientation">
+        <enum>Qt::Horizontal</enum>
+       </property>
+       <property name="sizeHint" stdset="0">
+        <size>
+         <width>40</width>
+         <height>20</height>
+        </size>
+       </property>
+      </spacer>
+     </item>
+     <item>
+      <widget class="QPushButton" name="refreshButton">
+       <property name="text">
+        <string>Refresh</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QPushButton" name="exportButton">
+       <property name="text">
+        <string>Export</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QPushButton" name="jumpButton">
+       <property name="text">
+        <string>跳转到目标</string>
+       </property>
+      </widget>
+     </item>
+    </layout>
+   </item>
+   <item>
+    <widget class="QTabWidget" name="tabWidget">
+     <property name="currentIndex">
+      <number>0</number>
+     </property>
+     <widget class="QWidget" name="overviewTab">
+      <attribute name="title">
+       <string>Overview</string>
+      </attribute>
+      <layout class="QVBoxLayout" name="overviewLayout">
+       <item>
+        <widget class="QScrollArea" name="overviewScroll">
+         <property name="widgetResizable">
+          <bool>true</bool>
+         </property>
+         <widget class="QWidget" name="overviewScrollContents">
+          <layout class="QVBoxLayout" name="overviewScrollLayout">
+           <item>
+            <widget class="QFrame" name="scoreFrame">
+              <layout class="QHBoxLayout" name="scoreLayout">
+               <item>
+                <widget class="QFrame" name="overallScoreFrame">
+                 <layout class="QVBoxLayout" name="overallScoreLayout">
+                   <item>
+                    <widget class="QLabel" name="overallTitle">
+                     <property name="text">
+                      <string>Score</string>
+                     </property>
+                    </widget>
+                   </item>
+                  <item>
+                   <widget class="QLabel" name="overallValue">
+                    <property name="text">
+                     <string>--</string>
+                    </property>
+                    <property name="alignment">
+                     <set>Qt::AlignLeft|Qt::AlignVCenter</set>
+                    </property>
+                   </widget>
+                  </item>
+                 </layout>
+                </widget>
+               </item>
+              <item>
+               <layout class="QGridLayout" name="subscoreGrid">
+                <item row="0" column="0">
+                 <widget class="QFrame" name="subscoreCard1">
+                  <layout class="QVBoxLayout" name="subscoreLayout1">
+                   <item>
+                    <widget class="QLabel" name="subscoreTitle1">
+                     <property name="text">
+                      <string>Draw/Dispatch</string>
+                     </property>
+                    </widget>
+                   </item>
+                   <item>
+                   <widget class="QLabel" name="subscoreValue1">
+                    <property name="text">
+                     <string>--</string>
+                    </property>
+                   </widget>
+                  </item>
+                  <item>
+                   <widget class="QLabel" name="subscoreDetail1">
+                    <property name="text">
+                     <string>--</string>
+                    </property>
+                    <property name="wordWrap">
+                     <bool>true</bool>
+                    </property>
+                   </widget>
+                  </item>
+                  </layout>
+                 </widget>
+                </item>
+                <item row="0" column="1">
+                 <widget class="QFrame" name="subscoreCard2">
+                  <layout class="QVBoxLayout" name="subscoreLayout2">
+                   <item>
+                    <widget class="QLabel" name="subscoreTitle2">
+                     <property name="text">
+                      <string>Shaders</string>
+                     </property>
+                    </widget>
+                   </item>
+                   <item>
+                   <widget class="QLabel" name="subscoreValue2">
+                    <property name="text">
+                     <string>--</string>
+                    </property>
+                   </widget>
+                  </item>
+                  <item>
+                   <widget class="QLabel" name="subscoreDetail2">
+                    <property name="text">
+                     <string>--</string>
+                    </property>
+                    <property name="wordWrap">
+                     <bool>true</bool>
+                    </property>
+                   </widget>
+                  </item>
+                  </layout>
+                 </widget>
+                </item>
+                <item row="1" column="0">
+                 <widget class="QFrame" name="subscoreCard3">
+                  <layout class="QVBoxLayout" name="subscoreLayout3">
+                   <item>
+                    <widget class="QLabel" name="subscoreTitle3">
+                     <property name="text">
+                      <string>Resources</string>
+                     </property>
+                    </widget>
+                   </item>
+                   <item>
+                   <widget class="QLabel" name="subscoreValue3">
+                    <property name="text">
+                     <string>--</string>
+                    </property>
+                   </widget>
+                  </item>
+                  <item>
+                   <widget class="QLabel" name="subscoreDetail3">
+                    <property name="text">
+                     <string>--</string>
+                    </property>
+                    <property name="wordWrap">
+                     <bool>true</bool>
+                    </property>
+                   </widget>
+                  </item>
+                  </layout>
+                 </widget>
+                </item>
+                <item row="1" column="1">
+                 <widget class="QFrame" name="subscoreCard4">
+                  <layout class="QVBoxLayout" name="subscoreLayout4">
+                   <item>
+                    <widget class="QLabel" name="subscoreTitle4">
+                     <property name="text">
+                      <string>State/Pass</string>
+                     </property>
+                    </widget>
+                   </item>
+                   <item>
+                   <widget class="QLabel" name="subscoreValue4">
+                    <property name="text">
+                     <string>--</string>
+                    </property>
+                   </widget>
+                  </item>
+                  <item>
+                   <widget class="QLabel" name="subscoreDetail4">
+                    <property name="text">
+                     <string>--</string>
+                    </property>
+                    <property name="wordWrap">
+                     <bool>true</bool>
+                    </property>
+                   </widget>
+                  </item>
+                  </layout>
+                 </widget>
+                </item>
+               </layout>
+              </item>
+             </layout>
+            </widget>
+           </item>
+           <item>
+            <widget class="QFrame" name="topIssuesFrame">
+             <layout class="QVBoxLayout" name="topIssuesLayout">
+              <item>
+               <widget class="QLabel" name="topIssuesTitle">
+                <property name="text">
+                <string>重点问题</string>
+                </property>
+               </widget>
+              </item>
+              <item>
+               <widget class="QTableView" name="topIssuesTable"/>
+              </item>
+             </layout>
+            </widget>
+           </item>
+           <item>
+            <widget class="QFrame" name="statsFrame">
+             <layout class="QGridLayout" name="statsLayout">
+              <item row="0" column="0">
+               <widget class="QFrame" name="statCard1">
+                <layout class="QVBoxLayout" name="statLayout1">
+                 <item>
+                  <widget class="QLabel" name="statTitle1">
+                   <property name="text">
+                    <string>Draws</string>
+                   </property>
+                  </widget>
+                 </item>
+                 <item>
+                  <widget class="QLabel" name="statValue1">
+                   <property name="text">
+                    <string>--</string>
+                   </property>
+                  </widget>
+                 </item>
+                </layout>
+               </widget>
+              </item>
+              <item row="0" column="1">
+               <widget class="QFrame" name="statCard2">
+                <layout class="QVBoxLayout" name="statLayout2">
+                 <item>
+                  <widget class="QLabel" name="statTitle2">
+                   <property name="text">
+                    <string>Dispatches</string>
+                   </property>
+                  </widget>
+                 </item>
+                 <item>
+                  <widget class="QLabel" name="statValue2">
+                   <property name="text">
+                    <string>--</string>
+                   </property>
+                  </widget>
+                 </item>
+                </layout>
+               </widget>
+              </item>
+              <item row="0" column="2">
+               <widget class="QFrame" name="statCard3">
+                <layout class="QVBoxLayout" name="statLayout3">
+                 <item>
+                  <widget class="QLabel" name="statTitle3">
+                   <property name="text">
+                    <string>Passes</string>
+                   </property>
+                  </widget>
+                 </item>
+                 <item>
+                  <widget class="QLabel" name="statValue3">
+                   <property name="text">
+                    <string>--</string>
+                   </property>
+                  </widget>
+                 </item>
+                </layout>
+               </widget>
+              </item>
+              <item row="0" column="3">
+               <widget class="QFrame" name="statCard4">
+                <layout class="QVBoxLayout" name="statLayout4">
+                 <item>
+                  <widget class="QLabel" name="statTitle4">
+                   <property name="text">
+                    <string>Textures (MB)</string>
+                   </property>
+                  </widget>
+                 </item>
+                 <item>
+                  <widget class="QLabel" name="statValue4">
+                   <property name="text">
+                    <string>--</string>
+                   </property>
+                  </widget>
+                 </item>
+                </layout>
+               </widget>
+              </item>
+             </layout>
+            </widget>
+           </item>
+           <item>
+            <spacer name="overviewSpacer">
+             <property name="orientation">
+              <enum>Qt::Vertical</enum>
+             </property>
+             <property name="sizeHint" stdset="0">
+              <size>
+               <width>20</width>
+               <height>40</height>
+              </size>
+             </property>
+            </spacer>
+           </item>
+          </layout>
+         </widget>
+        </widget>
+       </item>
+      </layout>
+     </widget>
+     <widget class="QWidget" name="issuesTab">
+      <attribute name="title">
+        <string>问题</string>
+      </attribute>
+      <layout class="QVBoxLayout" name="issuesLayout">
+       <item>
+         <layout class="QHBoxLayout" name="issueFilterLayout">
+          <item>
+           <widget class="QLineEdit" name="issueFilterEdit">
+            <property name="placeholderText">
+              <string>搜索问题...</string>
+            </property>
+           </widget>
+          </item>
+         <item>
+          <spacer name="issueFilterSpacer">
+           <property name="orientation">
+            <enum>Qt::Horizontal</enum>
+           </property>
+           <property name="sizeHint" stdset="0">
+            <size>
+             <width>40</width>
+             <height>20</height>
+            </size>
+           </property>
+          </spacer>
+         </item>
+        </layout>
+       </item>
+       <item>
+        <widget class="QSplitter" name="issueSplitter">
+         <property name="orientation">
+          <enum>Qt::Horizontal</enum>
+         </property>
+         <widget class="QFrame" name="issueListFrame">
+          <layout class="QVBoxLayout" name="issueListLayout">
+           <item>
+            <widget class="QTableView" name="issueTable"/>
+           </item>
+          </layout>
+         </widget>
+         <widget class="QFrame" name="issueDetailFrame">
+          <layout class="QVBoxLayout" name="issueDetailLayout">
+           <item>
+            <widget class="QLabel" name="issueDetailTitle">
+             <property name="text">
+               <string>请选择一个问题</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QLabel" name="issueDetailMeta">
+             <property name="text">
+              <string/>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <layout class="QFormLayout" name="issueEvidenceForm"/>
+           </item>
+           <item>
+            <widget class="QLabel" name="issueRecommendationLabel">
+             <property name="text">
+              <string/>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <spacer name="issueDetailSpacer">
+             <property name="orientation">
+              <enum>Qt::Vertical</enum>
+             </property>
+             <property name="sizeHint" stdset="0">
+              <size>
+               <width>20</width>
+               <height>40</height>
+              </size>
+             </property>
+            </spacer>
+           </item>
+          </layout>
+         </widget>
+        </widget>
+       </item>
+      </layout>
+     </widget>
+     <widget class="QWidget" name="eventsTab">
+      <attribute name="title">
+       <string>Events</string>
+      </attribute>
+      <layout class="QVBoxLayout" name="eventsLayout">
+       <item>
+         <layout class="QHBoxLayout" name="eventFilterLayout">
+          <item>
+           <widget class="QLineEdit" name="eventFilterEdit">
+            <property name="placeholderText">
+             <string>Filter events...</string>
+            </property>
+           </widget>
+          </item>
+         <item>
+          <spacer name="eventFilterSpacer">
+           <property name="orientation">
+            <enum>Qt::Horizontal</enum>
+           </property>
+           <property name="sizeHint" stdset="0">
+            <size>
+             <width>40</width>
+             <height>20</height>
+            </size>
+           </property>
+          </spacer>
+         </item>
+        </layout>
+       </item>
+       <item>
+       <widget class="QTableView" name="eventTable"/>
+      </item>
+     </layout>
+    </widget>
+    <widget class="QWidget" name="performanceTab">
+     <attribute name="title">
+      <string>Performance</string>
+     </attribute>
+     <layout class="QVBoxLayout" name="performanceLayout">
+      <item>
+       <layout class="QHBoxLayout" name="drawDispatchFilterLayout">
+        <item>
+         <widget class="QLineEdit" name="drawDispatchFilterEdit">
+          <property name="placeholderText">
+           <string>Filter draw/dispatch...</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <spacer name="drawDispatchFilterSpacer">
+          <property name="orientation">
+           <enum>Qt::Horizontal</enum>
+          </property>
+          <property name="sizeHint" stdset="0">
+           <size>
+            <width>40</width>
+            <height>20</height>
+           </size>
+          </property>
+         </spacer>
+        </item>
+       </layout>
+      </item>
+      <item>
+      <widget class="QTableView" name="drawDispatchTable"/>
+     </item>
+    </layout>
+   </widget>
+   <widget class="QWidget" name="pipelineTab">
+    <attribute name="title">
+     <string>Pipeline</string>
+    </attribute>
+    <layout class="QVBoxLayout" name="pipelineLayout">
+     <item>
+      <layout class="QHBoxLayout" name="pipelineFilterLayout">
+       <item>
+        <widget class="QLineEdit" name="pipelineFilterEdit">
+         <property name="placeholderText">
+          <string>Filter pipeline...</string>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <spacer name="pipelineFilterSpacer">
+         <property name="orientation">
+          <enum>Qt::Horizontal</enum>
+         </property>
+         <property name="sizeHint" stdset="0">
+          <size>
+           <width>40</width>
+           <height>20</height>
+          </size>
+         </property>
+        </spacer>
+       </item>
+      </layout>
+     </item>
+     <item>
+      <widget class="QTableView" name="pipelineTable"/>
+     </item>
+    </layout>
+   </widget>
+   <widget class="QWidget" name="gpuCountersTab">
+    <attribute name="title">
+     <string>GPU Counters</string>
+    </attribute>
+    <layout class="QVBoxLayout" name="gpuCountersLayout">
+     <item>
+      <layout class="QHBoxLayout" name="gpuCounterFilterLayout">
+       <item>
+        <widget class="QLineEdit" name="gpuCounterFilterEdit">
+         <property name="placeholderText">
+          <string>Filter GPU counters...</string>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <spacer name="gpuCounterFilterSpacer">
+         <property name="orientation">
+          <enum>Qt::Horizontal</enum>
+         </property>
+         <property name="sizeHint" stdset="0">
+          <size>
+           <width>40</width>
+           <height>20</height>
+          </size>
+         </property>
+        </spacer>
+       </item>
+      </layout>
+     </item>
+     <item>
+      <widget class="QTableView" name="gpuCounterTable"/>
+     </item>
+    </layout>
+   </widget>
+   <widget class="QWidget" name="stateThrashTab">
+    <attribute name="title">
+     <string>State Thrash</string>
+    </attribute>
+    <layout class="QVBoxLayout" name="stateThrashLayout">
+      <item>
+       <layout class="QHBoxLayout" name="stateThrashFilterLayout">
+        <item>
+         <widget class="QLineEdit" name="stateThrashFilterEdit">
+          <property name="placeholderText">
+           <string>Filter state stats...</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <spacer name="stateThrashFilterSpacer">
+          <property name="orientation">
+           <enum>Qt::Horizontal</enum>
+          </property>
+          <property name="sizeHint" stdset="0">
+           <size>
+            <width>40</width>
+            <height>20</height>
+           </size>
+          </property>
+         </spacer>
+        </item>
+       </layout>
+      </item>
+      <item>
+       <widget class="QTableView" name="stateThrashTable"/>
+      </item>
+     </layout>
+    </widget>
+    <widget class="QWidget" name="texturesTab">
+     <attribute name="title">
+      <string>Resources</string>
+     </attribute>
+      <layout class="QVBoxLayout" name="resourcesLayout">
+       <item>
+         <layout class="QHBoxLayout" name="resourceFilterLayout">
+          <item>
+           <widget class="QLineEdit" name="resourceFilterEdit">
+            <property name="placeholderText">
+             <string>Filter resources...</string>
+            </property>
+           </widget>
+          </item>
+         <item>
+          <spacer name="resourceFilterSpacer">
+           <property name="orientation">
+            <enum>Qt::Horizontal</enum>
+           </property>
+           <property name="sizeHint" stdset="0">
+            <size>
+             <width>40</width>
+             <height>20</height>
+            </size>
+           </property>
+          </spacer>
+         </item>
+        </layout>
+       </item>
+       <item>
+        <widget class="QTableView" name="resourceTable"/>
+       </item>
+      </layout>
+     </widget>
+     <widget class="QWidget" name="shadersTab">
+      <attribute name="title">
+       <string>Shaders</string>
+      </attribute>
+      <layout class="QVBoxLayout" name="shadersLayout">
+       <item>
+        <layout class="QHBoxLayout" name="shaderControlLayout">
+         <item>
+          <widget class="QLabel" name="maliGpuLabel">
+           <property name="text">
+            <string>Mali GPU</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QComboBox" name="maliGpuCombo"/>
+         </item>
+         <item>
+          <widget class="QPushButton" name="maliRunButton">
+           <property name="text">
+            <string>Run Mali Analysis</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QLabel" name="maliStatusLabel">
+           <property name="text">
+            <string>Not run</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <spacer name="horizontalSpacer_2">
+           <property name="orientation">
+            <enum>Qt::Horizontal</enum>
+           </property>
+           <property name="sizeHint" stdset="0">
+            <size>
+             <width>40</width>
+             <height>20</height>
+            </size>
+           </property>
+          </spacer>
+         </item>
+        </layout>
+       </item>
+       <item>
+         <layout class="QHBoxLayout" name="shaderFilterLayout">
+          <item>
+           <widget class="QLineEdit" name="shaderFilterEdit">
+            <property name="placeholderText">
+             <string>Filter shaders...</string>
+            </property>
+           </widget>
+          </item>
+         <item>
+          <spacer name="shaderFilterSpacer">
+           <property name="orientation">
+            <enum>Qt::Horizontal</enum>
+           </property>
+           <property name="sizeHint" stdset="0">
+            <size>
+             <width>40</width>
+             <height>20</height>
+            </size>
+           </property>
+          </spacer>
+         </item>
+        </layout>
+       </item>
+       <item>
+        <widget class="QTableView" name="shaderTable"/>
+       </item>
+      </layout>
+     </widget>
+    </widget>
+   </item>
+  </layout>
+ </widget>
+ <resources/>
+ <connections/>
+</ui>

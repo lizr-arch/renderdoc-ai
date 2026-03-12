@@ -1,0 +1,760 @@
+<!-- RDC Report Engine - Body Template -->
+<!-- Auto-extracted from generate_offline_report.py -->
+<!-- Variables: {rdc_name}, {timestamp} -->
+
+<!-- ========== Photoshop 风格主布局 ========== -->
+    <div class="app-container" id="appContainer">
+        <!-- 顶部菜单栏 -->
+        <div class="app-menubar">
+            <div class="app-title">
+                <div class="logo"></div>
+                <span>RDC 纹理分析器</span>
+            </div>
+            <div class="app-menu">
+                <span class="menu-item view-toggle" id="viewToggleBtn" onclick="toggleViewMode()">📐 网格视图</span>
+                <span class="menu-item view-toggle" id="eventBrowserBtn" onclick="showEventBrowser()" style="background: rgba(163, 113, 247, 0.15); color: #a371f7;">🎮 Event Browser</span>
+                <span class="menu-item dropdown-trigger" id="exportMenuTrigger">
+                    导出 ▾
+                    <div class="dropdown-menu" id="exportDropdown">
+                        <div class="dropdown-item" onclick="exportToCSV()">📊 纹理列表 CSV</div>
+                        <div class="dropdown-item" onclick="exportToJSON()">📋 纹理列表 JSON</div>
+                        <div class="dropdown-item" onclick="downloadCurrentTexture()">🖼️ 下载当前纹理</div>
+                        <div class="dropdown-divider"></div>
+                        <div class="dropdown-item" onclick="exportReport()">📄 报告摘要 (TXT)</div>
+                        <div class="dropdown-item" onclick="exportOptimizationReport()">🎯 优化建议 (MD)</div>
+                        <div class="dropdown-item" onclick="exportOptimizationJSON()">🔧 优化建议 (JSON)</div>
+                        <div class="dropdown-item" onclick="exportOptimizationCSV()">📋 问题清单 (CSV)</div>
+                        <div class="dropdown-divider"></div>
+                        <div class="dropdown-item" onclick="exportFullAnalysisJSON()">📦 完整分析数据 (JSON)</div>
+                    </div>
+                </span>
+            </div>
+            <div class="app-meta">
+                <span id="frameThumbnailPreview" class="frame-thumb-preview" style="display:none;" onclick="showFrameThumbnail()">
+                    <img id="frameThumbnailImg" src="" alt="Frame" />
+                </span>
+                <span>{rdc_name} | {timestamp}</span>
+            </div>
+        </div>
+
+        <!-- 主工作区 -->
+        <div class="app-workspace">
+            <!-- 左侧面板 - 资源浏览器 (TASK-205 双列表设计) -->
+            <div class="panel-left" id="panelLeft">
+                <div class="panel-header" onclick="togglePanel('left')">
+                    <span class="panel-title">📂 资源浏览器</span>
+                    <span class="panel-toggle">▼</span>
+                </div>
+
+                <!-- 纹理列表区块 -->
+                <div class="resource-section texture-section" id="textureSectionPanel">
+                    <div class="resource-section-header" onclick="toggleResourceSection('texture')">
+                        <span class="resource-section-icon">🖼️</span>
+                        <span class="resource-section-title">TEXTURES</span>
+                        <span class="resource-section-badge" id="textureCountBadge">0/0</span>
+                        <span class="resource-section-toggle" id="textureSectionToggle">▼</span>
+                    </div>
+                    <div class="resource-section-content" id="textureSectionContent">
+                        <div class="resource-filter-bar">
+                            <div class="filter-toggle-group">
+                                <button class="filter-toggle-btn active" id="textureFilterAll" onclick="setTextureFilter('all')">All</button>
+                                <button class="filter-toggle-btn" id="textureFilterIssues" onclick="setTextureFilter('issues')">⚠ Issues</button>
+                            </div>
+                            <input type="text" class="resource-search-box" id="searchBoxApp" placeholder="🔍 搜索...">
+                        </div>
+                        <div class="resource-sort-bar">
+                            <select class="sort-select" id="sortSelectApp">
+                                <option value="id">ID</option>
+                                <option value="size">尺寸</option>
+                                <option value="format">格式</option>
+                                <option value="name">名称</option>
+                            </select>
+                            <span class="stats-badge" id="statsApp">0 项</span>
+                        </div>
+                        <!-- 优化建议筛选提示条 -->
+                        <div class="optimization-filter-bar" id="optimFilterBar" style="display:none;">
+                            <span class="filter-indicator">🎯</span>
+                            <span id="optimFilterTitle"></span>
+                            <span id="optimFilterCount"></span>
+                            <button onclick="clearOptimizationFilter()" class="filter-clear-btn">✕</button>
+                        </div>
+                        <div class="texture-list" id="textureListApp"></div>
+                    </div>
+                </div>
+
+                <!-- Shader 列表区块 (TASK-205) -->
+                <div class="resource-section shader-section" id="shaderSectionPanel">
+                    <div class="resource-section-header" onclick="toggleResourceSection('shader')">
+                        <span class="resource-section-icon">⚡</span>
+                        <span class="resource-section-title">SHADERS</span>
+                        <span class="resource-section-badge shader-badge" id="shaderCountBadge">0/0</span>
+                        <span class="resource-section-toggle" id="shaderSectionToggle">▼</span>
+                    </div>
+                    <div class="resource-section-content" id="shaderSectionContent">
+                        <div class="resource-filter-bar">
+                            <div class="filter-toggle-group">
+                                <button class="filter-toggle-btn active" id="shaderFilterAll" onclick="setShaderFilter('all')">All</button>
+                                <button class="filter-toggle-btn" id="shaderFilterIssues" onclick="setShaderFilter('issues')">⚠ Issues</button>
+                            </div>
+                            <input type="text" class="resource-search-box" id="shaderSearchBox" placeholder="🔍 搜索...">
+                        </div>
+                        <!-- Shader 优化筛选提示条 -->
+                        <div class="shader-filter-bar" id="shaderFilterBar" style="display:none;">
+                            <span class="filter-indicator">🎯</span>
+                            <span id="shaderFilterTitle"></span>
+                            <span id="shaderFilterCount"></span>
+                            <button onclick="clearShaderFilter()" class="filter-clear-btn">✕</button>
+                        </div>
+                        <div class="shader-list" id="shaderListApp"></div>
+
+                        <!-- TASK-209: Shader 详情面板 -->
+                        <div class="shader-details-panel" id="shaderDetailsPanel">
+                            <div class="shader-details-header">
+                                <span class="shader-details-title" id="shaderDetailsTitle">Shader 详情</span>
+                                <button class="shader-details-close" onclick="hideShaderDetails()" title="关闭">×</button>
+                            </div>
+                            <div id="shaderDetailsContent">
+                                <!-- 由 JS 动态填充 -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 中间主画布区域 -->
+            <div class="main-canvas-area">
+                <!-- 画布工具栏 -->
+                <div class="canvas-toolbar">
+                    <div class="toolbar-group">
+                        <button class="toolbar-btn" onclick="zoomImageApp(-0.25)" title="缩小">−</button>
+                        <span class="zoom-display" id="zoomDisplayApp">100%</span>
+                        <button class="toolbar-btn" onclick="zoomImageApp(0.25)" title="放大">+</button>
+                        <button class="toolbar-btn" onclick="resetZoomApp()" title="适应">⊡</button>
+                    </div>
+                    <div class="toolbar-group">
+                        <button class="channel-btn active" data-channel="rgb" onclick="switchChannelApp('rgb')">RGB</button>
+                        <button class="channel-btn" data-channel="r" onclick="switchChannelApp('r')">R</button>
+                        <button class="channel-btn" data-channel="g" onclick="switchChannelApp('g')">G</button>
+                        <button class="channel-btn" data-channel="b" onclick="switchChannelApp('b')">B</button>
+                        <button class="channel-btn" data-channel="a" onclick="switchChannelApp('a')">A</button>
+                    </div>
+                    <div class="toolbar-group">
+                        <button class="toolbar-btn" id="histogramBtnApp" onclick="togglePropSection('histogram')" title="直方图">📊</button>
+                        <button class="toolbar-btn" id="adjustBtnApp" onclick="togglePropSection('adjust')" title="调整">🎨</button>
+                    </div>
+                    <div class="toolbar-group" style="margin-left:auto;">
+                        <button class="toolbar-btn" id="locateBtnApp" onclick="scrollToCurrentTexture()" title="在列表中定位当前纹理">🔍</button>
+                    </div>
+                </div>
+
+                <!-- 主画布 -->
+                <div class="canvas-viewport" id="canvasViewport">
+                    <div class="canvas-empty" id="canvasEmpty">
+                        <div class="canvas-empty-icon">🖼️</div>
+                        <div class="canvas-empty-text">从左侧列表选择纹理预览</div>
+                    </div>
+                    <img class="preview-img" id="previewImgApp" src="" alt="" style="display:none;">
+
+                    <!-- 浮动颜色拾取器 -->
+                    <div class="color-picker-float" id="colorPickerApp" style="display:none;">
+                        <div class="color-preview" id="colorPreviewApp"></div>
+                        <span class="coord" id="colorCoordApp">-,-</span>
+                        <span class="hex" id="colorHexApp">#------</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 右侧面板 - 属性 -->
+            <div class="panel-right" id="panelRight">
+                <div class="panel-header" onclick="togglePanel('right')">
+                    <span class="panel-title">属性</span>
+                    <span class="panel-toggle">▼</span>
+                </div>
+                <div class="panel-content" style="flex:1; overflow-y:auto;">
+                    <!-- 统计摘要 -->
+                    <div class="prop-section" id="sectionStats">
+                        <div class="prop-section-header" onclick="togglePropSection('stats')">
+                            <span class="prop-section-title">📊 统计</span>
+                            <span class="prop-section-toggle">▼</span>
+                        </div>
+                        <div class="prop-section-content">
+                            <div class="stats-grid">
+                                <div class="stat-mini">
+                                    <div class="stat-mini-value" id="statTotalApp">0</div>
+                                    <div class="stat-mini-label">纹理</div>
+                                </div>
+                                <div class="stat-mini">
+                                    <div class="stat-mini-value" id="statVRAMApp">0 MB</div>
+                                    <div class="stat-mini-label">VRAM</div>
+                                </div>
+                                <div class="stat-mini">
+                                    <div class="stat-mini-value" id="statFormatsApp">0</div>
+                                    <div class="stat-mini-label">格式</div>
+                                </div>
+                                <div class="stat-mini">
+                                    <div class="stat-mini-value" id="statAvgApp">0×0</div>
+                                    <div class="stat-mini-label">平均尺寸</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- VRAM 分布图表 -->
+                    <div class="prop-section" id="sectionVRAMChart">
+                        <div class="prop-section-header" onclick="togglePropSection('vramchart')">
+                            <span class="prop-section-title">📊 VRAM 分布</span>
+                            <span class="prop-section-toggle">▼</span>
+                        </div>
+                        <div class="prop-section-content">
+                            <div class="chart-container">
+                                <!-- VRAM 总结统计卡片 -->
+                                <div class="vram-summary" id="vramSummary">
+                                    <div class="vram-stat">
+                                        <div class="vram-stat-value" id="vramTotal">-</div>
+                                        <div class="vram-stat-label">总 VRAM</div>
+                                    </div>
+                                    <div class="vram-stat">
+                                        <div class="vram-stat-value" id="vramCompressed">-</div>
+                                        <div class="vram-stat-label">压缩纹理</div>
+                                    </div>
+                                    <div class="vram-stat">
+                                        <div class="vram-stat-value warn" id="vramWasted">-</div>
+                                        <div class="vram-stat-label">可优化</div>
+                                    </div>
+                                </div>
+
+                                <!-- 格式分布饼图 -->
+                                <div class="chart-box">
+                                    <div class="chart-title">按格式分布</div>
+                                    <div class="pie-chart" id="formatPieChart">
+                                        <div class="pie-chart-inner" id="formatPieInner">-</div>
+                                    </div>
+                                    <div class="chart-legend" id="formatLegend"></div>
+                                </div>
+
+                                <!-- 尺寸分布柱状图 -->
+                                <div class="chart-box" style="margin-top:8px;">
+                                    <div class="chart-title">按尺寸分布</div>
+                                    <div class="bar-chart" id="sizeBarChart"></div>
+                                </div>
+
+                                <!-- Top 10 最大纹理 -->
+                                <div class="chart-box" style="margin-top:8px;">
+                                    <div class="chart-title">🏆 Top 10 最大纹理</div>
+                                    <div class="bar-chart top-textures" id="topTexturesChart"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 当前纹理信息 -->
+                    <div class="prop-section" id="sectionInfo">
+                        <div class="prop-section-header" onclick="togglePropSection('info')">
+                            <span class="prop-section-title">ℹ️ 纹理信息</span>
+                            <span class="prop-section-toggle">▼</span>
+                        </div>
+                        <div class="prop-section-content">
+                            <div class="prop-row"><span class="prop-label">ID</span><span class="prop-value" id="propId">-</span></div>
+                            <div class="prop-row"><span class="prop-label">名称</span><span class="prop-value" id="propName">-</span></div>
+                            <div class="prop-row"><span class="prop-label">尺寸</span><span class="prop-value highlight" id="propSize">-</span></div>
+                            <div class="prop-row"><span class="prop-label">格式</span><span class="prop-value" id="propFormat">-</span></div>
+                            <div class="prop-row"><span class="prop-label">Mips</span><span class="prop-value" id="propMips">-</span></div>
+                            <div class="prop-row"><span class="prop-label">Layers</span><span class="prop-value" id="propLayers">-</span></div>
+                        </div>
+                    </div>
+
+                    <!-- 纹理分析 -->
+                    <div class="prop-section" id="sectionAnalysis">
+                        <div class="prop-section-header" onclick="togglePropSection('analysis')">
+                            <span class="prop-section-title">🔍 分析</span>
+                            <span class="prop-section-toggle">▼</span>
+                        </div>
+                        <div class="prop-section-content" id="textureAnalysis">
+                            <div class="prop-row"><span class="prop-label">VRAM</span><span class="prop-value text-muted">-</span></div>
+                            <div class="prop-row"><span class="prop-label">压缩</span><span class="prop-value text-muted">-</span></div>
+                        </div>
+                    </div>
+
+                    <!-- 直方图 -->
+                    <div class="prop-section collapsed" id="sectionHistogram">
+                        <div class="prop-section-header" onclick="togglePropSection('histogram')">
+                            <span class="prop-section-title">📈 直方图</span>
+                            <span class="prop-section-toggle">▼</span>
+                        </div>
+                        <div class="prop-section-content">
+                            <canvas class="histogram-canvas" id="histogramCanvasApp" width="220" height="60"></canvas>
+                            <div class="histogram-labels"><span>0</span><span>128</span><span>255</span></div>
+                        </div>
+                    </div>
+
+                    <!-- 调整 -->
+                    <div class="prop-section collapsed" id="sectionAdjust">
+                        <div class="prop-section-header" onclick="togglePropSection('adjust')">
+                            <span class="prop-section-title">🎨 调整</span>
+                            <span class="prop-section-toggle">▼</span>
+                        </div>
+                        <div class="prop-section-content">
+                            <div class="slider-row">
+                                <label>亮度</label>
+                                <input type="range" id="brightnessApp" min="0" max="300" value="100" oninput="updateFilterApp()">
+                                <span class="slider-value" id="brightnessValApp">100%</span>
+                            </div>
+                            <div class="slider-row">
+                                <label>对比度</label>
+                                <input type="range" id="contrastApp" min="0" max="300" value="100" oninput="updateFilterApp()">
+                                <span class="slider-value" id="contrastValApp">100%</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 备注 -->
+                    <div class="prop-section" id="sectionNotes">
+                        <div class="prop-section-header" onclick="togglePropSection('notes')">
+                            <span class="prop-section-title">📝 备注</span>
+                            <span class="prop-section-toggle">▼</span>
+                        </div>
+                        <div class="prop-section-content">
+                            <textarea class="notes-textarea" id="notesApp" placeholder="备注..."></textarea>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 底部状态栏 -->
+        <div class="app-statusbar">
+            <div class="status-left">
+                <span class="status-item" id="statusTexture">未选中</span>
+                <span class="status-item" id="statusZoom">100%</span>
+            </div>
+            <div class="status-right">
+                <span>RDC Texture Analyzer v2.0</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- ========== 原有网格视图（可切换） ========== -->
+    <div class="container" id="gridContainer">
+        <header class="header">
+            <div style="display:flex; align-items:center; gap:16px;">
+                <button onclick="toggleViewMode()" style="
+                    background: var(--accent-blue);
+                    color: white;
+                    border: none;
+                    padding: 8px 16px;
+                    border-radius: 6px;
+                    font-size: 13px;
+                    cursor: pointer;
+                    display: flex;
+                    align-items: center;
+                    gap: 6px;
+                    box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+                    transition: background 0.15s;
+                    white-space: nowrap;
+                    flex-shrink: 0;
+                " onmouseover="this.style.background='#3a8edc'" onmouseout="this.style.background='var(--accent-blue)'">
+                    ← 返回主视图
+                </button>
+                <h1 style="margin:0;">🎮 RDC 纹理分析报告</h1>
+            </div>
+            <div class="header-meta">
+                <div>{rdc_name}</div>
+                <div>{timestamp}</div>
+            </div>
+        </header>
+
+        <!-- 统计摘要面板 -->
+        <div class="stats-panel" id="statsPanel">
+            <div class="stat-card">
+                <div class="stat-value" id="statTotal">0</div>
+                <div class="stat-label">纹理总数</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="statVRAM">0 MB</div>
+                <div class="stat-label">预估 VRAM</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="statFormats">0</div>
+                <div class="stat-label">格式种类</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="statAvgSize">0×0</div>
+                <div class="stat-label">平均尺寸</div>
+            </div>
+        </div>
+
+        <!-- 性能分析面板 (TASK-008) -->
+        <div class="performance-panel" id="performancePanel">
+            <div class="performance-header" onclick="togglePerformancePanel()">
+                <div class="performance-title">
+                    <div class="performance-score" id="performanceScore">--</div>
+                    <span>Performance Insights</span>
+                </div>
+                <span class="performance-toggle" id="performanceToggle">&#9660;</span>
+            </div>
+            <div class="performance-content" id="performanceContent">
+                <div class="performance-metrics" id="performanceMetrics"></div>
+                <ul class="performance-issues" id="performanceIssues"></ul>
+            </div>
+        </div>
+
+        <!-- 优化建议面板 (TASK-009) -->
+        <div class="optimization-panel" id="optimizationPanel">
+            <div class="optimization-header" onclick="toggleOptimizationPanel()">
+                <div class="optimization-title">
+                    <span>Optimization Suggestions</span>
+                    <span class="optimization-badge" id="optimizationCount">0</span>
+                </div>
+                <span class="optimization-toggle" id="optimizationToggle">&#9660;</span>
+            </div>
+            <div class="optimization-content" id="optimizationContent">
+                <div class="optimization-summary" id="optimizationSummary"></div>
+                <ul class="optimization-list" id="optimizationList"></ul>
+            </div>
+        </div>
+
+        <div class="toolbar">
+            <input type="text" class="search-box" id="searchBox" placeholder="🔍 搜索纹理名称或 ID...">
+            <select class="sort-select" id="formatFilter">
+                <option value="">全部格式</option>
+            </select>
+            <select class="sort-select" id="sizeFilter">
+                <option value="">全部尺寸</option>
+                <option value="small">小 (≤64px)</option>
+                <option value="medium">中 (65-512px)</option>
+                <option value="large">大 (513-2048px)</option>
+                <option value="huge">超大 (>2048px)</option>
+            </select>
+            <select class="sort-select" id="sortSelect">
+                <option value="id">按 ID 排序</option>
+                <option value="size">按尺寸排序</option>
+                <option value="format">按格式排序</option>
+                <option value="name">按名称排序</option>
+            </select>
+            <div class="view-toggle">
+                <button class="view-btn active" data-view="grid">网格</button>
+                <button class="view-btn" data-view="table">表格</button>
+            </div>
+            <div class="stats" id="stats"></div>
+        </div>
+
+        <div class="grid-view" id="gridView">
+            <div class="texture-grid" id="textureGrid"></div>
+        </div>
+
+        <div class="table-view" id="tableView">
+            <table>
+                <thead>
+                    <tr>
+                        <th>缩略图</th>
+                        <th data-sort="id">ID</th>
+                        <th data-sort="name">名称</th>
+                        <th data-sort="size">尺寸</th>
+                        <th data-sort="format">格式</th>
+                        <th>Mips</th>
+                        <th>Layers</th>
+                    </tr>
+                </thead>
+                <tbody id="tableBody"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- ========== Event Browser 视图 ========== -->
+    <div class="event-browser-container" id="eventBrowserContainer">
+        <div class="event-browser-header">
+            <button onclick="toggleViewMode()" style="
+                background: var(--accent-blue);
+                color: white;
+                border: none;
+                padding: 8px 16px;
+                border-radius: 6px;
+                font-size: 13px;
+                cursor: pointer;
+                display: flex;
+                align-items: center;
+                gap: 6px;
+                box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+            ">← 返回</button>
+            <h2>🎮 Event Browser</h2>
+            <span class="api-badge" id="eventApiType">D3D11</span>
+            <div class="frame-stats">
+                <span>Events (reported): <span class="stat-value" id="eventTotalCount">0</span></span>
+                <span>Events (listed): <span class="stat-value" id="eventListCount">0</span></span>
+                <span>Draws: <span class="stat-value" id="eventDrawCount">0</span></span>
+                <span>Dispatches: <span class="stat-value" id="eventDispatchCount">0</span></span>
+                <span>Frame: <span class="stat-value" id="eventFrameDuration">0 ms</span></span>
+            </div>
+        </div>
+        <div class="event-browser-main">
+            <!-- 左侧: Event 树形列表 / Pass 依赖图 -->
+            <div class="event-tree-panel">
+                <div class="event-tree-toolbar">
+                    <div class="view-mode-toggle">
+                        <button class="active" onclick="setEventViewMode('tree')" id="viewModeTree">📋 列表</button>
+                        <button onclick="setEventViewMode('graph')" id="viewModeGraph">📊 Pass图</button>
+                    </div>
+                    <input type="text" id="eventSearchBox" placeholder="搜索 Event..." style="flex: 1;">
+                    <select id="eventTypeFilter" onchange="renderEventTree()">
+                        <option value="">所有类型</option>
+                        <option value="Draw">🎨 Draw</option>
+                        <option value="Dispatch">⚡ Dispatch</option>
+                        <option value="Marker">📌 Marker</option>
+                        <option value="Clear">🧹 Clear</option>
+                        <option value="Copy">📋 Copy</option>
+                    </select>
+                    <select id="passFilter" onchange="renderEventTree()">
+                        <option value="">所有 Pass</option>
+                        <!-- Pass 选项由 JS 动态填充 -->
+                    </select>
+                    <button onclick="expandAllEvents()" id="expandCollapseBtn1">展开</button>
+                    <button onclick="collapseAllEvents()" id="expandCollapseBtn2">折叠</button>
+                </div>
+                <div class="event-tree-list" id="eventTreeList">
+                    <!-- Event 树节点将由 JS 动态生成 -->
+                </div>
+                <div class="pass-graph-container" id="passGraphContainer">
+                    <!-- Pass 依赖图将由 JS 动态生成 -->
+                </div>
+            </div>
+
+            <!-- 拖拽分隔条 -->
+            <div class="panel-resizer" id="eventPanelResizer"></div>
+
+            <!-- 右侧: Event 详情面板 -->
+            <div class="event-detail-panel">
+                <div class="event-detail-tabs">
+                    <div class="tab active" data-tab="summary" onclick="switchEventTab('summary')">📋 摘要</div>
+                    <div class="tab" data-tab="pipeline" onclick="switchEventTab('pipeline')">🔧 Pipeline State</div>
+                    <div class="tab" data-tab="bindings" onclick="switchEventTab('bindings')">🎨 资源绑定</div>
+                    <div class="tab" data-tab="mesh" onclick="switchEventTab('mesh')">📐 Mesh Info</div>
+                    <div class="tab" data-tab="apicall" onclick="switchEventTab('apicall')">📝 API 调用</div>
+                    <div style="flex:1;"></div>
+                    <div class="tab export-btn" onclick="exportCurrentEvent()" title="导出当前 Event 为 JSON" style="background:var(--accent-blue);color:#fff;border-radius:4px;margin:4px;">💾 导出</div>
+                </div>
+                <div class="event-detail-content" id="eventDetailContent">
+                    <div class="event-detail-empty">
+                        <div class="icon">📋</div>
+                        <div>从左侧选择一个 Event 查看详情</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Lightbox V2 -->
+    <div class="lightbox" id="lightbox">
+        <!-- 顶部导航栏 -->
+        <div class="lightbox-header">
+            <div class="lightbox-nav-group">
+                <button class="nav-btn" onclick="navigateLightbox(-1)" title="上一个">❮</button>
+                <button class="nav-btn" onclick="navigateLightbox(1)" title="下一个">❯</button>
+            </div>
+            <div class="lightbox-title" id="lightboxName"></div>
+            <div class="lightbox-meta" id="lightboxDetails"></div>
+            <button class="lightbox-close" onclick="closeLightbox()">&times;</button>
+        </div>
+
+        <!-- 主内容区 -->
+        <div class="lightbox-main">
+            <div class="lightbox-img-container" id="imgContainer">
+                <img class="lightbox-img" id="lightboxImg" src="" alt="">
+            </div>
+
+            <!-- 悬浮颜色拾取器 -->
+            <div class="color-picker-float" id="colorPickerInfo">
+                <div class="color-preview" id="colorPreview"></div>
+                <span class="coord" id="colorCoord">-,-</span>
+                <span>R:<span id="colorR">-</span></span>
+                <span>G:<span id="colorG">-</span></span>
+                <span>B:<span id="colorB">-</span></span>
+                <span>A:<span id="colorA">-</span></span>
+                <span class="hex" id="colorHex" onclick="copyHex()" title="点击复制">#------</span>
+            </div>
+
+            <!-- 弹出面板: 直方图 -->
+            <div class="popup-panel" id="histogramPanel">
+                <div class="popup-header">
+                    <span class="popup-title">📊 直方图</span>
+                    <button class="popup-close" onclick="togglePanel('histogram')">×</button>
+                </div>
+                <div class="histogram-toggle">
+                    <button class="active" data-mode="rgb" onclick="setHistogramMode('rgb')">RGB</button>
+                    <button data-mode="luminance" onclick="setHistogramMode('luminance')">亮度</button>
+                </div>
+                <canvas class="histogram-canvas" id="histogramCanvas" width="300" height="80"></canvas>
+                <div class="histogram-labels">
+                    <span>0</span><span>64</span><span>128</span><span>192</span><span>255</span>
+                </div>
+                <div class="histogram-stats" id="histogramStats">
+                    <span><div class="dot r"></div>R: -</span>
+                    <span><div class="dot g"></div>G: -</span>
+                    <span><div class="dot b"></div>B: -</span>
+                </div>
+            </div>
+
+            <!-- 弹出面板: 调整 -->
+            <div class="popup-panel" id="adjustPanel">
+                <div class="popup-header">
+                    <span class="popup-title">🎨 图像调整</span>
+                    <button class="popup-close" onclick="togglePanel('adjust')">×</button>
+                </div>
+                <div class="slider-group">
+                    <label>亮度</label>
+                    <input type="range" id="brightnessSlider" min="0" max="300" value="100" oninput="updateImageFilter()">
+                    <span class="slider-value" id="brightnessValue">100%</span>
+                </div>
+                <div class="slider-group">
+                    <label>对比度</label>
+                    <input type="range" id="contrastSlider" min="0" max="300" value="100" oninput="updateImageFilter()">
+                    <span class="slider-value" id="contrastValue">100%</span>
+                </div>
+                <button class="reset-btn" onclick="resetFilters()">重置</button>
+            </div>
+
+            <!-- 弹出面板: 3D 法线 -->
+            <div class="popup-panel" id="normalPanel">
+                <div class="popup-header">
+                    <span class="popup-title">🗻 3D 法线预览</span>
+                    <button class="popup-close" onclick="togglePanel('normal')">×</button>
+                </div>
+                <canvas class="normal-3d-canvas" id="normal3dCanvas" width="300" height="120"></canvas>
+                <div class="slider-group">
+                    <label>高度</label>
+                    <input type="range" id="normalHeightSlider" min="1" max="50" value="15" oninput="updateNormal3D()">
+                    <span class="slider-value" id="normalHeightValue">15</span>
+                </div>
+                <div class="slider-group">
+                    <label>光照</label>
+                    <input type="range" id="normalLightSlider" min="0" max="360" value="45" oninput="updateNormal3D()">
+                    <span class="slider-value" id="normalLightValue">45°</span>
+                </div>
+            </div>
+
+            <!-- 弹出面板: 备注 -->
+            <div class="popup-panel" id="notesPanel">
+                <div class="popup-header">
+                    <span class="popup-title">� 备注笔记</span>
+                    <button class="popup-close" onclick="togglePanel('notes')">×</button>
+                </div>
+                <textarea class="notes-textarea" id="notesTextarea" placeholder="在此输入备注..." oninput="saveNote()"></textarea>
+            </div>
+        </div>
+
+        <!-- 底部工具栏 -->
+        <div class="lightbox-toolbar">
+            <!-- 缩放组 -->
+            <div class="toolbar-group">
+                <button class="zoom-btn" onclick="zoomImage(-0.25)" title="缩小">−</button>
+                <span class="zoom-level" id="zoomLevel">100%</span>
+                <button class="zoom-btn" onclick="zoomImage(0.25)" title="放大">+</button>
+                <button class="zoom-btn" onclick="resetZoom()" title="重置">⟲</button>
+            </div>
+
+            <!-- 通道组 -->
+            <div class="toolbar-group channels">
+                <button class="channel-btn active" data-channel="rgb" onclick="switchChannel('rgb')">RGB</button>
+                <button class="channel-btn" data-channel="r" onclick="switchChannel('r')">R</button>
+                <button class="channel-btn" data-channel="g" onclick="switchChannel('g')">G</button>
+                <button class="channel-btn" data-channel="b" onclick="switchChannel('b')">B</button>
+                <button class="channel-btn" data-channel="a" onclick="switchChannel('a')">A</button>
+            </div>
+
+            <!-- 工具按钮组 -->
+            <div class="toolbar-group">
+                <button class="tool-btn" onclick="togglePanel('histogram')" title="直方图" id="histogramBtn">📊</button>
+                <button class="tool-btn" onclick="togglePanel('adjust')" title="调整" id="adjustBtn">🎨</button>
+                <button class="tool-btn" onclick="togglePanel('normal')" title="3D法线" id="normalBtn">🗻</button>
+                <button class="tool-btn" onclick="togglePanel('notes')" title="备注" id="notesBtn">📝</button>
+            </div>
+
+            <!-- 操作按钮组 -->
+            <div class="toolbar-group">
+                <button class="tool-btn" onclick="toggleCompare()" title="标记对比" id="compareBtn">⚖</button>
+                <button class="tool-btn" onclick="toggleBookmark()" title="收藏" id="bookmarkBtn">⭐</button>
+                <button class="tool-btn" onclick="exportTexture()" title="导出PNG">💾</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 对比视图 Lightbox -->
+    <div class="compare-lightbox" id="compareLightbox">
+        <div class="compare-header">
+            <h2>🔍 纹理对比 <span style="font-size:0.7em;color:var(--text-muted);margin-left:8px;">滚轮缩放 · 拖拽平移</span></h2>
+            <span class="compare-close" onclick="closeCompare()">&times;</span>
+        </div>
+        <div class="compare-container">
+            <div class="compare-pane">
+                <div class="compare-pane-title" id="compareTitle1">纹理 A</div>
+                <div class="compare-pane-info" id="compareInfo1">-</div>
+                <div class="compare-img-wrapper" id="compareWrapper1">
+                    <img id="compareImg1" src="" alt="">
+                    <span class="compare-zoom-label" id="compareZoom1">100%</span>
+                </div>
+            </div>
+            <div class="compare-pane">
+                <div class="compare-pane-title" id="compareTitle2">纹理 B</div>
+                <div class="compare-pane-info" id="compareInfo2">-</div>
+                <div class="compare-img-wrapper" id="compareWrapper2">
+                    <img id="compareImg2" src="" alt="">
+                    <span class="compare-zoom-label" id="compareZoom2">100%</span>
+                </div>
+            </div>
+        </div>
+        <!-- 差异对比表格 -->
+        <div class="compare-diff-table" id="compareDiffTable"></div>
+        <div class="compare-toolbar">
+            <div class="zoom-group">
+                <button onclick="compareZoomIn()" title="放大">➕</button>
+                <span class="zoom-label" id="compareZoomLabel">100%</span>
+                <button onclick="compareZoomOut()" title="缩小">➖</button>
+                <button onclick="compareZoomReset()" title="重置">🔄</button>
+            </div>
+            <button onclick="toggleCompareSync()" id="compareSyncBtn" class="active" title="同步缩放/平移">🔗 同步</button>
+            <button onclick="swapCompareTextures()">⇄ 交换</button>
+            <button onclick="clearCompareMarks()">✖ 清除</button>
+            <button onclick="closeCompare()">关闭</button>
+        </div>
+    </div>
+
+    <!-- Event ID 详情弹窗 -->
+    <div class="eid-modal" id="eidModal">
+        <div class="eid-modal-content">
+            <div class="eid-modal-header">
+                <div class="eid-modal-title">
+                    <span>📌 Event ID</span>
+                    <span class="eid-badge" id="eidModalId">-</span>
+                </div>
+                <button class="eid-modal-close" onclick="closeEIDModal()">&times;</button>
+            </div>
+            <div class="eid-modal-body">
+                <div class="eid-info-grid">
+                    <span class="eid-info-label">🎨 Render Pass</span>
+                    <span class="eid-info-value" id="eidModalPass">-</span>
+
+                    <span class="eid-info-label">⚙️ API Call</span>
+                    <span class="eid-info-value api-call" id="eidModalAPI">-</span>
+
+                    <span class="eid-info-label">🔲 纹理槽位</span>
+                    <div id="eidModalSlots">
+                        <div class="eid-slot-list">
+                            <span class="eid-slot-tag">PS Slot 0</span>
+                        </div>
+                    </div>
+
+                    <span class="eid-info-label">📊 绘制信息</span>
+                    <span class="eid-info-value" id="eidModalDrawInfo">-</span>
+                </div>
+            </div>
+            <div class="eid-modal-footer">
+                <button class="eid-modal-btn secondary" onclick="closeEIDModal()">关闭</button>
+                <button class="eid-modal-btn primary" onclick="copyEIDInfo()" title="复制信息到剪贴板">📋 复制</button>
+                <button class="eid-modal-btn jump" id="eidModalJumpBtn" style="display: none;" title="在 Event Browser 中查看此事件">
+                    🔍 查看详情
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- RT Timeline Component (Direction C) -->
+    {generate_rt_timeline_html(rt_tracking_data) if HAS_RT_TIMELINE and rt_tracking_data else ''}

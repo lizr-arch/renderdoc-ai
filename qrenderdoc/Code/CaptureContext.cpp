@@ -40,6 +40,7 @@
 #include "Code/pyrenderdoc/PythonContext.h"
 #include "Widgets/AnnotationDisplay.h"
 #include "Windows/APIInspector.h"
+#include "Windows/AnalyzerReportViewer.h"
 #include "Windows/BufferViewer.h"
 #include "Windows/CommentView.h"
 #include "Windows/DebugMessageView.h"
@@ -2396,6 +2397,18 @@ IStatisticsViewer *CaptureContext::GetStatisticsViewer()
   return m_StatisticsViewer;
 }
 
+IAnalyzerReportViewer *CaptureContext::GetAnalyzerReportViewer()
+{
+  if(m_AnalyzerReportViewer)
+    return m_AnalyzerReportViewer;
+
+  m_AnalyzerReportViewer = new AnalyzerReportViewer(*this, m_MainWindow);
+  m_AnalyzerReportViewer->setObjectName(lit("analyzerReportViewer"));
+  setupDockWindow(m_AnalyzerReportViewer, true);
+
+  return m_AnalyzerReportViewer;
+}
+
 ITimelineBar *CaptureContext::GetTimelineBar()
 {
   if(m_TimelineBar)
@@ -2490,6 +2503,11 @@ void CaptureContext::ShowPerformanceCounterViewer()
 void CaptureContext::ShowStatisticsViewer()
 {
   m_MainWindow->showStatisticsViewer();
+}
+
+void CaptureContext::ShowAnalyzerReportViewer()
+{
+  m_MainWindow->showAnalyzerReportViewer();
 }
 
 void CaptureContext::ShowTimelineBar()
@@ -2733,6 +2751,10 @@ QWidget *CaptureContext::CreateBuiltinWindow(const rdcstr &objectName)
   {
     return GetStatisticsViewer()->Widget();
   }
+  else if(objectName == "analyzerReportViewer")
+  {
+    return GetAnalyzerReportViewer()->Widget();
+  }
   else if(objectName == "timelineBar")
   {
     return GetTimelineBar()->Widget();
@@ -2775,6 +2797,8 @@ void CaptureContext::BuiltinWindowClosed(QWidget *window)
     m_CommentView = NULL;
   else if(m_StatisticsViewer && m_StatisticsViewer->Widget() == window)
     m_StatisticsViewer = NULL;
+  else if(m_AnalyzerReportViewer && m_AnalyzerReportViewer->Widget() == window)
+    m_AnalyzerReportViewer = NULL;
   else if(m_TimelineBar && m_TimelineBar->Widget() == window)
     m_TimelineBar = NULL;
   else if(m_PythonShell && m_PythonShell->Widget() == window)

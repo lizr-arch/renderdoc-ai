@@ -40,8 +40,12 @@ os.environ["PATH"] += os.pathsep + os.path.abspath(binpath + 'Development/')
 os.environ["PATH"] += os.pathsep + os.path.abspath(binpath + 'Release/')
 
 if sys.platform == 'win32' and sys.version_info[1] >= 8:
-    os.add_dll_directory(binpath + 'Release/')
-    os.add_dll_directory(binpath + 'Development/')
+    release_path = os.path.abspath(binpath + 'Release/')
+    dev_path = os.path.abspath(binpath + 'Development/')
+    if os.path.isdir(release_path):
+        os.add_dll_directory(release_path)
+    if os.path.isdir(dev_path):
+        os.add_dll_directory(dev_path)
 
 # path to module libraries for linux
 sys.path.insert(0, os.path.abspath('../build/lib'))

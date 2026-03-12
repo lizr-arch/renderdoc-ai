@@ -1,0 +1,2489 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RDC 纹理报告 - test_game.rdc</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body {
+            font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: linear-gradient(135deg, #0d1117 0%, #161b22 100%);
+            color: #e6edf3;
+            min-height: 100vh;
+            padding: 24px;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 24px;
+            padding-bottom: 16px;
+            border-bottom: 2px solid #e94560;
+        }
+        
+        .header h1 {
+            font-size: 1.5rem;
+            color: #e94560;
+        }
+        
+        .header-meta {
+            color: #8b949e;
+            font-size: 0.9rem;
+        }
+        
+        /* 搜索和过滤 */
+        .toolbar {
+            display: flex;
+            gap: 16px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+        
+        .search-box {
+            padding: 10px 16px;
+            background: #21262d;
+            border: 1px solid #30363d;
+            border-radius: 8px;
+            color: #e6edf3;
+            font-size: 0.95rem;
+            width: 300px;
+        }
+        
+        .search-box:focus {
+            outline: none;
+            border-color: #e94560;
+        }
+        
+        .sort-select {
+            padding: 10px 16px;
+            background: #21262d;
+            border: 1px solid #30363d;
+            border-radius: 8px;
+            color: #e6edf3;
+            font-size: 0.95rem;
+            cursor: pointer;
+        }
+        
+        .stats {
+            color: #8b949e;
+            font-size: 0.9rem;
+        }
+        
+        /* 统计摘要面板 */
+        .stats-panel {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+        
+        .stat-card {
+            background: linear-gradient(135deg, #21262d 0%, #161b22 100%);
+            border: 1px solid #30363d;
+            border-radius: 12px;
+            padding: 20px;
+            text-align: center;
+            transition: all 0.2s;
+        }
+        
+        .stat-card:hover {
+            border-color: #58a6ff;
+            transform: translateY(-2px);
+        }
+        
+        .stat-value {
+            font-size: 1.8rem;
+            font-weight: 700;
+            color: #58a6ff;
+            margin-bottom: 4px;
+        }
+        
+        .stat-label {
+            font-size: 0.85rem;
+            color: #8b949e;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        /* 纹理网格 */
+        .texture-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+            gap: 16px;
+        }
+        
+        .texture-card {
+            background: #21262d;
+            border-radius: 12px;
+            overflow: hidden;
+            border: 1px solid #30363d;
+            transition: all 0.2s;
+            cursor: pointer;
+        }
+        
+        .texture-card:hover {
+            transform: translateY(-4px);
+            border-color: #e94560;
+            box-shadow: 0 8px 24px rgba(233, 69, 96, 0.2);
+        }
+        
+        .texture-card.hidden {
+            display: none;
+        }
+        
+        .texture-thumb {
+            width: 100%;
+            height: 140px;
+            background: #0d1117;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .texture-thumb img {
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain;
+        }
+        
+        .texture-thumb .no-preview {
+            color: #6e7681;
+            font-size: 0.85rem;
+        }
+        
+        .texture-info {
+            padding: 12px;
+        }
+        
+        .texture-name {
+            font-weight: 600;
+            font-size: 0.9rem;
+            margin-bottom: 6px;
+            color: #58a6ff;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        
+        .texture-dims {
+            font-size: 0.85rem;
+            color: #3fb950;
+            margin-bottom: 4px;
+        }
+        
+        .texture-format {
+            font-size: 0.8rem;
+            color: #8b949e;
+            font-family: monospace;
+        }
+        
+        /* ========== Lightbox V2: 工具栏模式 ========== */
+        .lightbox {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.98);
+            z-index: 10000;
+            flex-direction: column;
+        }
+        
+        .lightbox.show {
+            display: flex;
+        }
+        
+        /* 顶部导航栏 */
+        .lightbox-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 20px;
+            background: #161b22;
+            border-bottom: 1px solid #30363d;
+            flex-shrink: 0;
+        }
+        
+        .lightbox-title {
+            color: #58a6ff;
+            font-size: 0.95rem;
+            font-weight: 600;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 50%;
+        }
+        
+        .lightbox-meta {
+            color: #8b949e;
+            font-size: 0.8rem;
+            font-family: monospace;
+        }
+        
+        .lightbox-nav-group {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+        
+        .nav-btn {
+            width: 36px;
+            height: 36px;
+            border: 1px solid #30363d;
+            border-radius: 6px;
+            background: #21262d;
+            color: #e6edf3;
+            font-size: 1.1rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+        }
+        
+        .nav-btn:hover {
+            background: #30363d;
+            border-color: #58a6ff;
+        }
+        
+        .lightbox-close {
+            background: transparent;
+            border: none;
+            color: #8b949e;
+            font-size: 1.5rem;
+            cursor: pointer;
+            padding: 4px 8px;
+        }
+        
+        .lightbox-close:hover {
+            color: #e94560;
+        }
+        
+        /* 主内容区 - 图片最大化 */
+        .lightbox-main {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            position: relative;
+            background: #0d1117;
+        }
+        
+        .lightbox-img-container {
+            position: relative;
+            max-width: 95%;
+            max-height: 100%;
+            border-radius: 4px;
+            background: repeating-conic-gradient(#404040 0% 25%, #606060 0% 50%) 50% / 16px 16px;
+            cursor: grab;
+            overflow: hidden;
+        }
+        
+        .lightbox-img-container.dragging {
+            cursor: grabbing;
+        }
+        
+        .lightbox-img {
+            display: block;
+            transform-origin: center center;
+            transition: transform 0.1s ease-out;
+            max-width: 90vw;
+            max-height: calc(100vh - 180px);
+            object-fit: contain;
+        }
+        
+        .lightbox-img.no-transition {
+            transition: none;
+        }
+        
+        /* 悬浮颜色拾取器 */
+        .color-picker-float {
+            position: absolute;
+            bottom: 16px;
+            left: 16px;
+            padding: 8px 12px;
+            background: rgba(22, 27, 34, 0.95);
+            border: 1px solid #30363d;
+            border-radius: 6px;
+            font-family: monospace;
+            font-size: 0.75rem;
+            color: #e6edf3;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            backdrop-filter: blur(8px);
+            z-index: 100;
+        }
+        
+        .color-preview {
+            width: 24px;
+            height: 24px;
+            border-radius: 4px;
+            border: 1px solid #484f58;
+            background: #000;
+        }
+        
+        .color-picker-float .coord {
+            color: #58a6ff;
+        }
+        
+        .color-picker-float .hex {
+            color: #3fb950;
+            cursor: pointer;
+        }
+        
+        .color-picker-float .hex:hover {
+            text-decoration: underline;
+        }
+        
+        /* 底部工具栏 */
+        .lightbox-toolbar {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 16px;
+            padding: 12px 20px;
+            background: #161b22;
+            border-top: 1px solid #30363d;
+            flex-shrink: 0;
+            flex-wrap: wrap;
+        }
+        
+        .toolbar-group {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 0 12px;
+            border-right: 1px solid #30363d;
+        }
+        
+        .toolbar-group:last-child {
+            border-right: none;
+        }
+        
+        .toolbar-group.channels {
+            gap: 4px;
+        }
+        
+        /* 缩放控制 */
+        .zoom-btn {
+            width: 32px;
+            height: 32px;
+            border: 1px solid #30363d;
+            border-radius: 4px;
+            background: #21262d;
+            color: #e6edf3;
+            font-size: 1rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.15s;
+        }
+        
+        .zoom-btn:hover {
+            background: #30363d;
+            border-color: #58a6ff;
+        }
+        
+        .zoom-level {
+            color: #8b949e;
+            font-size: 0.8rem;
+            min-width: 50px;
+            text-align: center;
+            font-family: monospace;
+        }
+        
+        /* 通道按钮 - 紧凑版 */
+        .channel-btn {
+            padding: 6px 10px;
+            border: 1px solid #30363d;
+            border-radius: 4px;
+            background: #21262d;
+            color: #8b949e;
+            font-weight: 600;
+            font-size: 0.75rem;
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+        
+        .channel-btn:hover {
+            border-color: #58a6ff;
+            color: #58a6ff;
+        }
+        
+        .channel-btn.active {
+            background: #e94560;
+            border-color: #e94560;
+            color: white;
+        }
+        
+        .channel-btn.disabled {
+            opacity: 0.3;
+            cursor: not-allowed;
+        }
+        
+        .channel-btn[data-channel="r"].active { background: #ff6b6b; border-color: #ff6b6b; }
+        .channel-btn[data-channel="g"].active { background: #51cf66; border-color: #51cf66; }
+        .channel-btn[data-channel="b"].active { background: #339af0; border-color: #339af0; }
+        .channel-btn[data-channel="a"].active { background: #868e96; border-color: #868e96; }
+        
+        /* 图标工具按钮 */
+        .tool-btn {
+            width: 36px;
+            height: 36px;
+            border: 1px solid #30363d;
+            border-radius: 6px;
+            background: #21262d;
+            color: #8b949e;
+            font-size: 1.1rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.15s;
+            position: relative;
+        }
+        
+        .tool-btn:hover {
+            background: #30363d;
+            border-color: #58a6ff;
+            color: #58a6ff;
+        }
+        
+        .tool-btn.active {
+            background: #58a6ff;
+            border-color: #58a6ff;
+            color: white;
+        }
+        
+        .tool-btn.bookmarked {
+            color: #f9c513;
+            border-color: #f9c513;
+        }
+        
+        .tool-btn[title]:hover::after {
+            content: attr(title);
+            position: absolute;
+            bottom: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            padding: 4px 8px;
+            background: #1c2128;
+            color: #e6edf3;
+            font-size: 0.7rem;
+            white-space: nowrap;
+            border-radius: 4px;
+            margin-bottom: 6px;
+            z-index: 1000;
+        }
+        
+        /* 弹出面板 */
+        .popup-panel {
+            display: none;
+            position: absolute;
+            bottom: 70px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #161b22;
+            border: 1px solid #30363d;
+            border-radius: 8px;
+            padding: 16px;
+            min-width: 280px;
+            max-width: 400px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+            z-index: 200;
+        }
+        
+        .popup-panel.show {
+            display: block;
+        }
+        
+        .popup-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid #30363d;
+        }
+        
+        .popup-title {
+            color: #e6edf3;
+            font-size: 0.85rem;
+            font-weight: 600;
+        }
+        
+        .popup-close {
+            background: none;
+            border: none;
+            color: #8b949e;
+            cursor: pointer;
+            font-size: 1rem;
+        }
+        
+        .popup-close:hover {
+            color: #e94560;
+        }
+        
+        /* 滑块样式 */
+        .slider-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+        
+        .slider-group:last-child {
+            margin-bottom: 0;
+        }
+        
+        .slider-group label {
+            color: #8b949e;
+            font-size: 0.8rem;
+            min-width: 50px;
+        }
+        
+        .slider-group input[type="range"] {
+            flex: 1;
+            height: 4px;
+            -webkit-appearance: none;
+            appearance: none;
+            background: #30363d;
+            border-radius: 2px;
+            cursor: pointer;
+        }
+        
+        .slider-group input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 14px;
+            height: 14px;
+            background: #e94560;
+            border-radius: 50%;
+            cursor: pointer;
+        }
+        
+        .slider-group input[type="range"]::-moz-range-thumb {
+            width: 14px;
+            height: 14px;
+            background: #e94560;
+            border-radius: 50%;
+            cursor: pointer;
+            border: none;
+        }
+        
+        .slider-value {
+            color: #58a6ff;
+            font-size: 0.75rem;
+            min-width: 35px;
+            text-align: right;
+            font-family: monospace;
+        }
+        
+        .reset-btn {
+            padding: 4px 10px;
+            background: #30363d;
+            border: 1px solid #484f58;
+            border-radius: 4px;
+            color: #8b949e;
+            font-size: 0.75rem;
+            cursor: pointer;
+        }
+        
+        .reset-btn:hover {
+            background: #484f58;
+            color: #e6edf3;
+        }
+        
+        /* 直方图面板 */
+        .histogram-canvas {
+            width: 100%;
+            height: 80px;
+            background: #0d1117;
+            border-radius: 4px;
+        }
+        
+        .histogram-labels {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 4px;
+            font-size: 0.65rem;
+            color: #6e7681;
+            font-family: monospace;
+        }
+        
+        .histogram-stats {
+            display: flex;
+            gap: 12px;
+            margin-top: 8px;
+            font-size: 0.7rem;
+            color: #8b949e;
+        }
+        
+        .histogram-stats span {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+        
+        .histogram-stats .dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+        }
+        
+        .histogram-stats .dot.r { background: #ff6b6b; }
+        .histogram-stats .dot.g { background: #51cf66; }
+        .histogram-stats .dot.b { background: #339af0; }
+        
+        .histogram-toggle {
+            display: flex;
+            gap: 4px;
+            margin-bottom: 8px;
+        }
+        
+        .histogram-toggle button {
+            padding: 4px 8px;
+            border: 1px solid #30363d;
+            border-radius: 4px;
+            background: #21262d;
+            color: #8b949e;
+            font-size: 0.7rem;
+            cursor: pointer;
+        }
+        
+        .histogram-toggle button.active {
+            background: #30363d;
+            color: #e6edf3;
+            border-color: #58a6ff;
+        }
+        
+        /* 备注面板 */
+        .notes-textarea {
+            width: 100%;
+            min-height: 60px;
+            padding: 8px;
+            background: #0d1117;
+            border: 1px solid #30363d;
+            border-radius: 4px;
+            color: #e6edf3;
+            font-size: 0.85rem;
+            resize: vertical;
+            font-family: inherit;
+        }
+        
+        .notes-textarea:focus {
+            outline: none;
+            border-color: #58a6ff;
+        }
+        
+        /* 3D 法线预览 */
+        .normal-3d-canvas {
+            width: 100%;
+            height: 120px;
+            background: #0d1117;
+            border-radius: 4px;
+            margin-bottom: 12px;
+        }
+        
+        .slider-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .slider-group label {
+            color: #8b949e;
+            font-size: 0.85rem;
+            min-width: 60px;
+        }
+        
+        .slider-group input[type="range"] {
+            width: 120px;
+            height: 6px;
+            -webkit-appearance: none;
+            appearance: none;
+            background: #30363d;
+            border-radius: 3px;
+            cursor: pointer;
+        }
+        
+        .slider-group input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 16px;
+            height: 16px;
+            background: #e94560;
+            border-radius: 50%;
+            cursor: pointer;
+            transition: transform 0.1s;
+        }
+        
+        .slider-group input[type="range"]::-webkit-slider-thumb:hover {
+            transform: scale(1.2);
+        }
+        
+        .slider-group input[type="range"]::-moz-range-thumb {
+            width: 16px;
+            height: 16px;
+            background: #e94560;
+            border-radius: 50%;
+            cursor: pointer;
+            border: none;
+        }
+        
+        .slider-value {
+            color: #58a6ff;
+            font-size: 0.85rem;
+            min-width: 40px;
+            text-align: right;
+            font-family: monospace;
+        }
+        
+        .reset-btn {
+            padding: 6px 12px;
+            background: #30363d;
+            border: 1px solid #484f58;
+            border-radius: 4px;
+            color: #8b949e;
+            font-size: 0.8rem;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .reset-btn:hover {
+            background: #484f58;
+            color: #e6edf3;
+        }
+        
+        /* 颜色拾取器 */
+        .color-picker-info {
+            display: flex;
+            gap: 16px;
+            margin-top: 12px;
+            padding: 10px 16px;
+            background: #161b22;
+            border-radius: 6px;
+            align-items: center;
+            font-family: monospace;
+            font-size: 0.85rem;
+        }
+        
+        .color-preview {
+            width: 32px;
+            height: 32px;
+            border-radius: 4px;
+            border: 2px solid #30363d;
+            background: #000;
+        }
+        
+        /* 对比模式 */
+        .compare-badge {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            background: #f0883e;
+            color: white;
+            font-size: 0.65rem;
+            font-weight: 700;
+            padding: 2px 6px;
+            border-radius: 4px;
+            z-index: 10;
+        }
+        
+        .texture-card {
+            position: relative;
+        }
+        
+        /* 对比视图 Lightbox */
+        .compare-lightbox {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.98);
+            z-index: 20000;
+            flex-direction: column;
+        }
+        
+        .compare-lightbox.show {
+            display: flex;
+        }
+        
+        .compare-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 20px;
+            background: #161b22;
+            border-bottom: 1px solid #30363d;
+        }
+        
+        .compare-header h2 {
+            color: #f0883e;
+            font-size: 1rem;
+        }
+        
+        .compare-close {
+            font-size: 1.5rem;
+            color: #8b949e;
+            cursor: pointer;
+        }
+        
+        .compare-close:hover {
+            color: #e94560;
+        }
+        
+        .compare-container {
+            display: flex;
+            flex: 1;
+            gap: 4px;
+            overflow: hidden;
+            background: #0d1117;
+        }
+        
+        .compare-pane {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            padding: 8px;
+        }
+        
+        .compare-pane-title {
+            color: #58a6ff;
+            font-size: 0.8rem;
+            margin-bottom: 6px;
+            text-align: center;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        
+        .compare-pane-info {
+            color: #6e7681;
+            font-size: 0.7rem;
+            text-align: center;
+            margin-bottom: 6px;
+        }
+        
+        .compare-img-wrapper {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: repeating-conic-gradient(#404040 0% 25%, #606060 0% 50%) 50% / 16px 16px;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+        
+        .compare-img-wrapper img {
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain;
+        }
+        
+        .compare-toolbar {
+            display: flex;
+            gap: 12px;
+            padding: 12px;
+            justify-content: center;
+            background: #161b22;
+            border-top: 1px solid #30363d;
+        }
+        
+        .compare-toolbar button {
+            padding: 6px 12px;
+            border: 1px solid #30363d;
+            border-radius: 4px;
+            background: #21262d;
+            color: #8b949e;
+            font-size: 0.8rem;
+            cursor: pointer;
+        }
+        
+        .compare-toolbar button:hover {
+            border-color: #58a6ff;
+            color: #58a6ff;
+        }
+        
+        /* ========== 移动端适配 ========== */
+        @media (max-width: 768px) {
+            .lightbox-header {
+                padding: 10px 12px;
+            }
+            
+            .lightbox-title {
+                font-size: 0.8rem;
+                max-width: 40%;
+            }
+            
+            .lightbox-meta {
+                font-size: 0.7rem;
+            }
+            
+            .lightbox-toolbar {
+                padding: 10px 12px;
+                gap: 10px;
+            }
+            
+            .toolbar-group {
+                padding: 0 8px;
+            }
+            
+            .channel-btn {
+                padding: 5px 8px;
+                font-size: 0.7rem;
+            }
+            
+            .tool-btn {
+                width: 32px;
+                height: 32px;
+                font-size: 0.95rem;
+            }
+            
+            .zoom-btn {
+                width: 28px;
+                height: 28px;
+            }
+            
+            .popup-panel {
+                left: 10px;
+                right: 10px;
+                transform: none;
+                min-width: auto;
+                max-width: none;
+                bottom: 60px;
+            }
+            
+            .compare-container {
+                flex-direction: column;
+            }
+            
+            .stats-grid {
+                grid-template-columns: 1fr 1fr;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .lightbox-header {
+                flex-wrap: wrap;
+                gap: 8px;
+            }
+            
+            .lightbox-nav-group {
+                order: -1;
+                width: 100%;
+                justify-content: center;
+            }
+            
+            .lightbox-toolbar {
+                justify-content: flex-start;
+                overflow-x: auto;
+            }
+            
+            .toolbar-group {
+                flex-shrink: 0;
+            }
+            
+            .popup-panel {
+                bottom: 55px;
+                padding: 12px;
+            }
+        }
+        
+        /* 工具提示禁用 - 移动端 */
+        @media (hover: none) {
+            .tool-btn[title]:hover::after {
+                display: none;
+            }
+        }
+        
+        /* ========== 旧样式兼容 ========== */
+        .normal-preview-btn.active {
+            background: #a371f7;
+            border-color: #a371f7;
+            color: white;
+        }
+        
+        .normal-3d-container {
+            display: none;
+            margin-top: 16px;
+            background: #0d1117;
+            border-radius: 8px;
+            padding: 16px;
+            border: 1px solid #30363d;
+        }
+        
+        .normal-3d-container.show {
+            display: block;
+        }
+        
+        .normal-3d-canvas {
+            width: 100%;
+            height: 200px;
+            border-radius: 4px;
+        }
+        
+        .normal-3d-controls {
+            display: flex;
+            gap: 16px;
+            margin-top: 12px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+        
+        /* 导出按钮 */
+        .export-btn {
+            padding: 8px 16px;
+            border: 2px solid #30363d;
+            border-radius: 6px;
+            background: #21262d;
+            color: #8b949e;
+            font-weight: 600;
+            font-size: 0.85rem;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .export-btn:hover {
+            border-color: #3fb950;
+            color: #3fb950;
+        }
+        
+        /* 书签/标注功能 */
+        .bookmark-btn {
+            padding: 8px 16px;
+            border: 2px solid #30363d;
+            border-radius: 6px;
+            background: #21262d;
+            color: #8b949e;
+            font-weight: 600;
+            font-size: 0.85rem;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .bookmark-btn:hover {
+            border-color: #f9c513;
+            color: #f9c513;
+        }
+        
+        .bookmark-btn.bookmarked {
+            background: #f9c513;
+            border-color: #f9c513;
+            color: #1c1c1c;
+        }
+        
+        .bookmark-badge {
+            position: absolute;
+            top: 8px;
+            left: 8px;
+            font-size: 1.2rem;
+            z-index: 10;
+        }
+        
+        .notes-panel {
+            margin-top: 16px;
+            padding: 12px;
+            background: #161b22;
+            border-radius: 8px;
+            border: 1px solid #30363d;
+        }
+        
+        .notes-panel textarea {
+            width: 100%;
+            min-height: 60px;
+            padding: 10px;
+            background: #0d1117;
+            border: 1px solid #30363d;
+            border-radius: 6px;
+            color: #e6edf3;
+            font-size: 0.9rem;
+            resize: vertical;
+            font-family: inherit;
+        }
+        
+        .notes-panel textarea:focus {
+            outline: none;
+            border-color: #58a6ff;
+        }
+        
+        .notes-panel label {
+            display: block;
+            color: #8b949e;
+            font-size: 0.8rem;
+            margin-bottom: 8px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .action-buttons {
+            display: flex;
+            gap: 8px;
+            margin-top: 16px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+        
+        /* 表格视图 */
+        .view-toggle {
+            display: flex;
+            gap: 8px;
+        }
+        
+        .view-btn {
+            padding: 8px 16px;
+            background: #21262d;
+            border: 1px solid #30363d;
+            border-radius: 6px;
+            color: #8b949e;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .view-btn.active {
+            background: #e94560;
+            color: white;
+            border-color: #e94560;
+        }
+        
+        .table-view {
+            display: none;
+            overflow-x: auto;
+        }
+        
+        .table-view.active {
+            display: block;
+        }
+        
+        .grid-view.hidden {
+            display: none;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background: #21262d;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        
+        th {
+            background: #161b22;
+            color: #e6edf3;
+            padding: 14px 12px;
+            text-align: left;
+            font-weight: 600;
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            cursor: pointer;
+            user-select: none;
+            border-bottom: 2px solid #e94560;
+        }
+        
+        th:hover {
+            background: #30363d;
+        }
+        
+        th.sorted-asc::after { content: ' ▲'; color: #e94560; }
+        th.sorted-desc::after { content: ' ▼'; color: #e94560; }
+        
+        td {
+            padding: 12px;
+            border-bottom: 1px solid #30363d;
+        }
+        
+        tr:hover {
+            background: #30363d;
+        }
+        
+        .thumb-cell {
+            width: 60px;
+        }
+        
+        .thumb-cell img {
+            width: 50px;
+            height: 50px;
+            object-fit: contain;
+            border-radius: 4px;
+            background: #0d1117;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header class="header">
+            <h1>🎮 RDC 纹理分析报告</h1>
+            <div class="header-meta">
+                <div>test_game.rdc</div>
+                <div>2026-01-18 00:11:15</div>
+            </div>
+        </header>
+        
+        <!-- 统计摘要面板 -->
+        <div class="stats-panel" id="statsPanel">
+            <div class="stat-card">
+                <div class="stat-value" id="statTotal">0</div>
+                <div class="stat-label">纹理总数</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="statVRAM">0 MB</div>
+                <div class="stat-label">预估 VRAM</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="statFormats">0</div>
+                <div class="stat-label">格式种类</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="statAvgSize">0×0</div>
+                <div class="stat-label">平均尺寸</div>
+            </div>
+        </div>
+        
+        <div class="toolbar">
+            <input type="text" class="search-box" id="searchBox" placeholder="🔍 搜索纹理名称或 ID...">
+            <select class="sort-select" id="formatFilter">
+                <option value="">全部格式</option>
+            </select>
+            <select class="sort-select" id="sizeFilter">
+                <option value="">全部尺寸</option>
+                <option value="small">小 (≤64px)</option>
+                <option value="medium">中 (65-512px)</option>
+                <option value="large">大 (513-2048px)</option>
+                <option value="huge">超大 (>2048px)</option>
+            </select>
+            <select class="sort-select" id="sortSelect">
+                <option value="id">按 ID 排序</option>
+                <option value="size">按尺寸排序</option>
+                <option value="format">按格式排序</option>
+                <option value="name">按名称排序</option>
+            </select>
+            <div class="view-toggle">
+                <button class="view-btn active" data-view="grid">网格</button>
+                <button class="view-btn" data-view="table">表格</button>
+            </div>
+            <div class="stats" id="stats"></div>
+        </div>
+        
+        <div class="grid-view" id="gridView">
+            <div class="texture-grid" id="textureGrid"></div>
+        </div>
+        
+        <div class="table-view" id="tableView">
+            <table>
+                <thead>
+                    <tr>
+                        <th>缩略图</th>
+                        <th data-sort="id">ID</th>
+                        <th data-sort="name">名称</th>
+                        <th data-sort="size">尺寸</th>
+                        <th data-sort="format">格式</th>
+                        <th>Mips</th>
+                        <th>Layers</th>
+                    </tr>
+                </thead>
+                <tbody id="tableBody"></tbody>
+            </table>
+        </div>
+    </div>
+    
+    <!-- Lightbox V2 -->
+    <div class="lightbox" id="lightbox">
+        <!-- 顶部导航栏 -->
+        <div class="lightbox-header">
+            <div class="lightbox-nav-group">
+                <button class="nav-btn" onclick="navigateLightbox(-1)" title="上一个">❮</button>
+                <button class="nav-btn" onclick="navigateLightbox(1)" title="下一个">❯</button>
+            </div>
+            <div class="lightbox-title" id="lightboxName"></div>
+            <div class="lightbox-meta" id="lightboxDetails"></div>
+            <button class="lightbox-close" onclick="closeLightbox()">&times;</button>
+        </div>
+        
+        <!-- 主内容区 -->
+        <div class="lightbox-main">
+            <div class="lightbox-img-container" id="imgContainer">
+                <img class="lightbox-img" id="lightboxImg" src="" alt="">
+            </div>
+            
+            <!-- 悬浮颜色拾取器 -->
+            <div class="color-picker-float" id="colorPickerInfo">
+                <div class="color-preview" id="colorPreview"></div>
+                <span class="coord" id="colorCoord">-,-</span>
+                <span>R:<span id="colorR">-</span></span>
+                <span>G:<span id="colorG">-</span></span>
+                <span>B:<span id="colorB">-</span></span>
+                <span>A:<span id="colorA">-</span></span>
+                <span class="hex" id="colorHex" onclick="copyHex()" title="点击复制">#------</span>
+            </div>
+            
+            <!-- 弹出面板: 直方图 -->
+            <div class="popup-panel" id="histogramPanel">
+                <div class="popup-header">
+                    <span class="popup-title">📊 直方图</span>
+                    <button class="popup-close" onclick="togglePanel('histogram')">×</button>
+                </div>
+                <div class="histogram-toggle">
+                    <button class="active" data-mode="rgb" onclick="setHistogramMode('rgb')">RGB</button>
+                    <button data-mode="luminance" onclick="setHistogramMode('luminance')">亮度</button>
+                </div>
+                <canvas class="histogram-canvas" id="histogramCanvas" width="300" height="80"></canvas>
+                <div class="histogram-labels">
+                    <span>0</span><span>64</span><span>128</span><span>192</span><span>255</span>
+                </div>
+                <div class="histogram-stats" id="histogramStats">
+                    <span><div class="dot r"></div>R: -</span>
+                    <span><div class="dot g"></div>G: -</span>
+                    <span><div class="dot b"></div>B: -</span>
+                </div>
+            </div>
+            
+            <!-- 弹出面板: 调整 -->
+            <div class="popup-panel" id="adjustPanel">
+                <div class="popup-header">
+                    <span class="popup-title">🎨 图像调整</span>
+                    <button class="popup-close" onclick="togglePanel('adjust')">×</button>
+                </div>
+                <div class="slider-group">
+                    <label>亮度</label>
+                    <input type="range" id="brightnessSlider" min="0" max="300" value="100" oninput="updateImageFilter()">
+                    <span class="slider-value" id="brightnessValue">100%</span>
+                </div>
+                <div class="slider-group">
+                    <label>对比度</label>
+                    <input type="range" id="contrastSlider" min="0" max="300" value="100" oninput="updateImageFilter()">
+                    <span class="slider-value" id="contrastValue">100%</span>
+                </div>
+                <button class="reset-btn" onclick="resetFilters()">重置</button>
+            </div>
+            
+            <!-- 弹出面板: 3D 法线 -->
+            <div class="popup-panel" id="normalPanel">
+                <div class="popup-header">
+                    <span class="popup-title">🗻 3D 法线预览</span>
+                    <button class="popup-close" onclick="togglePanel('normal')">×</button>
+                </div>
+                <canvas class="normal-3d-canvas" id="normal3dCanvas" width="300" height="120"></canvas>
+                <div class="slider-group">
+                    <label>高度</label>
+                    <input type="range" id="normalHeightSlider" min="1" max="50" value="15" oninput="updateNormal3D()">
+                    <span class="slider-value" id="normalHeightValue">15</span>
+                </div>
+                <div class="slider-group">
+                    <label>光照</label>
+                    <input type="range" id="normalLightSlider" min="0" max="360" value="45" oninput="updateNormal3D()">
+                    <span class="slider-value" id="normalLightValue">45°</span>
+                </div>
+            </div>
+            
+            <!-- 弹出面板: 备注 -->
+            <div class="popup-panel" id="notesPanel">
+                <div class="popup-header">
+                    <span class="popup-title">� 备注笔记</span>
+                    <button class="popup-close" onclick="togglePanel('notes')">×</button>
+                </div>
+                <textarea class="notes-textarea" id="notesTextarea" placeholder="在此输入备注..." oninput="saveNote()"></textarea>
+            </div>
+        </div>
+        
+        <!-- 底部工具栏 -->
+        <div class="lightbox-toolbar">
+            <!-- 缩放组 -->
+            <div class="toolbar-group">
+                <button class="zoom-btn" onclick="zoomImage(-0.25)" title="缩小">−</button>
+                <span class="zoom-level" id="zoomLevel">100%</span>
+                <button class="zoom-btn" onclick="zoomImage(0.25)" title="放大">+</button>
+                <button class="zoom-btn" onclick="resetZoom()" title="重置">⟲</button>
+            </div>
+            
+            <!-- 通道组 -->
+            <div class="toolbar-group channels">
+                <button class="channel-btn active" data-channel="rgb" onclick="switchChannel('rgb')">RGB</button>
+                <button class="channel-btn" data-channel="r" onclick="switchChannel('r')">R</button>
+                <button class="channel-btn" data-channel="g" onclick="switchChannel('g')">G</button>
+                <button class="channel-btn" data-channel="b" onclick="switchChannel('b')">B</button>
+                <button class="channel-btn" data-channel="a" onclick="switchChannel('a')">A</button>
+            </div>
+            
+            <!-- 工具按钮组 -->
+            <div class="toolbar-group">
+                <button class="tool-btn" onclick="togglePanel('histogram')" title="直方图" id="histogramBtn">📊</button>
+                <button class="tool-btn" onclick="togglePanel('adjust')" title="调整" id="adjustBtn">🎨</button>
+                <button class="tool-btn" onclick="togglePanel('normal')" title="3D法线" id="normalBtn">🗻</button>
+                <button class="tool-btn" onclick="togglePanel('notes')" title="备注" id="notesBtn">📝</button>
+            </div>
+            
+            <!-- 操作按钮组 -->
+            <div class="toolbar-group">
+                <button class="tool-btn" onclick="toggleCompare()" title="标记对比" id="compareBtn">⚖</button>
+                <button class="tool-btn" onclick="toggleBookmark()" title="收藏" id="bookmarkBtn">⭐</button>
+                <button class="tool-btn" onclick="exportTexture()" title="导出PNG">💾</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 对比视图 Lightbox -->
+    <div class="compare-lightbox" id="compareLightbox">
+        <div class="compare-header">
+            <h2>🔍 纹理对比</h2>
+            <span class="compare-close" onclick="closeCompare()">&times;</span>
+        </div>
+        <div class="compare-container">
+            <div class="compare-pane">
+                <div class="compare-pane-title" id="compareTitle1">纹理 A</div>
+                <div class="compare-pane-info" id="compareInfo1">-</div>
+                <div class="compare-img-wrapper">
+                    <img id="compareImg1" src="" alt="">
+                </div>
+            </div>
+            <div class="compare-pane">
+                <div class="compare-pane-title" id="compareTitle2">纹理 B</div>
+                <div class="compare-pane-info" id="compareInfo2">-</div>
+                <div class="compare-img-wrapper">
+                    <img id="compareImg2" src="" alt="">
+                </div>
+            </div>
+        </div>
+        <div class="compare-toolbar">
+            <button onclick="swapCompareTextures()">🔄 交换位置</button>
+            <button onclick="clearCompareMarks()">✖ 清除标记</button>
+        </div>
+    </div>
+    
+    <script>
+        // 纹理数据
+        const textures = [{"id": 101, "name": "DiffuseTexture_001", "width": 2048, "height": 2048, "depth": 1, "format": "BC7_UNORM", "mips": 11, "arrayLayers": 1, "thumbnail": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAIAAAACACAIAAABMXPacAAABW0lEQVR4nO3bsQ2DMABFQchIzMQeYUJWSjbAoogecu5aIzdPbpD++t625Y7j7vfn6f4Lr6tDfk+AmAAxAWICxASICRATICZATICYADEBYgLEBIgJEFs/+/5X/9+Ph93vBcQEiAkQEyAmQEyAmAAxAWICxASICRATICZATICYALHVPuCafcDkBIgJEBMgJkBMgJgAMQFiAsQEiAkQEyAmQEyAmAAx+4AB+4DJCRATICZATICYADEBYgLEBIgJEBMgJkBMgJgAMQFi9gED9gGTEyAmQEyAmAAxAWICxASICRATICZATICYADEBYgLE7AMG7AMmJ0BMgJgAMQFiAsQEiAkQEyAmQEyAmAAxAWICxASI2QcM2AdMToCYADEBYgLEBIgJEBMgJkBMgJgAMQFiAsQEiAkQsw8YsA+YnAAxAWICxASICRATICZATICYADEBYgLEBIgJEBNgaX0B9Uxfoca9eOkAAAAASUVORK5CYII=", "channels": {}}, {"id": 102, "name": "NormalMap_Brick", "width": 1024, "height": 1024, "depth": 1, "format": "BC5_UNORM", "mips": 11, "arrayLayers": 1, "thumbnail": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAIAAAACACAIAAABMXPacAAABW0lEQVR4nO3bwQnDMBQFQTukMHWWlObS0kGEILBBnjl/dFl8MbxzjNexYoz30v11rd2Pm73/WLrm5wSICRATICZATICYADEBYgLEBIgJEBMgJkBMgJgAsee//R+/bva+LyAmQEyAmAAxAWICxASICRATICZATICYADEBYgLEBIid9gHf2QdsToCYADEBYgLEBIgJEBMgJkBMgJgAMQFiAsQEiAkQsw+YsA/YnAAxAWICxASICRATICZATICYADEBYgLEBIgJEBMgZh8wYR+wOQFiAsQEiAkQEyAmQEyAmAAxAWICxASICRATICZAzD5gwj5gcwLEBIgJEBMgJkBMgJgAMQFiAsQEiAkQEyAmQEyAmH3AhH3A5gSICRATICZATICYADEBYgLEBIgJEBMgJkBMgJgAMfuACfuAzQkQEyAmQEyAmAAxAWICxASICRATICZATICYADEBjtYHTX9dAWAh+TwAAAAASUVORK5CYII=", "channels": {}}, {"id": 103, "name": "AlbedoMap_Metal", "width": 512, "height": 512, "depth": 1, "format": "R8G8B8A8_SRGB", "mips": 11, "arrayLayers": 1, "thumbnail": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAIAAAACACAIAAABMXPacAAABV0lEQVR4nO3bsQ2DMABFQcisjOWBGCsb2KJAL3LuWiM3T26Q/nld1/HE0+/HGO6f+MwOeZ8AMQFiAsQEiAkQEyAmQEyAmAAxAWICxASICRATIHbe9/1X/9/Hj93vBcQEiAkQEyAmQEyAmAAxAWICxASICRATICZATICYALHTPmDOPmBzAsQEiAkQEyAmQEyAmAAxAWICxASICRATICZATICYfcCCfcDmBIgJEBMgJkBMgJgAMQFiAsQEiAkQEyAmQEyAmAAx+4AF+4DNCRATICZATICYADEBYgLEBIgJEBMgJkBMgJgAMQFi9gEL9gGbEyAmQEyAmAAxAWICxASICRATICZATICYADEBYgLE7AMW7AM2J0BMgJgAMQFiAsQEiAkQEyAmQEyAmAAxAWICxASI2Qcs2AdsToCYADEBYgLEBIgJEBMgJkBMgJgAMQFiAsQEiAlwtL5fjWMJwzKTXgAAAABJRU5ErkJggg==", "channels": {}}, {"id": 104, "name": "ShadowMap_Cascaded", "width": 4096, "height": 4096, "depth": 1, "format": "D32_FLOAT", "mips": 11, "arrayLayers": 1, "thumbnail": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAIAAAACACAIAAABMXPacAAABVUlEQVR4nO3bsQnDMABFQTtkCe0/nNbIBhIuwgvKXSuj5qHG8O8xxvXE0+/nnO5feK0O+T4BYgLEBIgJEBMgJkBMgJgAMQFiAsQEiAkQEyAmQOz9a//H55/d7wXEBIgJEBMgJkBMgJgAMQFiAsQEiAkQEyAmQEyAmACx2z5gzT7gcALEBIgJEBMgJkBMgJgAMQFiAsQEiAkQEyAmQEyAmH3Ahn3A4QSICRATICZATICYADEBYgLEBIgJEBMgJkBMgJgAMfuADfuAwwkQEyAmQEyAmAAxAWICxASICRATICZATICYADEBYvYBG/YBhxMgJkBMgJgAMQFiAsQEiAkQEyAmQEyAmAAxAWICxOwDNuwDDidATICYADEBYgLEBIgJEBMgJkBMgJgAMQFiAsQEiNkHbNgHHE6AmAAxAWICxASICRATICZATICYADEBYgLEBIgJcLU+j7pXXcmzbIEAAAAASUVORK5CYII=", "channels": {}}, {"id": 105, "name": "HDREnvMap_Sky", "width": 1024, "height": 512, "depth": 1, "format": "R16G16B16A16_FLOAT", "mips": 11, "arrayLayers": 6, "thumbnail": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAIAAAACACAIAAABMXPacAAABZUlEQVR4nO3bQQ3CQABFwRZr4KUKwAIJDvCCBoxgAgfdcCCPLDPXbfbyspcmfz1u5+UTp+3y0feP+839Ow57h3yfADEBYgLEBIgJEBMgJkBMgJgAMQFiAsQEiAkQEyC2Xp+vv/r//vix+72AmAAxAWICxASICRATICZATICYADEBYgLEBIgJEBMgttoH7LMPmJwAMQFiAsQEiAkQEyAmQEyAmAAxAWICxASICRATIGYfMGAfMDkBYgLEBIgJEBMgJkBMgJgAMQFiAsQEiAkQEyAmQMw+YMA+YHICxASICRATICZATICYADEBYgLEBIgJEBMgJkBMgJh9wIB9wOQEiAkQEyAmQEyAmAAxAWICxASICRATICZATICYADH7gAH7gMkJEBMgJkBMgJgAMQFiAsQEiAkQEyAmQEyAmAAxAWL2AQP2AZMTICZATICYADEBYgLEBIgJEBMgJkBMgJgAMQFiAiytN6+OYnVkAPBDAAAAAElFTkSuQmCC", "channels": {}}];
+        let filteredTextures = [...textures];
+        let currentLightboxIndex = 0;
+        let currentSort = { key: 'id', asc: true };
+        let currentChannel = 'rgb';  // 当前显示的通道
+        
+        // 初始化
+        function init() {
+            populateFormatFilter();
+            updateStatsPanel();
+            updateStats();
+            renderGrid();
+            renderTable();
+            setupEventListeners();
+        }
+        
+        // 更新统计摘要面板
+        function updateStatsPanel() {
+            // 总数
+            document.getElementById('statTotal').textContent = textures.length;
+            
+            // 格式种类
+            const formats = new Set(textures.map(t => t.format));
+            document.getElementById('statFormats').textContent = formats.size;
+            
+            // 平均尺寸
+            if (textures.length > 0) {
+                const avgW = Math.round(textures.reduce((s, t) => s + t.width, 0) / textures.length);
+                const avgH = Math.round(textures.reduce((s, t) => s + t.height, 0) / textures.length);
+                document.getElementById('statAvgSize').textContent = `${avgW}×${avgH}`;
+            }
+            
+            // 预估 VRAM (根据格式估算每像素字节数)
+            const bppMap = {
+                'R8G8B8A8_UNORM': 4, 'B8G8R8A8_UNORM': 4, 'R8G8B8A8_SRGB': 4,
+                'R16G16B16A16_FLOAT': 8, 'R32G32B32A32_FLOAT': 16,
+                'BC1_UNORM': 0.5, 'BC1_SRGB': 0.5,
+                'BC2_UNORM': 1, 'BC2_SRGB': 1,
+                'BC3_UNORM': 1, 'BC3_SRGB': 1,
+                'BC4_UNORM': 0.5, 'BC5_UNORM': 1,
+                'BC6H_UF16': 1, 'BC7_UNORM': 1, 'BC7_SRGB': 1,
+                'R8_UNORM': 1, 'R16_FLOAT': 2, 'R32_FLOAT': 4,
+                'D24_UNORM_S8_UINT': 4, 'D32_FLOAT': 4,
+            };
+            
+            let totalBytes = 0;
+            textures.forEach(tex => {
+                const bpp = bppMap[tex.format] || 4;  // 默认 4 bytes
+                let pixels = tex.width * tex.height * (tex.depth || 1) * (tex.arrayLayers || 1);
+                
+                // 考虑 mipmap（约增加 1/3）
+                if (tex.mips > 1) {
+                    pixels = Math.floor(pixels * 1.33);
+                }
+                
+                totalBytes += pixels * bpp;
+            });
+            
+            // 转换为 MB
+            const mb = (totalBytes / (1024 * 1024)).toFixed(1);
+            document.getElementById('statVRAM').textContent = `${mb} MB`;
+        }
+        
+        // 填充格式筛选下拉框
+        function populateFormatFilter() {
+            const formats = [...new Set(textures.map(t => t.format))].sort();
+            const select = document.getElementById('formatFilter');
+            formats.forEach(fmt => {
+                const opt = document.createElement('option');
+                opt.value = fmt;
+                opt.textContent = fmt;
+                select.appendChild(opt);
+            });
+        }
+        
+        // 应用所有筛选条件
+        function applyFilters() {
+            const query = document.getElementById('searchBox').value.toLowerCase();
+            const formatFilter = document.getElementById('formatFilter').value;
+            const sizeFilter = document.getElementById('sizeFilter').value;
+            
+            filteredTextures = textures.filter(tex => {
+                // 文本搜索
+                const matchText = !query || 
+                    (tex.name && tex.name.toLowerCase().includes(query)) ||
+                    String(tex.id).includes(query);
+                
+                // 格式筛选
+                const matchFormat = !formatFilter || tex.format === formatFilter;
+                
+                // 尺寸筛选
+                let matchSize = true;
+                if (sizeFilter) {
+                    const maxDim = Math.max(tex.width, tex.height);
+                    switch (sizeFilter) {
+                        case 'small': matchSize = maxDim <= 64; break;
+                        case 'medium': matchSize = maxDim > 64 && maxDim <= 512; break;
+                        case 'large': matchSize = maxDim > 512 && maxDim <= 2048; break;
+                        case 'huge': matchSize = maxDim > 2048; break;
+                    }
+                }
+                
+                return matchText && matchFormat && matchSize;
+            });
+            
+            sortTextures();
+            updateStats();
+            renderGrid();
+            renderTable();
+        }
+        
+        function updateStats() {
+            const visible = filteredTextures.length;
+            const total = textures.length;
+            document.getElementById('stats').textContent = 
+                visible === total ? `共 ${total} 个纹理` : `显示 ${visible} / ${total} 个纹理`;
+        }
+        
+        function renderGrid() {
+            const grid = document.getElementById('textureGrid');
+            grid.innerHTML = filteredTextures.map((tex, idx) => `
+                <div class="texture-card" onclick="openLightbox(${idx})">
+                    <div class="texture-thumb">
+                        ${tex.thumbnail 
+                            ? `<img src="${tex.thumbnail}" alt="Texture">` 
+                            : '<span class="no-preview">无预览</span>'}
+                    </div>
+                    <div class="texture-info">
+                        <div class="texture-name" title="${tex.name || 'Texture #' + tex.id}">${tex.name || 'Texture #' + tex.id}</div>
+                        <div class="texture-dims">${tex.width} × ${tex.height}</div>
+                        <div class="texture-format">${tex.format}</div>
+                    </div>
+                </div>
+            `).join('');
+        }
+        
+        function renderTable() {
+            const tbody = document.getElementById('tableBody');
+            tbody.innerHTML = filteredTextures.map((tex, idx) => `
+                <tr onclick="openLightbox(${idx})" style="cursor:pointer">
+                    <td class="thumb-cell">
+                        ${tex.thumbnail ? `<img src="${tex.thumbnail}" alt="">` : '-'}
+                    </td>
+                    <td>${tex.id}</td>
+                    <td>${tex.name || '-'}</td>
+                    <td>${tex.width} × ${tex.height}</td>
+                    <td>${tex.format}</td>
+                    <td>${tex.mips}</td>
+                    <td>${tex.arrayLayers}</td>
+                </tr>
+            `).join('');
+        }
+        
+        function setupEventListeners() {
+            // 搜索和筛选 - 统一使用 applyFilters
+            document.getElementById('searchBox').addEventListener('input', applyFilters);
+            document.getElementById('formatFilter').addEventListener('change', applyFilters);
+            document.getElementById('sizeFilter').addEventListener('change', applyFilters);
+            
+            // 排序选择
+            document.getElementById('sortSelect').addEventListener('change', function(e) {
+                currentSort.key = e.target.value;
+                sortTextures();
+                renderGrid();
+                renderTable();
+            });
+            
+            // 视图切换
+            document.querySelectorAll('.view-btn').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    document.querySelectorAll('.view-btn').forEach(b => b.classList.remove('active'));
+                    this.classList.add('active');
+                    
+                    const view = this.dataset.view;
+                    document.getElementById('gridView').classList.toggle('hidden', view !== 'grid');
+                    document.getElementById('tableView').classList.toggle('active', view === 'table');
+                });
+            });
+            
+            // 表头排序
+            document.querySelectorAll('th[data-sort]').forEach(th => {
+                th.addEventListener('click', function() {
+                    const key = this.dataset.sort;
+                    if (currentSort.key === key) {
+                        currentSort.asc = !currentSort.asc;
+                    } else {
+                        currentSort.key = key;
+                        currentSort.asc = true;
+                    }
+                    
+                    // 更新表头样式
+                    document.querySelectorAll('th').forEach(h => {
+                        h.classList.remove('sorted-asc', 'sorted-desc');
+                    });
+                    this.classList.add(currentSort.asc ? 'sorted-asc' : 'sorted-desc');
+                    
+                    sortTextures();
+                    renderGrid();
+                    renderTable();
+                });
+            });
+            
+            // ESC 关闭 lightbox
+            document.addEventListener('keydown', function(e) {
+                if (e.key === 'Escape') closeLightbox();
+                if (e.key === 'ArrowLeft') navigateLightbox(-1);
+                if (e.key === 'ArrowRight') navigateLightbox(1);
+            });
+        }
+        
+        function sortTextures() {
+            filteredTextures.sort((a, b) => {
+                let valA, valB;
+                switch (currentSort.key) {
+                    case 'id':
+                        valA = a.id; valB = b.id;
+                        break;
+                    case 'size':
+                        valA = a.width * a.height;
+                        valB = b.width * b.height;
+                        break;
+                    case 'format':
+                        valA = a.format; valB = b.format;
+                        break;
+                    case 'name':
+                        valA = a.name || ''; valB = b.name || '';
+                        break;
+                    default:
+                        valA = a.id; valB = b.id;
+                }
+                
+                if (typeof valA === 'string') {
+                    return currentSort.asc 
+                        ? valA.localeCompare(valB)
+                        : valB.localeCompare(valA);
+                }
+                return currentSort.asc ? valA - valB : valB - valA;
+            });
+        }
+        
+        function openLightbox(index) {
+            currentLightboxIndex = index;
+            updateLightbox();
+            document.getElementById('lightbox').classList.add('show');
+        }
+        
+        function closeLightbox() {
+            document.getElementById('lightbox').classList.remove('show');
+            // 关闭时也关闭所有弹出面板
+            closeAllPanels();
+        }
+        
+        // ===== 弹出面板管理 =====
+        const panels = {
+            histogram: { panel: 'histogramPanel', btn: 'histogramBtn' },
+            adjust: { panel: 'adjustPanel', btn: 'adjustBtn' },
+            normal: { panel: 'normalPanel', btn: 'normalBtn' },
+            notes: { panel: 'notesPanel', btn: 'notesBtn' }
+        };
+        
+        function togglePanel(name) {
+            const config = panels[name];
+            if (!config) return;
+            
+            const panel = document.getElementById(config.panel);
+            const btn = document.getElementById(config.btn);
+            const isOpen = panel.classList.contains('show');
+            
+            // 关闭所有其他面板
+            closeAllPanels();
+            
+            if (!isOpen) {
+                panel.classList.add('show');
+                btn.classList.add('active');
+                
+                // 特殊处理：打开直方图时重新计算
+                if (name === 'histogram') {
+                    drawHistogram();
+                }
+                // 打开 3D 法线时渲染预览
+                if (name === 'normal') {
+                    renderNormal3D();
+                }
+            }
+        }
+        
+        function closeAllPanels() {
+            Object.values(panels).forEach(({ panel, btn }) => {
+                document.getElementById(panel).classList.remove('show');
+                document.getElementById(btn).classList.remove('active');
+            });
+        }
+        
+        function navigateLightbox(delta) {
+            currentLightboxIndex += delta;
+            if (currentLightboxIndex < 0) currentLightboxIndex = filteredTextures.length - 1;
+            if (currentLightboxIndex >= filteredTextures.length) currentLightboxIndex = 0;
+            updateLightbox();
+        }
+        
+        function updateLightbox() {
+            const tex = filteredTextures[currentLightboxIndex];
+            currentChannel = 'rgb';  // 切换纹理时重置为 RGB
+            
+            // 关闭所有弹出面板
+            closeAllPanels();
+            
+            // 重置滤镜
+            resetFilters();
+            
+            // 更新按钮状态
+            updateChannelButtons(tex);
+            
+            // 显示图像
+            showChannelImage(tex, 'rgb');
+            
+            // 更新标题和详情
+            document.getElementById('lightboxName').textContent = tex.name || `Texture #${tex.id}`;
+            document.getElementById('lightboxDetails').textContent = 
+                `${tex.width}×${tex.height} · ${tex.format} · Mips:${tex.mips}`;
+            
+            // 更新书签按钮状态
+            updateBookmarkButton();
+            
+            // 更新对比按钮状态
+            updateCompareButton();
+            
+            // 加载备注
+            loadNote();
+        }
+        
+        function updateChannelButtons(tex) {
+            const channels = tex.channels || {};
+            const buttons = document.querySelectorAll('.channel-btn');
+            
+            buttons.forEach(btn => {
+                const ch = btn.dataset.channel;
+                btn.classList.remove('active', 'disabled');
+                
+                if (ch === 'rgb') {
+                    // RGB 始终可用
+                    btn.classList.add('active');
+                } else {
+                    // 检查通道是否可用
+                    if (!channels[ch]) {
+                        btn.classList.add('disabled');
+                        btn.title = ch === 'a' && channels.a === null 
+                            ? 'Alpha = 255 (全不透明)' 
+                            : '通道不可用';
+                    } else {
+                        btn.title = '';
+                    }
+                }
+            });
+        }
+        
+        function switchChannel(channel) {
+            const tex = filteredTextures[currentLightboxIndex];
+            const channels = tex.channels || {};
+            
+            // 检查通道是否可用
+            if (channel !== 'rgb' && !channels[channel]) {
+                return;  // 不可用的通道不响应点击
+            }
+            
+            currentChannel = channel;
+            
+            // 更新按钮激活状态
+            document.querySelectorAll('.channel-btn').forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.channel === channel);
+            });
+            
+            // 切换图像
+            showChannelImage(tex, channel);
+        }
+        
+        function showChannelImage(tex, channel) {
+            const img = document.getElementById('lightboxImg');
+            const channels = tex.channels || {};
+            
+            if (channel === 'rgb') {
+                img.src = tex.thumbnail || '';
+            } else if (channels[channel]) {
+                img.src = channels[channel];
+            } else {
+                img.src = tex.thumbnail || '';  // Fallback
+            }
+        }
+        
+        // 亮度/对比度调整
+        function updateImageFilter() {
+            const brightness = document.getElementById('brightnessSlider').value;
+            const contrast = document.getElementById('contrastSlider').value;
+            const img = document.getElementById('lightboxImg');
+            
+            // 更新显示值
+            document.getElementById('brightnessValue').textContent = brightness + '%';
+            document.getElementById('contrastValue').textContent = contrast + '%';
+            
+            // 应用 CSS filter
+            img.style.filter = `brightness(${brightness}%) contrast(${contrast}%)`;
+        }
+        
+        function resetFilters() {
+            document.getElementById('brightnessSlider').value = 100;
+            document.getElementById('contrastSlider').value = 100;
+            updateImageFilter();
+        }
+        
+        // ===== 颜色拾取器 =====
+        const pickerCanvas = document.createElement('canvas');
+        const pickerCtx = pickerCanvas.getContext('2d', { willReadFrequently: true });
+        let pickerReady = false;
+        
+        // 图片加载完成后绘制到隐藏 Canvas
+        document.getElementById('lightboxImg').addEventListener('load', function() {
+            const img = this;
+            pickerCanvas.width = img.naturalWidth;
+            pickerCanvas.height = img.naturalHeight;
+            pickerCtx.drawImage(img, 0, 0);
+            pickerReady = true;
+            
+            // 计算并绘制直方图
+            calculateAndDrawHistogram();
+        });
+        
+        // ===== 直方图功能 =====
+        let histogramMode = 'rgb';  // 'rgb' 或 'luminance'
+        let histogramData = { r: [], g: [], b: [], luminance: [] };
+        
+        function setHistogramMode(mode) {
+            histogramMode = mode;
+            
+            // 更新按钮状态
+            document.querySelectorAll('.histogram-toggle button').forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.mode === mode);
+            });
+            
+            // 重新绘制
+            drawHistogram();
+        }
+        
+        function calculateAndDrawHistogram() {
+            if (!pickerReady) return;
+            
+            // 初始化直方图数据 (0-255)
+            histogramData = {
+                r: new Array(256).fill(0),
+                g: new Array(256).fill(0),
+                b: new Array(256).fill(0),
+                luminance: new Array(256).fill(0)
+            };
+            
+            // 采样像素（对于大图片进行采样以提高性能）
+            const w = pickerCanvas.width;
+            const h = pickerCanvas.height;
+            const totalPixels = w * h;
+            const sampleRate = totalPixels > 500000 ? Math.ceil(totalPixels / 500000) : 1;
+            
+            try {
+                const imageData = pickerCtx.getImageData(0, 0, w, h);
+                const data = imageData.data;
+                
+                let rSum = 0, gSum = 0, bSum = 0;
+                let sampleCount = 0;
+                
+                for (let i = 0; i < data.length; i += 4 * sampleRate) {
+                    const r = data[i];
+                    const g = data[i + 1];
+                    const b = data[i + 2];
+                    
+                    histogramData.r[r]++;
+                    histogramData.g[g]++;
+                    histogramData.b[b]++;
+                    
+                    // 计算亮度 (Rec. 601)
+                    const lum = Math.round(0.299 * r + 0.587 * g + 0.114 * b);
+                    histogramData.luminance[lum]++;
+                    
+                    rSum += r;
+                    gSum += g;
+                    bSum += b;
+                    sampleCount++;
+                }
+                
+                // 更新统计信息
+                const rMean = Math.round(rSum / sampleCount);
+                const gMean = Math.round(gSum / sampleCount);
+                const bMean = Math.round(bSum / sampleCount);
+                
+                document.getElementById('histogramStats').innerHTML = `
+                    <span><div class="dot r"></div>R: 均值 ${rMean}</span>
+                    <span><div class="dot g"></div>G: 均值 ${gMean}</span>
+                    <span><div class="dot b"></div>B: 均值 ${bMean}</span>
+                `;
+                
+                drawHistogram();
+            } catch (err) {
+                console.error('Histogram calculation failed:', err);
+            }
+        }
+        
+        function drawHistogram() {
+            const canvas = document.getElementById('histogramCanvas');
+            const ctx = canvas.getContext('2d');
+            
+            // 设置 Canvas 实际尺寸
+            const rect = canvas.getBoundingClientRect();
+            canvas.width = rect.width * window.devicePixelRatio;
+            canvas.height = rect.height * window.devicePixelRatio;
+            ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+            
+            const width = rect.width;
+            const height = rect.height;
+            
+            // 清空画布
+            ctx.clearRect(0, 0, width, height);
+            
+            if (histogramMode === 'luminance') {
+                // 亮度直方图 - 白色
+                drawChannel(ctx, histogramData.luminance, width, height, 'rgba(200, 200, 200, 0.8)');
+            } else {
+                // RGB 叠加直方图
+                drawChannel(ctx, histogramData.b, width, height, 'rgba(51, 154, 240, 0.5)');
+                drawChannel(ctx, histogramData.g, width, height, 'rgba(81, 207, 102, 0.5)');
+                drawChannel(ctx, histogramData.r, width, height, 'rgba(255, 107, 107, 0.5)');
+            }
+        }
+        
+        function drawChannel(ctx, data, width, height, color) {
+            const max = Math.max(...data) || 1;
+            const barWidth = width / 256;
+            
+            ctx.fillStyle = color;
+            ctx.beginPath();
+            ctx.moveTo(0, height);
+            
+            for (let i = 0; i < 256; i++) {
+                const barHeight = (data[i] / max) * height * 0.95;
+                const x = i * barWidth;
+                ctx.lineTo(x, height - barHeight);
+            }
+            
+            ctx.lineTo(width, height);
+            ctx.closePath();
+            ctx.fill();
+        }
+        
+        // 鼠标移动时读取像素
+        document.getElementById('lightboxImg').addEventListener('mousemove', function(e) {
+            if (!pickerReady) return;
+            
+            const img = this;
+            const rect = img.getBoundingClientRect();
+            
+            // 计算图片内的实际坐标（考虑 object-fit: contain 缩放）
+            const scaleX = img.naturalWidth / rect.width;
+            const scaleY = img.naturalHeight / rect.height;
+            const scale = Math.max(scaleX, scaleY);
+            
+            // 计算图片在容器内的偏移
+            const displayW = img.naturalWidth / scale;
+            const displayH = img.naturalHeight / scale;
+            const offsetX = (rect.width - displayW) / 2;
+            const offsetY = (rect.height - displayH) / 2;
+            
+            // 鼠标在图片上的相对位置
+            const mouseX = e.clientX - rect.left - offsetX;
+            const mouseY = e.clientY - rect.top - offsetY;
+            
+            // 转换为图片原始坐标
+            const imgX = Math.floor(mouseX * scale);
+            const imgY = Math.floor(mouseY * scale);
+            
+            // 边界检查
+            if (imgX < 0 || imgX >= img.naturalWidth || imgY < 0 || imgY >= img.naturalHeight) {
+                return;
+            }
+            
+            // 读取像素
+            try {
+                const pixel = pickerCtx.getImageData(imgX, imgY, 1, 1).data;
+                const r = pixel[0], g = pixel[1], b = pixel[2], a = pixel[3];
+                const hex = '#' + [r, g, b].map(v => v.toString(16).padStart(2, '0')).join('').toUpperCase();
+                
+                // 更新 UI
+                document.getElementById('colorCoord').textContent = `X:${imgX} Y:${imgY}`;
+                document.getElementById('colorR').textContent = r;
+                document.getElementById('colorG').textContent = g;
+                document.getElementById('colorB').textContent = b;
+                document.getElementById('colorA').textContent = a;
+                document.getElementById('colorHex').textContent = hex;
+                document.getElementById('colorPreview').style.background = `rgba(${r},${g},${b},${a/255})`;
+            } catch (err) {
+                // Canvas 读取失败（跨域等）
+            }
+        });
+        
+        // 鼠标离开时重置显示
+        document.getElementById('lightboxImg').addEventListener('mouseleave', function() {
+            document.getElementById('colorCoord').textContent = 'X: - Y: -';
+            document.getElementById('colorR').textContent = '-';
+            document.getElementById('colorG').textContent = '-';
+            document.getElementById('colorB').textContent = '-';
+            document.getElementById('colorA').textContent = '-';
+            document.getElementById('colorHex').textContent = '#------';
+            document.getElementById('colorPreview').style.background = '#000';
+        });
+        
+        // 复制十六进制颜色值
+        function copyHex() {
+            const hex = document.getElementById('colorHex').textContent;
+            if (hex && hex !== '#------') {
+                navigator.clipboard.writeText(hex).then(() => {
+                    const el = document.getElementById('colorHex');
+                    const orig = el.textContent;
+                    el.textContent = '已复制!';
+                    setTimeout(() => el.textContent = orig, 800);
+                });
+            }
+        }
+        
+        // ===== 缩放和拖拽 =====
+        let zoomScale = 1;
+        let panX = 0, panY = 0;
+        let isDragging = false;
+        let dragStartX = 0, dragStartY = 0;
+        let dragStartPanX = 0, dragStartPanY = 0;
+        
+        const imgContainer = document.getElementById('imgContainer');
+        const lightboxImg = document.getElementById('lightboxImg');
+        
+        function updateTransform() {
+            lightboxImg.style.transform = `scale(${zoomScale}) translate(${panX}px, ${panY}px)`;
+            document.getElementById('zoomLevel').textContent = Math.round(zoomScale * 100) + '%';
+        }
+        
+        function zoomImage(delta) {
+            zoomScale = Math.max(0.25, Math.min(10, zoomScale + delta));
+            updateTransform();
+        }
+        
+        function resetZoom() {
+            zoomScale = 1;
+            panX = 0;
+            panY = 0;
+            updateTransform();
+        }
+        
+        // 鼠标滚轮缩放
+        imgContainer.addEventListener('wheel', function(e) {
+            e.preventDefault();
+            const delta = e.deltaY > 0 ? -0.15 : 0.15;
+            zoomScale = Math.max(0.25, Math.min(10, zoomScale + delta));
+            updateTransform();
+        }, { passive: false });
+        
+        // 拖拽平移
+        imgContainer.addEventListener('mousedown', function(e) {
+            if (zoomScale <= 1) return;  // 未缩放时不拖拽
+            isDragging = true;
+            dragStartX = e.clientX;
+            dragStartY = e.clientY;
+            dragStartPanX = panX;
+            dragStartPanY = panY;
+            imgContainer.classList.add('dragging');
+            lightboxImg.classList.add('no-transition');
+            e.preventDefault();
+        });
+        
+        document.addEventListener('mousemove', function(e) {
+            if (!isDragging) return;
+            const dx = e.clientX - dragStartX;
+            const dy = e.clientY - dragStartY;
+            panX = dragStartPanX + dx / zoomScale;
+            panY = dragStartPanY + dy / zoomScale;
+            updateTransform();
+        });
+        
+        document.addEventListener('mouseup', function() {
+            if (isDragging) {
+                isDragging = false;
+                imgContainer.classList.remove('dragging');
+                lightboxImg.classList.remove('no-transition');
+            }
+        });
+        
+        // 双击重置
+        imgContainer.addEventListener('dblclick', function() {
+            resetZoom();
+        });
+        
+        // 切换纹理时重置缩放
+        const originalUpdateLightbox = updateLightbox;
+        updateLightbox = function() {
+            resetZoom();
+            originalUpdateLightbox();
+            // 更新操作按钮状态
+            updateActionButtons();
+            // 加载备注
+            loadNote();
+            // 隐藏 3D 法线预览
+            document.getElementById('normal3dContainer').classList.remove('show');
+            document.getElementById('normalPreviewBtn').classList.remove('active');
+        };
+        
+        // ===== 功能 7: 纹理对比模式 =====
+        let compareMarks = [];  // 最多存 2 个纹理索引
+        
+        function toggleCompare() {
+            const tex = filteredTextures[currentLightboxIndex];
+            const texId = tex.id;
+            
+            const idx = compareMarks.findIndex(m => m.id === texId);
+            if (idx >= 0) {
+                // 已标记，取消
+                compareMarks.splice(idx, 1);
+            } else {
+                // 添加标记
+                if (compareMarks.length >= 2) {
+                    compareMarks.shift();  // 移除最早的
+                }
+                compareMarks.push({ id: texId, index: currentLightboxIndex });
+            }
+            
+            updateCompareUI();
+            renderGrid();  // 更新网格显示标记
+            
+            // 如果已有 2 个标记，自动打开对比视图
+            if (compareMarks.length === 2) {
+                openCompare();
+            }
+        }
+        
+        function updateCompareUI() {
+            const tex = filteredTextures[currentLightboxIndex];
+            const isMarked = compareMarks.some(m => m.id === tex.id);
+            const btn = document.getElementById('compareBtn');
+            
+            if (isMarked) {
+                btn.classList.add('active');
+            } else {
+                btn.classList.remove('active');
+            }
+        }
+        
+        function openCompare() {
+            if (compareMarks.length < 2) {
+                alert('请先标记 2 张纹理进行对比');
+                return;
+            }
+            
+            // 找到对应纹理
+            const tex1 = textures.find(t => t.id === compareMarks[0].id);
+            const tex2 = textures.find(t => t.id === compareMarks[1].id);
+            
+            if (!tex1 || !tex2) return;
+            
+            // 更新对比视图
+            document.getElementById('compareTitle1').textContent = tex1.name || `Texture #${tex1.id}`;
+            document.getElementById('compareInfo1').textContent = `${tex1.width}×${tex1.height} | ${tex1.format}`;
+            document.getElementById('compareImg1').src = tex1.thumbnail || '';
+            
+            document.getElementById('compareTitle2').textContent = tex2.name || `Texture #${tex2.id}`;
+            document.getElementById('compareInfo2').textContent = `${tex2.width}×${tex2.height} | ${tex2.format}`;
+            document.getElementById('compareImg2').src = tex2.thumbnail || '';
+            
+            document.getElementById('compareLightbox').classList.add('show');
+        }
+        
+        function closeCompare() {
+            document.getElementById('compareLightbox').classList.remove('show');
+        }
+        
+        function swapCompareTextures() {
+            if (compareMarks.length === 2) {
+                compareMarks.reverse();
+                openCompare();
+            }
+        }
+        
+        function clearCompareMarks() {
+            compareMarks = [];
+            updateCompareUI();
+            renderGrid();
+            closeCompare();
+        }
+        
+        // 更新 renderGrid 以显示对比标记
+        const originalRenderGrid = renderGrid;
+        renderGrid = function() {
+            const grid = document.getElementById('textureGrid');
+            grid.innerHTML = filteredTextures.map((tex, idx) => {
+                const isMarked = compareMarks.some(m => m.id === tex.id);
+                const markNum = compareMarks.findIndex(m => m.id === tex.id) + 1;
+                const isBookmarked = bookmarks[tex.id];
+                
+                return `
+                <div class="texture-card" onclick="openLightbox(${idx})">
+                    ${isMarked ? `<span class="compare-badge">对比 ${markNum}</span>` : ''}
+                    ${isBookmarked ? '<span class="bookmark-badge">⭐</span>' : ''}
+                    <div class="texture-thumb">
+                        ${tex.thumbnail 
+                            ? `<img src="${tex.thumbnail}" alt="Texture">` 
+                            : '<span class="no-preview">无预览</span>'}
+                    </div>
+                    <div class="texture-info">
+                        <div class="texture-name" title="${tex.name || 'Texture #' + tex.id}">${tex.name || 'Texture #' + tex.id}</div>
+                        <div class="texture-dims">${tex.width} × ${tex.height}</div>
+                        <div class="texture-format">${tex.format}</div>
+                    </div>
+                </div>
+                `;
+            }).join('');
+        };
+        
+        // ===== 功能 8: 法线图 3D 预览 =====
+        let normal3dActive = false;
+        
+        function toggleNormalPreview() {
+            normal3dActive = !normal3dActive;
+            const container = document.getElementById('normal3dContainer');
+            const btn = document.getElementById('normalPreviewBtn');
+            
+            if (normal3dActive) {
+                container.classList.add('show');
+                btn.classList.add('active');
+                renderNormal3D();
+            } else {
+                container.classList.remove('show');
+                btn.classList.remove('active');
+            }
+        }
+        
+        function updateNormal3D() {
+            if (normal3dActive) {
+                renderNormal3D();
+            }
+        }
+        
+        function renderNormal3D() {
+            if (!pickerReady) return;
+            
+            const canvas = document.getElementById('normal3dCanvas');
+            const ctx = canvas.getContext('2d');
+            
+            const rect = canvas.getBoundingClientRect();
+            canvas.width = rect.width;
+            canvas.height = rect.height;
+            
+            const heightScale = parseFloat(document.getElementById('normalHeightSlider').value);
+            const lightAngle = parseFloat(document.getElementById('normalLightSlider').value) * Math.PI / 180;
+            
+            // 光照方向
+            const lightX = Math.cos(lightAngle);
+            const lightY = Math.sin(lightAngle);
+            const lightZ = 0.5;  // 固定 Z 分量
+            const lightLen = Math.sqrt(lightX*lightX + lightY*lightY + lightZ*lightZ);
+            const lx = lightX/lightLen, ly = lightY/lightLen, lz = lightZ/lightLen;
+            
+            // 源图像数据
+            const srcW = pickerCanvas.width;
+            const srcH = pickerCanvas.height;
+            const srcData = pickerCtx.getImageData(0, 0, srcW, srcH).data;
+            
+            // 目标图像
+            const dstW = canvas.width;
+            const dstH = canvas.height;
+            const dstImageData = ctx.createImageData(dstW, dstH);
+            const dstData = dstImageData.data;
+            
+            // 采样比例
+            const scaleX = srcW / dstW;
+            const scaleY = srcH / dstH;
+            
+            for (let y = 0; y < dstH; y++) {
+                for (let x = 0; x < dstW; x++) {
+                    // 映射到源图像坐标
+                    const sx = Math.floor(x * scaleX);
+                    const sy = Math.floor(y * scaleY);
+                    const si = (sy * srcW + sx) * 4;
+                    
+                    // 法线贴图: RGB -> XYZ (假设: R=X, G=Y, B=Z, 范围 0-255 映射到 -1~1)
+                    const nx = (srcData[si] / 255) * 2 - 1;
+                    const ny = (srcData[si+1] / 255) * 2 - 1;
+                    const nz = (srcData[si+2] / 255) * 2 - 1;
+                    
+                    // 归一化法线
+                    const nLen = Math.sqrt(nx*nx + ny*ny + nz*nz) || 1;
+                    const nnx = nx/nLen, nny = ny/nLen, nnz = nz/nLen;
+                    
+                    // 点积计算漫反射
+                    let dot = nnx*lx + nny*ly + nnz*lz;
+                    dot = Math.max(0, dot);  // 裁剪负值
+                    
+                    // 添加高度感（环境光 + 漫反射）
+                    const ambient = 0.2;
+                    const diffuse = dot * 0.8 * (heightScale / 25);
+                    const intensity = Math.min(1, ambient + diffuse);
+                    
+                    // 输出颜色（灰度光照）
+                    const gray = Math.floor(intensity * 255);
+                    const di = (y * dstW + x) * 4;
+                    dstData[di] = gray;
+                    dstData[di+1] = gray;
+                    dstData[di+2] = gray;
+                    dstData[di+3] = 255;
+                }
+            }
+            
+            ctx.putImageData(dstImageData, 0, 0);
+        }
+        
+        // ===== 功能 9: 导出单张纹理 =====
+        function exportTexture() {
+            const tex = filteredTextures[currentLightboxIndex];
+            if (!tex.thumbnail) {
+                alert('该纹理没有可导出的图像数据');
+                return;
+            }
+            
+            // 创建下载链接
+            const link = document.createElement('a');
+            link.download = `${tex.name || 'texture_' + tex.id}.png`;
+            link.href = tex.thumbnail;  // Base64 Data URL
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+        
+        // ===== 功能 10: 书签/标注功能 =====
+        // 使用 localStorage 存储书签和备注
+        const storageKey = 'rdc_texture_bookmarks_' + 'test_game.rdc'.replace(/[^a-zA-Z0-9]/g, '_');
+        let bookmarks = {};
+        let notes = {};
+        
+        // 加载存储的数据
+        function loadBookmarksAndNotes() {
+            try {
+                const saved = localStorage.getItem(storageKey);
+                if (saved) {
+                    const data = JSON.parse(saved);
+                    bookmarks = data.bookmarks || {};
+                    notes = data.notes || {};
+                }
+            } catch (e) {
+                console.warn('Failed to load bookmarks:', e);
+            }
+        }
+        
+        function saveBookmarksAndNotes() {
+            try {
+                localStorage.setItem(storageKey, JSON.stringify({
+                    bookmarks: bookmarks,
+                    notes: notes
+                }));
+            } catch (e) {
+                console.warn('Failed to save bookmarks:', e);
+            }
+        }
+        
+        function toggleBookmark() {
+            const tex = filteredTextures[currentLightboxIndex];
+            if (bookmarks[tex.id]) {
+                delete bookmarks[tex.id];
+            } else {
+                bookmarks[tex.id] = true;
+            }
+            saveBookmarksAndNotes();
+            updateBookmarkButton();
+            renderGrid();
+        }
+        
+        function updateBookmarkButton() {
+            const tex = filteredTextures[currentLightboxIndex];
+            const bookmarkBtn = document.getElementById('bookmarkBtn');
+            if (bookmarks[tex.id]) {
+                bookmarkBtn.classList.add('bookmarked');
+            } else {
+                bookmarkBtn.classList.remove('bookmarked');
+            }
+        }
+        
+        function updateCompareButton() {
+            updateCompareUI();  // 复用现有逻辑
+        }
+        
+        function loadNote() {
+            const tex = filteredTextures[currentLightboxIndex];
+            const textarea = document.getElementById('notesTextarea');
+            textarea.value = notes[tex.id] || '';
+        }
+        
+        function saveNote() {
+            const tex = filteredTextures[currentLightboxIndex];
+            const textarea = document.getElementById('notesTextarea');
+            const value = textarea.value.trim();
+            
+            if (value) {
+                notes[tex.id] = value;
+            } else {
+                delete notes[tex.id];
+            }
+            saveBookmarksAndNotes();
+        }
+        
+        // ESC 关闭对比视图
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape' && document.getElementById('compareLightbox').classList.contains('show')) {
+                closeCompare();
+            }
+        });
+        
+        // 初始化时加载书签
+        loadBookmarksAndNotes();
+        
+        // 启动
+        init();
+    </script>
+</body>
+</html>

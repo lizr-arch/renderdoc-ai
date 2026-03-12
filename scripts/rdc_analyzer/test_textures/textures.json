@@ -1,0 +1,63 @@
+{"textures": [
+    {
+      "resource_id": 1,
+      "name": "diffuse_albedo",
+      "width": 2048,
+      "height": 2048,
+      "depth": 1,
+      "format": "R8G8B8A8_SRGB",
+      "mips": 11,
+      "arrayLayers": 1
+    },
+    {
+      "resource_id": 2,
+      "name": "normal_map",
+      "width": 1024,
+      "height": 1024,
+      "depth": 1,
+      "format": "R8G8B8A8_UNORM",
+      "mips": 10,
+      "arrayLayers": 1
+    },
+    {
+      "resource_id": 3,
+      "name": "specular_roughness",
+      "width": 512,
+      "height": 512,
+      "depth": 1,
+      "format": "BC7_UNORM",
+      "mips": 9,
+      "arrayLayers": 1
+    },
+    {
+      "resource_id": 4,
+      "name": "environment_cubemap",
+      "width": 256,
+      "height": 256,
+      "depth": 1,
+      "format": "R16G16B16A16_FLOAT",
+      "mips": 8,
+      "arrayLayers": 6
+    },
+    {
+      "resource_id": 5,
+      "name": "shadowmap_directional",
+      "width": 4096,
+      "height": 4096,
+      "depth": 1,
+      "format": "D24_UNORM_S8_UINT",
+      "mips": 1,
+      "arrayLayers": 1
+    },
+    {
+      "resource_id": 6,
+      "name": "emissive_glow",
+      "width": 256,
+      "height": 256,
+      "depth": 1,
+      "format": "R8G8B8A8_SRGB",
+      "mips": 8,
+      "arrayLayers": 1
+    }
+  ]
+}

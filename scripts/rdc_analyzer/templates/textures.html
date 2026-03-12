@@ -1,0 +1,1538 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>纹理浏览器 - {{CAPTURE_NAME}}</title>
+    <link rel="stylesheet" href="common.css">
+    <style>
+        /* ========== Textures 页面专用样式 ========== */
+        
+        /* 确保 body 不滚动 */
+        body {
+            overflow: hidden;
+        }
+
+        .panel-header {
+            background: linear-gradient(180deg, rgba(19, 27, 44, 0.96) 0%, rgba(14, 21, 34, 0.96) 100%);
+            border-bottom: 1px solid rgba(88, 166, 255, 0.16);
+            box-shadow: inset 0 -1px 0 rgba(255, 255, 255, 0.04);
+        }
+
+        .panel-header:hover {
+            background: linear-gradient(180deg, rgba(25, 36, 58, 0.98) 0%, rgba(18, 27, 44, 0.98) 100%);
+        }
+
+        .panel-title {
+            font-size: 10px;
+            font-weight: 700;
+            letter-spacing: 0.6px;
+            color: #d3dff5;
+        }
+
+        .panel-toggle {
+            color: #9fb2d3;
+            font-size: 11px;
+        }
+
+        .app-menu .menu-item.active {
+            background: linear-gradient(180deg, rgba(61, 143, 255, 0.94) 0%, rgba(41, 111, 215, 0.94) 100%);
+            box-shadow: 0 4px 12px rgba(36, 97, 189, 0.32);
+        }
+
+        .app-meta {
+            color: #96aacb;
+        }
+
+        /* 纹理列表滚动区 */
+        .texture-list {
+            flex: 1;
+            overflow-y: auto;
+            overflow-x: hidden;
+            min-height: 0;
+            scrollbar-gutter: stable;
+        }
+
+        #textureList {
+            scrollbar-gutter: stable both-edges;
+            padding-bottom: 8px;
+            overscroll-behavior: contain;
+        }
+
+        #propertiesPanel {
+            overflow-y: auto;
+            overflow-x: hidden;
+            min-height: 0;
+            scrollbar-gutter: stable;
+            padding-bottom: 8px;
+            overscroll-behavior: contain;
+        }
+
+        #textureList::-webkit-scrollbar,
+        #propertiesPanel::-webkit-scrollbar,
+        .usage-list::-webkit-scrollbar {
+            width: 10px;
+            height: 10px;
+        }
+
+        #textureList::-webkit-scrollbar-track,
+        #propertiesPanel::-webkit-scrollbar-track,
+        .usage-list::-webkit-scrollbar-track {
+            background: rgba(12, 18, 30, 0.92);
+            border-radius: 999px;
+        }
+
+        #textureList::-webkit-scrollbar-thumb,
+        #propertiesPanel::-webkit-scrollbar-thumb,
+        .usage-list::-webkit-scrollbar-thumb {
+            background: rgba(74, 96, 132, 0.9);
+            border-radius: 999px;
+            border: 2px solid rgba(12, 18, 30, 0.92);
+        }
+
+        #textureList::-webkit-scrollbar-thumb:hover,
+        #propertiesPanel::-webkit-scrollbar-thumb:hover,
+        .usage-list::-webkit-scrollbar-thumb:hover {
+            background: rgba(98, 129, 176, 0.95);
+        }
+
+        .texture-item {
+            position: relative;
+            height: 62px;
+            padding: 8px 10px;
+            gap: 10px;
+            border-bottom: 1px solid rgba(47, 61, 85, 0.42);
+            border-left: 2px solid transparent;
+            transition: background 0.15s ease, border-color 0.15s ease;
+        }
+
+        .texture-item:hover {
+            background: rgba(34, 49, 74, 0.46);
+        }
+
+        .texture-item.selected {
+            background: linear-gradient(90deg, rgba(56, 108, 186, 0.3) 0%, rgba(34, 49, 74, 0.52) 100%);
+            border-left-color: var(--accent-blue);
+        }
+
+        .texture-item-thumb {
+            width: 44px;
+            height: 44px;
+            border: 1px solid rgba(84, 104, 138, 0.5);
+            background: repeating-conic-gradient(var(--bg-medium) 0% 25%, var(--bg-dark) 0% 50%) 50% / 12px 12px;
+        }
+
+        .texture-item-name {
+            font-size: 11px;
+            line-height: 1.25;
+        }
+
+        .texture-item-meta {
+            margin-top: 3px;
+            font-size: 10px;
+        }
+
+        .texture-item-submeta {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            margin-top: 3px;
+            flex-wrap: wrap;
+        }
+
+        .texture-id-badge,
+        .texture-vram-badge {
+            border-radius: 999px;
+            border: 1px solid rgba(84, 104, 138, 0.55);
+            background: rgba(20, 29, 45, 0.84);
+            color: var(--text-secondary);
+            font-size: 9px;
+            font-family: var(--font-mono);
+            padding: 1px 6px;
+            line-height: 1.3;
+        }
+
+        .texture-vram-badge {
+            color: #8ec7ff;
+        }
+
+        .canvas-toolbar {
+            gap: 8px;
+            padding: 0 10px;
+            background: linear-gradient(180deg, rgba(20, 29, 45, 0.98) 0%, rgba(15, 22, 36, 0.98) 100%);
+            border-bottom: 1px solid rgba(88, 166, 255, 0.14);
+            box-shadow: inset 0 -1px 0 rgba(255, 255, 255, 0.04);
+        }
+
+        .canvas-toolbar .toolbar-group {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            padding: 3px 6px;
+            border: 1px solid rgba(74, 96, 132, 0.45);
+            border-radius: 10px;
+            background: linear-gradient(180deg, rgba(17, 27, 45, 0.92) 0%, rgba(12, 21, 35, 0.92) 100%);
+            box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+        }
+
+        .canvas-toolbar .toolbar-btn,
+        .canvas-toolbar .channel-btn {
+            min-width: 28px;
+            height: 26px;
+            border-radius: 8px;
+            padding: 0 7px;
+        }
+
+        .canvas-toolbar .toolbar-btn.active {
+            background: rgba(88, 166, 255, 0.22);
+            border: 1px solid rgba(88, 166, 255, 0.5);
+            color: #e2f0ff;
+        }
+
+        .canvas-toolbar .zoom-display {
+            min-width: 52px;
+            text-align: center;
+            font-size: 10px;
+        }
+
+        .canvas-viewport {
+            box-shadow: inset 0 0 0 1px rgba(88, 166, 255, 0.14);
+        }
+
+        .preview-img {
+            filter: drop-shadow(0 6px 18px rgba(0, 0, 0, 0.48));
+        }
+
+        #canvasEmpty {
+            padding: 14px 18px;
+            border-radius: 12px;
+            border: 1px dashed rgba(94, 120, 160, 0.42);
+            background: linear-gradient(180deg, rgba(20, 31, 50, 0.5) 0%, rgba(12, 19, 31, 0.5) 100%);
+            text-align: center;
+        }
+
+        #canvasEmpty .canvas-empty-icon {
+            opacity: 0.82;
+        }
+
+        #canvasEmpty .canvas-empty-text {
+            font-size: 13px;
+            font-weight: 700;
+            color: #dbe8ff;
+        }
+
+        #canvasEmpty .canvas-empty-subtext {
+            margin-top: 6px;
+            font-size: 11px;
+            color: var(--text-muted);
+            max-width: 340px;
+            line-height: 1.35;
+        }
+
+        #canvasEmpty.no-thumbnail {
+            border-style: solid;
+            border-color: rgba(79, 120, 182, 0.42);
+        }
+
+        #propName {
+            font-size: 12px;
+            font-weight: 700;
+            line-height: 1.35;
+            color: #e8f2ff;
+            word-break: break-word;
+        }
+
+        #propId {
+            font-family: var(--font-mono);
+            font-size: 10px;
+            color: #c6d8f5;
+        }
+
+        #propDimensions,
+        #propFormat,
+        #propVram {
+            display: inline-flex;
+            align-items: center;
+            min-height: 20px;
+            padding: 0 8px;
+            border-radius: 999px;
+            border: 1px solid rgba(90, 112, 149, 0.58);
+            background: rgba(20, 30, 48, 0.74);
+            font-family: var(--font-mono);
+            font-size: 10px;
+            color: #d4e3ff;
+        }
+
+        #propVram {
+            border-color: rgba(74, 154, 255, 0.52);
+            color: #8ec7ff;
+            background: rgba(24, 49, 84, 0.68);
+        }
+        
+        /* 网格视图切换 */
+        .view-mode-grid .texture-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+            gap: 8px;
+            padding: 8px;
+        }
+        
+        .view-mode-grid .texture-item {
+            flex-direction: column;
+            height: auto;
+            padding: 8px;
+            border-bottom: none;
+            background: var(--bg-dark);
+            border-radius: var(--radius-md);
+        }
+        
+        .view-mode-grid .texture-item-thumb {
+            width: 100%;
+            height: 60px;
+            margin-bottom: 6px;
+        }
+        
+        .view-mode-grid .texture-item-info {
+            text-align: center;
+        }
+        
+        .view-mode-grid .texture-item-meta {
+            display: none;
+        }
+
+        .view-mode-grid .texture-item-submeta {
+            display: none;
+        }
+        
+        /* Mip 状态指示器 */
+        .mip-status {
+            font-size: 10px;
+            margin-left: 4px;
+        }
+        
+        .mip-status.good { color: var(--accent-green); }
+        .mip-status.warn { color: var(--accent-yellow); }
+        .mip-status.partial { color: var(--accent-orange); }
+        
+        /* 纹理尺寸标签 */
+        .size-tag {
+            font-size: 9px;
+            padding: 1px 4px;
+            border-radius: 2px;
+            background: var(--bg-medium);
+            color: var(--text-muted);
+            margin-left: 4px;
+        }
+        
+        .size-tag.large {
+            background: rgba(249, 197, 19, 0.2);
+            color: var(--accent-yellow);
+        }
+        
+        .size-tag.huge {
+            background: rgba(233, 69, 96, 0.2);
+            color: var(--accent-red);
+        }
+        
+        /* 问题标记 */
+        .issue-indicator {
+            position: absolute;
+            top: 4px;
+            right: 4px;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--accent-yellow);
+        }
+        
+        .issue-indicator.critical {
+            background: var(--accent-red);
+        }
+        
+        /* 纹理对比面板 */
+        .compare-panel {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 200px;
+            background: var(--bg-darker);
+            border-top: 1px solid var(--border);
+            display: none;
+            z-index: 100;
+        }
+        
+        .compare-panel.active {
+            display: flex;
+        }
+        
+        .compare-slot {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            border-right: 1px solid var(--border);
+        }
+        
+        .compare-slot:last-child {
+            border-right: none;
+        }
+        
+        .compare-header {
+            padding: 8px 12px;
+            background: var(--bg-dark);
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        
+        .compare-title {
+            font-size: 11px;
+            font-weight: 500;
+            color: var(--text-primary);
+        }
+        
+        .compare-close {
+            width: 20px;
+            height: 20px;
+            border: none;
+            background: transparent;
+            color: var(--text-muted);
+            cursor: pointer;
+            border-radius: 3px;
+            font-size: 14px;
+        }
+        
+        .compare-close:hover {
+            background: var(--bg-medium);
+            color: var(--text-primary);
+        }
+        
+        .compare-body {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: repeating-conic-gradient(var(--bg-medium) 0% 25%, var(--bg-dark) 0% 50%) 50% / 16px 16px;
+        }
+        
+        .compare-body img {
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain;
+        }
+        
+        .compare-empty {
+            color: var(--text-muted);
+            font-size: 11px;
+        }
+        
+        /* 筛选工具栏增强 */
+        .filter-toolbar {
+            padding: 10px;
+            background: linear-gradient(180deg, rgba(22, 29, 46, 0.96) 0%, rgba(16, 22, 36, 0.96) 100%);
+            border-bottom: 1px solid rgba(88, 166, 255, 0.16);
+            box-shadow: inset 0 -1px 0 rgba(255, 255, 255, 0.03);
+        }
+        
+        .filter-chips {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 4px;
+            margin-top: 8px;
+        }
+        
+        .filter-chip {
+            padding: 3px 8px;
+            font-size: 10px;
+            background: rgba(17, 24, 38, 0.92);
+            border: 1px solid rgba(88, 166, 255, 0.2);
+            border-radius: 12px;
+            color: var(--text-muted);
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+        
+        .filter-chip:hover {
+            border-color: var(--accent-blue);
+            color: var(--text-primary);
+        }
+        
+        .filter-chip.active {
+            background: var(--accent-blue);
+            border-color: var(--accent-blue);
+            color: white;
+            box-shadow: 0 2px 8px rgba(61, 132, 232, 0.28);
+        }
+        
+        .filter-chip.warn.active {
+            background: var(--accent-yellow);
+            border-color: var(--accent-yellow);
+            color: #000;
+            box-shadow: 0 2px 8px rgba(249, 197, 19, 0.28);
+        }
+
+        .texture-panel-summary {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            align-items: center;
+            padding: 7px 10px;
+            background: linear-gradient(180deg, rgba(18, 27, 44, 0.96) 0%, rgba(13, 21, 35, 0.96) 100%);
+            border-bottom: 1px solid rgba(88, 166, 255, 0.14);
+            min-height: 38px;
+            position: sticky;
+            top: 0;
+            z-index: 3;
+        }
+
+        .summary-chip {
+            display: inline-flex;
+            align-items: center;
+            padding: 3px 9px;
+            border-radius: 999px;
+            border: 1px solid rgba(84, 104, 138, 0.55);
+            background: rgba(20, 29, 45, 0.84);
+            color: var(--text-secondary);
+            font-size: 10px;
+            font-weight: 600;
+            font-family: var(--font-mono);
+            max-width: 200px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .summary-chip.accent {
+            border-color: rgba(79, 165, 255, 0.72);
+            color: #e7f2ff;
+            background: linear-gradient(180deg, rgba(36, 74, 128, 0.78) 0%, rgba(24, 54, 99, 0.78) 100%);
+            box-shadow: 0 2px 8px rgba(44, 100, 183, 0.24);
+        }
+
+        .data-health-banner {
+            margin: 6px 10px 8px;
+            padding: 7px 9px;
+            border-radius: var(--radius-md);
+            border: 1px solid rgba(90, 115, 150, 0.45);
+            background: rgba(16, 25, 40, 0.72);
+            color: var(--text-secondary);
+            font-size: var(--font-xs);
+            line-height: 1.35;
+        }
+
+        .data-health-banner[data-state='good'] {
+            border-color: rgba(63, 185, 80, 0.45);
+            background: rgba(21, 52, 34, 0.52);
+            color: #b9f3c4;
+        }
+
+        .data-health-banner[data-state='warn'] {
+            border-color: rgba(249, 197, 19, 0.45);
+            background: rgba(69, 54, 12, 0.56);
+            color: #ffe8a3;
+        }
+
+        .data-health-banner[data-state='critical'] {
+            border-color: rgba(233, 69, 96, 0.52);
+            background: rgba(68, 22, 31, 0.58);
+            color: #ffd2dd;
+        }
+        
+        /* 详情面板增强 */
+        .detail-preview {
+            width: 100%;
+            aspect-ratio: 1;
+            background: repeating-conic-gradient(var(--bg-medium) 0% 25%, var(--bg-dark) 0% 50%) 50% / 16px 16px;
+            border-radius: var(--radius-md);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            cursor: pointer;
+            margin-bottom: 12px;
+        }
+        
+        .detail-preview img {
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain;
+        }
+        
+        .detail-actions {
+            display: flex;
+            gap: 8px;
+            margin-top: 10px;
+        }
+        
+        .detail-action-btn {
+            flex: 1;
+            min-height: 32px;
+            padding: 8px 12px;
+            border: none;
+            border-radius: 10px;
+            font-size: 10px;
+            font-weight: 600;
+            letter-spacing: 0.12px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            transition: all 0.2s;
+        }
+        
+        .detail-action-btn.primary {
+            background: linear-gradient(180deg, #3c8dff 0%, #2a6fd6 100%);
+            border: 1px solid #2f7de8;
+            color: white;
+            box-shadow: 0 4px 10px rgba(38, 114, 218, 0.28);
+        }
+        
+        .detail-action-btn.primary:hover {
+            filter: brightness(1.08);
+            box-shadow: 0 6px 14px rgba(38, 114, 218, 0.34);
+        }
+        
+        .detail-action-btn.secondary {
+            background: linear-gradient(180deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.03) 100%);
+            border: 1px solid var(--border);
+            color: var(--text-primary);
+        }
+        
+        .detail-action-btn.secondary:hover {
+            border-color: var(--accent-blue);
+            background: rgba(52, 105, 180, 0.18);
+        }
+        
+        /* 使用此纹理的事件链接 */
+        .usage-section {
+            margin-top: 12px;
+            padding-top: 12px;
+            border-top: 1px solid var(--border);
+        }
+        
+        .usage-title {
+            font-size: 10px;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            margin-bottom: 8px;
+        }
+        
+        .usage-list {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            max-height: 120px;
+            overflow-y: auto;
+        }
+        
+        .usage-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 8px;
+            background: var(--bg-darkest);
+            border-radius: var(--radius-sm);
+            font-size: 10px;
+            cursor: pointer;
+            transition: background 0.15s;
+        }
+        
+        .usage-item:hover {
+            background: var(--bg-dark);
+        }
+        
+        .usage-eid {
+            color: var(--accent-blue);
+            font-family: var(--font-mono);
+        }
+        
+        .usage-name {
+            flex: 1;
+            color: var(--text-secondary);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        
+        .usage-slot {
+            color: var(--text-muted);
+            font-size: 9px;
+        }
+        
+        /* 关联资源链接样式 */
+        .related-resources {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 4px;
+            margin-top: 6px;
+        }
+        
+        .resource-link {
+            display: inline-block;
+            padding: 2px 6px;
+            background: var(--bg-medium);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            font-size: 10px;
+            font-family: var(--font-mono);
+            color: var(--accent-blue);
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+        
+        .resource-link:hover {
+            background: var(--accent-blue);
+            border-color: var(--accent-blue);
+            color: white;
+        }
+        
+        /* 跳转高亮动画 */
+        .jump-highlight {
+            animation: jumpPulse 2s ease-out;
+        }
+        
+        @keyframes jumpPulse {
+            0%, 100% {
+                background: inherit;
+            }
+            10%, 30% {
+                background: rgba(78, 154, 241, 0.3);
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="app-container fixed">
+        <!-- 顶部菜单栏 -->
+        <header class="app-menubar">
+            <div class="app-title">
+                <div class="logo"></div>
+                <span>RDC Analyzer</span>
+            </div>
+            
+            <nav class="app-menu">
+                <a href="index.html" class="menu-item">📊 概览</a>
+                <a href="textures.html" class="menu-item active">🖼️ 纹理</a>
+                <a href="shaders.html" class="menu-item">🎨 Shaders</a>
+                <a href="recommendations.html" class="menu-item">💡 优化</a>
+            </nav>
+            
+            <div class="app-meta">
+                <span>{{TEXTURE_COUNT}} 纹理</span>
+                <span>|</span>
+                <span>{{TOTAL_VRAM}}</span>
+            </div>
+        </header>
+        
+        <!-- 主工作区 -->
+        <div class="app-workspace">
+            <!-- 左侧面板 - 纹理列表 -->
+            <aside class="panel-left" id="panelLeft">
+                <div class="panel-header" onclick="togglePanel('panelLeft')">
+                    <span class="panel-title">纹理列表</span>
+                    <span class="panel-toggle">▼</span>
+                </div>
+                
+                <!-- 筛选工具栏 -->
+                <div class="filter-toolbar">
+                    <input type="text" class="search-box" id="textureSearch" placeholder="搜索纹理..." oninput="filterTextures()">
+                    <div class="filter-row" style="margin-top: 6px;">
+                        <select class="sort-select" id="sortSelect" onchange="sortTextures()">
+                            <option value="name">名称</option>
+                            <option value="size">尺寸</option>
+                            <option value="vram">VRAM</option>
+                            <option value="format">格式</option>
+                        </select>
+                        <span class="stats-badge" id="textureStats">{{TEXTURE_COUNT}} 项</span>
+                    </div>
+                    <div class="filter-chips">
+                        <span class="filter-chip" data-filter="all" onclick="setFilter('all')">全部</span>
+                        <span class="filter-chip warn" data-filter="issues" onclick="setFilter('issues')">⚠️ 问题</span>
+                        <span class="filter-chip" data-filter="large" onclick="setFilter('large')">大尺寸</span>
+                        <span class="filter-chip" data-filter="nomip" onclick="setFilter('nomip')">无 Mip</span>
+                    </div>
+                    <div class="filter-row" style="margin-top: 6px;">
+                        <a class="filter-chip" href="issues_export.json" download>导出问题 JSON</a>
+                        <a class="filter-chip" href="issues_export.csv" download>CSV</a>
+                    </div>
+                </div>
+                
+                <div class="texture-panel-summary" id="texturePanelSummary">
+                    <span class="summary-chip" id="visibleTextureCount">可见 0</span>
+                    <span class="summary-chip" id="selectedTextureHint">当前: -</span>
+                    <span class="summary-chip accent" id="filterStateHint">筛选: 全部 · 排序: VRAM</span>
+                </div>
+                <div class="data-health-banner" id="textureDataHealth" data-state="pending">
+                    数据状态：检测中...
+                </div>
+
+                <!-- 纹理列表 -->
+                <div class="texture-list" id="textureList">
+                    {{TEXTURE_LIST_HTML}}
+                </div>
+            </aside>
+            
+            <!-- 中间主画布区域 -->
+            <main class="main-canvas-area">
+                <!-- 画布工具栏 -->
+                <div class="canvas-toolbar">
+                    <div class="toolbar-group">
+                        <button class="toolbar-btn" id="zoomOut" title="缩小">➖</button>
+                        <span class="zoom-display" id="zoomLevel">100%</span>
+                        <button class="toolbar-btn" id="zoomIn" title="放大">➕</button>
+                        <button class="toolbar-btn" id="zoomFit" title="适应">⬜</button>
+                        <button class="toolbar-btn" id="flipVerticalBtn" title="上下翻转">↕</button>
+                    </div>
+                </div>
+                
+                <!-- 主画布 -->
+                <div class="canvas-viewport" id="canvasViewport">
+                    <div class="canvas-empty" id="canvasEmpty">
+                        <div class="canvas-empty-icon">🖼️</div>
+                        <div class="canvas-empty-text">请选择纹理查看预览</div>
+                        <div class="canvas-empty-subtext" id="canvasEmptySubtext">支持筛选/排序后快速定位</div>
+                    </div>
+                    <img class="preview-img hidden" id="previewImg" src="" alt="Texture Preview">
+                    
+                </div>
+            </main>
+            
+            <!-- 右侧面板 - 属性 -->
+            <aside class="panel-right" id="panelRight">
+                <div class="panel-header" onclick="togglePanel('panelRight')">
+                    <span class="panel-title">属性</span>
+                    <span class="panel-toggle">▼</span>
+                </div>
+                
+                <div class="panel-content" id="propertiesPanel">
+                    <!-- 基本信息 -->
+                    <div class="prop-section">
+                        <div class="prop-section-header" onclick="toggleSection(this)">
+                            <span class="prop-section-title">基本信息</span>
+                            <span class="prop-section-toggle">▼</span>
+                        </div>
+                        <div class="prop-section-content">
+                            <div class="prop-row">
+                                <span class="prop-label">名称</span>
+                                <span class="prop-value" id="propName">-</span>
+                            </div>
+                            <div class="prop-row">
+                                <span class="prop-label">资源 ID</span>
+                                <span class="prop-value highlight" id="propId">-</span>
+                            </div>
+                            <div class="prop-row">
+                                <span class="prop-label">尺寸</span>
+                                <span class="prop-value" id="propDimensions">-</span>
+                            </div>
+                            <div class="prop-row">
+                                <span class="prop-label">格式</span>
+                                <span class="prop-value" id="propFormat">-</span>
+                            </div>
+                            <div class="prop-row">
+                                <span class="prop-label">Mipmap</span>
+                                <span class="prop-value" id="propMipmap">-</span>
+                            </div>
+                            <div class="prop-row">
+                                <span class="prop-label">VRAM</span>
+                                <span class="prop-value highlight" id="propVram">-</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 分析建议 -->
+                    <div class="prop-section">
+                        <div class="prop-section-header" onclick="toggleSection(this)">
+                            <span class="prop-section-title">分析建议</span>
+                            <span class="prop-section-toggle">▼</span>
+                        </div>
+                        <div class="prop-section-content" id="analysisContent">
+                            <div class="analysis-tip info">选择纹理查看分析结果</div>
+                        </div>
+                    </div>
+                    
+                    <!-- 使用情况 -->
+                    <div class="prop-section">
+                        <div class="prop-section-header" onclick="toggleSection(this)">
+                            <span class="prop-section-title">使用情况</span>
+                            <span class="prop-section-toggle">▼</span>
+                        </div>
+                        <div class="prop-section-content">
+                            <div class="usage-list" id="usageList">
+                                <div class="usage-item" style="justify-content: center; color: var(--text-muted);">
+                                    选择纹理查看使用情况
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 操作按钮 -->
+                    <div style="padding: 12px;">
+                        <div class="detail-actions">
+                            <button class="detail-action-btn secondary" onclick="jumpToRenderDocTexture()">
+                                ↗ GUI
+                            </button>
+                        </div>
+                        <div class="detail-actions" style="margin-top: 6px;">
+                            <button class="detail-action-btn secondary" onclick="scrollToCurrentTexture()">
+                                📍 在列表中定位
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </aside>
+        </div>
+    </div>
+    
+    <script>
+        // ========== 状态管理 ==========
+        let currentTexture = null;
+        let currentZoom = 1;
+        let textureFlipVertical = false;
+        let currentFilter = 'all';
+        
+        // ========== 纹理数据 (P7C.4: 支持异步加载) ==========
+        let textureData = [];
+        let textureMap = new Map();
+        let dataLoaded = false;
+        
+        // 初始化纹理映射
+        function initTextureMap() {
+            textureMap.clear();
+            textureData.forEach(texture => {
+                const id = String(texture.id || "");
+                const resourceId = String(texture.resource_id || "");
+                if (id) textureMap.set(id, texture);
+                if (resourceId) textureMap.set(resourceId, texture);
+            });
+        }
+        
+        // 尝试解析内嵌数据
+        try {
+            const embeddedData = {{TEXTURE_DATA_JSON}};
+            if (embeddedData && embeddedData.length > 0) {
+                textureData = embeddedData;
+                initTextureMap();
+                dataLoaded = true;
+            }
+        } catch (e) {
+            console.log('[P7C.4] 内嵌数据为空，将异步加载外部 JSON');
+        }
+        
+        // 异步加载外部数据
+        async function loadExternalData() {
+            if (dataLoaded) return;
+            
+            try {
+                const loadingEl = document.getElementById('loadingOverlay');
+                if (loadingEl) loadingEl.classList.add('visible');
+                
+                const res = await fetch('textures_data.json');
+                if (res.ok) {
+                    textureData = await res.json();
+                    initTextureMap();
+                    console.log(`[P7C.4] 已加载 ${textureData.length} 个纹理`);
+                }
+                
+                dataLoaded = true;
+                if (loadingEl) loadingEl.classList.remove('visible');
+                
+                // 重新初始化 UI
+                initUI();
+                
+            } catch (e) {
+                console.error('[P7C.4] 数据加载失败:', e);
+            }
+        }
+
+        function getTextureById(id) {
+            return textureMap.get(String(id || "")) || null;
+        }
+
+        function getTextureListItemById(id) {
+            const key = String(id || "");
+            return document.querySelector(`.texture-item[data-id="${key}"]`) ||
+                   document.querySelector(`.texture-item[data-resource-id="${key}"]`);
+        }
+
+        function getTextureMipCount(texture) {
+            const raw = texture?.mipLevels ?? texture?.mips ?? 1;
+            const parsed = parseInt(raw, 10);
+            return Number.isFinite(parsed) ? parsed : 1;
+        }
+
+        function syncTextureItemDataset(item) {
+            const texId = String(item.dataset.id || item.dataset.resourceId || "");
+            const texture = getTextureById(texId);
+            if (!texture) return;
+
+            if (!item.dataset.id && texture.id !== undefined) {
+                item.dataset.id = String(texture.id);
+            }
+            if (!item.dataset.resourceId && texture.resource_id !== undefined) {
+                item.dataset.resourceId = String(texture.resource_id);
+            }
+            if (!item.dataset.name) {
+                item.dataset.name = String(texture.display_name || texture.name || "");
+            }
+            if (!item.dataset.format) {
+                item.dataset.format = String(texture.simple_format || texture.format || "");
+            }
+            if (!item.dataset.width && texture.width !== undefined) {
+                item.dataset.width = String(texture.width);
+            }
+            if (!item.dataset.height && texture.height !== undefined) {
+                item.dataset.height = String(texture.height);
+            }
+            if (!item.dataset.mipLevels) {
+                item.dataset.mipLevels = String(getTextureMipCount(texture));
+            }
+            if (!item.dataset.vram && texture.vram !== undefined) {
+                item.dataset.vram = String(texture.vram || 0);
+            }
+            if (!item.dataset.hasIssue) {
+                item.dataset.hasIssue = String(Boolean(texture.issues && texture.issues.length > 0));
+            }
+        }
+
+        function prepareTextureListData() {
+            document.querySelectorAll('.texture-item').forEach(syncTextureItemDataset);
+        }
+
+        function getTextureItemField(item, fieldName, fallbackSelector) {
+            const datasetValue = item.dataset[fieldName];
+            if (datasetValue !== undefined && datasetValue !== null && datasetValue !== "") {
+                return datasetValue;
+            }
+            if (!fallbackSelector) return "";
+            const el = item.querySelector(fallbackSelector);
+            return el ? (el.textContent || "") : "";
+        }
+        
+        // ========== 面板折叠 ==========
+        function togglePanel(panelId) {
+            const panel = document.getElementById(panelId);
+            panel.classList.toggle('collapsed');
+        }
+        
+        function toggleSection(header) {
+            header.parentElement.classList.toggle('collapsed');
+        }
+
+        // 生成动态 SVG 占位符（基于纹理元数据）
+        function generatePlaceholderSvg(texture) {
+            const name = texture.name || texture.display_name || 'Unknown';
+            const width = texture.width || 256;
+            const height = texture.height || 256;
+            
+            // 基于名称生成稳定颜色（与 Python 端保持一致）
+            let hash = 0;
+            for (let i = 0; i < name.length; i++) {
+                hash = ((hash * 31) + name.charCodeAt(i)) & 0xFFFFFFFF;
+            }
+            const hue = hash % 360;
+            const sat = 60 + ((hash >> 8) % 20);
+            const light = 45 + ((hash >> 16) % 15);
+            
+            const displayName = name.length > 12 ? name.substring(0, 12) : name;
+            const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
+                <rect fill="hsl(${hue},${sat}%,${light}%)" width="128" height="128"/>
+                <text x="64" y="58" text-anchor="middle" fill="rgba(255,255,255,0.9)" font-size="11" font-family="Arial">${width}×${height}</text>
+                <text x="64" y="76" text-anchor="middle" fill="rgba(255,255,255,0.6)" font-size="9" font-family="Arial">${displayName}</text>
+            </svg>`;
+            return 'data:image/svg+xml;base64,' + btoa(svg);
+        }
+
+        function renderListThumbnails() {
+            document.querySelectorAll('.texture-item').forEach(item => {
+                const texId = String(item.dataset.id || item.dataset.resourceId || "");
+                const texture = getTextureById(texId);
+                const thumbEl = item.querySelector('.texture-item-thumb, .texture-thumb');
+                if (!thumbEl) return;
+
+                if (texture && texture.thumbnail) {
+                    thumbEl.innerHTML = `<img src="${texture.thumbnail}" alt="">`;
+                } else if (texture) {
+                    // 使用动态 SVG 占位符
+                    const placeholder = generatePlaceholderSvg(texture);
+                    thumbEl.innerHTML = `<img src="${placeholder}" alt="">`;
+                } else {
+                    thumbEl.innerHTML = "<div class='thumb-placeholder'>?</div>";
+                }
+            });
+        }
+
+        // ========== 纹理选择 ==========
+        function selectTexture(id) {
+            const texture = getTextureById(id);
+            if (!texture) return;
+            
+            currentTexture = texture;
+            
+            // 更新列表选中状态
+            document.querySelectorAll('.texture-item').forEach(el => {
+                el.classList.remove('selected');
+            });
+            const item = getTextureListItemById(texture.id || texture.resource_id || id);
+            if (item) item.classList.add('selected');
+            
+            // 更新预览
+            const previewImg = document.getElementById('previewImg');
+            const canvasEmpty = document.getElementById('canvasEmpty');
+            const hasPreview = updateTexturePreview(texture, previewImg, canvasEmpty);
+            
+            // 更新属性面板（优先使用 display_name）
+            document.getElementById('propName').textContent = texture.display_name || texture.name || '-';
+            document.getElementById('propId').textContent = texture.resource_id || texture.id || '-';
+            document.getElementById('propDimensions').textContent = `${texture.width || 0}×${texture.height || 0}`;
+            document.getElementById('propFormat').textContent = texture.format || '-';
+            document.getElementById('propMipmap').innerHTML = formatMipmap(texture);
+            document.getElementById('propVram').textContent = formatBytes(texture.vram || 0);
+            
+            // 更新分析建议
+            updateAnalysis(texture);
+            
+            // 更新使用情况
+            updateUsage(texture);
+            
+            updateTexturePanelSummary();
+
+        }
+
+        function updateTexturePreview(texture, previewImg, canvasEmpty) {
+            const imgEl = previewImg || document.getElementById('previewImg');
+            const emptyEl = canvasEmpty || document.getElementById('canvasEmpty');
+            const emptyText = document.getElementById('canvasEmptyText') || emptyEl.querySelector('.canvas-empty-text');
+            const emptySubtext = document.getElementById('canvasEmptySubtext');
+
+            // 防止残留错误图标：统一先清空 src
+            imgEl.src = '';
+
+            if (texture.thumbnail) {
+                imgEl.src = texture.thumbnail;
+                imgEl.classList.remove('hidden');
+                emptyEl.classList.add('hidden');
+                emptyEl.classList.remove('no-thumbnail');
+                if (emptyText) emptyText.textContent = '请选择纹理查看预览';
+                if (emptySubtext) emptySubtext.textContent = '支持筛选/排序后快速定位';
+                applyZoom();
+                return true;
+            }
+
+            // 无缩略图数据时，显示可解释的空状态，而不是破图图标
+            imgEl.classList.add('hidden');
+            emptyEl.classList.remove('hidden');
+            emptyEl.classList.add('no-thumbnail');
+            const sizeText = `${texture.width || 0}×${texture.height || 0}`;
+            if (emptyText) emptyText.textContent = '当前纹理无可用缩略图';
+            if (emptySubtext) emptySubtext.textContent = `${sizeText} / Format ${texture.format || '-'} · 可继续查看属性与使用情况`;
+            return false;
+        }
+
+        function formatMipmap(texture) {
+            const mipCount = getTextureMipCount(texture);
+            const width = Math.max(parseInt(texture.width || 1, 10) || 1, 1);
+            const height = Math.max(parseInt(texture.height || 1, 10) || 1, 1);
+            const expectedMips = Math.floor(Math.log2(Math.max(width, height))) + 1;
+            
+            if (mipCount >= expectedMips) {
+                return `${mipCount} 级 <span class="mip-status good">✓</span>`;
+            } else if (mipCount > 1) {
+                return `${mipCount}/${expectedMips} 级 <span class="mip-status partial">⚠</span>`;
+            } else {
+                return `无 <span class="mip-status warn">⚠</span>`;
+            }
+        }
+
+        function updateAnalysis(texture) {
+            const content = document.getElementById('analysisContent');
+            let html = '';
+            
+            if (texture.issues && texture.issues.length > 0) {
+                texture.issues.forEach(issue => {
+                    const level = issue.level || 'warn';
+                    let message = issue.message || '';
+                    
+                    // 如果有关联的资源 ID 列表，渲染为可点击链接
+                    if (issue.related_ids && issue.related_ids.length > 0) {
+                        html += `<div class="analysis-tip ${level}">
+                            <div>${message}</div>
+                            <div class="related-resources">
+                                ${issue.related_ids.map(rid => 
+                                    `<span class="resource-link" onclick="selectTextureByResourceId('${rid}')" title="点击定位">${rid}</span>`
+                                ).join(' ')}
+                            </div>
+                        </div>`;
+                    } else {
+                        html += `<div class="analysis-tip ${level}">
+                            <div>${message}</div>
+                        </div>`;
+                    }
+                });
+            } else {
+                html = '<div class="analysis-tip success">✅ 未发现明显问题</div>';
+            }
+            
+            content.innerHTML = html;
+        }
+        
+        function updateUsage(texture) {
+            const list = document.getElementById('usageList');
+            const usageList = (texture.usedBy && texture.usedBy.length > 0)
+                ? texture.usedBy
+                : (texture.usages || []);
+            
+            if (usageList.length > 0) {
+                list.innerHTML = usageList.slice(0, 10).map(usage => {
+                    const eid = usage.eid || usage.eventId || usage.event_id || usage.id || usage;
+                    const name = usage.name || usage.eventName || 'Draw Call';
+                    const slot = usage.slot || 0;
+                    return `
+                    <div class="usage-item">
+                        <span class="usage-eid">EID ${eid}</span>
+                        <span class="usage-name">${name}</span>
+                        <span class="usage-slot">Slot ${slot}</span>
+                    </div>
+                `;
+                }).join('');
+                
+                if (usageList.length > 10) {
+                    list.innerHTML += `
+                        <div class="usage-item" style="justify-content: center; color: var(--text-muted);">
+                            还有 ${usageList.length - 10} 个事件...
+                        </div>
+                    `;
+                }
+            } else {
+                list.innerHTML = `
+                    <div class="usage-item" style="justify-content: center; color: var(--text-muted);">
+                        未在事件中使用
+                    </div>
+                `;
+            }
+        }
+
+        // ========== 筛选与排序 ==========
+        function filterTextures() {
+            const rawKeyword = document.getElementById('textureSearch').value || '';
+            const keyword = rawKeyword.toLowerCase().trim().replaceAll('×', 'x');
+            let visible = 0;
+            
+            document.querySelectorAll('.texture-item').forEach(item => {
+                const name = getTextureItemField(item, 'name', '.texture-item-name, .texture-name').toLowerCase();
+                const format = getTextureItemField(item, 'format', '.texture-item-meta, .texture-meta').toLowerCase();
+                const width = item.dataset.width || '';
+                const height = item.dataset.height || '';
+                const dimensions = `${width}x${height}`;
+                const resourceId = (item.dataset.resourceId || '').toLowerCase();
+                const searchBlob = `${name} ${format} ${dimensions} ${resourceId}`;
+                const matchKeyword = !keyword || searchBlob.includes(keyword);
+                const matchFilter = checkFilter(item);
+                
+                if (matchKeyword && matchFilter) {
+                    item.classList.remove('hidden');
+                    visible++;
+                } else {
+                    item.classList.add('hidden');
+                }
+            });
+            
+            document.getElementById('textureStats').textContent = `${visible} 项`;
+            updateTexturePanelSummary();
+        }
+        
+        function checkFilter(item) {
+            const width = parseInt(item.dataset.width || '0', 10) || 0;
+            const mipLevels = parseInt(item.dataset.mipLevels || item.dataset.mips || '1', 10) || 1;
+            if (currentFilter === 'all') return true;
+            if (currentFilter === 'issues') return item.dataset.hasIssue === 'true';
+            if (currentFilter === 'large') return width >= 2048;
+            if (currentFilter === 'nomip') return mipLevels <= 1;
+            return true;
+        }
+        
+        function setFilter(filter) {
+            currentFilter = filter;
+            document.querySelectorAll('.filter-chip').forEach(chip => {
+                chip.classList.toggle('active', chip.dataset.filter === filter);
+            });
+            filterTextures();
+        }
+        
+        function sortTextures() {
+            const sortBy = document.getElementById('sortSelect').value;
+            const list = document.getElementById('textureList');
+            const items = Array.from(list.querySelectorAll('.texture-item'));
+            const parseNumber = (value) => {
+                const parsed = parseInt(value || '0', 10);
+                return Number.isFinite(parsed) ? parsed : 0;
+            };
+            
+            items.sort((a, b) => {
+                switch (sortBy) {
+                    case 'name':
+                        return String(a.dataset.name || '').localeCompare(String(b.dataset.name || ''));
+                    case 'size': {
+                        const sizeA = parseNumber(a.dataset.width) * parseNumber(a.dataset.height);
+                        const sizeB = parseNumber(b.dataset.width) * parseNumber(b.dataset.height);
+                        return sizeB - sizeA;
+                    }
+                    case 'vram':
+                        return parseNumber(b.dataset.vram) - parseNumber(a.dataset.vram);
+                    case 'format':
+                        return String(a.dataset.format || '').localeCompare(String(b.dataset.format || ''));
+                    default:
+                        return 0;
+                }
+            });
+            
+            items.forEach(item => list.appendChild(item));
+            updateTexturePanelSummary();
+        }
+
+        function getTextureFilterLabel() {
+            const filterMap = {
+                all: '全部',
+                issues: '问题纹理',
+                large: '大尺寸',
+                nomip: '无 Mip'
+            };
+            return filterMap[currentFilter] || currentFilter || '全部';
+        }
+
+        function getTextureSortLabel() {
+            const sortSelect = document.getElementById('sortSelect');
+            const sortBy = sortSelect ? sortSelect.value : 'vram';
+            const sortMap = {
+                name: '名称',
+                size: '尺寸',
+                vram: 'VRAM',
+                format: '格式'
+            };
+            return sortMap[sortBy] || sortBy;
+        }
+
+        function updateTexturePanelSummary() {
+            const visible = document.querySelectorAll('.texture-item:not(.hidden)').length;
+            const visibleEl = document.getElementById('visibleTextureCount');
+            const selectedEl = document.getElementById('selectedTextureHint');
+            const filterEl = document.getElementById('filterStateHint');
+
+            if (visibleEl) {
+                visibleEl.textContent = `可见 ${visible}`;
+            }
+
+            if (selectedEl) {
+                if (currentTexture) {
+                    const name = currentTexture.display_name || currentTexture.name || ('ID ' + (currentTexture.resource_id || currentTexture.id || '-'));
+                    const compact = name.length > 22 ? `${name.slice(0, 21)}…` : name;
+                    selectedEl.textContent = `当前: ${compact}`;
+                } else {
+                    selectedEl.textContent = '当前: -';
+                }
+            }
+
+            if (filterEl) {
+                filterEl.textContent = `筛选: ${getTextureFilterLabel()} · 排序: ${getTextureSortLabel()}`;
+            }
+
+            updateTextureDataHealthBanner();
+        }
+
+        function updateTextureDataHealthBanner() {
+            const banner = document.getElementById('textureDataHealth');
+            if (!banner) return;
+
+            const total = Array.isArray(textureData) ? textureData.length : 0;
+            if (total <= 0) {
+                banner.dataset.state = 'warn';
+                banner.textContent = '数据状态：纹理元数据 0 项，请检查 textures_data.json 或导出流程。';
+                return;
+            }
+
+            const withThumb = textureData.reduce((acc, tex) => acc + ((tex && tex.thumbnail) ? 1 : 0), 0);
+            const coverage = Math.round((withThumb * 1000) / total) / 10;
+
+            if (withThumb <= 0) {
+                banner.dataset.state = 'critical';
+                banner.textContent = `数据状态：缩略图 ${withThumb}/${total}（${coverage}%），当前显示占位图。建议命令：py -3 scripts/rdc_analyzer/xml_to_bundle.py <capture.xml> --zip <capture.zip> -o <output_dir>`;
+                return;
+            }
+
+            if (withThumb < total) {
+                banner.dataset.state = 'warn';
+                banner.textContent = `数据状态：缩略图 ${withThumb}/${total}（${coverage}%），部分纹理将显示占位图。`;
+                return;
+            }
+
+            banner.dataset.state = 'good';
+            banner.textContent = `数据状态：缩略图 ${withThumb}/${total}（${coverage}%），可进行完整视觉验收。`;
+        }
+
+        function selectDefaultTexture() {
+            if (!Array.isArray(textureData) || textureData.length === 0) return;
+
+            // 首屏优先展示可读资源：先看尺寸，再看 VRAM
+            const sorted = textureData.slice().sort((a, b) => {
+                const vramA = Number(a?.vram || a?.byteSize || 0);
+                const vramB = Number(b?.vram || b?.byteSize || 0);
+                return vramB - vramA;
+            });
+
+            const readable = sorted.find((tex) => {
+                const w = Number(tex?.width || 0);
+                const h = Number(tex?.height || 0);
+                return Math.max(w, h) >= 256;
+            });
+
+            const target = readable || sorted[0];
+            if (!target) return;
+
+            const targetId = target.id || target.resource_id;
+            if (!targetId) return;
+
+            selectTexture(targetId);
+            scrollToCurrentTexture();
+        }
+
+        // ========== 缩放控制 ==========
+        document.getElementById('zoomIn').addEventListener('click', () => {
+            currentZoom = Math.min(currentZoom * 1.25, 8);
+            applyZoom();
+        });
+        
+        document.getElementById('zoomOut').addEventListener('click', () => {
+            currentZoom = Math.max(currentZoom / 1.25, 0.1);
+            applyZoom();
+        });
+        
+        document.getElementById('zoomFit').addEventListener('click', () => {
+            currentZoom = 1;
+            applyZoom();
+        });
+        
+        function applyZoom() {
+            const img = document.getElementById('previewImg');
+            const flip = textureFlipVertical ? -1 : 1;
+            img.style.transform = `scale(${currentZoom}) scaleY(${flip})`;
+            document.getElementById('zoomLevel').textContent = `${Math.round(currentZoom * 100)}%`;
+        }
+
+        document.getElementById('flipVerticalBtn').addEventListener('click', () => {
+            textureFlipVertical = !textureFlipVertical;
+            document.getElementById('flipVerticalBtn').classList.toggle('active', textureFlipVertical);
+            applyZoom();
+        });
+        
+        function jumpToRenderDocTexture() {
+            if (!currentTexture) {
+                return;
+            }
+            const targetId = currentTexture.resource_id || currentTexture.id;
+            if (!targetId) {
+                return;
+            }
+            jumpToRenderDoc('texture', targetId);
+        }
+        
+        // ========== 根据 resource_id 选中纹理（右侧面板点击联动） ==========
+        function selectTextureByResourceId(resourceId) {
+            // 在 textureData 中查找匹配的纹理
+            const texture = textureData.find(t => 
+                String(t.id) === String(resourceId) || 
+                String(t.resource_id) === String(resourceId)
+            );
+            
+            if (!texture) {
+                console.warn('Texture not found:', resourceId);
+                return false;
+            }
+            
+            // 选中纹理
+            selectTexture(texture.id || texture.resource_id);
+            
+            // 滚动左侧列表到对应位置
+            scrollToTextureInList(texture.id || texture.resource_id);
+            
+            return true;
+        }
+        
+        // ========== 滚动左侧列表到指定纹理 ==========
+        function scrollToTextureInList(textureId) {
+            const item = getTextureListItemById(textureId);
+            if (item) {
+                item.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                
+                // 添加短暂高亮效果
+                item.classList.add('jump-highlight');
+                setTimeout(() => {
+                    item.classList.remove('jump-highlight');
+                }, 2000);
+            }
+        }
+
+        // ========== 在列表中定位当前选中纹理 ==========
+        function scrollToCurrentTexture() {
+            if (currentTexture) {
+                scrollToTextureInList(currentTexture.id || currentTexture.resource_id);
+            }
+        }
+        
+        // ========== 工具函数 ==========
+        function formatBytes(bytes) {
+            if (bytes === 0) return '0 B';
+            const k = 1024;
+            const sizes = ['B', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        }
+        
+        // ========== 初始化 ==========
+        document.addEventListener('DOMContentLoaded', () => {
+            // 检查 URL 参数
+            const params = new URLSearchParams(window.location.search);
+            
+            // 初始化列表数据
+            prepareTextureListData();
+
+            // 默认按 VRAM 排序，避免首屏落在 1x1/4x4 等不可读纹理
+            const sortSelect = document.getElementById('sortSelect');
+            if (sortSelect) {
+                sortSelect.value = 'vram';
+            }
+            sortTextures();
+
+            // 应用筛选（默认 all）
+            const filter = params.get('filter') || 'all';
+            setFilter(filter);
+            renderListThumbnails();
+
+            // 如果有 id 或 target 参数，选中对应纹理
+            const id = params.get('id') || params.get('target');
+            const shouldHighlight = params.get('highlight') === 'true';
+
+            if (id) {
+                selectTexture(id);
+
+                // 如果有 highlight 参数，使用 RdcNav 高亮（延迟等待 DOM 更新）
+                if (shouldHighlight && typeof RdcNav !== 'undefined') {
+                    setTimeout(() => {
+                        const item = getTextureListItemById(id);
+                        if (item) {
+                            RdcNav.highlight(item);
+                        }
+                    }, 150);
+                }
+            } else {
+                selectDefaultTexture();
+            }
+
+            updateTexturePanelSummary();
+        });
+    </script>
+    
+    <!-- 跨页面导航模块（证据链跳转） -->
+    <script src="navigation.js"></script>
+</body>
+</html>

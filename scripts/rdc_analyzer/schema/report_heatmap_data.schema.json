@@ -1,0 +1,119 @@
+{
+  "": "https://json-schema.org/draft/2020-12/schema",
+  "": "https://renderdoc.org/schemas/report_heatmap_data.schema.json",
+  "title": "RDC Report Heatmap Data",
+  "type": "object",
+  "required": [
+    "textures",
+    "shaders",
+    "summary"
+  ],
+  "properties": {
+    "textures": {
+      "type": "object",
+      "additionalProperties": {
+        "": "#//heatmapResource"
+      }
+    },
+    "shaders": {
+      "type": "object",
+      "additionalProperties": {
+        "": "#//heatmapResource"
+      }
+    },
+    "summary": {
+      "type": "object",
+      "required": [
+        "texture_count",
+        "shader_count",
+        "total_resources"
+      ],
+      "properties": {
+        "texture_count": {
+          "type": "integer"
+        },
+        "shader_count": {
+          "type": "integer"
+        },
+        "total_resources": {
+          "type": "integer"
+        }
+      }
+    }
+  },
+  "": {
+    "heatmapEntry": {
+      "type": "object",
+      "required": [
+        "eventId",
+        "eventIdEnd",
+        "pattern",
+        "bindingType",
+        "slot",
+        "color",
+        "tooltip"
+      ],
+      "properties": {
+        "eventId": {
+          "type": "integer"
+        },
+        "eventIdEnd": {
+          "type": "integer"
+        },
+        "pattern": {
+          "type": "string"
+        },
+        "bindingType": {
+          "type": "string"
+        },
+        "slot": {
+          "type": "integer"
+        },
+        "color": {
+          "type": "string"
+        },
+        "tooltip": {
+          "type": "string"
+        }
+      }
+    },
+    "heatmapResource": {
+      "type": "object",
+      "required": [
+        "resource_id",
+        "resource_type",
+        "resource_name",
+        "entries",
+        "total_bindings",
+        "redundant_count",
+        "efficiency_score"
+      ],
+      "properties": {
+        "resource_id": {
+          "type": "string"
+        },
+        "resource_type": {
+          "type": "string"
+        },
+        "resource_name": {
+          "type": "string"
+        },
+        "entries": {
+          "type": "array",
+          "items": {
+            "": "#//heatmapEntry"
+          }
+        },
+        "total_bindings": {
+          "type": "integer"
+        },
+        "redundant_count": {
+          "type": "integer"
+        },
+        "efficiency_score": {
+          "type": "number"
+        }
+      }
+    }
+  }
+}
