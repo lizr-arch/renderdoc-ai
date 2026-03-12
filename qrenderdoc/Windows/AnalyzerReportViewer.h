@@ -115,6 +115,7 @@ private:
   ShaderStage FindKnownShaderStage(ResourceId shaderId) const;
   bool IsKnownShader(ResourceId id) const;
   void SetBusyState(bool busy, const QString &statusText);
+  void TryAutoExport();
   void UpdateIssueDetails(const AnalyzerIssue &issue);
   void ClearIssueDetails();
   void BuildIssueEvidenceForm(const AnalyzerIssue &issue);
@@ -152,6 +153,8 @@ private:
   QProcess *m_MaliProcess = NULL;
   QString m_MaliOutputPath;
   QString m_MaliGpu;
+  QString m_AutoExportDir;
+  bool m_AutoExportDone = false;
   bool m_BuildInFlight = false;
   uint32_t m_BuildSerial = 0;
 };
