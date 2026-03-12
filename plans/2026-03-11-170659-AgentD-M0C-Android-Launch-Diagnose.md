@@ -276,3 +276,27 @@ AndroidLaunchDiagnosis MainWindow::BuildAndroidLaunchDiagnosis(const ExecuteResu
     - `x64/Development/plugins/android/org.renderdoc.renderdoccmd.arm32.apk` 恢复为 `versionCode=143`, `versionName=e7f0...`。
     - `x64/Development/plugins/android/org.renderdoc.renderdoccmd.arm64.apk` 恢复为 `versionCode=143`, `versionName=e7f0...`。
   - 恢复后用户回归（Launch + Capture）结果：成功。
+
+## /do Execution Log (AgentD, 2026-03-12 - Baseline Merge Closeout)
+
+- 目标：
+  - 按用户指令完成“提交代码并合并到基线”，并交付给其它负责人复检。
+- 已完成操作（在基线 worktree `D:\\Code\\git\\renderdoc-release-main-bootstrap`）：
+  - `fetch renderdoc-ai codex/agentd/m0c-android-launch`
+  - `cherry-pick d8b61bd48` -> 基线新提交 `c7d1f9762`
+  - `cherry-pick 605ae5547` -> 基线新提交 `4b8002d75`
+  - `push renderdoc-ai HEAD:codex/integration/renderdoc-ai-20260311-linear-v2`
+- 推送结果：
+  - 远端更新成功：`2420da9cc..4b8002d75`。
+- 合流内容（最小范围）：
+  - `qrenderdoc/Windows/MainWindow.cpp`
+  - `qrenderdoc/Windows/MainWindow.h`
+  - `scripts/build_android_aligned.ps1`
+  - `plans/2026-03-11-170659-AgentD-M0C-Android-Launch-Diagnose.md`（随提交同步）
+- 校验状态：
+  - Git 级校验通过：基线分支本地 `ahead 2` 后成功推送，提交链完整。
+  - 产物级校验受限：基线目录当前无现成 `x64/Development/renderdoccmd.exe` 与 `x64/Development/plugins/android/*.apk`，无法直接执行二进制版本命令；需由后续负责人在基线工作区构建后复检。
+- 约束遵循：
+  - 未重做 preflight。
+  - 未重做 analyzer 导出。
+  - 未扩展 M0-C 之外产品范围。
