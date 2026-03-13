@@ -1,0 +1,7237 @@
+{
+  "schema_version": "snapshot.v1",
+  "meta": {
+    "capture_name": "g145_capture",
+    "xml_path": "scripts\\rdc_analyzer\\g145_capture.xml",
+    "driver": "Vulkan",
+    "source": "offline",
+    "generated_at": "2026-03-12T23:12:25.642495+08:00",
+    "generator": "scripts/rdc_analyzer/xml_to_bundle.py",
+    "availability_summary": {
+      "status": "partial",
+      "missing_count": 4
+    }
+  },
+  "preflight": {
+    "status": "warning",
+    "missing_data": [
+      {
+        "key": "timings",
+        "reason": "offline path partial data"
+      },
+      {
+        "key": "passes",
+        "reason": "offline path partial data"
+      },
+      {
+        "key": "pipelines",
+        "reason": "offline path partial data"
+      },
+      {
+        "key": "resources.textures.thumbnail",
+        "reason": "offline path partial data"
+      }
+    ],
+    "capture_recommendations": [
+      "Use MCP query to fill unavailable offline fields (timings/pipelines/full shader source)."
+    ]
+  },
+  "overview": {
+    "summary": {
+      "actions": 148,
+      "draw_calls": 136,
+      "dispatch_calls": 12,
+      "clear_calls": 0,
+      "textures": 100,
+      "buffers": 135,
+      "shaders": 0,
+      "vram_bytes_estimate": 102377984
+    },
+    "top_actions": [
+      {
+        "event_id": "1536",
+        "name": "vkCmdDispatch",
+        "type": "Dispatch",
+        "indices": 0,
+        "vertices": 0,
+        "instances": 1,
+        "marker": "",
+        "render_targets": [],
+        "depth_target": {},
+        "availability": {
+          "render_targets": "partial",
+          "depth_target": "partial"
+        }
+      },
+      {
+        "event_id": "1538",
+        "name": "vkCmdDispatch",
+        "type": "Dispatch",
+        "indices": 0,
+        "vertices": 0,
+        "instances": 1,
+        "marker": "",
+        "render_targets": [],
+        "depth_target": {},
+        "availability": {
+          "render_targets": "partial",
+          "depth_target": "partial"
+        }
+      },
+      {
+        "event_id": "1547",
+        "name": "vkCmdDispatch",
+        "type": "Dispatch",
+        "indices": 0,
+        "vertices": 0,
+        "instances": 1,
+        "marker": "",
+        "render_targets": [],
+        "depth_target": {},
+        "availability": {
+          "render_targets": "partial",
+          "depth_target": "partial"
+        }
+      },
+      {
+        "event_id": "1555",
+        "name": "vkCmdDispatch",
+        "type": "Dispatch",
+        "indices": 0,
+        "vertices": 0,
+        "instances": 1,
+        "marker": "",
+        "render_targets": [],
+        "depth_target": {},
+        "availability": {
+          "render_targets": "partial",
+          "depth_target": "partial"
+        }
+      },
+      {
+        "event_id": "1563",
+        "name": "vkCmdDispatch",
+        "type": "Dispatch",
+        "indices": 0,
+        "vertices": 0,
+        "instances": 1,
+        "marker": "",
+        "render_targets": [],
+        "depth_target": {},
+        "availability": {
+          "render_targets": "partial",
+          "depth_target": "partial"
+        }
+      },
+      {
+        "event_id": "1567",
+        "name": "vkCmdDispatch",
+        "type": "Dispatch",
+        "indices": 0,
+        "vertices": 0,
+        "instances": 1,
+        "marker": "",
+        "render_targets": [],
+        "depth_target": {},
+        "availability": {
+          "render_targets": "partial",
+          "depth_target": "partial"
+        }
+      },
+      {
+        "event_id": "1572",
+        "name": "vkCmdDispatch",
+        "type": "Dispatch",
+        "indices": 0,
+        "vertices": 0,
+        "instances": 1,
+        "marker": "",
+        "render_targets": [],
+        "depth_target": {},
+        "availability": {
+          "render_targets": "partial",
+          "depth_target": "partial"
+        }
+      },
+      {
+        "event_id": "1576",
+        "name": "vkCmdDispatch",
+        "type": "Dispatch",
+        "indices": 0,
+        "vertices": 0,
+        "instances": 1,
+        "marker": "",
+        "render_targets": [],
+        "depth_target": {},
+        "availability": {
+          "render_targets": "partial",
+          "depth_target": "partial"
+        }
+      },
+      {
+        "event_id": "1600",
+        "name": "vkCmdDrawIndexed",
+        "type": "Draw",
+        "indices": 258,
+        "vertices": 0,
+        "instances": 1,
+        "marker": "",
+        "render_targets": [],
+        "depth_target": {
+          "resource_id": "116949",
+          "aspect": "VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT"
+        },
+        "availability": {
+          "render_targets": "partial",
+          "depth_target": "partial"
+        }
+      },
+      {
+        "event_id": "1604",
+        "name": "vkCmdDrawIndexed",
+        "type": "Draw",
+        "indices": 258,
+        "vertices": 0,
+        "instances": 1,
+        "marker": "",
+        "render_targets": [],
+        "depth_target": {
+          "resource_id": "116949",
+          "aspect": "VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT"
+        },
+        "availability": {
+          "render_targets": "partial",
+          "depth_target": "partial"
+        }
+      }
+    ],
+    "availability": {
+      "status": "partial"
+    }
+  },
+  "timings": {},
+  "actions": [
+    {
+      "event_id": "1536",
+      "name": "vkCmdDispatch",
+      "type": "Dispatch",
+      "indices": 0,
+      "vertices": 0,
+      "instances": 1,
+      "marker": "",
+      "render_targets": [],
+      "depth_target": {},
+      "availability": {
+        "render_targets": "partial",
+        "depth_target": "partial"
+      }
+    },
+    {
+      "event_id": "1538",
+      "name": "vkCmdDispatch",
+      "type": "Dispatch",
+      "indices": 0,
+      "vertices": 0,
+      "instances": 1,
+      "marker": "",
+      "render_targets": [],
+      "depth_target": {},
+      "availability": {
+        "render_targets": "partial",
+        "depth_target": "partial"
+      }
+    },
+    {
+      "event_id": "1547",
+      "name": "vkCmdDispatch",
+      "type": "Dispatch",
+      "indices": 0,
+      "vertices": 0,
+      "instances": 1,
+      "marker": "",
+      "render_targets": [],
+      "depth_target": {},
+      "availability": {
+        "render_targets": "partial",
+        "depth_target": "partial"
+      }
+    },
+    {
+      "event_id": "1555",
+      "name": "vkCmdDispatch",
+      "type": "Dispatch",
+      "indices": 0,
+      "vertices": 0,
+      "instances": 1,
+      "marker": "",
+      "render_targets": [],
+      "depth_target": {},
+      "availability": {
+        "render_targets": "partial",
+        "depth_target": "partial"
+      }
+    },
+    {
+      "event_id": "1563",
+      "name": "vkCmdDispatch",
+      "type": "Dispatch",
+      "indices": 0,
+      "vertices": 0,
+      "instances": 1,
+      "marker": "",
+      "render_targets": [],
+      "depth_target": {},
+      "availability": {
+        "render_targets": "partial",
+        "depth_target": "partial"
+      }
+    },
+    {
+      "event_id": "1567",
+      "name": "vkCmdDispatch",
+      "type": "Dispatch",
+      "indices": 0,
+      "vertices": 0,
+      "instances": 1,
+      "marker": "",
+      "render_targets": [],
+      "depth_target": {},
+      "availability": {
+        "render_targets": "partial",
+        "depth_target": "partial"
+      }
+    },
+    {
+      "event_id": "1572",
+      "name": "vkCmdDispatch",
+      "type": "Dispatch",
+      "indices": 0,
+      "vertices": 0,
+      "instances": 1,
+      "marker": "",
+      "render_targets": [],
+      "depth_target": {},
+      "availability": {
+        "render_targets": "partial",
+        "depth_target": "partial"
+      }
+    },
+    {
+      "event_id": "1576",
+      "name": "vkCmdDispatch",
+      "type": "Dispatch",
+      "indices": 0,
+      "vertices": 0,
+      "instances": 1,
+      "marker": "",
+      "render_targets": [],
+      "depth_target": {},
+      "availability": {
+        "render_targets": "partial",
+        "depth_target": "partial"
+      }
+    },
+    {
+      "event_id": "1600",
+      "name": "vkCmdDrawIndexed",
+      "type": "Draw",
+      "indices": 258,
+      "vertices": 0,
+      "instances": 1,
+      "marker": "",
+      "render_targets": [],
+      "depth_target": {
+        "resource_id": "116949",
+        "aspect": "VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT"
+      },
+      "availability": {
+        "render_targets": "partial",
+        "depth_target": "partial"
+      }
+    },
+    {
+      "event_id": "1604",
+      "name": "vkCmdDrawIndexed",
+      "type": "Draw",
+      "indices": 258,
+      "vertices": 0,
+      "instances": 1,
+      "marker": "",
+      "render_targets": [],
+      "depth_target": {
+        "resource_id": "116949",
+        "aspect": "VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT"
+      },
+      "availability": {
+        "render_targets": "partial",
+        "depth_target": "partial"
+      }
+    },
+    {
+      "event_id": "1610",
+      "name": "vkCmdDrawIndexed",
+      "type": "Draw",
+      "indices": 1896,
+      "vertices": 0,
+      "instances": 1,
+      "marker": "",
+      "render_targets": [],
+      "depth_target": {
+        "resource_id": "116949",
+        "aspect": "VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT"
+      },
+      "availability": {
+        "render_targets": "partial",
+        "depth_target": "partial"
+      }
+    },
+    {
+      "event_id": "1614",
+      "name": "vkCmdDrawIndexed",
+      "type": "Draw",
+      "indices": 2484,
+      "vertices": 0,
+      "instances": 1,
+      "marker": "",
+      "render_targets": [],
+      "depth_target": {
+        "resource_id": "116949",
+        "aspect": "VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT"
+      },
+      "availability": {
+        "render_targets": "partial",
+        "depth_target": "partial"
+      }
+    },
+    {
+      "event_id": "1621",
+      "name": "vkCmdDrawIndexed",
+      "type": "Draw",
+      "indices": 1734,
+      "vertices": 0,
+      "instances": 1,
+      "marker": "",
+      "render_targets": [],
+      "depth_target": {
+        "resource_id": "116949",
+        "aspect": "VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT"
+      },
+      "availability": {
+        "render_targets": "partial",
+        "depth_target": "partial"
+      }
+    },
+    {
+      "event_id": "1625",
+      "name": "vkCmdDrawIndexed",
+      "type": "Draw",
+      "indices": 10458,
+      "vertices": 0,
+      "instances": 1,
+      "marker": "",
+      "render_targets": [],
+      "depth_target": {
+        "resource_id": "116949",
+        "aspect": "VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT"
+      },
+      "availability": {
+        "render_targets": "partial",
+        "depth_target": "partial"
+      }
+    },
+    {
+      "event_id": "1629",
+      "name": "vkCmdDrawIndexed",
+      "type": "Draw",
+      "indices": 1734,
+      "vertices": 0,
+      "instances": 1,
+      "marker": "",
+      "render_targets": [],
+      "depth_target": {
+        "resource_id": "116949",
+        "aspect": "VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT"
+      },
+      "availability": {
+        "render_targets": "partial",
+        "depth_target": "partial"
+      }
+    },
+    {
+      "event_id": "1633",
+      "name": "vkCmdDrawIndexed",
+      "type": "Draw",
+      "indices": 10458,
+      "vertices": 0,
+      "instances": 1,
+      "marker": "",
+      "render_targets": [],
+      "depth_target": {
+        "resource_id": "116949",
+        "aspect": "VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT"
+      },
+      "availability": {
+        "render_targets": "partial",
+        "depth_target": "partial"
+      }
+    },
+    {
+      "event_id": "1639",
+      "name": "vkCmdDrawIndexed",
+      "type": "Draw",
+      "indices": 666,
+      "vertices": 0,
+      "instances": 1,
+      "marker": "",
+      "render_targets": [],
+      "depth_target": {
+        "resource_id": "116949",
+        "aspect": "VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT"
+      },
+      "availability": {
+        "render_targets": "partial",
+        "depth_target": "partial"
+      }
+    },
+    {
+      "event_id": "1643",
+      "name": "vkCmdDrawIndexed",
+      "type": "Draw",
+      "indices": 8793,
+      "vertices": 0,
+      "instances": 1,
+      "marker": "",
+      "render_targets": [],
+      "depth_target": {
+        "resource_id": "116949",
+        "aspect": "VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT"
+      },
+      "availability": {
+        "render_targets": "partial",
+        "depth_target": "partial"
+      }
+    },
+    {
+      "event_id": "1650",
+      "name": "vkCmdDrawIndexed",
+      "type": "Draw",
+      "indices": 1056,
+      "vertices": 0,
+      "instances": 1,
+      "marker": "",
+      "render_targets": [],
+      "depth_target": {
+        "resource_id": "116949",
+        "aspect": "VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT"
+      },
+      "availability": {
+        "render_targets": "partial",
+        "depth_target": "partial"
+      }
+    },
+    {
+      "event_id": "1654",
+      "name": "vkCmdDrawIndexed",
+      "type": "Draw",
+      "indices": 198,
+      "vertices": 0,
+      "instances": 1,
+      "marker": "",
+      "render_targets": [],
+      "depth_target": {
+        "resource_id": "116949",
+        "aspect": "VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT"
+      },
+      "availability": {
+        "render_targets": "partial",
+        "depth_target": "partial"
+      }
+    },
+    {
+      "event_id": "1658",
+      "name": "vkCmdDrawIndexed",
+      "type": "Draw",
+      "indices": 1872,
+      "vertices": 0,
+      "instances": 1,
+      "marker": "",
+      "render_targets": [],
+      "depth_target": {
+        "resource_id": "116949",
+        "aspect": "VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT"
+      },
+      "availability": {
+        "render_targets": "partial",
+        "depth_target": "partial"
+      }
+    },
+    {
+      "event_id": "1662",
+      "name": "vkCmdDrawIndexed",
+      "type": "Draw",
+      "indices": 522,
+      "vertices": 0,
+      "instances": 1,
+      "marker": "",
+      "render_targets": [],
+      "depth_target": {
+        "resource_id": "116949",
+        "aspect": "VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT"
+      },
+      "availability": {
+        "render_targets": "partial",
+        "depth_target": "partial"
+      }
+    },
+    {
+      "event_id": "1666",
+      "name": "vkCmdDrawIndexed",
+      "type": "Draw",
+      "indices": 420,
+      "vertices": 0,
+      "instances": 1,
+      "marker": "",
+      "render_targets": [],
+      "depth_target": {
+        "resource_id": "116949",
+        "aspect": "VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT"
+      },
+      "availability": {
+        "render_targets": "partial",
+        "depth_target": "partial"
+      }
+    },
+    {
+      "event_id": "1670",
+      "name": "vkCmdDrawIndexed",
+      "type": "Draw",
+      "indices": 288,
+      "vertices": 0,
+      "instances": 1,
+      "marker": "",
+      "render_targets": [],
+      "depth_target": {
+        "resource_id": "116949",
+        "aspect": "VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT"
+      },
+      "availability": {
+        "render_targets": "partial",
+        "depth_target": "partial"
+      }
+    },
+    {
+      "event_id": "1674",
+      "name": "vkCmdDrawIndexed",
+      "type": "Draw",
+      "indices": 876,
+      "vertices": 0,
+      "instances": 1,
+      "marker": "",
+      "render_targets": [],
+      "depth_target": {
+        "resource_id": "116949",
+        "aspect": "VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT"
+      },
+      "availability": {
+        "render_targets": "partial",
+        "depth_target": "partial"
+      }
+    },
+    {
+      "event_id": "1678",
+      "name": "vkCmdDrawIndexed",
+      "type": "Draw",
+      "indices": 276,
+      "vertices": 0,
+      "instances": 1,
+      "marker": "",
+      "render_targets": [],
+      "depth_target": {
+        "resource_id": "116949",
+        "aspect": "VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT"
+      },
+      "availability": {
+        "render_targets": "partial",
+        "depth_target": "partial"
+      }
+    },
+    {
+      "event_id": "1684",
+      "name": "vkCmdDrawIndexed",
+      "type": "Draw",
+      "indices": 5670,
+      "vertices": 0,
+      "instances": 1,
+      "marker": "",
+      "render_targets": [],
+      "depth_target": {
+        "resource_id": "116949",
+        "aspect": "VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT"
+      },
+      "availability": {
+        "render_targets": "partial",
+        "depth_target": "partial"
+      }
+    },
+    {
+      "event_id": "1690",
+      "name": "vkCmdDrawIndexed",
+      "type": "Draw",
+      "indices": 6252,
+      "vertices": 0,
+      "instances": 1,
+      "marker": "",
+      "render_targets": [],
+      "depth_target": {
+        "resource_id": "116949",
+        "aspect": "VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT"
+      },
+      "availability": {
+        "render_targets": "partial",
+        "depth_target": "partial"
+      }
+    },
+    {
+      "event_id": "1698",
+      "name": "vkCmdDrawIndexed",
+      "type": "Draw",
+      "indices": 1944,
+      "vertices": 0,
+      "instances": 1,
+      "marker": "",
+      "render_targets": [
+        {
+          "resource_id": "92897",
+          "slot": 0
+        },
+        {
+          "resource_id": "92899",
+          "slot": 1
+        },
+        {
+          "resource_id": "92903",
+          "slot": 2
+        },
+        {
+          "resource_id": "92905",
+          "slot": 3
+        }
+      ],
+      "depth_target": {
+        "resource_id": "92907",
+        "aspect": "VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT"
+      },
+      "availability": {
+        "render_targets": "partial",
+        "depth_target": "partial"
+      }
+    },
+    {
+      "event_id": "1703",
+      "name": "vkCmdDrawIndexed",
+      "type": "Draw",
+      "indices": 786,
+      "vertices": 0,
+      "instances": 1,
+      "marker": "",
+      "render_targets": [
+        {
+          "resource_id": "92897",
+          "slot": 0
+        },
+        {
+          "resource_id": "92899",
+          "slot": 1
+        },
+        {
+          "resource_id": "92903",
+          "slot": 2
+        },
+        {
+          "resource_id": "92905",
+          "slot": 3
+        }
+      ],
+      "depth_target": {
+        "resource_id": "92907",
+        "aspect": "VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT"
+      },
+      "availability": {
+        "render_targets": "partial",
+        "depth_target": "partial"
+      }
+    },
+    {
+      "event_id": "1707",
+      "name": "vkCmdDrawIndexed",
+      "type": "Draw",
+      "indices": 2010,
+      "vertices": 0,
+      "instances": 1,
+      "marker": "",
+      "render_targets": [
+        {
+          "resource_id": "92897",
+          "slot": 0
+        },
+        {
+          "resource_id": "92899",
+          "slot": 1
+        },
+        {
+          "resource_id": "92903",
+          "slot": 2
+        },
+        {
+          "resource_id": "92905",
+          "slot": 3
+        }
+      ],
+      "depth_target": {
+        "resource_id": "92907",
+        "aspect": "VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT"
+      },
+      "availability": {
+        "render_targets": "partial",
+        "depth_target": "partial"
+      }
+    },
+    {
+      "event_id": "1714",
+      "name": "vkCmdDrawIndexed",
+      "type": "Draw",
+      "indices": 5670,
+      "vertices": 0,
+      "instances": 1,
+      "marker": "",
+      "render_targets": [
+        {
+          "resource_id": "92897",
+          "slot": 0
+        },
+        {
+          "resource_id": "92899",
+          "slot": 1
+        },
+        {
+          "resource_id": "92903",
+          "slot": 2
+        },
+        {
+          "resource_id": "92905",
+          "slot": 3
+        }
+      ],
+      "depth_target": {
+        "resource_id": "92907",
+        "aspect": "VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT"
+      },
+      "availability": {
+        "render_targets": "partial",
+        "depth_target": "partial"
+      }
+    },
+    {
+      "event_id": "1720",
+      "name": "vkCmdDrawIndexed",
+      "type": "Draw",
+      "indices": 8793,
+      "vertices": 0,
+      "instances": 1,
+      "marker": "",
+      "render_targets": [
+        {
+          "resource_id": "92897",
+          "slot": 0
+        },
+        {
+          "resource_id": "92899",
+          "slot": 1
+        },
+        {
+          "resource_id": "92903",
+          "slot": 2
+        },
+        {
+          "resource_id": "92905",
+          "slot": 3
+        }
+      ],
+      "depth_target": {
+        "resource_id": "92907",
+        "aspect": "VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT"
+      },
+      "availability": {
+        "render_targets": "partial",
+        "depth_target": "partial"
+      }
+    },
+    {
+      "event_id": "1724",
+      "name": "vkCmdDrawIndexed",
+      "type": "Draw",
+      "indices": 666,
+      "vertices": 0,
+      "instances": 1,
+      "marker": "",
+      "render_targets": [
+        {
+          "resource_id": "92897",
+          "slot": 0
+        },
+        {
+          "resource_id": "92899",
+          "slot": 1
+        },
+        {
+          "resource_id": "92903",
+          "slot": 2
+        },
+        {
+          "resource_id": "92905",
+          "slot": 3
+        }
+      ],
+      "depth_target": {
+        "resource_id": "92907",
+        "aspect": "VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT"
+      },
+      "availability": {
+        "render_targets": "partial",
+        "depth_target": "partial"
+      }
+    },
+    {
+      "event_id": "1730",
+      "name": "vkCmdDrawIndexed",
+      "type": "Draw",
+      "indices": 876,
+      "vertices": 0,
+      "instances": 1,
+      "marker": "",
+      "render_targets": [
+        {
+          "resource_id": "92897",
+          "slot": 0
+        },
+        {
+          "resource_id": "92899",
+          "slot": 1
+        },
+        {
+          "resource_id": "92903",
+          "slot": 2
+        },
+        {
+          "resource_id": "92905",
+          "slot": 3
+        }
+      ],
+      "depth_target": {
+        "resource_id": "92907",
+        "aspect": "VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT"
+      },
+      "availability": {
+        "render_targets": "partial",
+        "depth_target": "partial"
+      }
+    },
+    {
+      "event_id": "1734",
+      "name": "vkCmdDrawIndexed",
+      "type": "Draw",
+      "indices": 1872,
+      "vertices": 0,
+      "instances": 1,
+      "marker": "",
+      "render_targets": [
+        {
+          "resource_id": "92897",
+          "slot": 0
+        },
+        {
+          "resource_id": "92899",
+          "slot": 1
+        },
+        {
+          "resource_id": "92903",
+          "slot": 2
+        },
+        {
+          "resource_id": "92905",
+          "slot": 3
+        }
+      ],
+      "depth_target": {
+        "resource_id": "92907",
+        "aspect": "VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT"
+      },
+      "availability": {
+        "render_targets": "partial",
+        "depth_target": "partial"
+      }
+    },
+    {
+      "event_id": "1738",
+      "name": "vkCmdDrawIndexed",
+      "type": "Draw",
+      "indices": 198,
+      "vertices": 0,
+      "instances": 1,
+      "marker": "",
+      "render_targets": [
+        {
+          "resource_id": "92897",
+          "slot": 0
+        },
+        {
+          "resource_id": "92899",
+          "slot": 1
+        },
+        {
+          "resource_id": "92903",
+          "slot": 2
+        },
+        {
+          "resource_id": "92905",
+          "slot": 3
+        }
+      ],
+      "depth_target": {
+        "resource_id": "92907",
+        "aspect": "VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT"
+      },
+      "availability": {
+        "render_targets": "partial",
+        "depth_target": "partial"
+      }
+    },
+    {
+      "event_id": "1742",
+      "name": "vkCmdDrawIndexed",
+      "type": "Draw",
+      "indices": 276,
+      "vertices": 0,
+      "instances": 1,
+      "marker": "",
+      "render_targets": [
+        {
+          "resource_id": "92897",
+          "slot": 0
+        },
+        {
+          "resource_id": "92899",
+          "slot": 1
+        },
+        {
+          "resource_id": "92903",
+          "slot": 2
+        },
+        {
+          "resource_id": "92905",
+          "slot": 3
+        }
+      ],
+      "depth_target": {
+        "resource_id": "92907",
+        "aspect": "VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT"
+      },
+      "availability": {
+        "render_targets": "partial",
+        "depth_target": "partial"
+      }
+    },
+    {
+      "event_id": "1746",
+      "name": "vkCmdDrawIndexed",
+      "type": "Draw",
+      "indices": 522,
+      "vertices": 0,
+      "instances": 1,
+      "marker": "",
+      "render_targets": [
+        {
+          "resource_id": "92897",
+          "slot": 0
+        },
+        {
+          "resource_id": "92899",
+          "slot": 1
+        },
+        {
+          "resource_id": "92903",
+          "slot": 2
+        },
+        {
+          "resource_id": "92905",
+          "slot": 3
+        }
+      ],
+      "depth_target": {
+        "resource_id": "92907",
+        "aspect": "VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT"
+      },
+      "availability": {
+        "render_targets": "partial",
+        "depth_target": "partial"
+      }
+    },
+    {
+      "event_id": "1750",
+      "name": "vkCmdDrawIndexed",
+      "type": "Draw",
+      "indices": 1056,
+      "vertices": 0,
+      "instances": 1,
+      "marker": "",
+      "render_targets": [
+        {
+          "resource_id": "92897",
+          "slot": 0
+        },
+        {
+          "resource_id": "92899",
+          "slot": 1
+        },
+        {
+          "resource_id": "92903",
+          "slot": 2
+        },
+        {
+          "resource_id": "92905",
+          "slot": 3
+        }
+      ],
+      "depth_target": {
+        "resource_id": "92907",
+        "aspect": "VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT"
+      },
+      "availability": {
+        "render_targets": "partial",
+        "depth_target": "partial"
+      }
+    },
+    {
+      "event_id": "1754",
+      "name": "vkCmdDrawIndexed",
+      "type": "Draw",
+      "indices": 288,
+      "vertices": 0,
+      "instances": 1,
+      "marker": "",
+      "render_targets": [
+        {
+          "resource_id": "92897",
+          "slot": 0
+        },
+        {
+          "resource_id": "92899",
+          "slot": 1
+        },
+        {
+          "resource_id": "92903",
+          "slot": 2
+        },
+        {
+          "resource_id": "92905",
+          "slot": 3
+        }
+      ],
+      "depth_target": {
+        "resource_id": "92907",
+        "aspect": "VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT"
+      },
+      "availability": {
+        "render_targets": "partial",
+        "depth_target": "partial"
+      }
+    },
+    {
+      "event_id": "1758",
+      "name": "vkCmdDrawIndexed",
+      "type": "Draw",
+      "indices": 420,
+      "vertices": 0,
+      "instances": 1,
+      "marker": "",
+      "render_targets": [
+        {
+          "resource_id": "92897",
+          "slot": 0
+        },
+        {
+          "resource_id": "92899",
+          "slot": 1
+        },
+        {
+          "resource_id": "92903",
+          "slot": 2
+        },
+        {
+          "resource_id": "92905",
+          "slot": 3
+        }
+      ],
+      "depth_target": {
+        "resource_id": "92907",
+        "aspect": "VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT"
+      },
+      "availability": {
+        "render_targets": "partial",
+        "depth_target": "partial"
+      }
+    },
+    {
+      "event_id": "1764",
+      "name": "vkCmdDrawIndexed",
+      "type": "Draw",
+      "indices": 6252,
+      "vertices": 0,
+      "instances": 1,
+      "marker": "",
+      "render_targets": [
+        {
+          "resource_id": "92897",
+          "slot": 0
+        },
+        {
+          "resource_id": "92899",
+          "slot": 1
+        },
+        {
+          "resource_id": "92903",
+          "slot": 2
+        },
+        {
+          "resource_id": "92905",
+          "slot": 3
+        }
+      ],
+      "depth_target": {
+        "resource_id": "92907",
+        "aspect": "VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT"
+      },
+      "availability": {
+        "render_targets": "partial",
+        "depth_target": "partial"
+      }
+    },
+    {
+      "event_id": "1770",
+      "name": "vkCmdDrawIndexed",
+      "type": "Draw",
+      "indices": 1758,
+      "vertices": 0,
+      "instances": 1,
+      "marker": "",
+      "render_targets": [
+        {
+          "resource_id": "92897",
+          "slot": 0
+        },
+        {
+          "resource_id": "92899",
+          "slot": 1
+        },
+        {
+          "resource_id": "92903",
+          "slot": 2
+        },
+        {
+          "resource_id": "92905",
+          "slot": 3
+        }
+      ],
+      "depth_target": {
+        "resource_id": "92907",
+        "aspect": "VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT"
+      },
+      "availability": {
+        "render_targets": "partial",
+        "depth_target": "partial"
+      }
+    },
+    {
+      "event_id": "1774",
+      "name": "vkCmdDrawIndexed",
+      "type": "Draw",
+      "indices": 1080,
+      "vertices": 0,
+      "instances": 1,
+      "marker": "",
+      "render_targets": [
+        {
+          "resource_id": "92897",
+          "slot": 0
+        },
+        {
+          "resource_id": "92899",
+          "slot": 1
+        },
+        {
+          "resource_id": "92903",
+          "slot": 2
+        },
+        {
+          "resource_id": "92905",
+          "slot": 3
+        }
+      ],
+      "depth_target": {
+        "resource_id": "92907",
+        "aspect": "VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT"
+      },
+      "availability": {
+        "render_targets": "partial",
+        "depth_target": "partial"
+      }
+    },
+    {
+      "event_id": "1778",
+      "name": "vkCmdDrawIndexed",
+      "type": "Draw",
+      "indices": 1416,
+      "vertices": 0,
+      "instances": 1,
+      "marker": "",
+      "render_targets": [
+        {
+          "resource_id": "92897",
+          "slot": 0
+        },
+        {
+          "resource_id": "92899",
+          "slot": 1
+        },
+        {
+          "resource_id": "92903",
+          "slot": 2
+        },
+        {
+          "resource_id": "92905",
+          "slot": 3
+        }
+      ],
+      "depth_target": {
+        "resource_id": "92907",
+        "aspect": "VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT"
+      },
+      "availability": {
+        "render_targets": "partial",
+        "depth_target": "partial"
+      }
+    },
+    {
+      "event_id": "1782",
+      "name": "vkCmdDrawIndexed",
+      "type": "Draw",
+      "indices": 1758,
+      "vertices": 0,
+      "instances": 1,
+      "marker": "",
+      "render_targets": [
+        {
+          "resource_id": "92897",
+          "slot": 0
+        },
+        {
+          "resource_id": "92899",
+          "slot": 1
+        },
+        {
+          "resource_id": "92903",
+          "slot": 2
+        },
+        {
+          "resource_id": "92905",
+          "slot": 3
+        }
+      ],
+      "depth_target": {
+        "resource_id": "92907",
+        "aspect": "VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT"
+      },
+      "availability": {
+        "render_targets": "partial",
+        "depth_target": "partial"
+      }
+    },
+    {
+      "event_id": "1789",
+      "name": "vkCmdDrawIndexed",
+      "type": "Draw",
+      "indices": 10458,
+      "vertices": 0,
+      "instances": 1,
+      "marker": "",
+      "render_targets": [
+        {
+          "resource_id": "92897",
+          "slot": 0
+        },
+        {
+          "resource_id": "92899",
+          "slot": 1
+        },
+        {
+          "resource_id": "92903",
+          "slot": 2
+        },
+        {
+          "resource_id": "92905",
+          "slot": 3
+        }
+      ],
+      "depth_target": {
+        "resource_id": "92907",
+        "aspect": "VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT"
+      },
+      "availability": {
+        "render_targets": "partial",
+        "depth_target": "partial"
+      }
+    },
+    {
+      "event_id": "1793",
+      "name": "vkCmdDrawIndexed",
+      "type": "Draw",
+      "indices": 1734,
+      "vertices": 0,
+      "instances": 1,
+      "marker": "",
+      "render_targets": [
+        {
+          "resource_id": "92897",
+          "slot": 0
+        },
+        {
+          "resource_id": "92899",
+          "slot": 1
+        },
+        {
+          "resource_id": "92903",
+          "slot": 2
+        },
+        {
+          "resource_id": "92905",
+          "slot": 3
+        }
+      ],
+      "depth_target": {
+        "resource_id": "92907",
+        "aspect": "VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT"
+      },
+      "availability": {
+        "render_targets": "partial",
+        "depth_target": "partial"
+      }
+    },
+    {
+      "event_id": "1797",
+      "name": "vkCmdDrawIndexed",
+      "type": "Draw",
+      "indices": 10458,
+      "vertices": 0,
+      "instances": 1,
+      "marker": "",
+      "render_targets": [
+        {
+          "resource_id": "92897",
+          "slot": 0
+        },
+        {
+          "resource_id": "92899",
+          "slot": 1
+        },
+        {
+          "resource_id": "92903",
+          "slot": 2
+        },
+        {
+          "resource_id": "92905",
+          "slot": 3
+        }
+      ],
+      "depth_target": {
+        "resource_id": "92907",
+        "aspect": "VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT"
+      },
+      "availability": {
+        "render_targets": "partial",
+        "depth_target": "partial"
+      }
+    },
+    {
+      "event_id": "1801",
+      "name": "vkCmdDrawIndexed",
+      "type": "Draw",
+      "indices": 1734,
+      "vertices": 0,
+      "instances": 1,
+      "marker": "",
+      "render_targets": [
+        {
+          "resource_id": "92897",
+          "slot": 0
+        },
+        {
+          "resource_id": "92899",
+          "slot": 1
+        },
+        {
+          "resource_id": "92903",
+          "slot": 2
+        },
+        {
+          "resource_id": "92905",
+          "slot": 3
+        }
+      ],
+      "depth_target": {
+        "resource_id": "92907",
+        "aspect": "VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT"
+      },
+      "availability": {
+        "render_targets": "partial",
+        "depth_target": "partial"
+      }
+    },
+    {
+      "event_id": "1807",
+      "name": "vkCmdDrawIndexed",
+      "type": "Draw",
+      "indices": 2601,
+      "vertices": 0,
+      "instances": 1,
+      "marker": "",
+      "render_targets": [
+        {
+          "resource_id": "92897",
+          "slot": 0
+        },
+        {
+          "resource_id": "92899",
+          "slot": 1
+        },
+        {
+          "resource_id": "92903",
+          "slot": 2
+        },
+        {
+          "resource_id": "92905",
+          "slot": 3
+        }
+      ],
+      "depth_target": {
+        "resource_id": "92907",
+        "aspect": "VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT"
+      },
+      "availability": {
+        "render_targets": "partial",
+        "depth_target": "partial"
+      }
+    },
+    {
+      "event_id": "1814",
+      "name": "vkCmdDrawIndexed",
+      "type": "Draw",
+      "indices": 258,
+      "vertices": 0,
+      "instances": 1,
+      "marker": "",
+      "render_targets": [
+        {
+          "resource_id": "92897",
+          "slot": 0
+        },
+        {
+          "resource_id": "92899",
+          "slot": 1
+        },
+        {
+          "resource_id": "92903",
+          "slot": 2
+        },
+        {
+          "resource_id": "92905",
+          "slot": 3
+        }
+      ],
+      "depth_target": {
+        "resource_id": "92907",
+        "aspect": "VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT"
+      },
+      "availability": {
+        "render_targets": "partial",
+        "depth_target": "partial"
+      }
+    },
+    {
+      "event_id": "1818",
+      "name": "vkCmdDrawIndexed",
+      "type": "Draw",
+      "indices": 258,
+      "vertices": 0,
+      "instances": 1,
+      "marker": "",
+      "render_targets": [
+        {
+          "resource_id": "92897",
+          "slot": 0
+        },
+        {
+          "resource_id": "92899",
+          "slot": 1
+        },
+        {
+          "resource_id": "92903",
+          "slot": 2
+        },
+        {
+          "resource_id": "92905",
+          "slot": 3
+        }
+      ],
+      "depth_target": {
+        "resource_id": "92907",
+        "aspect": "VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT"
+      },
+      "availability": {
+        "render_targets": "partial",
+        "depth_target": "partial"
+      }
+    },
+    {
+      "event_id": "1824",
+      "name": "vkCmdDrawIndexed",
+      "type": "Draw",
+      "indices": 2484,
+      "vertices": 0,
+      "instances": 1,
+      "marker": "",
+      "render_targets": [
+        {
+          "resource_id": "92897",
+          "slot": 0
+        },
+        {
+          "resource_id": "92899",
+          "slot": 1
+        },
+        {
+          "resource_id": "92903",
+          "slot": 2
+        },
+        {
+          "resource_id": "92905",
+          "slot": 3
+        }
+      ],
+      "depth_target": {
+        "resource_id": "92907",
+        "aspect": "VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT"
+      },
+      "availability": {
+        "render_targets": "partial",
+        "depth_target": "partial"
+      }
+    },
+    {
+      "event_id": "1830",
+      "name": "vkCmdDrawIndexed",
+      "type": "Draw",
+      "indices": 36,
+      "vertices": 0,
+      "instances": 1,
+      "marker": "",
+      "render_targets": [
+        {
+          "resource_id": "92897",
+          "slot": 0
+        },
+        {
+          "resource_id": "92899",
+          "slot": 1
+        },
+        {
+          "resource_id": "92903",
+          "slot": 2
+        },
+        {
+          "resource_id": "92905",
+          "slot": 3
+        }
+      ],
+      "depth_target": {
+        "resource_id": "92907",
+        "aspect": "VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT"
+      },
+      "availability": {
+        "render_targets": "partial",
+        "depth_target": "partial"
+      }
+    },
+    {
+      "event_id": "1834",
+      "name": "vkCmdDrawIndexed",
+      "type": "Draw",
+      "indices": 36,
+      "vertices": 0,
+      "instances": 1,
+      "marker": "",
+      "render_targets": [
+        {
+          "resource_id": "92897",
+          "slot": 0
+        },
+        {
+          "resource_id": "92899",
+          "slot": 1
+        },
+        {
+          "resource_id": "92903",
+          "slot": 2
+        },
+        {
+          "resource_id": "92905",
+          "slot": 3
+        }
+      ],
+      "depth_target": {
+        "resource_id": "92907",
+        "aspect": "VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT"
+      },
+      "availability": {
+        "render_targets": "partial",
+        "depth_target": "partial"
+      }
+    },
+    {
+      "event_id": "1838",
+      "name": "vkCmdDrawIndexed",
+      "type": "Draw",
+      "indices": 36,
+      "vertices": 0,
+      "instances": 1,
+      "marker": "",
+      "render_targets": [
+        {
+          "resource_id": "92897",
+          "slot": 0
+        },
+        {
+          "resource_id": "92899",
+          "slot": 1
+        },
+        {
+          "resource_id": "92903",
+          "slot": 2
+        },
+        {
+          "resource_id": "92905",
+          "slot": 3
+        }
+      ],
+      "depth_target": {
+        "resource_id": "92907",
+        "aspect": "VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT"
+      },
+      "availability": {
+        "render_targets": "partial",
+        "depth_target": "partial"
+      }
+    },
+    {
+      "event_id": "1842",
+      "name": "vkCmdDrawIndexed",
+      "type": "Draw",
+      "indices": 36,
+      "vertices": 0,
+      "instances": 1,
+      "marker": "",
+      "render_targets": [
+        {
+          "resource_id": "92897",
+          "slot": 0
+        },
+        {
+          "resource_id": "92899",
+          "slot": 1
+        },
+        {
+          "resource_id": "92903",
+          "slot": 2
+        },
+        {
+          "resource_id": "92905",
+          "slot": 3
+        }
+      ],
+      "depth_target": {
+        "resource_id": "92907",
+        "aspect": "VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT"
+      },
+      "availability": {
+        "render_targets": "partial",
+        "depth_target": "partial"
+      }
+    },
+    {
+      "event_id": "1848",
+      "name": "vkCmdDrawIndexed",
+      "type": "Draw",
+      "indices": 18,
+      "vertices": 0,
+      "instances": 76,
+      "marker": "",
+      "render_targets": [
+        {
+          "resource_id": "92897",
+          "slot": 0
+        },
+        {
+          "resource_id": "92899",
+          "slot": 1
+        },
+        {
+          "resource_id": "92903",
+          "slot": 2
+        },
+        {
+          "resource_id": "92905",
+          "slot": 3
+        }
+      ],
+      "depth_target": {
+        "resource_id": "92907",
+        "aspect": "VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT"
+      },
+      "availability": {
+        "render_targets": "partial",
+        "depth_target": "partial"
+      }
+    },
+    {
+      "event_id": "1853",
+      "name": "vkCmdDrawIndexed",
+      "type": "Draw",
+      "indices": 1896,
+      "vertices": 0,
+      "instances": 1,
+      "marker": "",
+      "render_targets": [
+        {
+          "resource_id": "92897",
+          "slot": 0
+        },
+        {
+          "resource_id": "92899",
+          "slot": 1
+        },
+        {
+          "resource_id": "92903",
+          "slot": 2
+        },
+        {
+          "resource_id": "92905",
+          "slot": 3
+        }
+      ],
+      "depth_target": {
+        "resource_id": "92907",
+        "aspect": "VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT"
+      },
+      "availability": {
+        "render_targets": "partial",
+        "depth_target": "partial"
+      }
+    },
+    {
+      "event_id": "1858",
+      "name": "vkCmdDrawIndexed",
+      "type": "Draw",
+      "indices": 1896,
+      "vertices": 0,
+      "instances": 1,
+      "marker": "",
+      "render_targets": [
+        {
+          "resource_id": "92897",
+          "slot": 0
+        },
+        {
+          "resource_id": "92899",
+          "slot": 1
+        },
+        {
+          "resource_id": "92903",
+          "slot": 2
+        },
+        {
+          "resource_id": "92905",
+          "slot": 3
+        }
+      ],
+      "depth_target": {
+        "resource_id": "92907",
+        "aspect": "VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT"
+      },
+      "availability": {
+        "render_targets": "partial",
+        "depth_target": "partial"
+      }
+    },
+    {
+      "event_id": "1863",
+      "name": "vkCmdDrawIndexed",
+      "type": "Draw",
+      "indices": 2484,
+      "vertices": 0,
+      "instances": 1,
+      "marker": "",
+      "render_targets": [
+        {
+          "resource_id": "92897",
+          "slot": 0
+        },
+        {
+          "resource_id": "92899",
+          "slot": 1
+        },
+        {
+          "resource_id": "92903",
+          "slot": 2
+        },
+        {
+          "resource_id": "92905",
+          "slot": 3
+        }
+      ],
+      "depth_target": {
+        "resource_id": "92907",
+        "aspect": "VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT"
+      },
+      "availability": {
+        "render_targets": "partial",
+        "depth_target": "partial"
+      }
+    },
+    {
+      "event_id": "1868",
+      "name": "vkCmdDrawIndexed",
+      "type": "Draw",
+      "indices": 2484,
+      "vertices": 0,
+      "instances": 1,
+      "marker": "",
+      "render_targets": [
+        {
+          "resource_id": "92897",
+          "slot": 0
+        },
+        {
+          "resource_id": "92899",
+          "slot": 1
+        },
+        {
+          "resource_id": "92903",
+          "slot": 2
+        },
+        {
+          "resource_id": "92905",
+          "slot": 3
+        }
+      ],
+      "depth_target": {
+        "resource_id": "92907",
+        "aspect": "VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT"
+      },
+      "availability": {
+        "render_targets": "partial",
+        "depth_target": "partial"
+      }
+    },
+    {
+      "event_id": "1874",
+      "name": "vkCmdDrawIndexed",
+      "type": "Draw",
+      "indices": 18,
+      "vertices": 0,
+      "instances": 75,
+      "marker": "",
+      "render_targets": [
+        {
+          "resource_id": "92897",
+          "slot": 0
+        },
+        {
+          "resource_id": "92899",
+          "slot": 1
+        },
+        {
+          "resource_id": "92903",
+          "slot": 2
+        },
+        {
+          "resource_id": "92905",
+          "slot": 3
+        }
+      ],
+      "depth_target": {
+        "resource_id": "92907",
+        "aspect": "VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT"
+      },
+      "availability": {
+        "render_targets": "partial",
+        "depth_target": "partial"
+      }
+    },
+    {
+      "event_id": "1880",
+      "name": "vkCmdDrawIndexed",
+      "type": "Draw",
+      "indices": 6,
+      "vertices": 0,
+      "instances": 1,
+      "marker": "",
+      "render_targets": [
+        {
+          "resource_id": "92897",
+          "slot": 0
+        },
+        {
+          "resource_id": "92899",
+          "slot": 1
+        },
+        {
+          "resource_id": "92903",
+          "slot": 2
+        },
+        {
+          "resource_id": "92905",
+          "slot": 3
+        }
+      ],
+      "depth_target": {
+        "resource_id": "92907",
+        "aspect": "VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT"
+      },
+      "availability": {
+        "render_targets": "partial",
+        "depth_target": "partial"
+      }
+    },
+    {
+      "event_id": "1884",
+      "name": "vkCmdDrawIndexed",
+      "type": "Draw",
+      "indices": 6,
+      "vertices": 0,
+      "instances": 1,
+      "marker": "",
+      "render_targets": [
+        {
+          "resource_id": "92897",
+          "slot": 0
+        },
+        {
+          "resource_id": "92899",
+          "slot": 1
+        },
+        {
+          "resource_id": "92903",
+          "slot": 2
+        },
+        {
+          "resource_id": "92905",
+          "slot": 3
+        }
+      ],
+      "depth_target": {
+        "resource_id": "92907",
+        "aspect": "VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT"
+      },
+      "availability": {
+        "render_targets": "partial",
+        "depth_target": "partial"
+      }
+    },
+    {
+      "event_id": "1890",
+      "name": "vkCmdDrawIndexed",
+      "type": "Draw",
+      "indices": 18,
+      "vertices": 0,
+      "instances": 76,
+      "marker": "",
+      "render_targets": [
+        {
+          "resource_id": "92897",
+          "slot": 0
+        },
+        {
+          "resource_id": "92899",
+          "slot": 1
+        },
+        {
+          "resource_id": "92903",
+          "slot": 2
+        },
+        {
+          "resource_id": "92905",
+          "slot": 3
+        }
+      ],
+      "depth_target": {
+        "resource_id": "92907",
+        "aspect": "VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT"
+      },
+      "availability": {
+        "render_targets": "partial",
+        "depth_target": "partial"
+      }
+    },
+    {
+      "event_id": "1895",
+      "name": "vkCmdDrawIndexed",
+      "type": "Draw",
+      "indices": 18,
+      "vertices": 0,
+      "instances": 75,
+      "marker": "",
+      "render_targets": [
+        {
+          "resource_id": "92897",
+          "slot": 0
+        },
+        {
+          "resource_id": "92899",
+          "slot": 1
+        },
+        {
+          "resource_id": "92903",
+          "slot": 2
+        },
+        {
+          "resource_id": "92905",
+          "slot": 3
+        }
+      ],
+      "depth_target": {
+        "resource_id": "92907",
+        "aspect": "VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT"
+      },
+      "availability": {
+        "render_targets": "partial",
+        "depth_target": "partial"
+      }
+    },
+    {
+      "event_id": "1900",
+      "name": "vkCmdDrawIndexed",
+      "type": "Draw",
+      "indices": 18,
+      "vertices": 0,
+      "instances": 75,
+      "marker": "",
+      "render_targets": [
+        {
+          "resource_id": "92897",
+          "slot": 0
+        },
+        {
+          "resource_id": "92899",
+          "slot": 1
+        },
+        {
+          "resource_id": "92903",
+          "slot": 2
+        },
+        {
+          "resource_id": "92905",
+          "slot": 3
+        }
+      ],
+      "depth_target": {
+        "resource_id": "92907",
+        "aspect": "VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT"
+      },
+      "availability": {
+        "render_targets": "partial",
+        "depth_target": "partial"
+      }
+    },
+    {
+      "event_id": "1905",
+      "name": "vkCmdDrawIndexed",
+      "type": "Draw",
+      "indices": 18,
+      "vertices": 0,
+      "instances": 75,
+      "marker": "",
+      "render_targets": [
+        {
+          "resource_id": "92897",
+          "slot": 0
+        },
+        {
+          "resource_id": "92899",
+          "slot": 1
+        },
+        {
+          "resource_id": "92903",
+          "slot": 2
+        },
+        {
+          "resource_id": "92905",
+          "slot": 3
+        }
+      ],
+      "depth_target": {
+        "resource_id": "92907",
+        "aspect": "VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT"
+      },
+      "availability": {
+        "render_targets": "partial",
+        "depth_target": "partial"
+      }
+    },
+    {
+      "event_id": "1910",
+      "name": "vkCmdDrawIndexed",
+      "type": "Draw",
+      "indices": 6,
+      "vertices": 0,
+      "instances": 1,
+      "marker": "",
+      "render_targets": [
+        {
+          "resource_id": "92897",
+          "slot": 0
+        },
+        {
+          "resource_id": "92899",
+          "slot": 1
+        },
+        {
+          "resource_id": "92903",
+          "slot": 2
+        },
+        {
+          "resource_id": "92905",
+          "slot": 3
+        }
+      ],
+      "depth_target": {
+        "resource_id": "92907",
+        "aspect": "VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT"
+      },
+      "availability": {
+        "render_targets": "partial",
+        "depth_target": "partial"
+      }
+    },
+    {
+      "event_id": "1915",
+      "name": "vkCmdDrawIndexed",
+      "type": "Draw",
+      "indices": 6,
+      "vertices": 0,
+      "instances": 1,
+      "marker": "",
+      "render_targets": [
+        {
+          "resource_id": "92897",
+          "slot": 0
+        },
+        {
+          "resource_id": "92899",
+          "slot": 1
+        },
+        {
+          "resource_id": "92903",
+          "slot": 2
+        },
+        {
+          "resource_id": "92905",
+          "slot": 3
+        }
+      ],
+      "depth_target": {
+        "resource_id": "92907",
+        "aspect": "VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT"
+      },
+      "availability": {
+        "render_targets": "partial",
+        "depth_target": "partial"
+      }
+    },
+    {
+      "event_id": "1920",
+      "name": "vkCmdDrawIndexed",
+      "type": "Draw",
+      "indices": 6,
+      "vertices": 0,
+      "instances": 1,
+      "marker": "",
+      "render_targets": [
+        {
+          "resource_id": "92897",
+          "slot": 0
+        },
+        {
+          "resource_id": "92899",
+          "slot": 1
+        },
+        {
+          "resource_id": "92903",
+          "slot": 2
+        },
+        {
+          "resource_id": "92905",
+          "slot": 3
+        }
+      ],
+      "depth_target": {
+        "resource_id": "92907",
+        "aspect": "VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT"
+      },
+      "availability": {
+        "render_targets": "partial",
+        "depth_target": "partial"
+      }
+    },
+    {
+      "event_id": "1926",
+      "name": "vkCmdDrawIndexed",
+      "type": "Draw",
+      "indices": 6252,
+      "vertices": 0,
+      "instances": 1,
+      "marker": "",
+      "render_targets": [
+        {
+          "resource_id": "92897",
+          "slot": 0
+        },
+        {
+          "resource_id": "92899",
+          "slot": 1
+        },
+        {
+          "resource_id": "92903",
+          "slot": 2
+        },
+        {
+          "resource_id": "92905",
+          "slot": 3
+        }
+      ],
+      "depth_target": {
+        "resource_id": "92907",
+        "aspect": "VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT"
+      },
+      "availability": {
+        "render_targets": "partial",
+        "depth_target": "partial"
+      }
+    },
+    {
+      "event_id": "1932",
+      "name": "vkCmdDrawIndexed",
+      "type": "Draw",
+      "indices": 5670,
+      "vertices": 0,
+      "instances": 1,
+      "marker": "",
+      "render_targets": [
+        {
+          "resource_id": "92897",
+          "slot": 0
+        },
+        {
+          "resource_id": "92899",
+          "slot": 1
+        },
+        {
+          "resource_id": "92903",
+          "slot": 2
+        },
+        {
+          "resource_id": "92905",
+          "slot": 3
+        }
+      ],
+      "depth_target": {
+        "resource_id": "92907",
+        "aspect": "VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT"
+      },
+      "availability": {
+        "render_targets": "partial",
+        "depth_target": "partial"
+      }
+    },
+    {
+      "event_id": "1938",
+      "name": "vkCmdDrawIndexed",
+      "type": "Draw",
+      "indices": 1056,
+      "vertices": 0,
+      "instances": 1,
+      "marker": "",
+      "render_targets": [
+        {
+          "resource_id": "92897",
+          "slot": 0
+        },
+        {
+          "resource_id": "92899",
+          "slot": 1
+        },
+        {
+          "resource_id": "92903",
+          "slot": 2
+        },
+        {
+          "resource_id": "92905",
+          "slot": 3
+        }
+      ],
+      "depth_target": {
+        "resource_id": "92907",
+        "aspect": "VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT"
+      },
+      "availability": {
+        "render_targets": "partial",
+        "depth_target": "partial"
+      }
+    },
+    {
+      "event_id": "1942",
+      "name": "vkCmdDrawIndexed",
+      "type": "Draw",
+      "indices": 276,
+      "vertices": 0,
+      "instances": 1,
+      "marker": "",
+      "render_targets": [
+        {
+          "resource_id": "92897",
+          "slot": 0
+        },
+        {
+          "resource_id": "92899",
+          "slot": 1
+        },
+        {
+          "resource_id": "92903",
+          "slot": 2
+        },
+        {
+          "resource_id": "92905",
+          "slot": 3
+        }
+      ],
+      "depth_target": {
+        "resource_id": "92907",
+        "aspect": "VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT"
+      },
+      "availability": {
+        "render_targets": "partial",
+        "depth_target": "partial"
+      }
+    },
+    {
+      "event_id": "1946",
+      "name": "vkCmdDrawIndexed",
+      "type": "Draw",
+      "indices": 198,
+      "vertices": 0,
+      "instances": 1,
+      "marker": "",
+      "render_targets": [
+        {
+          "resource_id": "92897",
+          "slot": 0
+        },
+        {
+          "resource_id": "92899",
+          "slot": 1
+        },
+        {
+          "resource_id": "92903",
+          "slot": 2
+        },
+        {
+          "resource_id": "92905",
+          "slot": 3
+        }
+      ],
+      "depth_target": {
+        "resource_id": "92907",
+        "aspect": "VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT"
+      },
+      "availability": {
+        "render_targets": "partial",
+        "depth_target": "partial"
+      }
+    },
+    {
+      "event_id": "1950",
+      "name": "vkCmdDrawIndexed",
+      "type": "Draw",
+      "indices": 1872,
+      "vertices": 0,
+      "instances": 1,
+      "marker": "",
+      "render_targets": [
+        {
+          "resource_id": "92897",
+          "slot": 0
+        },
+        {
+          "resource_id": "92899",
+          "slot": 1
+        },
+        {
+          "resource_id": "92903",
+          "slot": 2
+        },
+        {
+          "resource_id": "92905",
+          "slot": 3
+        }
+      ],
+      "depth_target": {
+        "resource_id": "92907",
+        "aspect": "VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT"
+      },
+      "availability": {
+        "render_targets": "partial",
+        "depth_target": "partial"
+      }
+    },
+    {
+      "event_id": "1954",
+      "name": "vkCmdDrawIndexed",
+      "type": "Draw",
+      "indices": 522,
+      "vertices": 0,
+      "instances": 1,
+      "marker": "",
+      "render_targets": [
+        {
+          "resource_id": "92897",
+          "slot": 0
+        },
+        {
+          "resource_id": "92899",
+          "slot": 1
+        },
+        {
+          "resource_id": "92903",
+          "slot": 2
+        },
+        {
+          "resource_id": "92905",
+          "slot": 3
+        }
+      ],
+      "depth_target": {
+        "resource_id": "92907",
+        "aspect": "VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT"
+      },
+      "availability": {
+        "render_targets": "partial",
+        "depth_target": "partial"
+      }
+    },
+    {
+      "event_id": "1958",
+      "name": "vkCmdDrawIndexed",
+      "type": "Draw",
+      "indices": 420,
+      "vertices": 0,
+      "instances": 1,
+      "marker": "",
+      "render_targets": [
+        {
+          "resource_id": "92897",
+          "slot": 0
+        },
+        {
+          "resource_id": "92899",
+          "slot": 1
+        },
+        {
+          "resource_id": "92903",
+          "slot": 2
+        },
+        {
+          "resource_id": "92905",
+          "slot": 3
+        }
+      ],
+      "depth_target": {
+        "resource_id": "92907",
+        "aspect": "VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT"
+      },
+      "availability": {
+        "render_targets": "partial",
+        "depth_target": "partial"
+      }
+    },
+    {
+      "event_id": "1962",
+      "name": "vkCmdDrawIndexed",
+      "type": "Draw",
+      "indices": 288,
+      "vertices": 0,
+      "instances": 1,
+      "marker": "",
+      "render_targets": [
+        {
+          "resource_id": "92897",
+          "slot": 0
+        },
+        {
+          "resource_id": "92899",
+          "slot": 1
+        },
+        {
+          "resource_id": "92903",
+          "slot": 2
+        },
+        {
+          "resource_id": "92905",
+          "slot": 3
+        }
+      ],
+      "depth_target": {
+        "resource_id": "92907",
+        "aspect": "VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT"
+      },
+      "availability": {
+        "render_targets": "partial",
+        "depth_target": "partial"
+      }
+    },
+    {
+      "event_id": "1966",
+      "name": "vkCmdDrawIndexed",
+      "type": "Draw",
+      "indices": 876,
+      "vertices": 0,
+      "instances": 1,
+      "marker": "",
+      "render_targets": [
+        {
+          "resource_id": "92897",
+          "slot": 0
+        },
+        {
+          "resource_id": "92899",
+          "slot": 1
+        },
+        {
+          "resource_id": "92903",
+          "slot": 2
+        },
+        {
+          "resource_id": "92905",
+          "slot": 3
+        }
+      ],
+      "depth_target": {
+        "resource_id": "92907",
+        "aspect": "VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT"
+      },
+      "availability": {
+        "render_targets": "partial",
+        "depth_target": "partial"
+      }
+    },
+    {
+      "event_id": "1972",
+      "name": "vkCmdDrawIndexed",
+      "type": "Draw",
+      "indices": 1296,
+      "vertices": 0,
+      "instances": 13,
+      "marker": "",
+      "render_targets": [
+        {
+          "resource_id": "92897",
+          "slot": 0
+        },
+        {
+          "resource_id": "92899",
+          "slot": 1
+        },
+        {
+          "resource_id": "92903",
+          "slot": 2
+        },
+        {
+          "resource_id": "92905",
+          "slot": 3
+        }
+      ],
+      "depth_target": {
+        "resource_id": "92907",
+        "aspect": "VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT"
+      },
+      "availability": {
+        "render_targets": "partial",
+        "depth_target": "partial"
+      }
+    },
+    {
+      "event_id": "1978",
+      "name": "vkCmdDrawIndexed",
+      "type": "Draw",
+      "indices": 6,
+      "vertices": 0,
+      "instances": 1,
+      "marker": "",
+      "render_targets": [
+        {
+          "resource_id": "92897",
+          "slot": 0
+        },
+        {
+          "resource_id": "92899",
+          "slot": 1
+        },
+        {
+          "resource_id": "92903",
+          "slot": 2
+        },
+        {
+          "resource_id": "92905",
+          "slot": 3
+        }
+      ],
+      "depth_target": {
+        "resource_id": "92907",
+        "aspect": "VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT"
+      },
+      "availability": {
+        "render_targets": "partial",
+        "depth_target": "partial"
+      }
+    },
+    {
+      "event_id": "1982",
+      "name": "vkCmdDrawIndexed",
+      "type": "Draw",
+      "indices": 6,
+      "vertices": 0,
+      "instances": 1,
+      "marker": "",
+      "render_targets": [
+        {
+          "resource_id": "92897",
+          "slot": 0
+        },
+        {
+          "resource_id": "92899",
+          "slot": 1
+        },
+        {
+          "resource_id": "92903",
+          "slot": 2
+        },
+        {
+          "resource_id": "92905",
+          "slot": 3
+        }
+      ],
+      "depth_target": {
+        "resource_id": "92907",
+        "aspect": "VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT"
+      },
+      "availability": {
+        "render_targets": "partial",
+        "depth_target": "partial"
+      }
+    },
+    {
+      "event_id": "1988",
+      "name": "vkCmdDrawIndexed",
+      "type": "Draw",
+      "indices": 18,
+      "vertices": 0,
+      "instances": 76,
+      "marker": "",
+      "render_targets": [
+        {
+          "resource_id": "92897",
+          "slot": 0
+        },
+        {
+          "resource_id": "92899",
+          "slot": 1
+        },
+        {
+          "resource_id": "92903",
+          "slot": 2
+        },
+        {
+          "resource_id": "92905",
+          "slot": 3
+        }
+      ],
+      "depth_target": {
+        "resource_id": "92907",
+        "aspect": "VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT"
+      },
+      "availability": {
+        "render_targets": "partial",
+        "depth_target": "partial"
+      }
+    },
+    {
+      "event_id": "1998",
+      "name": "vkCmdDrawIndexed",
+      "type": "Draw",
+      "indices": 3,
+      "vertices": 0,
+      "instances": 1,
+      "marker": "",
+      "render_targets": [
+        {
+          "resource_id": "96573",
+          "slot": 0
+        }
+      ],
+      "depth_target": {},
+      "availability": {
+        "render_targets": "partial",
+        "depth_target": "partial"
+      }
+    },
+    {
+      "event_id": "2008",
+      "name": "vkCmdDrawIndexed",
+      "type": "Draw",
+      "indices": 3,
+      "vertices": 0,
+      "instances": 1,
+      "marker": "",
+      "render_targets": [
+        {
+          "resource_id": "93925",
+          "slot": 0
+        }
+      ],
+      "depth_target": {},
+      "availability": {
+        "render_targets": "partial",
+        "depth_target": "partial"
+      }
+    },
+    {
+      "event_id": "2013",
+      "name": "vkCmdDispatch",
+      "type": "Dispatch",
+      "indices": 0,
+      "vertices": 0,
+      "instances": 1,
+      "marker": "",
+      "render_targets": [],
+      "depth_target": {},
+      "availability": {
+        "render_targets": "partial",
+        "depth_target": "partial"
+      }
+    },
+    {
+      "event_id": "2018",
+      "name": "vkCmdDispatch",
+      "type": "Dispatch",
+      "indices": 0,
+      "vertices": 0,
+      "instances": 1,
+      "marker": "",
+      "render_targets": [],
+      "depth_target": {},
+      "availability": {
+        "render_targets": "partial",
+        "depth_target": "partial"
+      }
+    },
+    {
+      "event_id": "2023",
+      "name": "vkCmdDispatch",
+      "type": "Dispatch",
+      "indices": 0,
+      "vertices": 0,
+      "instances": 1,
+      "marker": "",
+      "render_targets": [],
+      "depth_target": {},
+      "availability": {
+        "render_targets": "partial",
+        "depth_target": "partial"
+      }
+    },
+    {
+      "event_id": "2034",
+      "name": "vkCmdDrawIndexed",
+      "type": "Draw",
+      "indices": 3,
+      "vertices": 0,
+      "instances": 1,
+      "marker": "",
+      "render_targets": [
+        {
+          "resource_id": "92914",
+          "slot": 0
+        },
+        {
+          "resource_id": "93927",
+          "slot": 1
+        }
+      ],
+      "depth_target": {},
+      "availability": {
+        "render_targets": "partial",
+        "depth_target": "partial"
+      }
+    },
+    {
+      "event_id": "2042",
+      "name": "vkCmdDrawIndexed",
+      "type": "Draw",
+      "indices": 3,
+      "vertices": 0,
+      "instances": 1,
+      "marker": "",
+      "render_targets": [
+        {
+          "resource_id": "92912",
+          "slot": 0
+        }
+      ],
+      "depth_target": {},
+      "availability": {
+        "render_targets": "partial",
+        "depth_target": "partial"
+      }
+    },
+    {
+      "event_id": "2048",
+      "name": "vkCmdDispatch",
+      "type": "Dispatch",
+      "indices": 0,
+      "vertices": 0,
+      "instances": 1,
+      "marker": "",
+      "render_targets": [],
+      "depth_target": {},
+      "availability": {
+        "render_targets": "partial",
+        "depth_target": "partial"
+      }
+    },
+    {
+      "event_id": "2057",
+      "name": "vkCmdDrawIndexed",
+      "type": "Draw",
+      "indices": 3,
+      "vertices": 0,
+      "instances": 1,
+      "marker": "",
+      "render_targets": [
+        {
+          "resource_id": "45455",
+          "slot": 0
+        }
+      ],
+      "depth_target": {},
+      "availability": {
+        "render_targets": "partial",
+        "depth_target": "partial"
+      }
+    },
+    {
+      "event_id": "2070",
+      "name": "vkCmdDrawIndexed",
+      "type": "Draw",
+      "indices": 6,
+      "vertices": 0,
+      "instances": 1,
+      "marker": "",
+      "render_targets": [
+        {
+          "resource_id": "45455",
+          "slot": 0
+        }
+      ],
+      "depth_target": {},
+      "availability": {
+        "render_targets": "partial",
+        "depth_target": "partial"
+      }
+    },
+    {
+      "event_id": "2074",
+      "name": "vkCmdDrawIndexed",
+      "type": "Draw",
+      "indices": 6,
+      "vertices": 0,
+      "instances": 1,
+      "marker": "",
+      "render_targets": [
+        {
+          "resource_id": "45455",
+          "slot": 0
+        }
+      ],
+      "depth_target": {},
+      "availability": {
+        "render_targets": "partial",
+        "depth_target": "partial"
+      }
+    },
+    {
+      "event_id": "2078",
+      "name": "vkCmdDrawIndexed",
+      "type": "Draw",
+      "indices": 6,
+      "vertices": 0,
+      "instances": 1,
+      "marker": "",
+      "render_targets": [
+        {
+          "resource_id": "45455",
+          "slot": 0
+        }
+      ],
+      "depth_target": {},
+      "availability": {
+        "render_targets": "partial",
+        "depth_target": "partial"
+      }
+    },
+    {
+      "event_id": "2083",
+      "name": "vkCmdDrawIndexed",
+      "type": "Draw",
+      "indices": 6,
+      "vertices": 0,
+      "instances": 1,
+      "marker": "",
+      "render_targets": [
+        {
+          "resource_id": "45455",
+          "slot": 0
+        }
+      ],
+      "depth_target": {},
+      "availability": {
+        "render_targets": "partial",
+        "depth_target": "partial"
+      }
+    },
+    {
+      "event_id": "2089",
+      "name": "vkCmdDrawIndexed",
+      "type": "Draw",
+      "indices": 6,
+      "vertices": 0,
+      "instances": 1,
+      "marker": "",
+      "render_targets": [
+        {
+          "resource_id": "45455",
+          "slot": 0
+        }
+      ],
+      "depth_target": {},
+      "availability": {
+        "render_targets": "partial",
+        "depth_target": "partial"
+      }
+    },
+    {
+      "event_id": "2093",
+      "name": "vkCmdDrawIndexed",
+      "type": "Draw",
+      "indices": 6,
+      "vertices": 0,
+      "instances": 1,
+      "marker": "",
+      "render_targets": [
+        {
+          "resource_id": "45455",
+          "slot": 0
+        }
+      ],
+      "depth_target": {},
+      "availability": {
+        "render_targets": "partial",
+        "depth_target": "partial"
+      }
+    },
+    {
+      "event_id": "2097",
+      "name": "vkCmdDrawIndexed",
+      "type": "Draw",
+      "indices": 6,
+      "vertices": 0,
+      "instances": 1,
+      "marker": "",
+      "render_targets": [
+        {
+          "resource_id": "45455",
+          "slot": 0
+        }
+      ],
+      "depth_target": {},
+      "availability": {
+        "render_targets": "partial",
+        "depth_target": "partial"
+      }
+    },
+    {
+      "event_id": "2101",
+      "name": "vkCmdDrawIndexed",
+      "type": "Draw",
+      "indices": 6,
+      "vertices": 0,
+      "instances": 1,
+      "marker": "",
+      "render_targets": [
+        {
+          "resource_id": "45455",
+          "slot": 0
+        }
+      ],
+      "depth_target": {},
+      "availability": {
+        "render_targets": "partial",
+        "depth_target": "partial"
+      }
+    },
+    {
+      "event_id": "2105",
+      "name": "vkCmdDrawIndexed",
+      "type": "Draw",
+      "indices": 6,
+      "vertices": 0,
+      "instances": 1,
+      "marker": "",
+      "render_targets": [
+        {
+          "resource_id": "45455",
+          "slot": 0
+        }
+      ],
+      "depth_target": {},
+      "availability": {
+        "render_targets": "partial",
+        "depth_target": "partial"
+      }
+    },
+    {
+      "event_id": "2109",
+      "name": "vkCmdDrawIndexed",
+      "type": "Draw",
+      "indices": 6,
+      "vertices": 0,
+      "instances": 1,
+      "marker": "",
+      "render_targets": [
+        {
+          "resource_id": "45455",
+          "slot": 0
+        }
+      ],
+      "depth_target": {},
+      "availability": {
+        "render_targets": "partial",
+        "depth_target": "partial"
+      }
+    },
+    {
+      "event_id": "2113",
+      "name": "vkCmdDrawIndexed",
+      "type": "Draw",
+      "indices": 6,
+      "vertices": 0,
+      "instances": 1,
+      "marker": "",
+      "render_targets": [
+        {
+          "resource_id": "45455",
+          "slot": 0
+        }
+      ],
+      "depth_target": {},
+      "availability": {
+        "render_targets": "partial",
+        "depth_target": "partial"
+      }
+    },
+    {
+      "event_id": "2117",
+      "name": "vkCmdDrawIndexed",
+      "type": "Draw",
+      "indices": 6,
+      "vertices": 0,
+      "instances": 1,
+      "marker": "",
+      "render_targets": [
+        {
+          "resource_id": "45455",
+          "slot": 0
+        }
+      ],
+      "depth_target": {},
+      "availability": {
+        "render_targets": "partial",
+        "depth_target": "partial"
+      }
+    },
+    {
+      "event_id": "2122",
+      "name": "vkCmdDrawIndexed",
+      "type": "Draw",
+      "indices": 30,
+      "vertices": 0,
+      "instances": 1,
+      "marker": "",
+      "render_targets": [
+        {
+          "resource_id": "45455",
+          "slot": 0
+        }
+      ],
+      "depth_target": {},
+      "availability": {
+        "render_targets": "partial",
+        "depth_target": "partial"
+      }
+    },
+    {
+      "event_id": "2128",
+      "name": "vkCmdDrawIndexed",
+      "type": "Draw",
+      "indices": 6,
+      "vertices": 0,
+      "instances": 1,
+      "marker": "",
+      "render_targets": [
+        {
+          "resource_id": "45455",
+          "slot": 0
+        }
+      ],
+      "depth_target": {},
+      "availability": {
+        "render_targets": "partial",
+        "depth_target": "partial"
+      }
+    },
+    {
+      "event_id": "2132",
+      "name": "vkCmdDrawIndexed",
+      "type": "Draw",
+      "indices": 54,
+      "vertices": 0,
+      "instances": 1,
+      "marker": "",
+      "render_targets": [
+        {
+          "resource_id": "45455",
+          "slot": 0
+        }
+      ],
+      "depth_target": {},
+      "availability": {
+        "render_targets": "partial",
+        "depth_target": "partial"
+      }
+    },
+    {
+      "event_id": "2137",
+      "name": "vkCmdDrawIndexed",
+      "type": "Draw",
+      "indices": 30,
+      "vertices": 0,
+      "instances": 1,
+      "marker": "",
+      "render_targets": [
+        {
+          "resource_id": "45455",
+          "slot": 0
+        }
+      ],
+      "depth_target": {},
+      "availability": {
+        "render_targets": "partial",
+        "depth_target": "partial"
+      }
+    },
+    {
+      "event_id": "2142",
+      "name": "vkCmdDrawIndexed",
+      "type": "Draw",
+      "indices": 6,
+      "vertices": 0,
+      "instances": 1,
+      "marker": "",
+      "render_targets": [
+        {
+          "resource_id": "45455",
+          "slot": 0
+        }
+      ],
+      "depth_target": {},
+      "availability": {
+        "render_targets": "partial",
+        "depth_target": "partial"
+      }
+    },
+    {
+      "event_id": "2147",
+      "name": "vkCmdDrawIndexed",
+      "type": "Draw",
+      "indices": 6,
+      "vertices": 0,
+      "instances": 1,
+      "marker": "",
+      "render_targets": [
+        {
+          "resource_id": "45455",
+          "slot": 0
+        }
+      ],
+      "depth_target": {},
+      "availability": {
+        "render_targets": "partial",
+        "depth_target": "partial"
+      }
+    },
+    {
+      "event_id": "2152",
+      "name": "vkCmdDrawIndexed",
+      "type": "Draw",
+      "indices": 36,
+      "vertices": 0,
+      "instances": 1,
+      "marker": "",
+      "render_targets": [
+        {
+          "resource_id": "45455",
+          "slot": 0
+        }
+      ],
+      "depth_target": {},
+      "availability": {
+        "render_targets": "partial",
+        "depth_target": "partial"
+      }
+    },
+    {
+      "event_id": "2156",
+      "name": "vkCmdDrawIndexed",
+      "type": "Draw",
+      "indices": 30,
+      "vertices": 0,
+      "instances": 1,
+      "marker": "",
+      "render_targets": [
+        {
+          "resource_id": "45455",
+          "slot": 0
+        }
+      ],
+      "depth_target": {},
+      "availability": {
+        "render_targets": "partial",
+        "depth_target": "partial"
+      }
+    },
+    {
+      "event_id": "2162",
+      "name": "vkCmdDrawIndexed",
+      "type": "Draw",
+      "indices": 6,
+      "vertices": 0,
+      "instances": 1,
+      "marker": "",
+      "render_targets": [
+        {
+          "resource_id": "45455",
+          "slot": 0
+        }
+      ],
+      "depth_target": {},
+      "availability": {
+        "render_targets": "partial",
+        "depth_target": "partial"
+      }
+    },
+    {
+      "event_id": "2166",
+      "name": "vkCmdDrawIndexed",
+      "type": "Draw",
+      "indices": 6,
+      "vertices": 0,
+      "instances": 1,
+      "marker": "",
+      "render_targets": [
+        {
+          "resource_id": "45455",
+          "slot": 0
+        }
+      ],
+      "depth_target": {},
+      "availability": {
+        "render_targets": "partial",
+        "depth_target": "partial"
+      }
+    },
+    {
+      "event_id": "2170",
+      "name": "vkCmdDrawIndexed",
+      "type": "Draw",
+      "indices": 6,
+      "vertices": 0,
+      "instances": 1,
+      "marker": "",
+      "render_targets": [
+        {
+          "resource_id": "45455",
+          "slot": 0
+        }
+      ],
+      "depth_target": {},
+      "availability": {
+        "render_targets": "partial",
+        "depth_target": "partial"
+      }
+    },
+    {
+      "event_id": "2174",
+      "name": "vkCmdDrawIndexed",
+      "type": "Draw",
+      "indices": 6,
+      "vertices": 0,
+      "instances": 1,
+      "marker": "",
+      "render_targets": [
+        {
+          "resource_id": "45455",
+          "slot": 0
+        }
+      ],
+      "depth_target": {},
+      "availability": {
+        "render_targets": "partial",
+        "depth_target": "partial"
+      }
+    },
+    {
+      "event_id": "2178",
+      "name": "vkCmdDrawIndexed",
+      "type": "Draw",
+      "indices": 6,
+      "vertices": 0,
+      "instances": 1,
+      "marker": "",
+      "render_targets": [
+        {
+          "resource_id": "45455",
+          "slot": 0
+        }
+      ],
+      "depth_target": {},
+      "availability": {
+        "render_targets": "partial",
+        "depth_target": "partial"
+      }
+    },
+    {
+      "event_id": "2183",
+      "name": "vkCmdDrawIndexed",
+      "type": "Draw",
+      "indices": 6,
+      "vertices": 0,
+      "instances": 1,
+      "marker": "",
+      "render_targets": [
+        {
+          "resource_id": "45455",
+          "slot": 0
+        }
+      ],
+      "depth_target": {},
+      "availability": {
+        "render_targets": "partial",
+        "depth_target": "partial"
+      }
+    },
+    {
+      "event_id": "2188",
+      "name": "vkCmdDrawIndexed",
+      "type": "Draw",
+      "indices": 6,
+      "vertices": 0,
+      "instances": 1,
+      "marker": "",
+      "render_targets": [
+        {
+          "resource_id": "45455",
+          "slot": 0
+        }
+      ],
+      "depth_target": {},
+      "availability": {
+        "render_targets": "partial",
+        "depth_target": "partial"
+      }
+    },
+    {
+      "event_id": "2193",
+      "name": "vkCmdDrawIndexed",
+      "type": "Draw",
+      "indices": 6,
+      "vertices": 0,
+      "instances": 1,
+      "marker": "",
+      "render_targets": [
+        {
+          "resource_id": "45455",
+          "slot": 0
+        }
+      ],
+      "depth_target": {},
+      "availability": {
+        "render_targets": "partial",
+        "depth_target": "partial"
+      }
+    },
+    {
+      "event_id": "2198",
+      "name": "vkCmdDrawIndexed",
+      "type": "Draw",
+      "indices": 6,
+      "vertices": 0,
+      "instances": 1,
+      "marker": "",
+      "render_targets": [
+        {
+          "resource_id": "45455",
+          "slot": 0
+        }
+      ],
+      "depth_target": {},
+      "availability": {
+        "render_targets": "partial",
+        "depth_target": "partial"
+      }
+    },
+    {
+      "event_id": "2204",
+      "name": "vkCmdDrawIndexed",
+      "type": "Draw",
+      "indices": 6,
+      "vertices": 0,
+      "instances": 1,
+      "marker": "",
+      "render_targets": [
+        {
+          "resource_id": "45455",
+          "slot": 0
+        }
+      ],
+      "depth_target": {},
+      "availability": {
+        "render_targets": "partial",
+        "depth_target": "partial"
+      }
+    },
+    {
+      "event_id": "2208",
+      "name": "vkCmdDrawIndexed",
+      "type": "Draw",
+      "indices": 6,
+      "vertices": 0,
+      "instances": 1,
+      "marker": "",
+      "render_targets": [
+        {
+          "resource_id": "45455",
+          "slot": 0
+        }
+      ],
+      "depth_target": {},
+      "availability": {
+        "render_targets": "partial",
+        "depth_target": "partial"
+      }
+    },
+    {
+      "event_id": "2213",
+      "name": "vkCmdDrawIndexed",
+      "type": "Draw",
+      "indices": 6,
+      "vertices": 0,
+      "instances": 1,
+      "marker": "",
+      "render_targets": [
+        {
+          "resource_id": "45455",
+          "slot": 0
+        }
+      ],
+      "depth_target": {},
+      "availability": {
+        "render_targets": "partial",
+        "depth_target": "partial"
+      }
+    },
+    {
+      "event_id": "2218",
+      "name": "vkCmdDrawIndexed",
+      "type": "Draw",
+      "indices": 6,
+      "vertices": 0,
+      "instances": 1,
+      "marker": "",
+      "render_targets": [
+        {
+          "resource_id": "45455",
+          "slot": 0
+        }
+      ],
+      "depth_target": {},
+      "availability": {
+        "render_targets": "partial",
+        "depth_target": "partial"
+      }
+    },
+    {
+      "event_id": "2223",
+      "name": "vkCmdDrawIndexed",
+      "type": "Draw",
+      "indices": 6,
+      "vertices": 0,
+      "instances": 1,
+      "marker": "",
+      "render_targets": [
+        {
+          "resource_id": "45455",
+          "slot": 0
+        }
+      ],
+      "depth_target": {},
+      "availability": {
+        "render_targets": "partial",
+        "depth_target": "partial"
+      }
+    },
+    {
+      "event_id": "2227",
+      "name": "vkCmdDrawIndexed",
+      "type": "Draw",
+      "indices": 6,
+      "vertices": 0,
+      "instances": 1,
+      "marker": "",
+      "render_targets": [
+        {
+          "resource_id": "45455",
+          "slot": 0
+        }
+      ],
+      "depth_target": {},
+      "availability": {
+        "render_targets": "partial",
+        "depth_target": "partial"
+      }
+    },
+    {
+      "event_id": "2231",
+      "name": "vkCmdDrawIndexed",
+      "type": "Draw",
+      "indices": 6,
+      "vertices": 0,
+      "instances": 1,
+      "marker": "",
+      "render_targets": [
+        {
+          "resource_id": "45455",
+          "slot": 0
+        }
+      ],
+      "depth_target": {},
+      "availability": {
+        "render_targets": "partial",
+        "depth_target": "partial"
+      }
+    },
+    {
+      "event_id": "2235",
+      "name": "vkCmdDrawIndexed",
+      "type": "Draw",
+      "indices": 6,
+      "vertices": 0,
+      "instances": 1,
+      "marker": "",
+      "render_targets": [
+        {
+          "resource_id": "45455",
+          "slot": 0
+        }
+      ],
+      "depth_target": {},
+      "availability": {
+        "render_targets": "partial",
+        "depth_target": "partial"
+      }
+    },
+    {
+      "event_id": "2239",
+      "name": "vkCmdDrawIndexed",
+      "type": "Draw",
+      "indices": 6,
+      "vertices": 0,
+      "instances": 1,
+      "marker": "",
+      "render_targets": [
+        {
+          "resource_id": "45455",
+          "slot": 0
+        }
+      ],
+      "depth_target": {},
+      "availability": {
+        "render_targets": "partial",
+        "depth_target": "partial"
+      }
+    },
+    {
+      "event_id": "2243",
+      "name": "vkCmdDrawIndexed",
+      "type": "Draw",
+      "indices": 6,
+      "vertices": 0,
+      "instances": 1,
+      "marker": "",
+      "render_targets": [
+        {
+          "resource_id": "45455",
+          "slot": 0
+        }
+      ],
+      "depth_target": {},
+      "availability": {
+        "render_targets": "partial",
+        "depth_target": "partial"
+      }
+    },
+    {
+      "event_id": "2247",
+      "name": "vkCmdDrawIndexed",
+      "type": "Draw",
+      "indices": 6,
+      "vertices": 0,
+      "instances": 1,
+      "marker": "",
+      "render_targets": [
+        {
+          "resource_id": "45455",
+          "slot": 0
+        }
+      ],
+      "depth_target": {},
+      "availability": {
+        "render_targets": "partial",
+        "depth_target": "partial"
+      }
+    },
+    {
+      "event_id": "2251",
+      "name": "vkCmdDrawIndexed",
+      "type": "Draw",
+      "indices": 6,
+      "vertices": 0,
+      "instances": 1,
+      "marker": "",
+      "render_targets": [
+        {
+          "resource_id": "45455",
+          "slot": 0
+        }
+      ],
+      "depth_target": {},
+      "availability": {
+        "render_targets": "partial",
+        "depth_target": "partial"
+      }
+    },
+    {
+      "event_id": "2255",
+      "name": "vkCmdDrawIndexed",
+      "type": "Draw",
+      "indices": 6,
+      "vertices": 0,
+      "instances": 1,
+      "marker": "",
+      "render_targets": [
+        {
+          "resource_id": "45455",
+          "slot": 0
+        }
+      ],
+      "depth_target": {},
+      "availability": {
+        "render_targets": "partial",
+        "depth_target": "partial"
+      }
+    },
+    {
+      "event_id": "2259",
+      "name": "vkCmdDrawIndexed",
+      "type": "Draw",
+      "indices": 6,
+      "vertices": 0,
+      "instances": 1,
+      "marker": "",
+      "render_targets": [
+        {
+          "resource_id": "45455",
+          "slot": 0
+        }
+      ],
+      "depth_target": {},
+      "availability": {
+        "render_targets": "partial",
+        "depth_target": "partial"
+      }
+    },
+    {
+      "event_id": "2263",
+      "name": "vkCmdDrawIndexed",
+      "type": "Draw",
+      "indices": 6,
+      "vertices": 0,
+      "instances": 1,
+      "marker": "",
+      "render_targets": [
+        {
+          "resource_id": "45455",
+          "slot": 0
+        }
+      ],
+      "depth_target": {},
+      "availability": {
+        "render_targets": "partial",
+        "depth_target": "partial"
+      }
+    },
+    {
+      "event_id": "2267",
+      "name": "vkCmdDrawIndexed",
+      "type": "Draw",
+      "indices": 6,
+      "vertices": 0,
+      "instances": 1,
+      "marker": "",
+      "render_targets": [
+        {
+          "resource_id": "45455",
+          "slot": 0
+        }
+      ],
+      "depth_target": {},
+      "availability": {
+        "render_targets": "partial",
+        "depth_target": "partial"
+      }
+    },
+    {
+      "event_id": "2271",
+      "name": "vkCmdDrawIndexed",
+      "type": "Draw",
+      "indices": 6,
+      "vertices": 0,
+      "instances": 1,
+      "marker": "",
+      "render_targets": [
+        {
+          "resource_id": "45455",
+          "slot": 0
+        }
+      ],
+      "depth_target": {},
+      "availability": {
+        "render_targets": "partial",
+        "depth_target": "partial"
+      }
+    },
+    {
+      "event_id": "2275",
+      "name": "vkCmdDrawIndexed",
+      "type": "Draw",
+      "indices": 6,
+      "vertices": 0,
+      "instances": 1,
+      "marker": "",
+      "render_targets": [
+        {
+          "resource_id": "45455",
+          "slot": 0
+        }
+      ],
+      "depth_target": {},
+      "availability": {
+        "render_targets": "partial",
+        "depth_target": "partial"
+      }
+    },
+    {
+      "event_id": "2280",
+      "name": "vkCmdDrawIndexed",
+      "type": "Draw",
+      "indices": 6,
+      "vertices": 0,
+      "instances": 1,
+      "marker": "",
+      "render_targets": [
+        {
+          "resource_id": "45455",
+          "slot": 0
+        }
+      ],
+      "depth_target": {},
+      "availability": {
+        "render_targets": "partial",
+        "depth_target": "partial"
+      }
+    },
+    {
+      "event_id": "2285",
+      "name": "vkCmdDrawIndexed",
+      "type": "Draw",
+      "indices": 6,
+      "vertices": 0,
+      "instances": 1,
+      "marker": "",
+      "render_targets": [
+        {
+          "resource_id": "45455",
+          "slot": 0
+        }
+      ],
+      "depth_target": {},
+      "availability": {
+        "render_targets": "partial",
+        "depth_target": "partial"
+      }
+    },
+    {
+      "event_id": "2289",
+      "name": "vkCmdDrawIndexed",
+      "type": "Draw",
+      "indices": 6,
+      "vertices": 0,
+      "instances": 1,
+      "marker": "",
+      "render_targets": [
+        {
+          "resource_id": "45455",
+          "slot": 0
+        }
+      ],
+      "depth_target": {},
+      "availability": {
+        "render_targets": "partial",
+        "depth_target": "partial"
+      }
+    },
+    {
+      "event_id": "2293",
+      "name": "vkCmdDrawIndexed",
+      "type": "Draw",
+      "indices": 6,
+      "vertices": 0,
+      "instances": 1,
+      "marker": "",
+      "render_targets": [
+        {
+          "resource_id": "45455",
+          "slot": 0
+        }
+      ],
+      "depth_target": {},
+      "availability": {
+        "render_targets": "partial",
+        "depth_target": "partial"
+      }
+    }
+  ],
+  "passes": [],
+  "resources": {
+    "textures": [
+      {
+        "resource_id": "468",
+        "name": "Texture_0",
+        "type": "texture",
+        "width": 1,
+        "height": 1,
+        "depth": 1,
+        "array_size": 1,
+        "format": "VK_FORMAT_R8G8B8A8_UNORM",
+        "size_bytes": 4,
+        "thumbnail": "",
+        "usage": [],
+        "availability": {
+          "thumbnail": "missing"
+        }
+      },
+      {
+        "resource_id": "474",
+        "name": "Texture_1",
+        "type": "texture",
+        "width": 1,
+        "height": 1,
+        "depth": 1,
+        "array_size": 1,
+        "format": "VK_FORMAT_R8G8B8A8_UNORM",
+        "size_bytes": 4,
+        "thumbnail": "",
+        "usage": [],
+        "availability": {
+          "thumbnail": "missing"
+        }
+      },
+      {
+        "resource_id": "505",
+        "name": "Texture_2",
+        "type": "texture",
+        "width": 1,
+        "height": 1,
+        "depth": 1,
+        "array_size": 1,
+        "format": "VK_FORMAT_B8G8R8A8_UNORM",
+        "size_bytes": 4,
+        "thumbnail": "",
+        "usage": [],
+        "availability": {
+          "thumbnail": "missing"
+        }
+      },
+      {
+        "resource_id": "517",
+        "name": "Texture_3",
+        "type": "texture",
+        "width": 1,
+        "height": 1,
+        "depth": 1,
+        "array_size": 6,
+        "format": "VK_FORMAT_B8G8R8A8_UNORM",
+        "size_bytes": 24,
+        "thumbnail": "",
+        "usage": [],
+        "availability": {
+          "thumbnail": "missing"
+        }
+      },
+      {
+        "resource_id": "550",
+        "name": "Texture_4",
+        "type": "texture",
+        "width": 1,
+        "height": 1,
+        "depth": 1,
+        "array_size": 6,
+        "format": "VK_FORMAT_B8G8R8A8_UNORM",
+        "size_bytes": 24,
+        "thumbnail": "",
+        "usage": [],
+        "availability": {
+          "thumbnail": "missing"
+        }
+      },
+      {
+        "resource_id": "940",
+        "name": "Texture_5",
+        "type": "texture",
+        "width": 1,
+        "height": 1,
+        "depth": 1,
+        "array_size": 1,
+        "format": "VK_FORMAT_B8G8R8A8_UNORM",
+        "size_bytes": 4,
+        "thumbnail": "",
+        "usage": [],
+        "availability": {
+          "thumbnail": "missing"
+        }
+      },
+      {
+        "resource_id": "1097",
+        "name": "Texture_6",
+        "type": "texture",
+        "width": 8,
+        "height": 8,
+        "depth": 1,
+        "array_size": 1,
+        "format": "VK_FORMAT_ASTC_8x8_SRGB_BLOCK",
+        "size_bytes": 64,
+        "thumbnail": "",
+        "usage": [],
+        "availability": {
+          "thumbnail": "missing"
+        }
+      },
+      {
+        "resource_id": "1359",
+        "name": "Texture_7",
+        "type": "texture",
+        "width": 82,
+        "height": 74,
+        "depth": 1,
+        "array_size": 1,
+        "format": "VK_FORMAT_B8G8R8A8_SRGB",
+        "size_bytes": 24272,
+        "thumbnail": "",
+        "usage": [],
+        "availability": {
+          "thumbnail": "missing"
+        }
+      },
+      {
+        "resource_id": "1369",
+        "name": "Texture_8",
+        "type": "texture",
+        "width": 1024,
+        "height": 1024,
+        "depth": 1,
+        "array_size": 1,
+        "format": "VK_FORMAT_B8G8R8A8_SRGB",
+        "size_bytes": 4194304,
+        "thumbnail": "",
+        "usage": [],
+        "availability": {
+          "thumbnail": "missing"
+        }
+      },
+      {
+        "resource_id": "1371",
+        "name": "Texture_9",
+        "type": "texture",
+        "width": 184,
+        "height": 184,
+        "depth": 1,
+        "array_size": 1,
+        "format": "VK_FORMAT_B8G8R8A8_SRGB",
+        "size_bytes": 135424,
+        "thumbnail": "",
+        "usage": [],
+        "availability": {
+          "thumbnail": "missing"
+        }
+      },
+      {
+        "resource_id": "1383",
+        "name": "Texture_10",
+        "type": "texture",
+        "width": 1024,
+        "height": 1024,
+        "depth": 1,
+        "array_size": 1,
+        "format": "VK_FORMAT_B8G8R8A8_SRGB",
+        "size_bytes": 4194304,
+        "thumbnail": "",
+        "usage": [],
+        "availability": {
+          "thumbnail": "missing"
+        }
+      },
+      {
+        "resource_id": "1395",
+        "name": "Texture_11",
+        "type": "texture",
+        "width": 1,
+        "height": 1,
+        "depth": 1,
+        "array_size": 1,
+        "format": "VK_FORMAT_B8G8R8A8_UNORM",
+        "size_bytes": 4,
+        "thumbnail": "",
+        "usage": [],
+        "availability": {
+          "thumbnail": "missing"
+        }
+      },
+      {
+        "resource_id": "3747",
+        "name": "Texture_12",
+        "type": "texture",
+        "width": 1024,
+        "height": 32,
+        "depth": 1,
+        "array_size": 1,
+        "format": "VK_FORMAT_A2B10G10R10_UNORM_PACK32",
+        "size_bytes": 131072,
+        "thumbnail": "",
+        "usage": [],
+        "availability": {
+          "thumbnail": "missing"
+        }
+      },
+      {
+        "resource_id": "4098",
+        "name": "Texture_13",
+        "type": "texture",
+        "width": 1024,
+        "height": 1024,
+        "depth": 1,
+        "array_size": 1,
+        "format": "VK_FORMAT_R8_UNORM",
+        "size_bytes": 4194304,
+        "thumbnail": "",
+        "usage": [],
+        "availability": {
+          "thumbnail": "missing"
+        }
+      },
+      {
+        "resource_id": "44815",
+        "name": "Texture_14",
+        "type": "texture",
+        "width": 288,
+        "height": 288,
+        "depth": 1,
+        "array_size": 1,
+        "format": "VK_FORMAT_ASTC_8x8_SRGB_BLOCK",
+        "size_bytes": 82944,
+        "thumbnail": "",
+        "usage": [],
+        "availability": {
+          "thumbnail": "missing"
+        }
+      },
+      {
+        "resource_id": "44829",
+        "name": "Texture_15",
+        "type": "texture",
+        "width": 74,
+        "height": 74,
+        "depth": 1,
+        "array_size": 1,
+        "format": "VK_FORMAT_B8G8R8A8_SRGB",
+        "size_bytes": 21904,
+        "thumbnail": "",
+        "usage": [],
+        "availability": {
+          "thumbnail": "missing"
+        }
+      },
+      {
+        "resource_id": "45455",
+        "name": "Texture_16",
+        "type": "texture",
+        "width": 2424,
+        "height": 1080,
+        "depth": 1,
+        "array_size": 1,
+        "format": "VK_FORMAT_R8G8B8A8_UNORM",
+        "size_bytes": 10471680,
+        "thumbnail": "",
+        "usage": [],
+        "availability": {
+          "thumbnail": "missing"
+        }
+      },
+      {
+        "resource_id": "45809",
+        "name": "Texture_17",
+        "type": "texture",
+        "width": 128,
+        "height": 128,
+        "depth": 1,
+        "array_size": 1,
+        "format": "VK_FORMAT_ASTC_8x8_SRGB_BLOCK",
+        "size_bytes": 16384,
+        "thumbnail": "",
+        "usage": [],
+        "availability": {
+          "thumbnail": "missing"
+        }
+      },
+      {
+        "resource_id": "46312",
+        "name": "Texture_18",
+        "type": "texture",
+        "width": 512,
+        "height": 512,
+        "depth": 1,
+        "array_size": 1,
+        "format": "VK_FORMAT_ASTC_8x8_SRGB_BLOCK",
+        "size_bytes": 262144,
+        "thumbnail": "",
+        "usage": [],
+        "availability": {
+          "thumbnail": "missing"
+        }
+      },
+      {
+        "resource_id": "46316",
+        "name": "Texture_19",
+        "type": "texture",
+        "width": 256,
+        "height": 256,
+        "depth": 1,
+        "array_size": 1,
+        "format": "VK_FORMAT_ASTC_8x8_SRGB_BLOCK",
+        "size_bytes": 65536,
+        "thumbnail": "",
+        "usage": [],
+        "availability": {
+          "thumbnail": "missing"
+        }
+      },
+      {
+        "resource_id": "92542",
+        "name": "Texture_20",
+        "type": "texture",
+        "width": 360,
+        "height": 1,
+        "depth": 1,
+        "array_size": 1,
+        "format": "VK_FORMAT_R32_SFLOAT",
+        "size_bytes": 1440,
+        "thumbnail": "",
+        "usage": [],
+        "availability": {
+          "thumbnail": "missing"
+        }
+      },
+      {
+        "resource_id": "92560",
+        "name": "Texture_21",
+        "type": "texture",
+        "width": 360,
+        "height": 1,
+        "depth": 1,
+        "array_size": 1,
+        "format": "VK_FORMAT_R32_SFLOAT",
+        "size_bytes": 1440,
+        "thumbnail": "",
+        "usage": [],
+        "availability": {
+          "thumbnail": "missing"
+        }
+      },
+      {
+        "resource_id": "92577",
+        "name": "Texture_22",
+        "type": "texture",
+        "width": 360,
+        "height": 1,
+        "depth": 1,
+        "array_size": 1,
+        "format": "VK_FORMAT_R32_SFLOAT",
+        "size_bytes": 1440,
+        "thumbnail": "",
+        "usage": [],
+        "availability": {
+          "thumbnail": "missing"
+        }
+      },
+      {
+        "resource_id": "92875",
+        "name": "Texture_23",
+        "type": "texture",
+        "width": 1785,
+        "height": 794,
+        "depth": 1,
+        "array_size": 1,
+        "format": "VK_FORMAT_B10G11R11_UFLOAT_PACK32",
+        "size_bytes": 5669160,
+        "thumbnail": "",
+        "usage": [],
+        "availability": {
+          "thumbnail": "missing"
+        }
+      },
+      {
+        "resource_id": "92892",
+        "name": "Texture_24",
+        "type": "texture",
+        "width": 1785,
+        "height": 794,
+        "depth": 1,
+        "array_size": 1,
+        "format": "VK_FORMAT_R16_SFLOAT",
+        "size_bytes": 2834580,
+        "thumbnail": "",
+        "usage": [],
+        "availability": {
+          "thumbnail": "missing"
+        }
+      },
+      {
+        "resource_id": "92897",
+        "name": "Texture_25",
+        "type": "texture",
+        "width": 1700,
+        "height": 756,
+        "depth": 1,
+        "array_size": 1,
+        "format": "VK_FORMAT_B10G11R11_UFLOAT_PACK32",
+        "size_bytes": 5140800,
+        "thumbnail": "",
+        "usage": [],
+        "availability": {
+          "thumbnail": "missing"
+        }
+      },
+      {
+        "resource_id": "92899",
+        "name": "Texture_26",
+        "type": "texture",
+        "width": 1700,
+        "height": 756,
+        "depth": 1,
+        "array_size": 1,
+        "format": "VK_FORMAT_B10G11R11_UFLOAT_PACK32",
+        "size_bytes": 5140800,
+        "thumbnail": "",
+        "usage": [],
+        "availability": {
+          "thumbnail": "missing"
+        }
+      },
+      {
+        "resource_id": "92903",
+        "name": "Texture_27",
+        "type": "texture",
+        "width": 1700,
+        "height": 756,
+        "depth": 1,
+        "array_size": 1,
+        "format": "VK_FORMAT_R16_SFLOAT",
+        "size_bytes": 2570400,
+        "thumbnail": "",
+        "usage": [],
+        "availability": {
+          "thumbnail": "missing"
+        }
+      },
+      {
+        "resource_id": "92905",
+        "name": "Texture_28",
+        "type": "texture",
+        "width": 1700,
+        "height": 756,
+        "depth": 1,
+        "array_size": 1,
+        "format": "VK_FORMAT_R16_SFLOAT",
+        "size_bytes": 2570400,
+        "thumbnail": "",
+        "usage": [],
+        "availability": {
+          "thumbnail": "missing"
+        }
+      },
+      {
+        "resource_id": "92907",
+        "name": "Texture_29",
+        "type": "texture",
+        "width": 1700,
+        "height": 756,
+        "depth": 1,
+        "array_size": 1,
+        "format": "VK_FORMAT_D24_UNORM_S8_UINT",
+        "size_bytes": 5140800,
+        "thumbnail": "",
+        "usage": [],
+        "availability": {
+          "thumbnail": "missing"
+        }
+      },
+      {
+        "resource_id": "92910",
+        "name": "Texture_30",
+        "type": "texture",
+        "width": 425,
+        "height": 189,
+        "depth": 1,
+        "array_size": 1,
+        "format": "VK_FORMAT_R16_SFLOAT",
+        "size_bytes": 160650,
+        "thumbnail": "",
+        "usage": [],
+        "availability": {
+          "thumbnail": "missing"
+        }
+      },
+      {
+        "resource_id": "92912",
+        "name": "Texture_31",
+        "type": "texture",
+        "width": 1700,
+        "height": 756,
+        "depth": 1,
+        "array_size": 1,
+        "format": "VK_FORMAT_R8G8B8A8_UNORM",
+        "size_bytes": 5140800,
+        "thumbnail": "",
+        "usage": [],
+        "availability": {
+          "thumbnail": "missing"
+        }
+      },
+      {
+        "resource_id": "92914",
+        "name": "Texture_32",
+        "type": "texture",
+        "width": 1700,
+        "height": 756,
+        "depth": 1,
+        "array_size": 1,
+        "format": "VK_FORMAT_R8G8B8A8_UNORM",
+        "size_bytes": 5140800,
+        "thumbnail": "",
+        "usage": [],
+        "availability": {
+          "thumbnail": "missing"
+        }
+      },
+      {
+        "resource_id": "92918",
+        "name": "Texture_33",
+        "type": "texture",
+        "width": 2424,
+        "height": 1080,
+        "depth": 1,
+        "array_size": 1,
+        "format": "VK_FORMAT_R8G8B8A8_UNORM",
+        "size_bytes": 10471680,
+        "thumbnail": "",
+        "usage": [],
+        "availability": {
+          "thumbnail": "missing"
+        }
+      },
+      {
+        "resource_id": "93919",
+        "name": "Texture_34",
+        "type": "texture",
+        "width": 28,
+        "height": 13,
+        "depth": 1,
+        "array_size": 1,
+        "format": "VK_FORMAT_R32G32B32A32_SFLOAT",
+        "size_bytes": 5824,
+        "thumbnail": "",
+        "usage": [],
+        "availability": {
+          "thumbnail": "missing"
+        }
+      },
+      {
+        "resource_id": "93925",
+        "name": "Texture_35",
+        "type": "texture",
+        "width": 425,
+        "height": 189,
+        "depth": 1,
+        "array_size": 1,
+        "format": "VK_FORMAT_R16_SFLOAT",
+        "size_bytes": 160650,
+        "thumbnail": "",
+        "usage": [],
+        "availability": {
+          "thumbnail": "missing"
+        }
+      },
+      {
+        "resource_id": "93927",
+        "name": "Texture_36",
+        "type": "texture",
+        "width": 1700,
+        "height": 756,
+        "depth": 1,
+        "array_size": 1,
+        "format": "VK_FORMAT_R8_UNORM",
+        "size_bytes": 5140800,
+        "thumbnail": "",
+        "usage": [],
+        "availability": {
+          "thumbnail": "missing"
+        }
+      },
+      {
+        "resource_id": "94269",
+        "name": "Texture_37",
+        "type": "texture",
+        "width": 200,
+        "height": 76,
+        "depth": 1,
+        "array_size": 1,
+        "format": "VK_FORMAT_ASTC_8x8_SRGB_BLOCK",
+        "size_bytes": 15200,
+        "thumbnail": "",
+        "usage": [],
+        "availability": {
+          "thumbnail": "missing"
+        }
+      },
+      {
+        "resource_id": "94272",
+        "name": "Texture_38",
+        "type": "texture",
+        "width": 108,
+        "height": 108,
+        "depth": 1,
+        "array_size": 1,
+        "format": "VK_FORMAT_ASTC_8x8_SRGB_BLOCK",
+        "size_bytes": 11664,
+        "thumbnail": "",
+        "usage": [],
+        "availability": {
+          "thumbnail": "missing"
+        }
+      },
+      {
+        "resource_id": "94425",
+        "name": "Texture_39",
+        "type": "texture",
+        "width": 680,
+        "height": 536,
+        "depth": 1,
+        "array_size": 1,
+        "format": "VK_FORMAT_B8G8R8A8_SRGB",
+        "size_bytes": 1457920,
+        "thumbnail": "",
+        "usage": [],
+        "availability": {
+          "thumbnail": "missing"
+        }
+      },
+      {
+        "resource_id": "94428",
+        "name": "Texture_40",
+        "type": "texture",
+        "width": 4,
+        "height": 4,
+        "depth": 1,
+        "array_size": 1,
+        "format": "VK_FORMAT_ASTC_8x8_SRGB_BLOCK",
+        "size_bytes": 16,
+        "thumbnail": "",
+        "usage": [],
+        "availability": {
+          "thumbnail": "missing"
+        }
+      },
+      {
+        "resource_id": "94440",
+        "name": "Texture_41",
+        "type": "texture",
+        "width": 632,
+        "height": 508,
+        "depth": 1,
+        "array_size": 1,
+        "format": "VK_FORMAT_B8G8R8A8_SRGB",
+        "size_bytes": 1284224,
+        "thumbnail": "",
+        "usage": [],
+        "availability": {
+          "thumbnail": "missing"
+        }
+      },
+      {
+        "resource_id": "94614",
+        "name": "Texture_42",
+        "type": "texture",
+        "width": 196,
+        "height": 198,
+        "depth": 1,
+        "array_size": 1,
+        "format": "VK_FORMAT_B8G8R8A8_SRGB",
+        "size_bytes": 155232,
+        "thumbnail": "",
+        "usage": [],
+        "availability": {
+          "thumbnail": "missing"
+        }
+      },
+      {
+        "resource_id": "94763",
+        "name": "Texture_43",
+        "type": "texture",
+        "width": 512,
+        "height": 512,
+        "depth": 1,
+        "array_size": 1,
+        "format": "VK_FORMAT_B8G8R8A8_SRGB",
+        "size_bytes": 1048576,
+        "thumbnail": "",
+        "usage": [],
+        "availability": {
+          "thumbnail": "missing"
+        }
+      },
+      {
+        "resource_id": "94765",
+        "name": "Texture_44",
+        "type": "texture",
+        "width": 38,
+        "height": 38,
+        "depth": 1,
+        "array_size": 1,
+        "format": "VK_FORMAT_B8G8R8A8_SRGB",
+        "size_bytes": 5776,
+        "thumbnail": "",
+        "usage": [],
+        "availability": {
+          "thumbnail": "missing"
+        }
+      },
+      {
+        "resource_id": "94768",
+        "name": "Texture_45",
+        "type": "texture",
+        "width": 512,
+        "height": 512,
+        "depth": 1,
+        "array_size": 1,
+        "format": "VK_FORMAT_ASTC_8x8_SRGB_BLOCK",
+        "size_bytes": 262144,
+        "thumbnail": "",
+        "usage": [],
+        "availability": {
+          "thumbnail": "missing"
+        }
+      },
+      {
+        "resource_id": "94770",
+        "name": "Texture_46",
+        "type": "texture",
+        "width": 171,
+        "height": 315,
+        "depth": 1,
+        "array_size": 1,
+        "format": "VK_FORMAT_B8G8R8A8_SRGB",
+        "size_bytes": 215460,
+        "thumbnail": "",
+        "usage": [],
+        "availability": {
+          "thumbnail": "missing"
+        }
+      },
+      {
+        "resource_id": "94773",
+        "name": "Texture_47",
+        "type": "texture",
+        "width": 158,
+        "height": 109,
+        "depth": 1,
+        "array_size": 1,
+        "format": "VK_FORMAT_B8G8R8A8_SRGB",
+        "size_bytes": 68888,
+        "thumbnail": "",
+        "usage": [],
+        "availability": {
+          "thumbnail": "missing"
+        }
+      },
+      {
+        "resource_id": "94776",
+        "name": "Texture_48",
+        "type": "texture",
+        "width": 165,
+        "height": 309,
+        "depth": 1,
+        "array_size": 1,
+        "format": "VK_FORMAT_B8G8R8A8_SRGB",
+        "size_bytes": 203940,
+        "thumbnail": "",
+        "usage": [],
+        "availability": {
+          "thumbnail": "missing"
+        }
+      },
+      {
+        "resource_id": "94779",
+        "name": "Texture_49",
+        "type": "texture",
+        "width": 64,
+        "height": 64,
+        "depth": 1,
+        "array_size": 1,
+        "format": "VK_FORMAT_R8_UNORM",
+        "size_bytes": 16384,
+        "thumbnail": "",
+        "usage": [],
+        "availability": {
+          "thumbnail": "missing"
+        }
+      },
+      {
+        "resource_id": "94784",
+        "name": "Texture_50",
+        "type": "texture",
+        "width": 64,
+        "height": 256,
+        "depth": 1,
+        "array_size": 1,
+        "format": "VK_FORMAT_B8G8R8A8_SRGB",
+        "size_bytes": 65536,
+        "thumbnail": "",
+        "usage": [],
+        "availability": {
+          "thumbnail": "missing"
+        }
+      },
+      {
+        "resource_id": "95575",
+        "name": "Texture_51",
+        "type": "texture",
+        "width": 182,
+        "height": 184,
+        "depth": 1,
+        "array_size": 1,
+        "format": "VK_FORMAT_B8G8R8A8_SRGB",
+        "size_bytes": 133952,
+        "thumbnail": "",
+        "usage": [],
+        "availability": {
+          "thumbnail": "missing"
+        }
+      },
+      {
+        "resource_id": "95581",
+        "name": "Texture_52",
+        "type": "texture",
+        "width": 2048,
+        "height": 2048,
+        "depth": 1,
+        "array_size": 1,
+        "format": "VK_FORMAT_ASTC_8x8_SRGB_BLOCK",
+        "size_bytes": 4194304,
+        "thumbnail": "",
+        "usage": [],
+        "availability": {
+          "thumbnail": "missing"
+        }
+      },
+      {
+        "resource_id": "95586",
+        "name": "Texture_53",
+        "type": "texture",
+        "width": 96,
+        "height": 110,
+        "depth": 1,
+        "array_size": 1,
+        "format": "VK_FORMAT_B8G8R8A8_SRGB",
+        "size_bytes": 42240,
+        "thumbnail": "",
+        "usage": [],
+        "availability": {
+          "thumbnail": "missing"
+        }
+      },
+      {
+        "resource_id": "96573",
+        "name": "Texture_54",
+        "type": "texture",
+        "width": 1700,
+        "height": 756,
+        "depth": 1,
+        "array_size": 1,
+        "format": "VK_FORMAT_B10G11R11_UFLOAT_PACK32",
+        "size_bytes": 5140800,
+        "thumbnail": "",
+        "usage": [],
+        "availability": {
+          "thumbnail": "missing"
+        }
+      },
+      {
+        "resource_id": "98793",
+        "name": "Texture_55",
+        "type": "texture",
+        "width": 1,
+        "height": 1,
+        "depth": 1,
+        "array_size": 1,
+        "format": "VK_FORMAT_B8G8R8A8_SRGB",
+        "size_bytes": 4,
+        "thumbnail": "",
+        "usage": [],
+        "availability": {
+          "thumbnail": "missing"
+        }
+      },
+      {
+        "resource_id": "98795",
+        "name": "Texture_56",
+        "type": "texture",
+        "width": 1,
+        "height": 1,
+        "depth": 1,
+        "array_size": 1,
+        "format": "VK_FORMAT_B8G8R8A8_UNORM",
+        "size_bytes": 4,
+        "thumbnail": "",
+        "usage": [],
+        "availability": {
+          "thumbnail": "missing"
+        }
+      },
+      {
+        "resource_id": "98798",
+        "name": "Texture_57",
+        "type": "texture",
+        "width": 185,
+        "height": 185,
+        "depth": 1,
+        "array_size": 1,
+        "format": "VK_FORMAT_B8G8R8A8_SRGB",
+        "size_bytes": 136900,
+        "thumbnail": "",
+        "usage": [],
+        "availability": {
+          "thumbnail": "missing"
+        }
+      },
+      {
+        "resource_id": "98801",
+        "name": "Texture_58",
+        "type": "texture",
+        "width": 256,
+        "height": 256,
+        "depth": 1,
+        "array_size": 1,
+        "format": "VK_FORMAT_ASTC_8x8_SRGB_BLOCK",
+        "size_bytes": 65536,
+        "thumbnail": "",
+        "usage": [],
+        "availability": {
+          "thumbnail": "missing"
+        }
+      },
+      {
+        "resource_id": "101725",
+        "name": "Texture_59",
+        "type": "texture",
+        "width": 1024,
+        "height": 256,
+        "depth": 1,
+        "array_size": 1,
+        "format": "VK_FORMAT_B8G8R8A8_SRGB",
+        "size_bytes": 1048576,
+        "thumbnail": "",
+        "usage": [],
+        "availability": {
+          "thumbnail": "missing"
+        }
+      },
+      {
+        "resource_id": "114499",
+        "name": "Texture_60",
+        "type": "texture",
+        "width": 64,
+        "height": 64,
+        "depth": 1,
+        "array_size": 1,
+        "format": "VK_FORMAT_R8_UNORM",
+        "size_bytes": 16384,
+        "thumbnail": "",
+        "usage": [],
+        "availability": {
+          "thumbnail": "missing"
+        }
+      },
+      {
+        "resource_id": "114508",
+        "name": "Texture_61",
+        "type": "texture",
+        "width": 64,
+        "height": 64,
+        "depth": 1,
+        "array_size": 1,
+        "format": "VK_FORMAT_ASTC_8x8_SRGB_BLOCK",
+        "size_bytes": 4096,
+        "thumbnail": "",
+        "usage": [],
+        "availability": {
+          "thumbnail": "missing"
+        }
+      },
+      {
+        "resource_id": "114517",
+        "name": "Texture_62",
+        "type": "texture",
+        "width": 64,
+        "height": 64,
+        "depth": 1,
+        "array_size": 1,
+        "format": "VK_FORMAT_ASTC_8x8_SRGB_BLOCK",
+        "size_bytes": 4096,
+        "thumbnail": "",
+        "usage": [],
+        "availability": {
+          "thumbnail": "missing"
+        }
+      },
+      {
+        "resource_id": "116949",
+        "name": "Texture_63",
+        "type": "texture",
+        "width": 1700,
+        "height": 756,
+        "depth": 1,
+        "array_size": 1,
+        "format": "VK_FORMAT_D24_UNORM_S8_UINT",
+        "size_bytes": 5140800,
+        "thumbnail": "",
+        "usage": [],
+        "availability": {
+          "thumbnail": "missing"
+        }
+      },
+      {
+        "resource_id": "118489",
+        "name": "Texture_64",
+        "type": "texture",
+        "width": 128,
+        "height": 128,
+        "depth": 1,
+        "array_size": 1,
+        "format": "VK_FORMAT_ASTC_8x8_SRGB_BLOCK",
+        "size_bytes": 16384,
+        "thumbnail": "",
+        "usage": [],
+        "availability": {
+          "thumbnail": "missing"
+        }
+      },
+      {
+        "resource_id": "118491",
+        "name": "Texture_65",
+        "type": "texture",
+        "width": 128,
+        "height": 128,
+        "depth": 1,
+        "array_size": 1,
+        "format": "VK_FORMAT_ASTC_8x8_UNORM_BLOCK",
+        "size_bytes": 16384,
+        "thumbnail": "",
+        "usage": [],
+        "availability": {
+          "thumbnail": "missing"
+        }
+      },
+      {
+        "resource_id": "118517",
+        "name": "Texture_66",
+        "type": "texture",
+        "width": 256,
+        "height": 256,
+        "depth": 1,
+        "array_size": 1,
+        "format": "VK_FORMAT_ASTC_8x8_SRGB_BLOCK",
+        "size_bytes": 65536,
+        "thumbnail": "",
+        "usage": [],
+        "availability": {
+          "thumbnail": "missing"
+        }
+      },
+      {
+        "resource_id": "118523",
+        "name": "Texture_67",
+        "type": "texture",
+        "width": 256,
+        "height": 256,
+        "depth": 1,
+        "array_size": 1,
+        "format": "VK_FORMAT_ASTC_8x8_SRGB_BLOCK",
+        "size_bytes": 65536,
+        "thumbnail": "",
+        "usage": [],
+        "availability": {
+          "thumbnail": "missing"
+        }
+      },
+      {
+        "resource_id": "118551",
+        "name": "Texture_68",
+        "type": "texture",
+        "width": 128,
+        "height": 128,
+        "depth": 1,
+        "array_size": 1,
+        "format": "VK_FORMAT_ASTC_8x8_SRGB_BLOCK",
+        "size_bytes": 16384,
+        "thumbnail": "",
+        "usage": [],
+        "availability": {
+          "thumbnail": "missing"
+        }
+      },
+      {
+        "resource_id": "119202",
+        "name": "Texture_69",
+        "type": "texture",
+        "width": 256,
+        "height": 256,
+        "depth": 1,
+        "array_size": 1,
+        "format": "VK_FORMAT_ASTC_8x8_UNORM_BLOCK",
+        "size_bytes": 65536,
+        "thumbnail": "",
+        "usage": [],
+        "availability": {
+          "thumbnail": "missing"
+        }
+      },
+      {
+        "resource_id": "119763",
+        "name": "Texture_70",
+        "type": "texture",
+        "width": 256,
+        "height": 256,
+        "depth": 1,
+        "array_size": 1,
+        "format": "VK_FORMAT_ASTC_8x8_SRGB_BLOCK",
+        "size_bytes": 65536,
+        "thumbnail": "",
+        "usage": [],
+        "availability": {
+          "thumbnail": "missing"
+        }
+      },
+      {
+        "resource_id": "120007",
+        "name": "Texture_71",
+        "type": "texture",
+        "width": 82,
+        "height": 72,
+        "depth": 1,
+        "array_size": 1,
+        "format": "VK_FORMAT_B8G8R8A8_SRGB",
+        "size_bytes": 23616,
+        "thumbnail": "",
+        "usage": [],
+        "availability": {
+          "thumbnail": "missing"
+        }
+      },
+      {
+        "resource_id": "120083",
+        "name": "Texture_72",
+        "type": "texture",
+        "width": 82,
+        "height": 72,
+        "depth": 1,
+        "array_size": 1,
+        "format": "VK_FORMAT_B8G8R8A8_SRGB",
+        "size_bytes": 23616,
+        "thumbnail": "",
+        "usage": [],
+        "availability": {
+          "thumbnail": "missing"
+        }
+      },
+      {
+        "resource_id": "120238",
+        "name": "Texture_73",
+        "type": "texture",
+        "width": 94,
+        "height": 94,
+        "depth": 1,
+        "array_size": 1,
+        "format": "VK_FORMAT_B8G8R8A8_SRGB",
+        "size_bytes": 35344,
+        "thumbnail": "",
+        "usage": [],
+        "availability": {
+          "thumbnail": "missing"
+        }
+      },
+      {
+        "resource_id": "128636",
+        "name": "Texture_74",
+        "type": "texture",
+        "width": 64,
+        "height": 64,
+        "depth": 1,
+        "array_size": 1,
+        "format": "VK_FORMAT_ASTC_8x8_SRGB_BLOCK",
+        "size_bytes": 4096,
+        "thumbnail": "",
+        "usage": [],
+        "availability": {
+          "thumbnail": "missing"
+        }
+      },
+      {
+        "resource_id": "128645",
+        "name": "Texture_75",
+        "type": "texture",
+        "width": 64,
+        "height": 64,
+        "depth": 1,
+        "array_size": 1,
+        "format": "VK_FORMAT_ASTC_8x8_SRGB_BLOCK",
+        "size_bytes": 4096,
+        "thumbnail": "",
+        "usage": [],
+        "availability": {
+          "thumbnail": "missing"
+        }
+      },
+      {
+        "resource_id": "129251",
+        "name": "Texture_76",
+        "type": "texture",
+        "width": 512,
+        "height": 512,
+        "depth": 1,
+        "array_size": 1,
+        "format": "VK_FORMAT_ASTC_8x8_SRGB_BLOCK",
+        "size_bytes": 262144,
+        "thumbnail": "",
+        "usage": [],
+        "availability": {
+          "thumbnail": "missing"
+        }
+      },
+      {
+        "resource_id": "129253",
+        "name": "Texture_77",
+        "type": "texture",
+        "width": 128,
+        "height": 128,
+        "depth": 1,
+        "array_size": 1,
+        "format": "VK_FORMAT_ASTC_8x8_SRGB_BLOCK",
+        "size_bytes": 16384,
+        "thumbnail": "",
+        "usage": [],
+        "availability": {
+          "thumbnail": "missing"
+        }
+      },
+      {
+        "resource_id": "130067",
+        "name": "Texture_78",
+        "type": "texture",
+        "width": 512,
+        "height": 512,
+        "depth": 1,
+        "array_size": 1,
+        "format": "VK_FORMAT_R8_UNORM",
+        "size_bytes": 1048576,
+        "thumbnail": "",
+        "usage": [],
+        "availability": {
+          "thumbnail": "missing"
+        }
+      },
+      {
+        "resource_id": "130069",
+        "name": "Texture_79",
+        "type": "texture",
+        "width": 128,
+        "height": 128,
+        "depth": 1,
+        "array_size": 1,
+        "format": "VK_FORMAT_ASTC_8x8_SRGB_BLOCK",
+        "size_bytes": 16384,
+        "thumbnail": "",
+        "usage": [],
+        "availability": {
+          "thumbnail": "missing"
+        }
+      },
+      {
+        "resource_id": "130693",
+        "name": "Texture_80",
+        "type": "texture",
+        "width": 128,
+        "height": 128,
+        "depth": 1,
+        "array_size": 1,
+        "format": "VK_FORMAT_ASTC_8x8_SRGB_BLOCK",
+        "size_bytes": 16384,
+        "thumbnail": "",
+        "usage": [],
+        "availability": {
+          "thumbnail": "missing"
+        }
+      },
+      {
+        "resource_id": "131325",
+        "name": "Texture_81",
+        "type": "texture",
+        "width": 256,
+        "height": 256,
+        "depth": 1,
+        "array_size": 1,
+        "format": "VK_FORMAT_ASTC_8x8_SRGB_BLOCK",
+        "size_bytes": 65536,
+        "thumbnail": "",
+        "usage": [],
+        "availability": {
+          "thumbnail": "missing"
+        }
+      },
+      {
+        "resource_id": "132366",
+        "name": "Texture_82",
+        "type": "texture",
+        "width": 64,
+        "height": 64,
+        "depth": 1,
+        "array_size": 1,
+        "format": "VK_FORMAT_ASTC_8x8_SRGB_BLOCK",
+        "size_bytes": 4096,
+        "thumbnail": "",
+        "usage": [],
+        "availability": {
+          "thumbnail": "missing"
+        }
+      },
+      {
+        "resource_id": "133174",
+        "name": "Texture_83",
+        "type": "texture",
+        "width": 64,
+        "height": 64,
+        "depth": 1,
+        "array_size": 1,
+        "format": "VK_FORMAT_ASTC_8x8_SRGB_BLOCK",
+        "size_bytes": 4096,
+        "thumbnail": "",
+        "usage": [],
+        "availability": {
+          "thumbnail": "missing"
+        }
+      },
+      {
+        "resource_id": "133176",
+        "name": "Texture_84",
+        "type": "texture",
+        "width": 64,
+        "height": 64,
+        "depth": 1,
+        "array_size": 1,
+        "format": "VK_FORMAT_ASTC_8x8_UNORM_BLOCK",
+        "size_bytes": 4096,
+        "thumbnail": "",
+        "usage": [],
+        "availability": {
+          "thumbnail": "missing"
+        }
+      },
+      {
+        "resource_id": "133187",
+        "name": "Texture_85",
+        "type": "texture",
+        "width": 64,
+        "height": 64,
+        "depth": 1,
+        "array_size": 1,
+        "format": "VK_FORMAT_ASTC_8x8_UNORM_BLOCK",
+        "size_bytes": 4096,
+        "thumbnail": "",
+        "usage": [],
+        "availability": {
+          "thumbnail": "missing"
+        }
+      },
+      {
+        "resource_id": "133193",
+        "name": "Texture_86",
+        "type": "texture",
+        "width": 64,
+        "height": 64,
+        "depth": 1,
+        "array_size": 1,
+        "format": "VK_FORMAT_ASTC_8x8_SRGB_BLOCK",
+        "size_bytes": 4096,
+        "thumbnail": "",
+        "usage": [],
+        "availability": {
+          "thumbnail": "missing"
+        }
+      },
+      {
+        "resource_id": "136347",
+        "name": "Texture_87",
+        "type": "texture",
+        "width": 128,
+        "height": 128,
+        "depth": 1,
+        "array_size": 1,
+        "format": "VK_FORMAT_ASTC_8x8_SRGB_BLOCK",
+        "size_bytes": 16384,
+        "thumbnail": "",
+        "usage": [],
+        "availability": {
+          "thumbnail": "missing"
+        }
+      },
+      {
+        "resource_id": "138340",
+        "name": "Texture_88",
+        "type": "texture",
+        "width": 256,
+        "height": 256,
+        "depth": 1,
+        "array_size": 1,
+        "format": "VK_FORMAT_ASTC_8x8_UNORM_BLOCK",
+        "size_bytes": 65536,
+        "thumbnail": "",
+        "usage": [],
+        "availability": {
+          "thumbnail": "missing"
+        }
+      },
+      {
+        "resource_id": "138342",
+        "name": "Texture_89",
+        "type": "texture",
+        "width": 256,
+        "height": 256,
+        "depth": 1,
+        "array_size": 1,
+        "format": "VK_FORMAT_ASTC_8x8_SRGB_BLOCK",
+        "size_bytes": 65536,
+        "thumbnail": "",
+        "usage": [],
+        "availability": {
+          "thumbnail": "missing"
+        }
+      },
+      {
+        "resource_id": "138344",
+        "name": "Texture_90",
+        "type": "texture",
+        "width": 256,
+        "height": 256,
+        "depth": 1,
+        "array_size": 1,
+        "format": "VK_FORMAT_ASTC_8x8_SRGB_BLOCK",
+        "size_bytes": 65536,
+        "thumbnail": "",
+        "usage": [],
+        "availability": {
+          "thumbnail": "missing"
+        }
+      },
+      {
+        "resource_id": "138346",
+        "name": "Texture_91",
+        "type": "texture",
+        "width": 256,
+        "height": 256,
+        "depth": 1,
+        "array_size": 1,
+        "format": "VK_FORMAT_ASTC_8x8_SRGB_BLOCK",
+        "size_bytes": 65536,
+        "thumbnail": "",
+        "usage": [],
+        "availability": {
+          "thumbnail": "missing"
+        }
+      },
+      {
+        "resource_id": "244847",
+        "name": "Texture_92",
+        "type": "texture",
+        "width": 256,
+        "height": 256,
+        "depth": 1,
+        "array_size": 1,
+        "format": "VK_FORMAT_ASTC_8x8_SRGB_BLOCK",
+        "size_bytes": 65536,
+        "thumbnail": "",
+        "usage": [],
+        "availability": {
+          "thumbnail": "missing"
+        }
+      },
+      {
+        "resource_id": "244849",
+        "name": "Texture_93",
+        "type": "texture",
+        "width": 256,
+        "height": 256,
+        "depth": 1,
+        "array_size": 1,
+        "format": "VK_FORMAT_ASTC_8x8_SRGB_BLOCK",
+        "size_bytes": 65536,
+        "thumbnail": "",
+        "usage": [],
+        "availability": {
+          "thumbnail": "missing"
+        }
+      },
+      {
+        "resource_id": "244851",
+        "name": "Texture_94",
+        "type": "texture",
+        "width": 256,
+        "height": 256,
+        "depth": 1,
+        "array_size": 1,
+        "format": "VK_FORMAT_ASTC_8x8_SRGB_BLOCK",
+        "size_bytes": 65536,
+        "thumbnail": "",
+        "usage": [],
+        "availability": {
+          "thumbnail": "missing"
+        }
+      },
+      {
+        "resource_id": "244853",
+        "name": "Texture_95",
+        "type": "texture",
+        "width": 256,
+        "height": 256,
+        "depth": 1,
+        "array_size": 1,
+        "format": "VK_FORMAT_ASTC_8x8_SRGB_BLOCK",
+        "size_bytes": 65536,
+        "thumbnail": "",
+        "usage": [],
+        "availability": {
+          "thumbnail": "missing"
+        }
+      },
+      {
+        "resource_id": "244855",
+        "name": "Texture_96",
+        "type": "texture",
+        "width": 256,
+        "height": 256,
+        "depth": 1,
+        "array_size": 1,
+        "format": "VK_FORMAT_ASTC_8x8_SRGB_BLOCK",
+        "size_bytes": 65536,
+        "thumbnail": "",
+        "usage": [],
+        "availability": {
+          "thumbnail": "missing"
+        }
+      },
+      {
+        "resource_id": "244857",
+        "name": "Texture_97",
+        "type": "texture",
+        "width": 128,
+        "height": 128,
+        "depth": 1,
+        "array_size": 1,
+        "format": "VK_FORMAT_ASTC_8x8_SRGB_BLOCK",
+        "size_bytes": 16384,
+        "thumbnail": "",
+        "usage": [],
+        "availability": {
+          "thumbnail": "missing"
+        }
+      },
+      {
+        "resource_id": "244859",
+        "name": "Texture_98",
+        "type": "texture",
+        "width": 128,
+        "height": 128,
+        "depth": 1,
+        "array_size": 1,
+        "format": "VK_FORMAT_ASTC_8x8_SRGB_BLOCK",
+        "size_bytes": 16384,
+        "thumbnail": "",
+        "usage": [],
+        "availability": {
+          "thumbnail": "missing"
+        }
+      },
+      {
+        "resource_id": "245579",
+        "name": "Texture_99",
+        "type": "texture",
+        "width": 256,
+        "height": 256,
+        "depth": 1,
+        "array_size": 1,
+        "format": "VK_FORMAT_ASTC_8x8_SRGB_BLOCK",
+        "size_bytes": 65536,
+        "thumbnail": "",
+        "usage": [],
+        "availability": {
+          "thumbnail": "missing"
+        }
+      }
+    ],
+    "buffers": [
+      {
+        "resource_id": "buf-0",
+        "name": "Buffer_0",
+        "type": "buffer",
+        "size_bytes": 4194304,
+        "usage": "131317",
+        "availability": {
+          "metadata": "partial"
+        }
+      },
+      {
+        "resource_id": "buf-1",
+        "name": "Buffer_1",
+        "type": "buffer",
+        "size_bytes": 4194304,
+        "usage": "131317",
+        "availability": {
+          "metadata": "partial"
+        }
+      },
+      {
+        "resource_id": "buf-2",
+        "name": "Buffer_2",
+        "type": "buffer",
+        "size_bytes": 4194304,
+        "usage": "131317",
+        "availability": {
+          "metadata": "partial"
+        }
+      },
+      {
+        "resource_id": "buf-3",
+        "name": "Buffer_3",
+        "type": "buffer",
+        "size_bytes": 16777216,
+        "usage": "131088",
+        "availability": {
+          "metadata": "partial"
+        }
+      },
+      {
+        "resource_id": "buf-4",
+        "name": "Buffer_4",
+        "type": "buffer",
+        "size_bytes": 1048576,
+        "usage": "131203",
+        "availability": {
+          "metadata": "partial"
+        }
+      },
+      {
+        "resource_id": "buf-5",
+        "name": "Buffer_5",
+        "type": "buffer",
+        "size_bytes": 1048576,
+        "usage": "131139",
+        "availability": {
+          "metadata": "partial"
+        }
+      },
+      {
+        "resource_id": "buf-6",
+        "name": "Buffer_6",
+        "type": "buffer",
+        "size_bytes": 1048576,
+        "usage": "131215",
+        "availability": {
+          "metadata": "partial"
+        }
+      },
+      {
+        "resource_id": "buf-7",
+        "name": "Buffer_7",
+        "type": "buffer",
+        "size_bytes": 1048576,
+        "usage": "131119",
+        "availability": {
+          "metadata": "partial"
+        }
+      },
+      {
+        "resource_id": "buf-8",
+        "name": "Buffer_8",
+        "type": "buffer",
+        "size_bytes": 1048576,
+        "usage": "131090",
+        "availability": {
+          "metadata": "partial"
+        }
+      },
+      {
+        "resource_id": "buf-9",
+        "name": "Buffer_9",
+        "type": "buffer",
+        "size_bytes": 1048576,
+        "usage": "131143",
+        "availability": {
+          "metadata": "partial"
+        }
+      },
+      {
+        "resource_id": "buf-10",
+        "name": "Buffer_10",
+        "type": "buffer",
+        "size_bytes": 1048576,
+        "usage": "131119",
+        "availability": {
+          "metadata": "partial"
+        }
+      },
+      {
+        "resource_id": "buf-11",
+        "name": "Buffer_11",
+        "type": "buffer",
+        "size_bytes": 1048576,
+        "usage": "131471",
+        "availability": {
+          "metadata": "partial"
+        }
+      },
+      {
+        "resource_id": "buf-12",
+        "name": "Buffer_12",
+        "type": "buffer",
+        "size_bytes": 1048576,
+        "usage": "131119",
+        "availability": {
+          "metadata": "partial"
+        }
+      },
+      {
+        "resource_id": "buf-13",
+        "name": "Buffer_13",
+        "type": "buffer",
+        "size_bytes": 1048576,
+        "usage": "131135",
+        "availability": {
+          "metadata": "partial"
+        }
+      },
+      {
+        "resource_id": "buf-14",
+        "name": "Buffer_14",
+        "type": "buffer",
+        "size_bytes": 20544,
+        "usage": "131075",
+        "availability": {
+          "metadata": "partial"
+        }
+      },
+      {
+        "resource_id": "buf-15",
+        "name": "Buffer_15",
+        "type": "buffer",
+        "size_bytes": 65536,
+        "usage": "131075",
+        "availability": {
+          "metadata": "partial"
+        }
+      },
+      {
+        "resource_id": "buf-16",
+        "name": "Buffer_16",
+        "type": "buffer",
+        "size_bytes": 262144,
+        "usage": "131075",
+        "availability": {
+          "metadata": "partial"
+        }
+      },
+      {
+        "resource_id": "buf-17",
+        "name": "Buffer_17",
+        "type": "buffer",
+        "size_bytes": 20544,
+        "usage": "131075",
+        "availability": {
+          "metadata": "partial"
+        }
+      },
+      {
+        "resource_id": "buf-18",
+        "name": "Buffer_18",
+        "type": "buffer",
+        "size_bytes": 65536,
+        "usage": "131075",
+        "availability": {
+          "metadata": "partial"
+        }
+      },
+      {
+        "resource_id": "buf-19",
+        "name": "Buffer_19",
+        "type": "buffer",
+        "size_bytes": 20544,
+        "usage": "131075",
+        "availability": {
+          "metadata": "partial"
+        }
+      },
+      {
+        "resource_id": "buf-20",
+        "name": "Buffer_20",
+        "type": "buffer",
+        "size_bytes": 65536,
+        "usage": "131075",
+        "availability": {
+          "metadata": "partial"
+        }
+      },
+      {
+        "resource_id": "buf-21",
+        "name": "Buffer_21",
+        "type": "buffer",
+        "size_bytes": 20544,
+        "usage": "131075",
+        "availability": {
+          "metadata": "partial"
+        }
+      },
+      {
+        "resource_id": "buf-22",
+        "name": "Buffer_22",
+        "type": "buffer",
+        "size_bytes": 65536,
+        "usage": "131075",
+        "availability": {
+          "metadata": "partial"
+        }
+      },
+      {
+        "resource_id": "buf-23",
+        "name": "Buffer_23",
+        "type": "buffer",
+        "size_bytes": 262144,
+        "usage": "131075",
+        "availability": {
+          "metadata": "partial"
+        }
+      },
+      {
+        "resource_id": "buf-24",
+        "name": "Buffer_24",
+        "type": "buffer",
+        "size_bytes": 20544,
+        "usage": "131075",
+        "availability": {
+          "metadata": "partial"
+        }
+      },
+      {
+        "resource_id": "buf-25",
+        "name": "Buffer_25",
+        "type": "buffer",
+        "size_bytes": 262144,
+        "usage": "131075",
+        "availability": {
+          "metadata": "partial"
+        }
+      },
+      {
+        "resource_id": "buf-26",
+        "name": "Buffer_26",
+        "type": "buffer",
+        "size_bytes": 20544,
+        "usage": "131075",
+        "availability": {
+          "metadata": "partial"
+        }
+      },
+      {
+        "resource_id": "buf-27",
+        "name": "Buffer_27",
+        "type": "buffer",
+        "size_bytes": 20544,
+        "usage": "131075",
+        "availability": {
+          "metadata": "partial"
+        }
+      },
+      {
+        "resource_id": "buf-28",
+        "name": "Buffer_28",
+        "type": "buffer",
+        "size_bytes": 20544,
+        "usage": "131075",
+        "availability": {
+          "metadata": "partial"
+        }
+      },
+      {
+        "resource_id": "buf-29",
+        "name": "Buffer_29",
+        "type": "buffer",
+        "size_bytes": 1048576,
+        "usage": "131207",
+        "availability": {
+          "metadata": "partial"
+        }
+      },
+      {
+        "resource_id": "buf-30",
+        "name": "Buffer_30",
+        "type": "buffer",
+        "size_bytes": 1048576,
+        "usage": "131471",
+        "availability": {
+          "metadata": "partial"
+        }
+      },
+      {
+        "resource_id": "buf-31",
+        "name": "Buffer_31",
+        "type": "buffer",
+        "size_bytes": 1048576,
+        "usage": "131139",
+        "availability": {
+          "metadata": "partial"
+        }
+      },
+      {
+        "resource_id": "buf-32",
+        "name": "Buffer_32",
+        "type": "buffer",
+        "size_bytes": 1048576,
+        "usage": "131247",
+        "availability": {
+          "metadata": "partial"
+        }
+      },
+      {
+        "resource_id": "buf-33",
+        "name": "Buffer_33",
+        "type": "buffer",
+        "size_bytes": 1048576,
+        "usage": "131143",
+        "availability": {
+          "metadata": "partial"
+        }
+      },
+      {
+        "resource_id": "buf-34",
+        "name": "Buffer_34",
+        "type": "buffer",
+        "size_bytes": 1048576,
+        "usage": "131207",
+        "availability": {
+          "metadata": "partial"
+        }
+      },
+      {
+        "resource_id": "buf-35",
+        "name": "Buffer_35",
+        "type": "buffer",
+        "size_bytes": 1048576,
+        "usage": "131207",
+        "availability": {
+          "metadata": "partial"
+        }
+      },
+      {
+        "resource_id": "buf-36",
+        "name": "Buffer_36",
+        "type": "buffer",
+        "size_bytes": 1048576,
+        "usage": "131139",
+        "availability": {
+          "metadata": "partial"
+        }
+      },
+      {
+        "resource_id": "buf-37",
+        "name": "Buffer_37",
+        "type": "buffer",
+        "size_bytes": 1048576,
+        "usage": "131207",
+        "availability": {
+          "metadata": "partial"
+        }
+      },
+      {
+        "resource_id": "buf-38",
+        "name": "Buffer_38",
+        "type": "buffer",
+        "size_bytes": 1048576,
+        "usage": "131139",
+        "availability": {
+          "metadata": "partial"
+        }
+      },
+      {
+        "resource_id": "buf-39",
+        "name": "Buffer_39",
+        "type": "buffer",
+        "size_bytes": 1048576,
+        "usage": "131207",
+        "availability": {
+          "metadata": "partial"
+        }
+      },
+      {
+        "resource_id": "buf-40",
+        "name": "Buffer_40",
+        "type": "buffer",
+        "size_bytes": 1048576,
+        "usage": "131143",
+        "availability": {
+          "metadata": "partial"
+        }
+      },
+      {
+        "resource_id": "buf-41",
+        "name": "Buffer_41",
+        "type": "buffer",
+        "size_bytes": 1048576,
+        "usage": "131207",
+        "availability": {
+          "metadata": "partial"
+        }
+      },
+      {
+        "resource_id": "buf-42",
+        "name": "Buffer_42",
+        "type": "buffer",
+        "size_bytes": 1048576,
+        "usage": "131207",
+        "availability": {
+          "metadata": "partial"
+        }
+      },
+      {
+        "resource_id": "buf-43",
+        "name": "Buffer_43",
+        "type": "buffer",
+        "size_bytes": 1048576,
+        "usage": "131139",
+        "availability": {
+          "metadata": "partial"
+        }
+      },
+      {
+        "resource_id": "buf-44",
+        "name": "Buffer_44",
+        "type": "buffer",
+        "size_bytes": 1048576,
+        "usage": "131207",
+        "availability": {
+          "metadata": "partial"
+        }
+      },
+      {
+        "resource_id": "buf-45",
+        "name": "Buffer_45",
+        "type": "buffer",
+        "size_bytes": 1048576,
+        "usage": "131139",
+        "availability": {
+          "metadata": "partial"
+        }
+      },
+      {
+        "resource_id": "buf-46",
+        "name": "Buffer_46",
+        "type": "buffer",
+        "size_bytes": 1048576,
+        "usage": "131207",
+        "availability": {
+          "metadata": "partial"
+        }
+      },
+      {
+        "resource_id": "buf-47",
+        "name": "Buffer_47",
+        "type": "buffer",
+        "size_bytes": 1048576,
+        "usage": "131207",
+        "availability": {
+          "metadata": "partial"
+        }
+      },
+      {
+        "resource_id": "buf-48",
+        "name": "Buffer_48",
+        "type": "buffer",
+        "size_bytes": 1048576,
+        "usage": "131139",
+        "availability": {
+          "metadata": "partial"
+        }
+      },
+      {
+        "resource_id": "buf-49",
+        "name": "Buffer_49",
+        "type": "buffer",
+        "size_bytes": 1048576,
+        "usage": "131207",
+        "availability": {
+          "metadata": "partial"
+        }
+      },
+      {
+        "resource_id": "buf-50",
+        "name": "Buffer_50",
+        "type": "buffer",
+        "size_bytes": 1048576,
+        "usage": "131207",
+        "availability": {
+          "metadata": "partial"
+        }
+      },
+      {
+        "resource_id": "buf-51",
+        "name": "Buffer_51",
+        "type": "buffer",
+        "size_bytes": 1048576,
+        "usage": "131139",
+        "availability": {
+          "metadata": "partial"
+        }
+      },
+      {
+        "resource_id": "buf-52",
+        "name": "Buffer_52",
+        "type": "buffer",
+        "size_bytes": 1048576,
+        "usage": "131207",
+        "availability": {
+          "metadata": "partial"
+        }
+      },
+      {
+        "resource_id": "buf-53",
+        "name": "Buffer_53",
+        "type": "buffer",
+        "size_bytes": 1048576,
+        "usage": "131207",
+        "availability": {
+          "metadata": "partial"
+        }
+      },
+      {
+        "resource_id": "buf-54",
+        "name": "Buffer_54",
+        "type": "buffer",
+        "size_bytes": 1048576,
+        "usage": "131139",
+        "availability": {
+          "metadata": "partial"
+        }
+      },
+      {
+        "resource_id": "buf-55",
+        "name": "Buffer_55",
+        "type": "buffer",
+        "size_bytes": 1048576,
+        "usage": "131143",
+        "availability": {
+          "metadata": "partial"
+        }
+      },
+      {
+        "resource_id": "buf-56",
+        "name": "Buffer_56",
+        "type": "buffer",
+        "size_bytes": 1048576,
+        "usage": "131207",
+        "availability": {
+          "metadata": "partial"
+        }
+      },
+      {
+        "resource_id": "buf-57",
+        "name": "Buffer_57",
+        "type": "buffer",
+        "size_bytes": 1048576,
+        "usage": "131207",
+        "availability": {
+          "metadata": "partial"
+        }
+      },
+      {
+        "resource_id": "buf-58",
+        "name": "Buffer_58",
+        "type": "buffer",
+        "size_bytes": 1048576,
+        "usage": "131139",
+        "availability": {
+          "metadata": "partial"
+        }
+      },
+      {
+        "resource_id": "buf-59",
+        "name": "Buffer_59",
+        "type": "buffer",
+        "size_bytes": 1048576,
+        "usage": "131143",
+        "availability": {
+          "metadata": "partial"
+        }
+      },
+      {
+        "resource_id": "buf-60",
+        "name": "Buffer_60",
+        "type": "buffer",
+        "size_bytes": 1048576,
+        "usage": "131207",
+        "availability": {
+          "metadata": "partial"
+        }
+      },
+      {
+        "resource_id": "buf-61",
+        "name": "Buffer_61",
+        "type": "buffer",
+        "size_bytes": 1048576,
+        "usage": "131207",
+        "availability": {
+          "metadata": "partial"
+        }
+      },
+      {
+        "resource_id": "buf-62",
+        "name": "Buffer_62",
+        "type": "buffer",
+        "size_bytes": 1048576,
+        "usage": "131207",
+        "availability": {
+          "metadata": "partial"
+        }
+      },
+      {
+        "resource_id": "buf-63",
+        "name": "Buffer_63",
+        "type": "buffer",
+        "size_bytes": 2097152,
+        "usage": "131119",
+        "availability": {
+          "metadata": "partial"
+        }
+      },
+      {
+        "resource_id": "buf-64",
+        "name": "Buffer_64",
+        "type": "buffer",
+        "size_bytes": 1048576,
+        "usage": "131139",
+        "availability": {
+          "metadata": "partial"
+        }
+      },
+      {
+        "resource_id": "buf-65",
+        "name": "Buffer_65",
+        "type": "buffer",
+        "size_bytes": 1048576,
+        "usage": "131207",
+        "availability": {
+          "metadata": "partial"
+        }
+      },
+      {
+        "resource_id": "buf-66",
+        "name": "Buffer_66",
+        "type": "buffer",
+        "size_bytes": 1048576,
+        "usage": "131143",
+        "availability": {
+          "metadata": "partial"
+        }
+      },
+      {
+        "resource_id": "buf-67",
+        "name": "Buffer_67",
+        "type": "buffer",
+        "size_bytes": 1048576,
+        "usage": "131207",
+        "availability": {
+          "metadata": "partial"
+        }
+      },
+      {
+        "resource_id": "buf-68",
+        "name": "Buffer_68",
+        "type": "buffer",
+        "size_bytes": 1048576,
+        "usage": "131207",
+        "availability": {
+          "metadata": "partial"
+        }
+      },
+      {
+        "resource_id": "buf-69",
+        "name": "Buffer_69",
+        "type": "buffer",
+        "size_bytes": 1048576,
+        "usage": "131139",
+        "availability": {
+          "metadata": "partial"
+        }
+      },
+      {
+        "resource_id": "buf-70",
+        "name": "Buffer_70",
+        "type": "buffer",
+        "size_bytes": 1048576,
+        "usage": "131143",
+        "availability": {
+          "metadata": "partial"
+        }
+      },
+      {
+        "resource_id": "buf-71",
+        "name": "Buffer_71",
+        "type": "buffer",
+        "size_bytes": 1048576,
+        "usage": "131090",
+        "availability": {
+          "metadata": "partial"
+        }
+      },
+      {
+        "resource_id": "buf-72",
+        "name": "Buffer_72",
+        "type": "buffer",
+        "size_bytes": 1048576,
+        "usage": "131207",
+        "availability": {
+          "metadata": "partial"
+        }
+      },
+      {
+        "resource_id": "buf-73",
+        "name": "Buffer_73",
+        "type": "buffer",
+        "size_bytes": 1048576,
+        "usage": "131207",
+        "availability": {
+          "metadata": "partial"
+        }
+      },
+      {
+        "resource_id": "buf-74",
+        "name": "Buffer_74",
+        "type": "buffer",
+        "size_bytes": 5505024,
+        "usage": "131119",
+        "availability": {
+          "metadata": "partial"
+        }
+      },
+      {
+        "resource_id": "buf-75",
+        "name": "Buffer_75",
+        "type": "buffer",
+        "size_bytes": 1048576,
+        "usage": "131207",
+        "availability": {
+          "metadata": "partial"
+        }
+      },
+      {
+        "resource_id": "buf-76",
+        "name": "Buffer_76",
+        "type": "buffer",
+        "size_bytes": 1048576,
+        "usage": "131139",
+        "availability": {
+          "metadata": "partial"
+        }
+      },
+      {
+        "resource_id": "buf-77",
+        "name": "Buffer_77",
+        "type": "buffer",
+        "size_bytes": 1048576,
+        "usage": "131207",
+        "availability": {
+          "metadata": "partial"
+        }
+      },
+      {
+        "resource_id": "buf-78",
+        "name": "Buffer_78",
+        "type": "buffer",
+        "size_bytes": 8388608,
+        "usage": "131119",
+        "availability": {
+          "metadata": "partial"
+        }
+      },
+      {
+        "resource_id": "buf-79",
+        "name": "Buffer_79",
+        "type": "buffer",
+        "size_bytes": 1048576,
+        "usage": "131139",
+        "availability": {
+          "metadata": "partial"
+        }
+      },
+      {
+        "resource_id": "buf-80",
+        "name": "Buffer_80",
+        "type": "buffer",
+        "size_bytes": 3932160,
+        "usage": "131119",
+        "availability": {
+          "metadata": "partial"
+        }
+      },
+      {
+        "resource_id": "buf-81",
+        "name": "Buffer_81",
+        "type": "buffer",
+        "size_bytes": 1048576,
+        "usage": "131143",
+        "availability": {
+          "metadata": "partial"
+        }
+      },
+      {
+        "resource_id": "buf-82",
+        "name": "Buffer_82",
+        "type": "buffer",
+        "size_bytes": 1048576,
+        "usage": "131207",
+        "availability": {
+          "metadata": "partial"
+        }
+      },
+      {
+        "resource_id": "buf-83",
+        "name": "Buffer_83",
+        "type": "buffer",
+        "size_bytes": 1048576,
+        "usage": "131207",
+        "availability": {
+          "metadata": "partial"
+        }
+      },
+      {
+        "resource_id": "buf-84",
+        "name": "Buffer_84",
+        "type": "buffer",
+        "size_bytes": 1048576,
+        "usage": "131207",
+        "availability": {
+          "metadata": "partial"
+        }
+      },
+      {
+        "resource_id": "buf-85",
+        "name": "Buffer_85",
+        "type": "buffer",
+        "size_bytes": 1048576,
+        "usage": "131143",
+        "availability": {
+          "metadata": "partial"
+        }
+      },
+      {
+        "resource_id": "buf-86",
+        "name": "Buffer_86",
+        "type": "buffer",
+        "size_bytes": 1048576,
+        "usage": "131207",
+        "availability": {
+          "metadata": "partial"
+        }
+      },
+      {
+        "resource_id": "buf-87",
+        "name": "Buffer_87",
+        "type": "buffer",
+        "size_bytes": 1048576,
+        "usage": "131139",
+        "availability": {
+          "metadata": "partial"
+        }
+      },
+      {
+        "resource_id": "buf-88",
+        "name": "Buffer_88",
+        "type": "buffer",
+        "size_bytes": 1048576,
+        "usage": "131143",
+        "availability": {
+          "metadata": "partial"
+        }
+      },
+      {
+        "resource_id": "buf-89",
+        "name": "Buffer_89",
+        "type": "buffer",
+        "size_bytes": 1048576,
+        "usage": "131207",
+        "availability": {
+          "metadata": "partial"
+        }
+      },
+      {
+        "resource_id": "buf-90",
+        "name": "Buffer_90",
+        "type": "buffer",
+        "size_bytes": 1048576,
+        "usage": "131207",
+        "availability": {
+          "metadata": "partial"
+        }
+      },
+      {
+        "resource_id": "buf-91",
+        "name": "Buffer_91",
+        "type": "buffer",
+        "size_bytes": 1048576,
+        "usage": "131207",
+        "availability": {
+          "metadata": "partial"
+        }
+      },
+      {
+        "resource_id": "buf-92",
+        "name": "Buffer_92",
+        "type": "buffer",
+        "size_bytes": 1048576,
+        "usage": "131139",
+        "availability": {
+          "metadata": "partial"
+        }
+      },
+      {
+        "resource_id": "buf-93",
+        "name": "Buffer_93",
+        "type": "buffer",
+        "size_bytes": 1048576,
+        "usage": "131207",
+        "availability": {
+          "metadata": "partial"
+        }
+      },
+      {
+        "resource_id": "buf-94",
+        "name": "Buffer_94",
+        "type": "buffer",
+        "size_bytes": 1472,
+        "usage": "131075",
+        "availability": {
+          "metadata": "partial"
+        }
+      },
+      {
+        "resource_id": "buf-95",
+        "name": "Buffer_95",
+        "type": "buffer",
+        "size_bytes": 1048576,
+        "usage": "131090",
+        "availability": {
+          "metadata": "partial"
+        }
+      },
+      {
+        "resource_id": "buf-96",
+        "name": "Buffer_96",
+        "type": "buffer",
+        "size_bytes": 1048576,
+        "usage": "131119",
+        "availability": {
+          "metadata": "partial"
+        }
+      },
+      {
+        "resource_id": "buf-97",
+        "name": "Buffer_97",
+        "type": "buffer",
+        "size_bytes": 1048576,
+        "usage": "131119",
+        "availability": {
+          "metadata": "partial"
+        }
+      },
+      {
+        "resource_id": "buf-98",
+        "name": "Buffer_98",
+        "type": "buffer",
+        "size_bytes": 5328,
+        "usage": "131075",
+        "availability": {
+          "metadata": "partial"
+        }
+      },
+      {
+        "resource_id": "buf-99",
+        "name": "Buffer_99",
+        "type": "buffer",
+        "size_bytes": 160,
+        "usage": "131075",
+        "availability": {
+          "metadata": "partial"
+        }
+      },
+      {
+        "resource_id": "buf-100",
+        "name": "Buffer_100",
+        "type": "buffer",
+        "size_bytes": 880,
+        "usage": "131075",
+        "availability": {
+          "metadata": "partial"
+        }
+      },
+      {
+        "resource_id": "buf-101",
+        "name": "Buffer_101",
+        "type": "buffer",
+        "size_bytes": 160,
+        "usage": "131075",
+        "availability": {
+          "metadata": "partial"
+        }
+      },
+      {
+        "resource_id": "buf-102",
+        "name": "Buffer_102",
+        "type": "buffer",
+        "size_bytes": 12058624,
+        "usage": "131135",
+        "availability": {
+          "metadata": "partial"
+        }
+      },
+      {
+        "resource_id": "buf-103",
+        "name": "Buffer_103",
+        "type": "buffer",
+        "size_bytes": 1632,
+        "usage": "131075",
+        "availability": {
+          "metadata": "partial"
+        }
+      },
+      {
+        "resource_id": "buf-104",
+        "name": "Buffer_104",
+        "type": "buffer",
+        "size_bytes": 340,
+        "usage": "131075",
+        "availability": {
+          "metadata": "partial"
+        }
+      },
+      {
+        "resource_id": "buf-105",
+        "name": "Buffer_105",
+        "type": "buffer",
+        "size_bytes": 2896,
+        "usage": "131075",
+        "availability": {
+          "metadata": "partial"
+        }
+      },
+      {
+        "resource_id": "buf-106",
+        "name": "Buffer_106",
+        "type": "buffer",
+        "size_bytes": 2896,
+        "usage": "131075",
+        "availability": {
+          "metadata": "partial"
+        }
+      },
+      {
+        "resource_id": "buf-107",
+        "name": "Buffer_107",
+        "type": "buffer",
+        "size_bytes": 11744,
+        "usage": "131075",
+        "availability": {
+          "metadata": "partial"
+        }
+      },
+      {
+        "resource_id": "buf-108",
+        "name": "Buffer_108",
+        "type": "buffer",
+        "size_bytes": 1472,
+        "usage": "131075",
+        "availability": {
+          "metadata": "partial"
+        }
+      },
+      {
+        "resource_id": "buf-109",
+        "name": "Buffer_109",
+        "type": "buffer",
+        "size_bytes": 11796480,
+        "usage": "131135",
+        "availability": {
+          "metadata": "partial"
+        }
+      },
+      {
+        "resource_id": "buf-110",
+        "name": "Buffer_110",
+        "type": "buffer",
+        "size_bytes": 2832,
+        "usage": "131075",
+        "availability": {
+          "metadata": "partial"
+        }
+      },
+      {
+        "resource_id": "buf-111",
+        "name": "Buffer_111",
+        "type": "buffer",
+        "size_bytes": 2832,
+        "usage": "131075",
+        "availability": {
+          "metadata": "partial"
+        }
+      },
+      {
+        "resource_id": "buf-112",
+        "name": "Buffer_112",
+        "type": "buffer",
+        "size_bytes": 11488,
+        "usage": "131075",
+        "availability": {
+          "metadata": "partial"
+        }
+      },
+      {
+        "resource_id": "buf-113",
+        "name": "Buffer_113",
+        "type": "buffer",
+        "size_bytes": 20,
+        "usage": "131075",
+        "availability": {
+          "metadata": "partial"
+        }
+      },
+      {
+        "resource_id": "buf-114",
+        "name": "Buffer_114",
+        "type": "buffer",
+        "size_bytes": 200,
+        "usage": "131075",
+        "availability": {
+          "metadata": "partial"
+        }
+      },
+      {
+        "resource_id": "buf-115",
+        "name": "Buffer_115",
+        "type": "buffer",
+        "size_bytes": 1048576,
+        "usage": "131207",
+        "availability": {
+          "metadata": "partial"
+        }
+      },
+      {
+        "resource_id": "buf-116",
+        "name": "Buffer_116",
+        "type": "buffer",
+        "size_bytes": 1048576,
+        "usage": "131207",
+        "availability": {
+          "metadata": "partial"
+        }
+      },
+      {
+        "resource_id": "buf-117",
+        "name": "Buffer_117",
+        "type": "buffer",
+        "size_bytes": 16,
+        "usage": "131075",
+        "availability": {
+          "metadata": "partial"
+        }
+      },
+      {
+        "resource_id": "buf-118",
+        "name": "Buffer_118",
+        "type": "buffer",
+        "size_bytes": 16,
+        "usage": "131075",
+        "availability": {
+          "metadata": "partial"
+        }
+      },
+      {
+        "resource_id": "buf-119",
+        "name": "Buffer_119",
+        "type": "buffer",
+        "size_bytes": 16,
+        "usage": "131075",
+        "availability": {
+          "metadata": "partial"
+        }
+      },
+      {
+        "resource_id": "buf-120",
+        "name": "Buffer_120",
+        "type": "buffer",
+        "size_bytes": 20,
+        "usage": "131075",
+        "availability": {
+          "metadata": "partial"
+        }
+      },
+      {
+        "resource_id": "buf-121",
+        "name": "Buffer_121",
+        "type": "buffer",
+        "size_bytes": 16,
+        "usage": "131075",
+        "availability": {
+          "metadata": "partial"
+        }
+      },
+      {
+        "resource_id": "buf-122",
+        "name": "Buffer_122",
+        "type": "buffer",
+        "size_bytes": 32,
+        "usage": "131075",
+        "availability": {
+          "metadata": "partial"
+        }
+      },
+      {
+        "resource_id": "buf-123",
+        "name": "Buffer_123",
+        "type": "buffer",
+        "size_bytes": 48,
+        "usage": "131075",
+        "availability": {
+          "metadata": "partial"
+        }
+      },
+      {
+        "resource_id": "buf-124",
+        "name": "Buffer_124",
+        "type": "buffer",
+        "size_bytes": 16,
+        "usage": "131075",
+        "availability": {
+          "metadata": "partial"
+        }
+      },
+      {
+        "resource_id": "buf-125",
+        "name": "Buffer_125",
+        "type": "buffer",
+        "size_bytes": 2136,
+        "usage": "131075",
+        "availability": {
+          "metadata": "partial"
+        }
+      },
+      {
+        "resource_id": "buf-126",
+        "name": "Buffer_126",
+        "type": "buffer",
+        "size_bytes": 16,
+        "usage": "131075",
+        "availability": {
+          "metadata": "partial"
+        }
+      },
+      {
+        "resource_id": "buf-127",
+        "name": "Buffer_127",
+        "type": "buffer",
+        "size_bytes": 2152,
+        "usage": "131075",
+        "availability": {
+          "metadata": "partial"
+        }
+      },
+      {
+        "resource_id": "buf-128",
+        "name": "Buffer_128",
+        "type": "buffer",
+        "size_bytes": 32,
+        "usage": "131075",
+        "availability": {
+          "metadata": "partial"
+        }
+      },
+      {
+        "resource_id": "buf-129",
+        "name": "Buffer_129",
+        "type": "buffer",
+        "size_bytes": 4396,
+        "usage": "131075",
+        "availability": {
+          "metadata": "partial"
+        }
+      },
+      {
+        "resource_id": "buf-130",
+        "name": "Buffer_130",
+        "type": "buffer",
+        "size_bytes": 21980,
+        "usage": "131075",
+        "availability": {
+          "metadata": "partial"
+        }
+      },
+      {
+        "resource_id": "buf-131",
+        "name": "Buffer_131",
+        "type": "buffer",
+        "size_bytes": 4396,
+        "usage": "131075",
+        "availability": {
+          "metadata": "partial"
+        }
+      },
+      {
+        "resource_id": "buf-132",
+        "name": "Buffer_132",
+        "type": "buffer",
+        "size_bytes": 4316,
+        "usage": "131075",
+        "availability": {
+          "metadata": "partial"
+        }
+      },
+      {
+        "resource_id": "buf-133",
+        "name": "Buffer_133",
+        "type": "buffer",
+        "size_bytes": 21580,
+        "usage": "131075",
+        "availability": {
+          "metadata": "partial"
+        }
+      },
+      {
+        "resource_id": "buf-134",
+        "name": "Buffer_134",
+        "type": "buffer",
+        "size_bytes": 4316,
+        "usage": "131075",
+        "availability": {
+          "metadata": "partial"
+        }
+      }
+    ]
+  },
+  "shaders": [],
+  "pipelines": [],
+  "findings": [],
+  "recommendations": [
+    {
+      "id": "offline-mcp-fill",
+      "severity": "info",
+      "category": "data-availability",
+      "title": "补齐离线缺失字段",
+      "description": "离线路径缺少部分 timing/pipeline/完整 shader 信息。",
+      "suggestion": "Use MCP query to fill unavailable offline fields (timings/pipelines/full shader source).",
+      "verification_plan": {
+        "steps": [
+          "运行 MCP query 获取缺失字段",
+          "对齐 event/resource/shader 证据链后再做归因"
+        ]
+      },
+      "estimated": false,
+      "confidence": "high"
+    }
+  ],
+  "evidence_index": {
+    "events": {
+      "1536": "events.html#event-1536",
+      "1538": "events.html#event-1538",
+      "1547": "events.html#event-1547",
+      "1555": "events.html#event-1555",
+      "1563": "events.html#event-1563",
+      "1567": "events.html#event-1567",
+      "1572": "events.html#event-1572",
+      "1576": "events.html#event-1576",
+      "1600": "events.html#event-1600",
+      "1604": "events.html#event-1604",
+      "1610": "events.html#event-1610",
+      "1614": "events.html#event-1614",
+      "1621": "events.html#event-1621",
+      "1625": "events.html#event-1625",
+      "1629": "events.html#event-1629",
+      "1633": "events.html#event-1633",
+      "1639": "events.html#event-1639",
+      "1643": "events.html#event-1643",
+      "1650": "events.html#event-1650",
+      "1654": "events.html#event-1654",
+      "1658": "events.html#event-1658",
+      "1662": "events.html#event-1662",
+      "1666": "events.html#event-1666",
+      "1670": "events.html#event-1670",
+      "1674": "events.html#event-1674",
+      "1678": "events.html#event-1678",
+      "1684": "events.html#event-1684",
+      "1690": "events.html#event-1690",
+      "1698": "events.html#event-1698",
+      "1703": "events.html#event-1703",
+      "1707": "events.html#event-1707",
+      "1714": "events.html#event-1714",
+      "1720": "events.html#event-1720",
+      "1724": "events.html#event-1724",
+      "1730": "events.html#event-1730",
+      "1734": "events.html#event-1734",
+      "1738": "events.html#event-1738",
+      "1742": "events.html#event-1742",
+      "1746": "events.html#event-1746",
+      "1750": "events.html#event-1750",
+      "1754": "events.html#event-1754",
+      "1758": "events.html#event-1758",
+      "1764": "events.html#event-1764",
+      "1770": "events.html#event-1770",
+      "1774": "events.html#event-1774",
+      "1778": "events.html#event-1778",
+      "1782": "events.html#event-1782",
+      "1789": "events.html#event-1789",
+      "1793": "events.html#event-1793",
+      "1797": "events.html#event-1797",
+      "1801": "events.html#event-1801",
+      "1807": "events.html#event-1807",
+      "1814": "events.html#event-1814",
+      "1818": "events.html#event-1818",
+      "1824": "events.html#event-1824",
+      "1830": "events.html#event-1830",
+      "1834": "events.html#event-1834",
+      "1838": "events.html#event-1838",
+      "1842": "events.html#event-1842",
+      "1848": "events.html#event-1848",
+      "1853": "events.html#event-1853",
+      "1858": "events.html#event-1858",
+      "1863": "events.html#event-1863",
+      "1868": "events.html#event-1868",
+      "1874": "events.html#event-1874",
+      "1880": "events.html#event-1880",
+      "1884": "events.html#event-1884",
+      "1890": "events.html#event-1890",
+      "1895": "events.html#event-1895",
+      "1900": "events.html#event-1900",
+      "1905": "events.html#event-1905",
+      "1910": "events.html#event-1910",
+      "1915": "events.html#event-1915",
+      "1920": "events.html#event-1920",
+      "1926": "events.html#event-1926",
+      "1932": "events.html#event-1932",
+      "1938": "events.html#event-1938",
+      "1942": "events.html#event-1942",
+      "1946": "events.html#event-1946",
+      "1950": "events.html#event-1950",
+      "1954": "events.html#event-1954",
+      "1958": "events.html#event-1958",
+      "1962": "events.html#event-1962",
+      "1966": "events.html#event-1966",
+      "1972": "events.html#event-1972",
+      "1978": "events.html#event-1978",
+      "1982": "events.html#event-1982",
+      "1988": "events.html#event-1988",
+      "1998": "events.html#event-1998",
+      "2008": "events.html#event-2008",
+      "2013": "events.html#event-2013",
+      "2018": "events.html#event-2018",
+      "2023": "events.html#event-2023",
+      "2034": "events.html#event-2034",
+      "2042": "events.html#event-2042",
+      "2048": "events.html#event-2048",
+      "2057": "events.html#event-2057",
+      "2070": "events.html#event-2070",
+      "2074": "events.html#event-2074",
+      "2078": "events.html#event-2078",
+      "2083": "events.html#event-2083",
+      "2089": "events.html#event-2089",
+      "2093": "events.html#event-2093",
+      "2097": "events.html#event-2097",
+      "2101": "events.html#event-2101",
+      "2105": "events.html#event-2105",
+      "2109": "events.html#event-2109",
+      "2113": "events.html#event-2113",
+      "2117": "events.html#event-2117",
+      "2122": "events.html#event-2122",
+      "2128": "events.html#event-2128",
+      "2132": "events.html#event-2132",
+      "2137": "events.html#event-2137",
+      "2142": "events.html#event-2142",
+      "2147": "events.html#event-2147",
+      "2152": "events.html#event-2152",
+      "2156": "events.html#event-2156",
+      "2162": "events.html#event-2162",
+      "2166": "events.html#event-2166",
+      "2170": "events.html#event-2170",
+      "2174": "events.html#event-2174",
+      "2178": "events.html#event-2178",
+      "2183": "events.html#event-2183",
+      "2188": "events.html#event-2188",
+      "2193": "events.html#event-2193",
+      "2198": "events.html#event-2198",
+      "2204": "events.html#event-2204",
+      "2208": "events.html#event-2208",
+      "2213": "events.html#event-2213",
+      "2218": "events.html#event-2218",
+      "2223": "events.html#event-2223",
+      "2227": "events.html#event-2227",
+      "2231": "events.html#event-2231",
+      "2235": "events.html#event-2235",
+      "2239": "events.html#event-2239",
+      "2243": "events.html#event-2243",
+      "2247": "events.html#event-2247",
+      "2251": "events.html#event-2251",
+      "2255": "events.html#event-2255",
+      "2259": "events.html#event-2259",
+      "2263": "events.html#event-2263",
+      "2267": "events.html#event-2267",
+      "2271": "events.html#event-2271",
+      "2275": "events.html#event-2275",
+      "2280": "events.html#event-2280",
+      "2285": "events.html#event-2285",
+      "2289": "events.html#event-2289",
+      "2293": "events.html#event-2293"
+    },
+    "resources": {
+      "468": "textures.html#resource-468",
+      "474": "textures.html#resource-474",
+      "505": "textures.html#resource-505",
+      "517": "textures.html#resource-517",
+      "550": "textures.html#resource-550",
+      "940": "textures.html#resource-940",
+      "1097": "textures.html#resource-1097",
+      "1359": "textures.html#resource-1359",
+      "1369": "textures.html#resource-1369",
+      "1371": "textures.html#resource-1371",
+      "1383": "textures.html#resource-1383",
+      "1395": "textures.html#resource-1395",
+      "3747": "textures.html#resource-3747",
+      "4098": "textures.html#resource-4098",
+      "44815": "textures.html#resource-44815",
+      "44829": "textures.html#resource-44829",
+      "45455": "textures.html#resource-45455",
+      "45809": "textures.html#resource-45809",
+      "46312": "textures.html#resource-46312",
+      "46316": "textures.html#resource-46316",
+      "92542": "textures.html#resource-92542",
+      "92560": "textures.html#resource-92560",
+      "92577": "textures.html#resource-92577",
+      "92875": "textures.html#resource-92875",
+      "92892": "textures.html#resource-92892",
+      "92897": "textures.html#resource-92897",
+      "92899": "textures.html#resource-92899",
+      "92903": "textures.html#resource-92903",
+      "92905": "textures.html#resource-92905",
+      "92907": "textures.html#resource-92907",
+      "92910": "textures.html#resource-92910",
+      "92912": "textures.html#resource-92912",
+      "92914": "textures.html#resource-92914",
+      "92918": "textures.html#resource-92918",
+      "93919": "textures.html#resource-93919",
+      "93925": "textures.html#resource-93925",
+      "93927": "textures.html#resource-93927",
+      "94269": "textures.html#resource-94269",
+      "94272": "textures.html#resource-94272",
+      "94425": "textures.html#resource-94425",
+      "94428": "textures.html#resource-94428",
+      "94440": "textures.html#resource-94440",
+      "94614": "textures.html#resource-94614",
+      "94763": "textures.html#resource-94763",
+      "94765": "textures.html#resource-94765",
+      "94768": "textures.html#resource-94768",
+      "94770": "textures.html#resource-94770",
+      "94773": "textures.html#resource-94773",
+      "94776": "textures.html#resource-94776",
+      "94779": "textures.html#resource-94779",
+      "94784": "textures.html#resource-94784",
+      "95575": "textures.html#resource-95575",
+      "95581": "textures.html#resource-95581",
+      "95586": "textures.html#resource-95586",
+      "96573": "textures.html#resource-96573",
+      "98793": "textures.html#resource-98793",
+      "98795": "textures.html#resource-98795",
+      "98798": "textures.html#resource-98798",
+      "98801": "textures.html#resource-98801",
+      "101725": "textures.html#resource-101725",
+      "114499": "textures.html#resource-114499",
+      "114508": "textures.html#resource-114508",
+      "114517": "textures.html#resource-114517",
+      "116949": "textures.html#resource-116949",
+      "118489": "textures.html#resource-118489",
+      "118491": "textures.html#resource-118491",
+      "118517": "textures.html#resource-118517",
+      "118523": "textures.html#resource-118523",
+      "118551": "textures.html#resource-118551",
+      "119202": "textures.html#resource-119202",
+      "119763": "textures.html#resource-119763",
+      "120007": "textures.html#resource-120007",
+      "120083": "textures.html#resource-120083",
+      "120238": "textures.html#resource-120238",
+      "128636": "textures.html#resource-128636",
+      "128645": "textures.html#resource-128645",
+      "129251": "textures.html#resource-129251",
+      "129253": "textures.html#resource-129253",
+      "130067": "textures.html#resource-130067",
+      "130069": "textures.html#resource-130069",
+      "130693": "textures.html#resource-130693",
+      "131325": "textures.html#resource-131325",
+      "132366": "textures.html#resource-132366",
+      "133174": "textures.html#resource-133174",
+      "133176": "textures.html#resource-133176",
+      "133187": "textures.html#resource-133187",
+      "133193": "textures.html#resource-133193",
+      "136347": "textures.html#resource-136347",
+      "138340": "textures.html#resource-138340",
+      "138342": "textures.html#resource-138342",
+      "138344": "textures.html#resource-138344",
+      "138346": "textures.html#resource-138346",
+      "244847": "textures.html#resource-244847",
+      "244849": "textures.html#resource-244849",
+      "244851": "textures.html#resource-244851",
+      "244853": "textures.html#resource-244853",
+      "244855": "textures.html#resource-244855",
+      "244857": "textures.html#resource-244857",
+      "244859": "textures.html#resource-244859",
+      "245579": "textures.html#resource-245579"
+    },
+    "shaders": {}
+  },
+  "availability": {
+    "source": "offline",
+    "status": "partial",
+    "missing_fields": [
+      "timings",
+      "passes",
+      "pipelines",
+      "resources.textures.thumbnail"
+    ],
+    "mcp_hint": "Use MCP query to fill unavailable offline fields (timings/pipelines/full shader source).",
+    "fields": {
+      "timings": "missing",
+      "passes": "missing",
+      "pipelines": "missing",
+      "actions": "available",
+      "resources": "available",
+      "shaders": "missing"
+    },
+    "metrics": {
+      "textures_with_thumbnail": 0,
+      "textures_total": 100,
+      "shaders_with_source": 0,
+      "shaders_total": 0
+    }
+  }
+}

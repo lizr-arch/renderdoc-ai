@@ -1,0 +1,21 @@
+{
+  "schema_version": "template.v1",
+  "snapshot_version": "snapshot.v1",
+  "source": "offline",
+  "generated_at": "2026-03-12T23:12:25.642495+08:00",
+  "pages": [
+    "index",
+    "events",
+    "textures",
+    "shaders",
+    "recommendations"
+  ],
+  "page_files": {
+    "index": "index.html",
+    "events": "events.html",
+    "textures": "textures.html",
+    "shaders": "shaders.html",
+    "recommendations": "recommendations.html"
+  },
+  "capture_name": "g145_capture"
+}

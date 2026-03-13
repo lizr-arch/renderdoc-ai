@@ -1,0 +1,605 @@
+{
+  "commands": [
+    "py -3 scripts/rdc_analyzer/mcp_examples/run_query.py --method get_action_timings --params '{}'",
+    "py -3 scripts/rdc_analyzer/mcp_examples/run_query.py --method get_pipeline_state --params '{\"event_id\":1600}'",
+    "py -3 scripts/rdc_analyzer/mcp_examples/run_query.py --method get_pipeline_state --params '{\"event_id\":1604}'",
+    "py -3 scripts/rdc_analyzer/mcp_examples/run_query.py --method get_pipeline_state --params '{\"event_id\":1610}'",
+    "py -3 scripts/rdc_analyzer/mcp_examples/run_query.py --method get_pipeline_state --params '{\"event_id\":1614}'",
+    "py -3 scripts/rdc_analyzer/mcp_examples/run_query.py --method get_pipeline_state --params '{\"event_id\":1621}'",
+    "py -3 scripts/rdc_analyzer/mcp_examples/run_query.py --method get_texture_data --params '{\"mip\":0,\"resource_id\":\"101725\",\"sample\":0,\"slice\":0}'",
+    "py -3 scripts/rdc_analyzer/mcp_examples/run_query.py --method get_texture_data --params '{\"mip\":0,\"resource_id\":\"1097\",\"sample\":0,\"slice\":0}'",
+    "py -3 scripts/rdc_analyzer/mcp_examples/run_query.py --method get_texture_data --params '{\"mip\":0,\"resource_id\":\"114499\",\"sample\":0,\"slice\":0}'",
+    "py -3 scripts/rdc_analyzer/mcp_examples/run_query.py --method get_texture_data --params '{\"mip\":0,\"resource_id\":\"114508\",\"sample\":0,\"slice\":0}'",
+    "py -3 scripts/rdc_analyzer/mcp_examples/run_query.py --method get_texture_data --params '{\"mip\":0,\"resource_id\":\"114517\",\"sample\":0,\"slice\":0}'",
+    "py -3 scripts/rdc_analyzer/mcp_examples/run_query.py --method get_texture_data --params '{\"mip\":0,\"resource_id\":\"116949\",\"sample\":0,\"slice\":0}'",
+    "py -3 scripts/rdc_analyzer/mcp_examples/run_query.py --method get_texture_data --params '{\"mip\":0,\"resource_id\":\"118489\",\"sample\":0,\"slice\":0}'",
+    "py -3 scripts/rdc_analyzer/mcp_examples/run_query.py --method get_texture_data --params '{\"mip\":0,\"resource_id\":\"118491\",\"sample\":0,\"slice\":0}'",
+    "py -3 scripts/rdc_analyzer/mcp_examples/run_query.py --method get_texture_data --params '{\"mip\":0,\"resource_id\":\"118517\",\"sample\":0,\"slice\":0}'",
+    "py -3 scripts/rdc_analyzer/mcp_examples/run_query.py --method get_texture_data --params '{\"mip\":0,\"resource_id\":\"118523\",\"sample\":0,\"slice\":0}'",
+    "py -3 scripts/rdc_analyzer/mcp_examples/run_query.py --method get_texture_data --params '{\"mip\":0,\"resource_id\":\"118551\",\"sample\":0,\"slice\":0}'",
+    "py -3 scripts/rdc_analyzer/mcp_examples/run_query.py --method get_texture_data --params '{\"mip\":0,\"resource_id\":\"119202\",\"sample\":0,\"slice\":0}'",
+    "py -3 scripts/rdc_analyzer/mcp_examples/run_query.py --method get_texture_data --params '{\"mip\":0,\"resource_id\":\"119763\",\"sample\":0,\"slice\":0}'",
+    "py -3 scripts/rdc_analyzer/mcp_examples/run_query.py --method get_texture_data --params '{\"mip\":0,\"resource_id\":\"120007\",\"sample\":0,\"slice\":0}'",
+    "py -3 scripts/rdc_analyzer/mcp_examples/run_query.py --method get_texture_data --params '{\"mip\":0,\"resource_id\":\"120083\",\"sample\":0,\"slice\":0}'",
+    "py -3 scripts/rdc_analyzer/mcp_examples/run_query.py --method get_texture_data --params '{\"mip\":0,\"resource_id\":\"120238\",\"sample\":0,\"slice\":0}'",
+    "py -3 scripts/rdc_analyzer/mcp_examples/run_query.py --method get_texture_data --params '{\"mip\":0,\"resource_id\":\"128636\",\"sample\":0,\"slice\":0}'",
+    "py -3 scripts/rdc_analyzer/mcp_examples/run_query.py --method get_texture_data --params '{\"mip\":0,\"resource_id\":\"128645\",\"sample\":0,\"slice\":0}'",
+    "py -3 scripts/rdc_analyzer/mcp_examples/run_query.py --method get_texture_data --params '{\"mip\":0,\"resource_id\":\"129251\",\"sample\":0,\"slice\":0}'",
+    "py -3 scripts/rdc_analyzer/mcp_examples/run_query.py --method get_texture_data --params '{\"mip\":0,\"resource_id\":\"129253\",\"sample\":0,\"slice\":0}'",
+    "py -3 scripts/rdc_analyzer/mcp_examples/run_query.py --method get_texture_data --params '{\"mip\":0,\"resource_id\":\"130067\",\"sample\":0,\"slice\":0}'",
+    "py -3 scripts/rdc_analyzer/mcp_examples/run_query.py --method get_texture_data --params '{\"mip\":0,\"resource_id\":\"130069\",\"sample\":0,\"slice\":0}'",
+    "py -3 scripts/rdc_analyzer/mcp_examples/run_query.py --method get_texture_data --params '{\"mip\":0,\"resource_id\":\"130693\",\"sample\":0,\"slice\":0}'",
+    "py -3 scripts/rdc_analyzer/mcp_examples/run_query.py --method get_texture_data --params '{\"mip\":0,\"resource_id\":\"131325\",\"sample\":0,\"slice\":0}'",
+    "py -3 scripts/rdc_analyzer/mcp_examples/run_query.py --method get_texture_data --params '{\"mip\":0,\"resource_id\":\"132366\",\"sample\":0,\"slice\":0}'",
+    "py -3 scripts/rdc_analyzer/mcp_examples/run_query.py --method get_texture_data --params '{\"mip\":0,\"resource_id\":\"133174\",\"sample\":0,\"slice\":0}'",
+    "py -3 scripts/rdc_analyzer/mcp_examples/run_query.py --method get_texture_data --params '{\"mip\":0,\"resource_id\":\"133176\",\"sample\":0,\"slice\":0}'",
+    "py -3 scripts/rdc_analyzer/mcp_examples/run_query.py --method get_texture_data --params '{\"mip\":0,\"resource_id\":\"133187\",\"sample\":0,\"slice\":0}'",
+    "py -3 scripts/rdc_analyzer/mcp_examples/run_query.py --method get_texture_data --params '{\"mip\":0,\"resource_id\":\"133193\",\"sample\":0,\"slice\":0}'",
+    "py -3 scripts/rdc_analyzer/mcp_examples/run_query.py --method get_texture_data --params '{\"mip\":0,\"resource_id\":\"1359\",\"sample\":0,\"slice\":0}'",
+    "py -3 scripts/rdc_analyzer/mcp_examples/run_query.py --method get_texture_data --params '{\"mip\":0,\"resource_id\":\"136347\",\"sample\":0,\"slice\":0}'",
+    "py -3 scripts/rdc_analyzer/mcp_examples/run_query.py --method get_texture_data --params '{\"mip\":0,\"resource_id\":\"1369\",\"sample\":0,\"slice\":0}'"
+  ],
+  "contract_version": "mcp-query.v1",
+  "enrichment": {
+    "blockers": [],
+    "bridge_call_count": 0,
+    "contract_version": "mcp-query.v1",
+    "execute": false,
+    "query_results": [],
+    "recovery_hint": null,
+    "status": "dry_run"
+  },
+  "gaps": [
+    {
+      "field_path": "timings",
+      "mcp_method": "get_action_timings",
+      "params_hint": {},
+      "reason": "Declared in snapshot availability/preflight as missing.",
+      "reason_layer": "schema_declared_gap",
+      "supplementable": true
+    },
+    {
+      "field_path": "pipelines",
+      "mcp_method": "get_pipeline_state",
+      "params_hint": {
+        "candidates": [
+          1600,
+          1604,
+          1610,
+          1614,
+          1621
+        ],
+        "event_id": "<required-int>"
+      },
+      "reason": "Declared in snapshot availability/preflight as missing.",
+      "reason_layer": "schema_declared_gap",
+      "supplementable": true
+    },
+    {
+      "field_path": "resources.textures.thumbnail",
+      "mcp_method": "get_texture_data",
+      "params_hint": {
+        "candidates": [
+          "101725",
+          "1097",
+          "114499",
+          "114508",
+          "114517",
+          "116949",
+          "118489",
+          "118491",
+          "118517",
+          "118523",
+          "118551",
+          "119202",
+          "119763",
+          "120007",
+          "120083",
+          "120238",
+          "128636",
+          "128645",
+          "129251",
+          "129253",
+          "130067",
+          "130069",
+          "130693",
+          "131325",
+          "132366",
+          "133174",
+          "133176",
+          "133187",
+          "133193",
+          "1359",
+          "136347",
+          "1369",
+          "1371",
+          "1383",
+          "138340",
+          "138342",
+          "138344",
+          "138346",
+          "1395",
+          "244847",
+          "244849",
+          "244851",
+          "244853",
+          "244855",
+          "244857",
+          "244859",
+          "245579",
+          "3747",
+          "4098",
+          "44815",
+          "44829",
+          "45455",
+          "45809",
+          "46312",
+          "46316",
+          "468",
+          "474",
+          "505",
+          "517",
+          "550",
+          "92542",
+          "92560",
+          "92577",
+          "92875",
+          "92892",
+          "92897",
+          "92899",
+          "92903",
+          "92905",
+          "92907",
+          "92910",
+          "92912",
+          "92914",
+          "92918",
+          "93919",
+          "93925",
+          "93927",
+          "940",
+          "94269",
+          "94272",
+          "94425",
+          "94428",
+          "94440",
+          "94614",
+          "94763",
+          "94765",
+          "94768",
+          "94770",
+          "94773",
+          "94776",
+          "94779",
+          "94784",
+          "95575",
+          "95581",
+          "95586",
+          "96573",
+          "98793",
+          "98795",
+          "98798",
+          "98801"
+        ],
+        "mip": 0,
+        "resource_id": "<required-str>",
+        "sample": 0,
+        "slice": 0
+      },
+      "reason": "Declared in snapshot availability/preflight as missing.",
+      "reason_layer": "schema_declared_gap",
+      "supplementable": true
+    },
+    {
+      "field_path": "passes",
+      "mcp_method": null,
+      "params_hint": {
+        "unresolved_reason": "insufficient query key in snapshot"
+      },
+      "reason": "Declared in snapshot availability/preflight as missing.",
+      "reason_layer": "schema_declared_gap",
+      "supplementable": false
+    }
+  ],
+  "markdown": "# Skill Snapshot Consumer Brief\n\n## Snapshot Facts\nSource: snapshot.v1\n- capture_name: g145_capture\n- graphics_api: Vulkan\n- schema_version: snapshot.v1\n- action_count: 148\n\n## Gap Analysis\nSource: snapshot.v1\n| field_path | reason_layer | supplementable | mcp_method | reason |\n| --- | --- | --- | --- | --- |\n| timings | schema_declared_gap | true | get_action_timings | Declared in snapshot availability/preflight as missing. |\n| pipelines | schema_declared_gap | true | get_pipeline_state | Declared in snapshot availability/preflight as missing. |\n| resources.textures.thumbnail | schema_declared_gap | true | get_texture_data | Declared in snapshot availability/preflight as missing. |\n| passes | schema_declared_gap | false | None | Declared in snapshot availability/preflight as missing. |\n\n## MCP Supplement\nSource: MCP query\n- execute: False\n- status: dry_run\n- planned_queries: 38\n- bridge_calls: 0\n\n## Command List\n1. `py -3 scripts/rdc_analyzer/mcp_examples/run_query.py --method get_action_timings --params '{}'`\n2. `py -3 scripts/rdc_analyzer/mcp_examples/run_query.py --method get_pipeline_state --params '{\"event_id\":1600}'`\n3. `py -3 scripts/rdc_analyzer/mcp_examples/run_query.py --method get_pipeline_state --params '{\"event_id\":1604}'`\n4. `py -3 scripts/rdc_analyzer/mcp_examples/run_query.py --method get_pipeline_state --params '{\"event_id\":1610}'`\n5. `py -3 scripts/rdc_analyzer/mcp_examples/run_query.py --method get_pipeline_state --params '{\"event_id\":1614}'`\n6. `py -3 scripts/rdc_analyzer/mcp_examples/run_query.py --method get_pipeline_state --params '{\"event_id\":1621}'`\n7. `py -3 scripts/rdc_analyzer/mcp_examples/run_query.py --method get_texture_data --params '{\"mip\":0,\"resource_id\":\"101725\",\"sample\":0,\"slice\":0}'`\n8. `py -3 scripts/rdc_analyzer/mcp_examples/run_query.py --method get_texture_data --params '{\"mip\":0,\"resource_id\":\"1097\",\"sample\":0,\"slice\":0}'`\n9. `py -3 scripts/rdc_analyzer/mcp_examples/run_query.py --method get_texture_data --params '{\"mip\":0,\"resource_id\":\"114499\",\"sample\":0,\"slice\":0}'`\n10. `py -3 scripts/rdc_analyzer/mcp_examples/run_query.py --method get_texture_data --params '{\"mip\":0,\"resource_id\":\"114508\",\"sample\":0,\"slice\":0}'`\n11. `py -3 scripts/rdc_analyzer/mcp_examples/run_query.py --method get_texture_data --params '{\"mip\":0,\"resource_id\":\"114517\",\"sample\":0,\"slice\":0}'`\n12. `py -3 scripts/rdc_analyzer/mcp_examples/run_query.py --method get_texture_data --params '{\"mip\":0,\"resource_id\":\"116949\",\"sample\":0,\"slice\":0}'`\n13. `py -3 scripts/rdc_analyzer/mcp_examples/run_query.py --method get_texture_data --params '{\"mip\":0,\"resource_id\":\"118489\",\"sample\":0,\"slice\":0}'`\n14. `py -3 scripts/rdc_analyzer/mcp_examples/run_query.py --method get_texture_data --params '{\"mip\":0,\"resource_id\":\"118491\",\"sample\":0,\"slice\":0}'`\n15. `py -3 scripts/rdc_analyzer/mcp_examples/run_query.py --method get_texture_data --params '{\"mip\":0,\"resource_id\":\"118517\",\"sample\":0,\"slice\":0}'`\n16. `py -3 scripts/rdc_analyzer/mcp_examples/run_query.py --method get_texture_data --params '{\"mip\":0,\"resource_id\":\"118523\",\"sample\":0,\"slice\":0}'`\n17. `py -3 scripts/rdc_analyzer/mcp_examples/run_query.py --method get_texture_data --params '{\"mip\":0,\"resource_id\":\"118551\",\"sample\":0,\"slice\":0}'`\n18. `py -3 scripts/rdc_analyzer/mcp_examples/run_query.py --method get_texture_data --params '{\"mip\":0,\"resource_id\":\"119202\",\"sample\":0,\"slice\":0}'`\n19. `py -3 scripts/rdc_analyzer/mcp_examples/run_query.py --method get_texture_data --params '{\"mip\":0,\"resource_id\":\"119763\",\"sample\":0,\"slice\":0}'`\n20. `py -3 scripts/rdc_analyzer/mcp_examples/run_query.py --method get_texture_data --params '{\"mip\":0,\"resource_id\":\"120007\",\"sample\":0,\"slice\":0}'`\n21. `py -3 scripts/rdc_analyzer/mcp_examples/run_query.py --method get_texture_data --params '{\"mip\":0,\"resource_id\":\"120083\",\"sample\":0,\"slice\":0}'`\n22. `py -3 scripts/rdc_analyzer/mcp_examples/run_query.py --method get_texture_data --params '{\"mip\":0,\"resource_id\":\"120238\",\"sample\":0,\"slice\":0}'`\n23. `py -3 scripts/rdc_analyzer/mcp_examples/run_query.py --method get_texture_data --params '{\"mip\":0,\"resource_id\":\"128636\",\"sample\":0,\"slice\":0}'`\n24. `py -3 scripts/rdc_analyzer/mcp_examples/run_query.py --method get_texture_data --params '{\"mip\":0,\"resource_id\":\"128645\",\"sample\":0,\"slice\":0}'`\n25. `py -3 scripts/rdc_analyzer/mcp_examples/run_query.py --method get_texture_data --params '{\"mip\":0,\"resource_id\":\"129251\",\"sample\":0,\"slice\":0}'`\n26. `py -3 scripts/rdc_analyzer/mcp_examples/run_query.py --method get_texture_data --params '{\"mip\":0,\"resource_id\":\"129253\",\"sample\":0,\"slice\":0}'`\n27. `py -3 scripts/rdc_analyzer/mcp_examples/run_query.py --method get_texture_data --params '{\"mip\":0,\"resource_id\":\"130067\",\"sample\":0,\"slice\":0}'`\n28. `py -3 scripts/rdc_analyzer/mcp_examples/run_query.py --method get_texture_data --params '{\"mip\":0,\"resource_id\":\"130069\",\"sample\":0,\"slice\":0}'`\n29. `py -3 scripts/rdc_analyzer/mcp_examples/run_query.py --method get_texture_data --params '{\"mip\":0,\"resource_id\":\"130693\",\"sample\":0,\"slice\":0}'`\n30. `py -3 scripts/rdc_analyzer/mcp_examples/run_query.py --method get_texture_data --params '{\"mip\":0,\"resource_id\":\"131325\",\"sample\":0,\"slice\":0}'`\n31. `py -3 scripts/rdc_analyzer/mcp_examples/run_query.py --method get_texture_data --params '{\"mip\":0,\"resource_id\":\"132366\",\"sample\":0,\"slice\":0}'`\n32. `py -3 scripts/rdc_analyzer/mcp_examples/run_query.py --method get_texture_data --params '{\"mip\":0,\"resource_id\":\"133174\",\"sample\":0,\"slice\":0}'`\n33. `py -3 scripts/rdc_analyzer/mcp_examples/run_query.py --method get_texture_data --params '{\"mip\":0,\"resource_id\":\"133176\",\"sample\":0,\"slice\":0}'`\n34. `py -3 scripts/rdc_analyzer/mcp_examples/run_query.py --method get_texture_data --params '{\"mip\":0,\"resource_id\":\"133187\",\"sample\":0,\"slice\":0}'`\n35. `py -3 scripts/rdc_analyzer/mcp_examples/run_query.py --method get_texture_data --params '{\"mip\":0,\"resource_id\":\"133193\",\"sample\":0,\"slice\":0}'`\n36. `py -3 scripts/rdc_analyzer/mcp_examples/run_query.py --method get_texture_data --params '{\"mip\":0,\"resource_id\":\"1359\",\"sample\":0,\"slice\":0}'`\n37. `py -3 scripts/rdc_analyzer/mcp_examples/run_query.py --method get_texture_data --params '{\"mip\":0,\"resource_id\":\"136347\",\"sample\":0,\"slice\":0}'`\n38. `py -3 scripts/rdc_analyzer/mcp_examples/run_query.py --method get_texture_data --params '{\"mip\":0,\"resource_id\":\"1369\",\"sample\":0,\"slice\":0}'`\n",
+  "queries": [
+    {
+      "field_path": "timings",
+      "method": "get_action_timings",
+      "params": {},
+      "reason": "Fill missing timings in snapshot."
+    },
+    {
+      "field_path": "pipelines",
+      "method": "get_pipeline_state",
+      "params": {
+        "event_id": 1600
+      },
+      "reason": "Fill pipeline/RT/depth state."
+    },
+    {
+      "field_path": "pipelines",
+      "method": "get_pipeline_state",
+      "params": {
+        "event_id": 1604
+      },
+      "reason": "Fill pipeline/RT/depth state."
+    },
+    {
+      "field_path": "pipelines",
+      "method": "get_pipeline_state",
+      "params": {
+        "event_id": 1610
+      },
+      "reason": "Fill pipeline/RT/depth state."
+    },
+    {
+      "field_path": "pipelines",
+      "method": "get_pipeline_state",
+      "params": {
+        "event_id": 1614
+      },
+      "reason": "Fill pipeline/RT/depth state."
+    },
+    {
+      "field_path": "pipelines",
+      "method": "get_pipeline_state",
+      "params": {
+        "event_id": 1621
+      },
+      "reason": "Fill pipeline/RT/depth state."
+    },
+    {
+      "field_path": "resources.textures.thumbnail",
+      "method": "get_texture_data",
+      "params": {
+        "mip": 0,
+        "resource_id": "101725",
+        "sample": 0,
+        "slice": 0
+      },
+      "reason": "Fill missing texture thumbnail data."
+    },
+    {
+      "field_path": "resources.textures.thumbnail",
+      "method": "get_texture_data",
+      "params": {
+        "mip": 0,
+        "resource_id": "1097",
+        "sample": 0,
+        "slice": 0
+      },
+      "reason": "Fill missing texture thumbnail data."
+    },
+    {
+      "field_path": "resources.textures.thumbnail",
+      "method": "get_texture_data",
+      "params": {
+        "mip": 0,
+        "resource_id": "114499",
+        "sample": 0,
+        "slice": 0
+      },
+      "reason": "Fill missing texture thumbnail data."
+    },
+    {
+      "field_path": "resources.textures.thumbnail",
+      "method": "get_texture_data",
+      "params": {
+        "mip": 0,
+        "resource_id": "114508",
+        "sample": 0,
+        "slice": 0
+      },
+      "reason": "Fill missing texture thumbnail data."
+    },
+    {
+      "field_path": "resources.textures.thumbnail",
+      "method": "get_texture_data",
+      "params": {
+        "mip": 0,
+        "resource_id": "114517",
+        "sample": 0,
+        "slice": 0
+      },
+      "reason": "Fill missing texture thumbnail data."
+    },
+    {
+      "field_path": "resources.textures.thumbnail",
+      "method": "get_texture_data",
+      "params": {
+        "mip": 0,
+        "resource_id": "116949",
+        "sample": 0,
+        "slice": 0
+      },
+      "reason": "Fill missing texture thumbnail data."
+    },
+    {
+      "field_path": "resources.textures.thumbnail",
+      "method": "get_texture_data",
+      "params": {
+        "mip": 0,
+        "resource_id": "118489",
+        "sample": 0,
+        "slice": 0
+      },
+      "reason": "Fill missing texture thumbnail data."
+    },
+    {
+      "field_path": "resources.textures.thumbnail",
+      "method": "get_texture_data",
+      "params": {
+        "mip": 0,
+        "resource_id": "118491",
+        "sample": 0,
+        "slice": 0
+      },
+      "reason": "Fill missing texture thumbnail data."
+    },
+    {
+      "field_path": "resources.textures.thumbnail",
+      "method": "get_texture_data",
+      "params": {
+        "mip": 0,
+        "resource_id": "118517",
+        "sample": 0,
+        "slice": 0
+      },
+      "reason": "Fill missing texture thumbnail data."
+    },
+    {
+      "field_path": "resources.textures.thumbnail",
+      "method": "get_texture_data",
+      "params": {
+        "mip": 0,
+        "resource_id": "118523",
+        "sample": 0,
+        "slice": 0
+      },
+      "reason": "Fill missing texture thumbnail data."
+    },
+    {
+      "field_path": "resources.textures.thumbnail",
+      "method": "get_texture_data",
+      "params": {
+        "mip": 0,
+        "resource_id": "118551",
+        "sample": 0,
+        "slice": 0
+      },
+      "reason": "Fill missing texture thumbnail data."
+    },
+    {
+      "field_path": "resources.textures.thumbnail",
+      "method": "get_texture_data",
+      "params": {
+        "mip": 0,
+        "resource_id": "119202",
+        "sample": 0,
+        "slice": 0
+      },
+      "reason": "Fill missing texture thumbnail data."
+    },
+    {
+      "field_path": "resources.textures.thumbnail",
+      "method": "get_texture_data",
+      "params": {
+        "mip": 0,
+        "resource_id": "119763",
+        "sample": 0,
+        "slice": 0
+      },
+      "reason": "Fill missing texture thumbnail data."
+    },
+    {
+      "field_path": "resources.textures.thumbnail",
+      "method": "get_texture_data",
+      "params": {
+        "mip": 0,
+        "resource_id": "120007",
+        "sample": 0,
+        "slice": 0
+      },
+      "reason": "Fill missing texture thumbnail data."
+    },
+    {
+      "field_path": "resources.textures.thumbnail",
+      "method": "get_texture_data",
+      "params": {
+        "mip": 0,
+        "resource_id": "120083",
+        "sample": 0,
+        "slice": 0
+      },
+      "reason": "Fill missing texture thumbnail data."
+    },
+    {
+      "field_path": "resources.textures.thumbnail",
+      "method": "get_texture_data",
+      "params": {
+        "mip": 0,
+        "resource_id": "120238",
+        "sample": 0,
+        "slice": 0
+      },
+      "reason": "Fill missing texture thumbnail data."
+    },
+    {
+      "field_path": "resources.textures.thumbnail",
+      "method": "get_texture_data",
+      "params": {
+        "mip": 0,
+        "resource_id": "128636",
+        "sample": 0,
+        "slice": 0
+      },
+      "reason": "Fill missing texture thumbnail data."
+    },
+    {
+      "field_path": "resources.textures.thumbnail",
+      "method": "get_texture_data",
+      "params": {
+        "mip": 0,
+        "resource_id": "128645",
+        "sample": 0,
+        "slice": 0
+      },
+      "reason": "Fill missing texture thumbnail data."
+    },
+    {
+      "field_path": "resources.textures.thumbnail",
+      "method": "get_texture_data",
+      "params": {
+        "mip": 0,
+        "resource_id": "129251",
+        "sample": 0,
+        "slice": 0
+      },
+      "reason": "Fill missing texture thumbnail data."
+    },
+    {
+      "field_path": "resources.textures.thumbnail",
+      "method": "get_texture_data",
+      "params": {
+        "mip": 0,
+        "resource_id": "129253",
+        "sample": 0,
+        "slice": 0
+      },
+      "reason": "Fill missing texture thumbnail data."
+    },
+    {
+      "field_path": "resources.textures.thumbnail",
+      "method": "get_texture_data",
+      "params": {
+        "mip": 0,
+        "resource_id": "130067",
+        "sample": 0,
+        "slice": 0
+      },
+      "reason": "Fill missing texture thumbnail data."
+    },
+    {
+      "field_path": "resources.textures.thumbnail",
+      "method": "get_texture_data",
+      "params": {
+        "mip": 0,
+        "resource_id": "130069",
+        "sample": 0,
+        "slice": 0
+      },
+      "reason": "Fill missing texture thumbnail data."
+    },
+    {
+      "field_path": "resources.textures.thumbnail",
+      "method": "get_texture_data",
+      "params": {
+        "mip": 0,
+        "resource_id": "130693",
+        "sample": 0,
+        "slice": 0
+      },
+      "reason": "Fill missing texture thumbnail data."
+    },
+    {
+      "field_path": "resources.textures.thumbnail",
+      "method": "get_texture_data",
+      "params": {
+        "mip": 0,
+        "resource_id": "131325",
+        "sample": 0,
+        "slice": 0
+      },
+      "reason": "Fill missing texture thumbnail data."
+    },
+    {
+      "field_path": "resources.textures.thumbnail",
+      "method": "get_texture_data",
+      "params": {
+        "mip": 0,
+        "resource_id": "132366",
+        "sample": 0,
+        "slice": 0
+      },
+      "reason": "Fill missing texture thumbnail data."
+    },
+    {
+      "field_path": "resources.textures.thumbnail",
+      "method": "get_texture_data",
+      "params": {
+        "mip": 0,
+        "resource_id": "133174",
+        "sample": 0,
+        "slice": 0
+      },
+      "reason": "Fill missing texture thumbnail data."
+    },
+    {
+      "field_path": "resources.textures.thumbnail",
+      "method": "get_texture_data",
+      "params": {
+        "mip": 0,
+        "resource_id": "133176",
+        "sample": 0,
+        "slice": 0
+      },
+      "reason": "Fill missing texture thumbnail data."
+    },
+    {
+      "field_path": "resources.textures.thumbnail",
+      "method": "get_texture_data",
+      "params": {
+        "mip": 0,
+        "resource_id": "133187",
+        "sample": 0,
+        "slice": 0
+      },
+      "reason": "Fill missing texture thumbnail data."
+    },
+    {
+      "field_path": "resources.textures.thumbnail",
+      "method": "get_texture_data",
+      "params": {
+        "mip": 0,
+        "resource_id": "133193",
+        "sample": 0,
+        "slice": 0
+      },
+      "reason": "Fill missing texture thumbnail data."
+    },
+    {
+      "field_path": "resources.textures.thumbnail",
+      "method": "get_texture_data",
+      "params": {
+        "mip": 0,
+        "resource_id": "1359",
+        "sample": 0,
+        "slice": 0
+      },
+      "reason": "Fill missing texture thumbnail data."
+    },
+    {
+      "field_path": "resources.textures.thumbnail",
+      "method": "get_texture_data",
+      "params": {
+        "mip": 0,
+        "resource_id": "136347",
+        "sample": 0,
+        "slice": 0
+      },
+      "reason": "Fill missing texture thumbnail data."
+    },
+    {
+      "field_path": "resources.textures.thumbnail",
+      "method": "get_texture_data",
+      "params": {
+        "mip": 0,
+        "resource_id": "1369",
+        "sample": 0,
+        "slice": 0
+      },
+      "reason": "Fill missing texture thumbnail data."
+    }
+  ]
+}

@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Index</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="stylesheet" href="common.css" />
+</head>
+<body>
+
+<h1>g145_capture - Offline Snapshot Report</h1>
+<nav><strong>Index</strong> | <a href="events.html">Events</a> | <a href="textures.html">Textures</a> | <a href="shaders.html">Shaders</a> | <a href="recommendations.html">Recommendations</a></nav>
+<section>
+  <h2>Overview</h2>
+  <ul><li><strong>Actions:</strong> 148</li><li><strong>Draw Calls:</strong> 136</li><li><strong>Dispatch Calls:</strong> 12</li><li><strong>Textures:</strong> 100</li><li><strong>Shaders:</strong> 0</li></ul>
+</section>
+<section>
+  <h2>Preflight</h2>
+  <pre class="json-block">{
+  &quot;status&quot;: &quot;warning&quot;,
+  &quot;missing_data&quot;: [
+    {
+      &quot;key&quot;: &quot;timings&quot;,
+      &quot;reason&quot;: &quot;offline path partial data&quot;
+    },
+    {
+      &quot;key&quot;: &quot;passes&quot;,
+      &quot;reason&quot;: &quot;offline path partial data&quot;
+    },
+    {
+      &quot;key&quot;: &quot;pipelines&quot;,
+      &quot;reason&quot;: &quot;offline path partial data&quot;
+    },
+    {
+      &quot;key&quot;: &quot;resources.textures.thumbnail&quot;,
+      &quot;reason&quot;: &quot;offline path partial data&quot;
+    }
+  ],
+  &quot;capture_recommendations&quot;: [
+    &quot;Use MCP query to fill unavailable offline fields (timings/pipelines/full shader source).&quot;
+  ]
+}</pre>
+</section>
+<section>
+  <h2>Findings</h2>
+  <ul><li>No findings generated in offline mode.</li></ul>
+</section>
+<section>
+  <h2>Recommendations</h2>
+  <ul><li>补齐离线缺失字段</li></ul>
+  <p><a href="recommendations.html">Open recommendations page</a></p>
+</section>
+<section>
+  <h2>Availability</h2>
+  <pre class="json-block">{
+  &quot;source&quot;: &quot;offline&quot;,
+  &quot;status&quot;: &quot;partial&quot;,
+  &quot;missing_fields&quot;: [
+    &quot;timings&quot;,
+    &quot;passes&quot;,
+    &quot;pipelines&quot;,
+    &quot;resources.textures.thumbnail&quot;
+  ],
+  &quot;mcp_hint&quot;: &quot;Use MCP query to fill unavailable offline fields (timings/pipelines/full shader source).&quot;,
+  &quot;fields&quot;: {
+    &quot;timings&quot;: &quot;missing&quot;,
+    &quot;passes&quot;: &quot;missing&quot;,
+    &quot;pipelines&quot;: &quot;missing&quot;,
+    &quot;actions&quot;: &quot;available&quot;,
+    &quot;resources&quot;: &quot;available&quot;,
+    &quot;shaders&quot;: &quot;missing&quot;
+  },
+  &quot;metrics&quot;: {
+    &quot;textures_with_thumbnail&quot;: 0,
+    &quot;textures_total&quot;: 100,
+    &quot;shaders_with_source&quot;: 0,
+    &quot;shaders_total&quot;: 0
+  }
+}</pre>
+</section>
+
+</body>
+</html>
