@@ -96,7 +96,6 @@ tests/conftest_local.py
 !scripts/rdc_analyzer/test_captures/**/*.html
 
 # Re-ignore specific local files (overrides allowlist above)
-
 # renderdoc-ai artifact outputs (baseline governance)
 *.log
 *.out
