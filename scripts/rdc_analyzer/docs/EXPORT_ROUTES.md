@@ -152,6 +152,98 @@ py -3 -m rdc_analyzer report input.xml -o report.html
 
 ---
 
+## Compare / CI 最小闭环（M6）
+
+### 目标定位
+
+- 不新增第二套 schema / 模板 / 报告系统。
+- compare 继续复用 `scripts/rdc_analyzer/compare_rdc.py` 作为唯一入口。
+- 主交付为结构化 JSON、stdout 摘要、可选 JUnit XML；HTML 仅复用现有 diff exporter 作为兼容出口。
+
+### 支持输入
+
+```bash
+# snapshot.v1 主路径
+py -3 scripts/rdc_analyzer/compare_rdc.py baseline.snapshot.json target.snapshot.json --json diff.json --junit junit.xml
+
+# Canonical v1 兼容路径
+py -3 scripts/rdc_analyzer/compare_rdc.py baseline.canonical.json target.canonical.json --json diff.json
+
+# 其他兼容路径
+py -3 scripts/rdc_analyzer/compare_rdc.py baseline.rdc target.rdc --json diff.json
+py -3 scripts/rdc_analyzer/compare_rdc.py baseline.xml target.xml --json diff.json
+```
+
+输入兼容策略：
+- `.json` 且 `schema_version == "snapshot.v1"`：先做 snapshot compare 适配，再进入现有 diff engine。
+- `.json` 且 `schema_version == "1.0"`：继续走 Canonical v1 兼容转换。
+- `.json` 且已是 CaptureData-like dict：直接进入 compare。
+- `.rdc` / `.xml`：继续走既有 loader；如果 analyze 最终产出 `snapshot.v1`，同样复用 snapshot 适配层。
+
+### 输出结构
+
+```json
+{
+  "metadata": {},
+  "input": {
+    "baseline_kind": "snapshot.v1",
+    "target_kind": "snapshot.v1",
+    "compat_mode": "snapshot_aliases"
+  },
+  "summary": {},
+  "snapshot_summary": {
+    "counts": {},
+    "availability": {}
+  },
+  "regressions": {
+    "issues": [],
+    "results": []
+  },
+  "ci": {
+    "status": "pass|warning|critical",
+    "exit_code": 0,
+    "thresholds": {
+      "draw_call_percent": 10.0,
+      "triangle_percent": 20.0,
+      "texture_memory_percent": 30.0,
+      "buffer_memory_percent": 30.0
+    },
+    "failing_checks": [],
+    "summary_lines": []
+  },
+  "resource_changes": {}
+}
+```
+
+说明：
+- `snapshot_summary.counts` 基于 `snapshot.v1` 已有字段派生，不引入新 schema。
+- `snapshot_summary.availability` 汇总 baseline/target 的可用性与新增缺失字段。
+- `regressions.results` 为 CI/JUnit 使用的结构化结果。
+
+### 门禁阈值与退出码
+
+```bash
+py -3 scripts/rdc_analyzer/compare_rdc.py baseline.json target.json ^
+  --json diff.json ^
+  --junit junit.xml ^
+  --draw-call-threshold 0.1 ^
+  --triangle-threshold 0.2 ^
+  --texture-mem-threshold 0.3 ^
+  --buffer-mem-threshold 0.3
+```
+
+- `0`: 无门禁回归
+- `1`: 警告级门禁回归
+- `2`: 严重级门禁回归
+- `3`: compare 执行异常
+
+默认 gate 来源：
+- 现有规则：`REG001 / REG003 / REG004 / REG005 / REG006 / REG007`
+- 新增结构化 CI verdict：总纹理内存阈值
+- `passes / pipelines / availability` 只进入结构化摘要，不进入默认 gate
+
+---
+
 ## 路线对比
 
 | 特性 | 路线 A (完整回放) | 路线 B (XML中转) | 路线 C (简化) |

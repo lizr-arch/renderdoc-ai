@@ -101,7 +101,11 @@ class JUnitXMLExporter:
             
             if result.severity == RegressionSeverity.CRITICAL:
                 errors += 1
-            elif result.severity in (RegressionSeverity.HIGH, RegressionSeverity.MEDIUM):
+            elif result.severity in (
+                RegressionSeverity.HIGH,
+                RegressionSeverity.MEDIUM,
+                RegressionSeverity.WARNING,
+            ):
                 failures += 1
         
         # 3. 资源变化测试（可选）
@@ -208,7 +212,12 @@ class JUnitXMLExporter:
             regression_msg = ""
             
             for result in regression_report.results:
-                if metric_name.lower() in result.rule_id.value.lower():
+                result_metric = str(result.metric_name or "").lower()
+                normalized_metric = {
+                    "draw_call_count": "draw_calls",
+                    "triangle_count": "triangles",
+                }.get(result_metric, result_metric)
+                if normalized_metric == metric_name.lower():
                     is_regression = True
                     regression_msg = result.message
                     break
@@ -247,7 +256,11 @@ class JUnitXMLExporter:
             error.set("message", result.message)
             error.set("type", "CriticalRegression")
             error.text = self._format_regression_details(result)
-        elif result.severity in (RegressionSeverity.HIGH, RegressionSeverity.MEDIUM):
+        elif result.severity in (
+            RegressionSeverity.HIGH,
+            RegressionSeverity.MEDIUM,
+            RegressionSeverity.WARNING,
+        ):
             failure = ET.SubElement(testcase, "failure")
             failure.set("message", result.message)
             failure.set("type", f"{result.severity.value}Regression")

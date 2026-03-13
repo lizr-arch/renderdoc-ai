@@ -21,6 +21,7 @@ from typing import Dict, Any, Optional
 
 from .rdc_xml_parser import parse_rdc_xml
 from .rdc_xml_converter import xml_to_capture_data
+from .snapshot_compare_adapter import is_snapshot_v1_payload, snapshot_to_capture_data
 
 
 # Common paths for renderdoccmd.exe
@@ -334,6 +335,15 @@ def _convert_schema_v1_to_capture_data(data: Dict[str, Any]) -> Dict[str, Any]:
     return capture_data
 
 
+def _normalize_loaded_json(data: Dict[str, Any]) -> Dict[str, Any]:
+    """Normalize supported JSON schemas to CaptureData for compare."""
+    if is_snapshot_v1_payload(data):
+        return snapshot_to_capture_data(data)
+    if data.get('schema_version') == '1.0':
+        return _convert_schema_v1_to_capture_data(data)
+    return data
+
+
 def _load_rdc_via_analyze(
     path: str,
     verbose: bool = False
@@ -367,9 +377,7 @@ def _load_rdc_via_analyze(
             import json
             with open(json_outputs[0], 'r', encoding='utf-8') as f:
                 data = json.load(f)
-            if data.get('schema_version') == '1.0':
-                return _convert_schema_v1_to_capture_data(data)
-            return data
+            return _normalize_loaded_json(data)
     except Exception as e:
         if verbose:
             print(f"[!] analyze pipeline unavailable, fallback to renderdoccmd: {e}")
@@ -417,9 +425,7 @@ def load_capture_file(
             raise ValueError("Phase1 列表格式已弃用，请使用 Canonical Schema (dict) 输入")
         if not isinstance(data, dict):
             raise ValueError("JSON 顶层必须是 dict (Canonical Schema)")
-        if data.get('schema_version') == '1.0':
-            return _convert_schema_v1_to_capture_data(data)
-        return data
+        return _normalize_loaded_json(data)
     elif ext == '.xml':
         # Direct XML loading
         xml_data = parse_rdc_xml(path)

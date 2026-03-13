@@ -10,6 +10,9 @@ import xml.etree.ElementTree as ET
 from datetime import datetime
 from pathlib import Path
 import tempfile
+import json
+import sys
+from unittest.mock import patch
 
 from rdc_analyzer.diff.junit_exporter import JUnitXMLExporter, export_junit_xml
 from rdc_analyzer.diff.diff_types import (
@@ -24,6 +27,10 @@ from rdc_analyzer.diff.regression_types import (
     RegressionRuleId,
     RegressionSeverity,
 )
+
+sys.path.insert(0, str(Path(__file__).parent.parent))
+
+from compare_rdc import main
 
 
 # ============================================================
@@ -197,6 +204,34 @@ class TestJUnitXMLExport:
         # 查找 failure 元素
         failure_elements = root.findall(".//failure")
         assert len(failure_elements) >= 1
+
+    def test_export_warning_severity_report(self, sample_diff_result):
+        """兼容 WARNING 严重度时应写入 failure"""
+        report = RegressionReport(
+            results=[
+                RegressionResult(
+                    rule_id=RegressionRuleId.REG001,
+                    severity=RegressionSeverity.WARNING,
+                    category="DrawCalls",
+                    metric_name="draw_calls",
+                    baseline_value=100,
+                    target_value=120,
+                    delta_percent=20.0,
+                    threshold_percent=10.0,
+                    message="Draw Call 增加 20%",
+                    details="Compatibility warning severity",
+                )
+            ],
+            has_warning=True,
+            has_critical=False,
+        )
+
+        exporter = JUnitXMLExporter()
+        xml_content = exporter.export(sample_diff_result, report)
+        root = ET.fromstring(xml_content.strip().replace('<?xml version="1.0" ?>\n', ''))
+
+        assert int(root.attrib.get("failures", 0)) >= 1
+        assert root.findall(".//failure")
     
     def test_export_critical_report(self, sample_diff_result, sample_regression_report_critical):
         """测试严重回归报告"""
@@ -356,6 +391,96 @@ class TestExportJunitXmlFunction:
             
             content = Path(saved_path).read_text(encoding="utf-8")
             assert "Custom Suite Name" in content
+
+    def test_compare_cli_writes_junit_file(self, tmp_path):
+        """compare 主链路应可直接输出 JUnit XML"""
+        baseline = {
+            "schema_version": "snapshot.v1",
+            "meta": {"graphics_api": "D3D12"},
+            "overview": {
+                "summary": {
+                    "draw_call_count": 10,
+                    "total_triangles": 12000,
+                    "total_vertices": 36000,
+                    "texture_count": 1,
+                    "buffer_count": 1,
+                    "shader_count": 1,
+                    "pass_count": 1,
+                    "pipeline_count": 1,
+                    "finding_count": 0,
+                    "recommendation_count": 0,
+                }
+            },
+            "availability": {"status": "partial", "missing_fields": []},
+            "actions": [
+                {
+                    "event_id": index + 1,
+                    "kind": "draw",
+                    "name": "DrawIndexed",
+                    "index_count": 300,
+                    "instance_count": 1,
+                    "pipeline_ref": "pipe-main",
+                }
+                for index in range(10)
+            ],
+            "resources": {
+                "textures": [{"resource_id": "tex-main", "name": "Color", "width": 1024, "height": 1024, "format": "RGBA8", "size_bytes": 64 * 1024 * 1024}],
+                "buffers": [{"resource_id": "buf-main", "name": "VB", "size_bytes": 8 * 1024 * 1024, "usage": "vertex"}],
+            },
+            "shaders": [{"shader_id": "vs-main", "name": "MainVS", "stage": "vertex", "source_high_level": "void main(){}"}],
+            "passes": [{"pass_id": "opaque"}],
+            "pipelines": [{"pipeline_id": "pipe-main", "event_id": 1, "vs_ref": {"shader_id": "vs-main"}}],
+            "findings": [],
+            "recommendations": [],
+        }
+        target = json.loads(json.dumps(baseline))
+        target["overview"]["summary"]["draw_call_count"] = 12
+        target["overview"]["summary"]["total_triangles"] = 15000
+        target["overview"]["summary"]["total_vertices"] = 45000
+        target["resources"]["textures"][0]["size_bytes"] = 84 * 1024 * 1024
+        target["actions"] = target["actions"] + [
+            {
+                "event_id": 11,
+                "kind": "draw",
+                "name": "DrawIndexed",
+                "index_count": 300,
+                "instance_count": 1,
+                "pipeline_ref": "pipe-main",
+            },
+            {
+                "event_id": 12,
+                "kind": "draw",
+                "name": "DrawIndexed",
+                "index_count": 300,
+                "instance_count": 1,
+                "pipeline_ref": "pipe-main",
+            },
+        ]
+
+        baseline_path = tmp_path / "baseline.snapshot.json"
+        target_path = tmp_path / "target.snapshot.json"
+        junit_path = tmp_path / "report.xml"
+        baseline_path.write_text(json.dumps(baseline, indent=2), encoding="utf-8")
+        target_path.write_text(json.dumps(target, indent=2), encoding="utf-8")
+
+        with patch.object(
+            sys,
+            "argv",
+            [
+                "compare_rdc.py",
+                str(baseline_path),
+                str(target_path),
+                "--junit",
+                str(junit_path),
+                "-q",
+            ],
+        ):
+            result = main()
+
+        assert result == 2
+        assert junit_path.exists()
+        content = junit_path.read_text(encoding="utf-8")
+        assert "<testsuite" in content
 
 
 # ============================================================
