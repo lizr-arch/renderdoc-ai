@@ -32,6 +32,11 @@ def _parse_args() -> argparse.Namespace:
         default=32,
         help="Maximum texture supplement queries when thumbnails are missing (default: 32)",
     )
+    parser.add_argument(
+        "--enable-texture-fetch",
+        action="store_true",
+        help="Allow implicit texture thumbnail supplement planning (default: disabled)",
+    )
     parser.add_argument("--out-md", help="Optional output markdown path")
     parser.add_argument("--out-cmd", help="Optional output command list path")
     parser.add_argument("--out-json", help="Optional output analyzed JSON path")
@@ -65,6 +70,7 @@ def main() -> int:
         execute=bool(args.execute),
         max_events=int(args.max_events),
         texture_query_limit=int(args.max_texture_queries),
+        implicit_texture_fetch=bool(args.enable_texture_fetch),
     )
 
     markdown = str(result.get("markdown", ""))
@@ -85,12 +91,17 @@ def main() -> int:
 
     gaps = result.get("gaps", []) or []
     enrichment = result.get("enrichment", {}) or {}
+    fanout = result.get("fanout", {}) or {}
+    health_probe = result.get("health_probe", {}) or {}
     print(
-        "[SUMMARY] gaps={gaps} queries={queries} execute={execute} status={status}".format(
+        "[SUMMARY] gaps={gaps} detail_queries={queries} commands={commands} execute={execute} "
+        "status={status} health_ok={health_ok}".format(
             gaps=len(gaps),
-            queries=len(commands),
+            queries=fanout.get("detail_query_count", len(result.get("queries", []) or [])),
+            commands=fanout.get("command_count", len(commands)),
             execute=bool(args.execute),
             status=enrichment.get("status", "unknown"),
+            health_ok=health_probe.get("ok"),
         )
     )
     return 0

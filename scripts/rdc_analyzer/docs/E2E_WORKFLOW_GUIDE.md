@@ -173,6 +173,52 @@ py -3 -m rdc_analyzer compare-multi-frame \
 - `comparison.html` - 可视化对比报告
 - `results.xml` - JUnit 格式 (CI 集成)
 
+### Step 3A: baseline vs target Compare / CI（M6 最小闭环）
+
+当已经拿到两个 `snapshot.v1.json` 时，推荐直接进入 compare / CI 路径：
+
+```bash
+py -3 scripts/rdc_analyzer/compare_rdc.py baseline.snapshot.json target.snapshot.json \
+  --json diff.json \
+  --junit junit.xml
+```
+
+可选兼容输出：
+
+```bash
+py -3 scripts/rdc_analyzer/compare_rdc.py baseline.snapshot.json target.snapshot.json \
+  --html diff.html \
+  --json diff.json \
+  --junit junit.xml
+```
+
+输入兼容策略：
+- `snapshot.v1.json`：优先路径，compare 内部自动归一化到 CaptureData。
+- `schema_version == "1.0"` 的 Canonical JSON：继续兼容。
+- 已是 CaptureData-like dict 的 JSON：继续兼容。
+- `.rdc` / `.xml`：继续通过现有 loader 进入 compare。
+
+标准输出：
+- stdout：CI 摘要，包含 `status=<pass|warning|critical>` 与 `failing_checks=...`
+- JSON：`input / snapshot_summary / regressions.results / ci`
+- JUnit：单文件 XML，适用于 GitHub Actions / Jenkins / Azure Pipelines
+
+退出码：
+- `0` 无门禁回归
+- `1` 警告级门禁回归
+- `2` 严重级门禁回归
+- `3` compare 执行异常
+
+默认阈值：
+- `--draw-call-threshold 0.1`
+- `--triangle-threshold 0.2`
+- `--texture-mem-threshold 0.3`
+- `--buffer-mem-threshold 0.3`
+
+说明：
+- HTML compare 仅是兼容出口，M6 主交付不是第二套报告页面。
+- `snapshot_summary` 只复用 `snapshot.v1` 已有字段做结构化汇总，不新建 schema。
+
 ---
 
 ## 🔧 JSON Schema 验证

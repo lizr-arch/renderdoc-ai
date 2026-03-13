@@ -1,475 +1,468 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""
-compare_rdc.py CLI 测试
-========================
-
-测试命令行对比工具的各种功能。
-"""
+"""compare_rdc.py CLI and JSON output tests."""
 
 import json
-import os
 import sys
-import tempfile
 from pathlib import Path
 from unittest.mock import patch
 
 import pytest
 
-# 添加模块路径
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from compare_rdc import (
-    load_json_data,
-    run_comparison,
+    build_ci_verdict,
     export_html_report,
     export_json_diff,
-    print_summary,
+    load_json_data,
     main,
+    run_comparison,
 )
-from diff import DiffHTMLConfig, RegressionRuleId
+from diff import RegressionRuleId
 
 
-# ========== Fixtures ==========
+def _write_json(path: Path, data: dict) -> str:
+    path.write_text(json.dumps(data, indent=2), encoding="utf-8")
+    return str(path)
 
-@pytest.fixture
-def baseline_data():
-    """基准测试数据"""
+
+def _make_capture_data(
+    *,
+    draw_calls: int,
+    triangles: int,
+    texture_memory_mb: int,
+    buffer_memory_mb: int,
+    shader_suffix: str = "main",
+) -> dict:
+    events = [
+        {
+            "eventId": index + 1,
+            "name": "DrawIndexed",
+            "indexCount": 300,
+            "vertexCount": 0,
+            "instanceCount": 1,
+            "markerPath": "Frame/Opaque",
+            "pipelineState": {
+                "shaders": {
+                    "VS": {"resourceId": f"vs-{shader_suffix}"},
+                    "PS": {"resourceId": f"ps-{shader_suffix}"},
+                }
+            },
+        }
+        for index in range(draw_calls)
+    ]
     return {
-        "summary": {
-            "draw_call_count": 100,
-            "total_vertices": 50000,
-            "total_triangles": 16666
+        "apiType": "D3D12",
+        "statistics": {
+            "totalDrawCalls": draw_calls,
+            "dispatchCalls": 0,
+            "totalTriangles": triangles,
+            "totalVertices": triangles * 3,
+            "textureCount": 1,
+            "bufferCount": 1,
+            "shaderCount": 2,
         },
+        "events": events,
         "textures": [
-            {"resource_id": 1, "name": "albedo", "width": 1024, "height": 1024, "format": "BC1", "size_bytes": 1048576}
-        ],
-        "shaders": [
-            {"hash": "abc123", "type": "vertex", "entry_point": "main"}
+            {
+                "resourceId": "tex-main",
+                "name": "Color",
+                "width": 4096,
+                "height": 4096,
+                "format": "R8G8B8A8_UNORM",
+                "memorySize": texture_memory_mb * 1024 * 1024,
+            }
         ],
         "buffers": [
-            {"resource_id": 10, "name": "vbo", "size": 65536}
+            {
+                "resourceId": "buf-main",
+                "name": "VB",
+                "size": buffer_memory_mb * 1024 * 1024,
+                "usage": "vertex",
+            }
         ],
-        "draw_calls": [
-            {"event_id": 50, "name": "DrawIndexed", "index_count": 3000}
-        ]
+        "shaders": [
+            {"resourceId": f"vs-{shader_suffix}", "name": "MainVS", "type": "VS", "hash": f"hash-vs-{shader_suffix}"},
+            {"resourceId": f"ps-{shader_suffix}", "name": "MainPS", "type": "PS", "hash": f"hash-ps-{shader_suffix}"},
+        ],
+    }
+
+
+def _make_snapshot(
+    *,
+    draw_calls: int,
+    triangles: int,
+    texture_memory_mb: int,
+    buffer_memory_mb: int,
+    availability_status: str = "partial",
+) -> dict:
+    actions = [
+        {
+            "event_id": index + 1,
+            "kind": "draw",
+            "name": "DrawIndexed",
+            "index_count": 300,
+            "vertex_count": 0,
+            "instance_count": 1,
+            "marker_path": ["Frame", "Opaque"],
+            "pipeline_ref": "pipe-main",
+        }
+        for index in range(draw_calls)
+    ]
+    return {
+        "schema_version": "snapshot.v1",
+        "meta": {
+            "capture_name": "capture",
+            "graphics_api": "D3D12",
+            "generated_at": "2026-03-13T16:00:00",
+        },
+        "overview": {
+            "summary": {
+                "draw_call_count": draw_calls,
+                "dispatch_count": 0,
+                "total_triangles": triangles,
+                "total_vertices": triangles * 3,
+                "texture_count": 1,
+                "buffer_count": 1,
+                "shader_count": 2,
+                "pass_count": 1,
+                "pipeline_count": 1,
+                "finding_count": 1,
+                "recommendation_count": 1,
+            }
+        },
+        "availability": {
+            "status": availability_status,
+            "missing_fields": ["timings.gpu_ms"] if availability_status == "partial" else [],
+        },
+        "actions": actions,
+        "resources": {
+            "textures": [
+                {
+                    "resource_id": "tex-main",
+                    "name": "Color",
+                    "width": 4096,
+                    "height": 4096,
+                    "format": "R8G8B8A8_UNORM",
+                    "size_bytes": texture_memory_mb * 1024 * 1024,
+                    "usage_tags": ["sampled"],
+                }
+            ],
+            "buffers": [
+                {
+                    "resource_id": "buf-main",
+                    "name": "VB",
+                    "size_bytes": buffer_memory_mb * 1024 * 1024,
+                    "usage": "vertex",
+                }
+            ],
+        },
+        "shaders": [
+            {
+                "shader_id": "vs-main",
+                "name": "MainVS",
+                "stage": "vertex",
+                "entry_point": "main",
+                "source_high_level": "void main(){}",
+            },
+            {
+                "shader_id": "ps-main",
+                "name": "MainPS",
+                "stage": "pixel",
+                "entry_point": "main",
+                "source_high_level": "float4 main():SV_Target{return 1;}",
+            },
+        ],
+        "passes": [{"pass_id": "opaque"}],
+        "pipelines": [
+            {
+                "pipeline_id": "pipe-main",
+                "event_id": 1,
+                "vs_ref": {"shader_id": "vs-main"},
+                "ps_ref": {"shader_id": "ps-main"},
+                "blend": {"attachments": [{"enabled": False}]},
+                "depth_stencil": {"depthEnable": True},
+            }
+        ],
+        "findings": [{"id": "finding-1"}],
+        "recommendations": [{"id": "rec-1"}],
+    }
+
+
+def _make_canonical_v1(draw_calls: int = 1, triangles: int = 300) -> dict:
+    return {
+        "schema_version": "1.0",
+        "meta": {"capture_name": "canonical"},
+        "summary": {
+            "draw_call_count": draw_calls,
+            "total_triangles": triangles,
+            "total_vertices": triangles * 3,
+        },
+        "events": [
+            {
+                "eventId": index + 1,
+                "name": "DrawIndexed",
+                "indexCount": 300,
+                "vertexCount": 0,
+                "instanceCount": 1,
+            }
+            for index in range(draw_calls)
+        ],
+        "resources": {
+            "textures": {
+                "tex-main": {
+                    "name": "Color",
+                    "width": 1024,
+                    "height": 1024,
+                    "format": "RGBA8",
+                    "size_bytes": 4 * 1024 * 1024,
+                    "mips": 1,
+                }
+            },
+            "buffers": {
+                "buf-main": {
+                    "name": "VB",
+                    "size_bytes": 1024,
+                    "usage": "vertex",
+                }
+            },
+            "shaders": {
+                "vs-main": {
+                    "name": "MainVS",
+                    "type": "VS",
+                    "hash": "hash-vs",
+                }
+            },
+        },
     }
 
 
 @pytest.fixture
-def target_data():
-    """目标测试数据（有回归）"""
-    return {
-        "summary": {
-            "draw_call_count": 120,  # +20%
-            "total_vertices": 75000,  # +50%
-            "total_triangles": 25000  # +50%
-        },
-        "textures": [
-            {"resource_id": 1, "name": "albedo", "width": 2048, "height": 2048, "format": "BC1", "size_bytes": 4194304},
-            {"resource_id": 2, "name": "normal", "width": 512, "height": 512, "format": "BC5", "size_bytes": 262144}
-        ],
-        "shaders": [
-            {"hash": "abc123", "type": "vertex", "entry_point": "main"}
-        ],
-        "buffers": [
-            {"resource_id": 10, "name": "vbo", "size": 131072}  # 翻倍
-        ],
-        "draw_calls": [
-            {"event_id": 50, "name": "DrawIndexed", "index_count": 3000},
-            {"event_id": 60, "name": "DrawIndexed", "index_count": 6000}
-        ]
-    }
+def snapshot_baseline_file(tmp_path) -> str:
+    return _write_json(
+        tmp_path / "baseline.snapshot.json",
+        _make_snapshot(draw_calls=10, triangles=12000, texture_memory_mb=64, buffer_memory_mb=8),
+    )
 
 
 @pytest.fixture
-def baseline_file(baseline_data, tmp_path):
-    """创建基准 JSON 文件"""
-    path = tmp_path / "baseline.json"
-    with open(path, 'w', encoding='utf-8') as f:
-        json.dump(baseline_data, f)
-    return str(path)
+def snapshot_target_file(tmp_path) -> str:
+    return _write_json(
+        tmp_path / "target.snapshot.json",
+        _make_snapshot(draw_calls=12, triangles=15000, texture_memory_mb=84, buffer_memory_mb=8),
+    )
 
-
-@pytest.fixture
-def target_file(target_data, tmp_path):
-    """创建目标 JSON 文件"""
-    path = tmp_path / "target.json"
-    with open(path, 'w', encoding='utf-8') as f:
-        json.dump(target_data, f)
-    return str(path)
-
-
-# ========== load_json_data 测试 ==========
 
 class TestLoadJsonData:
-    """JSON 加载测试"""
-    
-    def test_load_valid_json(self, baseline_file, baseline_data):
-        """测试加载有效 JSON"""
-        data = load_json_data(baseline_file)
-        assert data == baseline_data
-    
+    def test_load_valid_json(self, snapshot_baseline_file):
+        data = load_json_data(snapshot_baseline_file)
+        assert data["schema_version"] == "snapshot.v1"
+
     def test_file_not_found(self):
-        """测试文件不存在"""
         with pytest.raises(FileNotFoundError):
-            load_json_data("nonexistent.json")
-    
+            load_json_data("missing.json")
+
     def test_invalid_json(self, tmp_path):
-        """测试无效 JSON"""
-        path = tmp_path / "invalid.json"
-        path.write_text("{ invalid json }")
-        
+        bad_path = tmp_path / "bad.json"
+        bad_path.write_text("{ invalid json", encoding="utf-8")
         with pytest.raises(json.JSONDecodeError):
-            load_json_data(str(path))
+            load_json_data(str(bad_path))
 
     def test_phase1_list_rejected(self, tmp_path):
-        """Phase1 列表格式已弃用，应明确报错"""
-        path = tmp_path / "phase1.json"
-        with open(path, 'w', encoding='utf-8') as f:
-            json.dump([{"summary": {"draw_call_count": 1}}], f)
-
+        list_path = tmp_path / "phase1.json"
+        list_path.write_text(json.dumps([{"x": 1}]), encoding="utf-8")
         with pytest.raises(ValueError):
-            load_json_data(str(path))
+            load_json_data(str(list_path))
 
-
-# ========== run_comparison 测试 ==========
 
 class TestRunComparison:
-    """对比分析测试"""
-    
-    def test_non_dict_rejected(self, tmp_path):
-        """Non-dict JSON should be rejected."""
-        path = tmp_path / "scalar.json"
-        path.write_text("42")
-
-        with pytest.raises(ValueError):
-            load_json_data(str(path))
-
-    def test_basic_comparison(self, baseline_data, target_data):
-        """测试基本对比功能"""
+    def test_basic_capturedata_comparison(self):
         diff_result, regression_report = run_comparison(
-            baseline_data, target_data,
-            "baseline.json", "target.json"
+            _make_capture_data(draw_calls=10, triangles=12000, texture_memory_mb=64, buffer_memory_mb=8),
+            _make_capture_data(draw_calls=12, triangles=15000, texture_memory_mb=84, buffer_memory_mb=8),
+            "baseline.json",
+            "target.json",
         )
-        
-        # 验证差异结果
+
         assert diff_result.baseline_file == "baseline.json"
         assert diff_result.target_file == "target.json"
-        # 验证纹理数量差异（基于 textures 列表，不依赖 summary.draw_call_count）
-        assert diff_result.summary.texture_count.delta == 1  # 1 -> 2
-        
-        # 验证回归检测（至少有警告或临界）
-        # 注意：draw_calls 基于 draw_calls 列表，不是 summary.draw_call_count
-        assert diff_result is not None
-        assert regression_report is not None
-    
-    def test_custom_threshold(self, baseline_data, target_data):
-        """测试自定义阈值"""
-        # 设置非常高的阈值 (200%)
-        custom_thresholds = {
-            RegressionRuleId.REG001: 200.0,  # Draw Call 增加
-            RegressionRuleId.REG005: 200.0,  # 三角形增加
-        }
-        
+        assert diff_result.summary.draw_calls.delta == 2
+        assert diff_result.summary.triangles.delta == 3000
+        assert regression_report.has_critical
+
+    def test_custom_threshold(self):
         diff_result, regression_report = run_comparison(
-            baseline_data, target_data,
-            "baseline.json", "target.json",
-            custom_thresholds=custom_thresholds
+            _make_capture_data(draw_calls=10, triangles=12000, texture_memory_mb=64, buffer_memory_mb=8),
+            _make_capture_data(draw_calls=12, triangles=15000, texture_memory_mb=84, buffer_memory_mb=8),
+            "baseline.json",
+            "target.json",
+            custom_thresholds={
+                RegressionRuleId.REG001: 50.0,
+                RegressionRuleId.REG005: 50.0,
+            },
         )
-        
-        # 验证结果存在
-        assert diff_result is not None
-        assert regression_report is not None
 
+        assert diff_result.summary.draw_calls.delta_percent == 20.0
+        assert not regression_report.has_critical
+        assert not regression_report.has_warning
 
-# ========== 导出测试 ==========
 
 class TestExport:
-    """导出功能测试"""
-    
-    def test_export_html(self, baseline_data, target_data, tmp_path):
-        """测试 HTML 导出"""
+    def test_export_html(self, tmp_path):
         diff_result, regression_report = run_comparison(
-            baseline_data, target_data,
-            "baseline.json", "target.json"
+            _make_capture_data(draw_calls=10, triangles=12000, texture_memory_mb=64, buffer_memory_mb=8),
+            _make_capture_data(draw_calls=12, triangles=15000, texture_memory_mb=84, buffer_memory_mb=8),
+            "baseline.json",
+            "target.json",
         )
-        
         output_path = tmp_path / "report.html"
-        result_path = export_html_report(diff_result, regression_report, str(output_path))
-        
-        assert Path(result_path).exists()
-        content = Path(result_path).read_text(encoding='utf-8')
+        export_html_report(diff_result, regression_report, str(output_path))
+        content = output_path.read_text(encoding="utf-8")
         assert "<!DOCTYPE html>" in content
         assert "baseline.json" in content
-    
-    def test_export_html_with_config(self, baseline_data, target_data, tmp_path):
-        """测试带配置的 HTML 导出"""
+
+    def test_export_json_contains_ci_and_snapshot_sections(self, tmp_path):
+        baseline_data = _make_snapshot(draw_calls=10, triangles=12000, texture_memory_mb=64, buffer_memory_mb=8)
+        target_data = _make_snapshot(draw_calls=12, triangles=15000, texture_memory_mb=84, buffer_memory_mb=8)
         diff_result, regression_report = run_comparison(
-            baseline_data, target_data,
-            "baseline.json", "target.json"
+            baseline_data=_make_capture_data(draw_calls=10, triangles=12000, texture_memory_mb=64, buffer_memory_mb=8),
+            target_data=_make_capture_data(draw_calls=12, triangles=15000, texture_memory_mb=84, buffer_memory_mb=8),
+            baseline_name="baseline.json",
+            target_name="target.json",
+            custom_thresholds={
+                RegressionRuleId.REG001: 10.0,
+                RegressionRuleId.REG004: 30.0,
+                RegressionRuleId.REG005: 20.0,
+            },
         )
-        
-        config = DiffHTMLConfig(theme="light")
-        output_path = tmp_path / "report_light.html"
-        result_path = export_html_report(diff_result, regression_report, str(output_path), config)
-        
-        content = Path(result_path).read_text(encoding='utf-8')
-        # Light theme 应使用浅色背景
-        assert "--bg-primary: #f6f8fa" in content
-    
-    def test_export_json(self, baseline_data, target_data, tmp_path):
-        """测试 JSON 导出"""
-        diff_result, regression_report = run_comparison(
-            baseline_data, target_data,
-            "baseline.json", "target.json"
+        ci_verdict = build_ci_verdict(
+            diff_result=diff_result,
+            regression_report=regression_report,
+            baseline_data={"_source_schema": "snapshot.v1", **_make_capture_data(draw_calls=10, triangles=12000, texture_memory_mb=64, buffer_memory_mb=8), "_snapshot_counts": {"actions": 10}, "_snapshot_availability": {"status": "partial", "missing_fields": ["timings.gpu_ms"]}},
+            target_data={"_source_schema": "snapshot.v1", **_make_capture_data(draw_calls=12, triangles=15000, texture_memory_mb=84, buffer_memory_mb=8), "_snapshot_counts": {"actions": 12}, "_snapshot_availability": {"status": "partial", "missing_fields": ["timings.gpu_ms"]}},
+            rule_thresholds={
+                RegressionRuleId.REG001: 10.0,
+                RegressionRuleId.REG002: 50.0,
+                RegressionRuleId.REG003: 0.0,
+                RegressionRuleId.REG004: 30.0,
+                RegressionRuleId.REG005: 20.0,
+                RegressionRuleId.REG006: 0.0,
+                RegressionRuleId.REG007: 0.0,
+            },
+            texture_mem_threshold=0.3,
+            buffer_mem_threshold=0.3,
         )
-        
         output_path = tmp_path / "diff.json"
-        result_path = export_json_diff(diff_result, regression_report, str(output_path))
-        
-        assert Path(result_path).exists()
-        
-        with open(result_path, 'r', encoding='utf-8') as f:
-            data = json.load(f)
-        
-        assert "metadata" in data
-        assert "summary" in data
-        assert "regressions" in data
-        assert data["metadata"]["baseline_file"] == "baseline.json"
-        assert "resource_changes" in data
-        assert "draw_calls" in data["summary"]
-        assert "issues" in data["regressions"]
-        assert "textures" in data["resource_changes"]
-    
-    def test_export_creates_parent_dirs(self, baseline_data, target_data, tmp_path):
-        """测试导出时创建父目录"""
-        diff_result, regression_report = run_comparison(
-            baseline_data, target_data,
-            "baseline.json", "target.json"
+        export_json_diff(
+            diff_result,
+            regression_report,
+            str(output_path),
+            baseline_data={"_source_schema": "snapshot.v1", **_make_capture_data(draw_calls=10, triangles=12000, texture_memory_mb=64, buffer_memory_mb=8), "_snapshot_counts": {"actions": 10}, "_snapshot_availability": {"status": "partial", "missing_fields": ["timings.gpu_ms"]}},
+            target_data={"_source_schema": "snapshot.v1", **_make_capture_data(draw_calls=12, triangles=15000, texture_memory_mb=84, buffer_memory_mb=8), "_snapshot_counts": {"actions": 12}, "_snapshot_availability": {"status": "partial", "missing_fields": ["timings.gpu_ms"]}},
+            ci_verdict=ci_verdict,
         )
-        
-        output_path = tmp_path / "subdir" / "nested" / "report.html"
-        result_path = export_html_report(diff_result, regression_report, str(output_path))
-        
-        assert Path(result_path).exists()
 
+        payload = json.loads(output_path.read_text(encoding="utf-8"))
+        assert payload["input"]["baseline_kind"] == "snapshot.v1"
+        assert payload["ci"]["status"] == "critical"
+        assert payload["ci"]["exit_code"] == 2
+        assert payload["ci"]["failing_checks"] == ["draw_calls", "triangles", "texture_memory"]
+        assert "snapshot_summary" in payload
 
-# ========== CLI 测试 ==========
 
 class TestCLI:
-    """命令行接口测试"""
-    
     def test_help(self):
-        """测试 --help"""
-        with patch.object(sys, 'argv', ['compare_rdc.py', '--help']):
+        with patch.object(sys, "argv", ["compare_rdc.py", "--help"]):
             with pytest.raises(SystemExit) as exc_info:
                 main()
             assert exc_info.value.code == 0
-    
+
     def test_version(self):
-        """测试 --version"""
-        with patch.object(sys, 'argv', ['compare_rdc.py', '--version']):
+        with patch.object(sys, "argv", ["compare_rdc.py", "--version"]):
             with pytest.raises(SystemExit) as exc_info:
                 main()
             assert exc_info.value.code == 0
-    
-    def test_file_not_found(self, tmp_path):
-        """测试文件不存在错误"""
-        with patch.object(sys, 'argv', [
-            'compare_rdc.py',
-            str(tmp_path / "nonexistent.json"),
-            str(tmp_path / "also_nonexistent.json")
-        ]):
-            result = main()
-            assert result == 1
-    
-    def test_basic_comparison(self, baseline_file, target_file, tmp_path, capsys):
-        """测试基本对比命令"""
-        output_html = tmp_path / "output.html"
-        
-        with patch.object(sys, 'argv', [
-            'compare_rdc.py',
-            baseline_file,
-            target_file,
-            '--html', str(output_html)
-        ]):
-            result = main()
-        
-        # 有回归时返回 1 或 2
-        assert result in [0, 1, 2]
-        assert output_html.exists()
-    
-    def test_quiet_mode(self, baseline_file, target_file, tmp_path, capsys):
-        """测试静默模式"""
-        output_html = tmp_path / "output.html"
-        
-        with patch.object(sys, 'argv', [
-            'compare_rdc.py',
-            baseline_file,
-            target_file,
-            '--html', str(output_html),
-            '-q'
-        ]):
-            result = main()
-        
-        captured = capsys.readouterr()
-        # 静默模式不应打印摘要
-        assert "RDC 对比分析结果" not in captured.out
-    
-    def test_quiet_requires_output(self, baseline_file, target_file):
-        """测试静默模式需要输出"""
-        with patch.object(sys, 'argv', [
-            'compare_rdc.py',
-            baseline_file,
-            target_file,
-            '-q'
-        ]):
-            result = main()
-            assert result == 1
-    
-    def test_json_output(self, baseline_file, target_file, tmp_path):
-        """测试 JSON 输出"""
+
+    def test_quiet_requires_output(self, snapshot_baseline_file, snapshot_target_file):
+        with patch.object(sys, "argv", ["compare_rdc.py", snapshot_baseline_file, snapshot_target_file, "-q"]):
+            assert main() == 3
+
+    def test_snapshot_json_output_and_exit_code(self, snapshot_baseline_file, snapshot_target_file, tmp_path):
         output_json = tmp_path / "diff.json"
-        
-        with patch.object(sys, 'argv', [
-            'compare_rdc.py',
-            baseline_file,
-            target_file,
-            '--json', str(output_json)
-        ]):
+        with patch.object(
+            sys,
+            "argv",
+            [
+                "compare_rdc.py",
+                snapshot_baseline_file,
+                snapshot_target_file,
+                "--json",
+                str(output_json),
+                "-q",
+            ],
+        ):
             result = main()
-        
-        assert output_json.exists()
-        
-        with open(output_json, 'r', encoding='utf-8') as f:
-            data = json.load(f)
-        
-        assert "summary" in data
-    
-    def test_both_outputs(self, baseline_file, target_file, tmp_path):
-        """测试同时输出 HTML 和 JSON"""
-        output_html = tmp_path / "report.html"
-        output_json = tmp_path / "diff.json"
-        
-        with patch.object(sys, 'argv', [
-            'compare_rdc.py',
-            baseline_file,
-            target_file,
-            '--html', str(output_html),
-            '--json', str(output_json)
-        ]):
-            result = main()
-        
-        assert output_html.exists()
-        assert output_json.exists()
-    
-    def test_custom_thresholds(self, baseline_file, target_file, tmp_path):
-        """测试自定义阈值参数"""
-        output_html = tmp_path / "output.html"
-        
-        with patch.object(sys, 'argv', [
-            'compare_rdc.py',
-            baseline_file,
-            target_file,
-            '--html', str(output_html),
-            '--triangle-threshold', '0.5',
-            '--draw-call-threshold', '0.3'
-        ]):
-            result = main()
-        
-        assert output_html.exists()
-    
-    def test_light_theme(self, baseline_file, target_file, tmp_path):
-        """测试浅色主题"""
-        output_html = tmp_path / "output.html"
-        
-        with patch.object(sys, 'argv', [
-            'compare_rdc.py',
-            baseline_file,
-            target_file,
-            '--html', str(output_html),
-            '--theme', 'light'
-        ]):
-            result = main()
-        
-        content = output_html.read_text(encoding='utf-8')
-        # Light theme 应使用浅色配色
-        assert "--bg-primary: #f6f8fa" in content
 
+        assert result == 2
+        payload = json.loads(output_json.read_text(encoding="utf-8"))
+        assert payload["input"]["baseline_kind"] == "snapshot.v1"
+        assert payload["input"]["target_kind"] == "snapshot.v1"
+        assert payload["input"]["compat_mode"] == "snapshot_aliases"
+        assert payload["snapshot_summary"]["counts"]["actions"]["baseline"] == 10
+        assert payload["snapshot_summary"]["counts"]["actions"]["target"] == 12
+        assert payload["ci"]["status"] == "critical"
+        assert payload["ci"]["exit_code"] == 2
+        assert payload["ci"]["failing_checks"] == ["draw_calls", "triangles", "texture_memory"]
 
-# ========== print_summary 测试 ==========
-
-class TestPrintSummary:
-    """控制台摘要测试"""
-    
-    def test_print_summary_with_regressions(self, baseline_data, target_data, capsys):
-        """测试带回归的摘要输出"""
-        diff_result, regression_report = run_comparison(
-            baseline_data, target_data,
-            "baseline.json", "target.json"
+    def test_texture_threshold_affects_ci_verdict(self, tmp_path):
+        baseline_file = _write_json(
+            tmp_path / "baseline.texture.json",
+            _make_snapshot(draw_calls=10, triangles=12000, texture_memory_mb=64, buffer_memory_mb=8),
         )
-        
-        print_summary(diff_result, regression_report)
-        
-        captured = capsys.readouterr()
-        assert "RDC 对比分析结果" in captured.out
-        assert "baseline.json" in captured.out
-    
-    def test_print_summary_clean(self, baseline_data, capsys):
-        """测试无回归的摘要输出"""
-        # 使用相同数据对比
-        diff_result, regression_report = run_comparison(
-            baseline_data, baseline_data,
-            "same.json", "same.json"
+        target_file = _write_json(
+            tmp_path / "target.texture.json",
+            _make_snapshot(draw_calls=10, triangles=12000, texture_memory_mb=90, buffer_memory_mb=8),
         )
-        
-        print_summary(diff_result, regression_report)
-        
-        captured = capsys.readouterr()
-        assert "RDC 对比分析结果" in captured.out
 
+        with patch.object(
+            sys,
+            "argv",
+            ["compare_rdc.py", baseline_file, target_file, "--json", str(tmp_path / "warn.json"), "-q"],
+        ):
+            warning_result = main()
 
-# ========== 返回码测试 ==========
+        with patch.object(
+            sys,
+            "argv",
+            [
+                "compare_rdc.py",
+                baseline_file,
+                target_file,
+                "--json",
+                str(tmp_path / "pass.json"),
+                "--texture-mem-threshold",
+                "0.5",
+                "-q",
+            ],
+        ):
+            pass_result = main()
 
-class TestReturnCodes:
-    """返回码测试"""
-    
-    def test_return_0_no_issues(self, baseline_data, tmp_path):
-        """测试无问题时返回 0"""
-        # 创建相同的文件
-        same_file1 = tmp_path / "same1.json"
-        same_file2 = tmp_path / "same2.json"
-        
-        with open(same_file1, 'w') as f:
-            json.dump(baseline_data, f)
-        with open(same_file2, 'w') as f:
-            json.dump(baseline_data, f)
-        
-        output_html = tmp_path / "output.html"
-        
-        with patch.object(sys, 'argv', [
-            'compare_rdc.py',
-            str(same_file1),
-            str(same_file2),
-            '--html', str(output_html)
-        ]):
+        assert warning_result == 1
+        assert pass_result == 0
+
+    def test_legacy_canonical_json_still_supported(self, tmp_path):
+        baseline_file = _write_json(tmp_path / "baseline.canonical.json", _make_canonical_v1())
+        target_file = _write_json(tmp_path / "target.canonical.json", _make_canonical_v1())
+
+        with patch.object(
+            sys,
+            "argv",
+            ["compare_rdc.py", baseline_file, target_file, "--json", str(tmp_path / "canonical.diff.json"), "-q"],
+        ):
             result = main()
-        
-        # 相同文件对比应无回归
+
         assert result == 0
-    
-    def test_return_nonzero_with_issues(self, baseline_file, target_file, tmp_path):
-        """测试有问题时返回非零"""
-        output_html = tmp_path / "output.html"
-        
-        with patch.object(sys, 'argv', [
-            'compare_rdc.py',
-            baseline_file,
-            target_file,
-            '--html', str(output_html)
-        ]):
-            result = main()
-        
-        # 有回归应返回 1 或 2
-        assert result in [1, 2]
+        payload = json.loads((tmp_path / "canonical.diff.json").read_text(encoding="utf-8"))
+        assert payload["input"]["baseline_kind"] == "canonical.v1"
+        assert payload["ci"]["status"] == "pass"

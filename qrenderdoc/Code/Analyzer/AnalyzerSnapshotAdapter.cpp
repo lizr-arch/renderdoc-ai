@@ -42,10 +42,28 @@ struct TimingCandidate
   double gpuTimeMs = 0.0;
 };
 
+QStringList NormalizeStringList(const QStringList &values)
+{
+  QStringList normalized;
+  QSet<QString> dedup;
+
+  for(const QString &value : values)
+  {
+    const QString trimmed = value.trimmed();
+    if(trimmed.isEmpty() || dedup.contains(trimmed))
+      continue;
+
+    dedup.insert(trimmed);
+    normalized.push_back(trimmed);
+  }
+
+  return normalized;
+}
+
 QJsonArray ToJsonStringArray(const QStringList &values)
 {
   QJsonArray array;
-  for(const QString &value : values)
+  for(const QString &value : NormalizeStringList(values))
     array.push_back(value);
   return array;
 }
@@ -59,6 +77,91 @@ QJsonObject MakeAvailability(const QString &status, const QStringList &missingFi
     availability[lit("missing_fields")] = ToJsonStringArray(missingFields);
   if(!notes.isEmpty())
     availability[lit("notes")] = ToJsonStringArray(notes);
+  return availability;
+}
+
+QStringList BuildGlobalMissingFieldPaths()
+{
+  return QStringList({lit("passes"), lit("pipelines"), lit("actions.marker_path"),
+                      lit("actions.flags"), lit("actions.pipeline_ref"),
+                      lit("resources.textures.producer_event_refs"), lit("shaders.source_asm"),
+                      lit("shaders.source_high_level"), lit("shaders.resource_bindings")});
+}
+
+QStringList BuildPreflightConclusions()
+{
+  return QStringList({lit("Pass-level grouping is unavailable in current GUI export."),
+                      lit("Pipeline summaries are deferred to a later snapshot.v1 phase."),
+                      lit("Buffer usage tags remain coarse-grained in GUI snapshot export.")});
+}
+
+QStringList BuildGlobalAvailabilityNotes()
+{
+  return QStringList(
+      {lit("GUI snapshot.v1 export keeps the existing viewer display model unchanged."),
+       lit("Buffer usage tags are emitted with coarse GUI-derived classification.")});
+}
+
+QJsonObject BuildActionAvailability(bool hasTiming, bool hasPipelineRef)
+{
+  QStringList missingFields;
+  missingFields << lit("marker_path") << lit("flags");
+  if(!hasTiming)
+    missingFields << lit("timing_ms");
+  if(!hasPipelineRef)
+    missingFields << lit("pipeline_ref");
+
+  return MakeAvailability(
+      lit("partial"), missingFields,
+      QStringList({lit("Marker hierarchy and draw flags are not sampled in analyzer snapshot.")}));
+}
+
+QJsonObject BuildTextureAvailability()
+{
+  return MakeAvailability(
+      lit("partial"), QStringList({lit("producer_event_refs")}),
+      QStringList({lit("Producer-event detection is not available in current GUI export.")}));
+}
+
+QJsonObject BuildBufferAvailability()
+{
+  return MakeAvailability(
+      lit("partial"), QStringList(),
+      QStringList({lit("Binding-role classification is simplified for GUI snapshot export.")}));
+}
+
+QJsonObject BuildShaderAvailability()
+{
+  return MakeAvailability(
+      lit("partial"),
+      QStringList({lit("source_asm"), lit("source_high_level"), lit("resource_bindings")}),
+      QStringList(
+          {lit("Shader source and binding reflection are not sampled in analyzer snapshot.")}));
+}
+
+QJsonObject BuildSectionStatus(const QJsonObject &timings)
+{
+  QJsonObject sectionStatus;
+  sectionStatus[lit("preflight")] = lit("partial");
+  sectionStatus[lit("overview")] = lit("full");
+  sectionStatus[lit("timings")] =
+      timings.value(lit("availability")).toObject().value(lit("status")).toString(lit("unavailable"));
+  sectionStatus[lit("actions")] = lit("partial");
+  sectionStatus[lit("resources")] = lit("partial");
+  sectionStatus[lit("shaders")] = lit("partial");
+  sectionStatus[lit("findings")] = lit("full");
+  sectionStatus[lit("recommendations")] = lit("full");
+  sectionStatus[lit("evidence_index")] = lit("full");
+  sectionStatus[lit("passes")] = lit("unavailable");
+  sectionStatus[lit("pipelines")] = lit("unavailable");
+  return sectionStatus;
+}
+
+QJsonObject BuildRootAvailability(const QJsonObject &sectionStatus)
+{
+  QJsonObject availability = MakeAvailability(lit("partial"), BuildGlobalMissingFieldPaths(),
+                                              BuildGlobalAvailabilityNotes());
+  availability[lit("sections")] = sectionStatus;
   return availability;
 }
 
@@ -243,12 +346,8 @@ QJsonObject BuildPreflight()
 {
   QJsonObject preflight;
   preflight[lit("status")] = lit("warning");
-  preflight[lit("missing_data")] = ToJsonStringArray(
-      QStringList({lit("actions.marker_path"), lit("actions.flags"), lit("passes"), lit("pipelines"),
-                   lit("shaders.source_high_level"), lit("shaders.resource_bindings")}));
-  preflight[lit("degraded_conclusions")] = ToJsonStringArray(
-      QStringList({lit("Pass-level grouping is unavailable in current GUI export."),
-                   lit("Pipeline summaries are deferred to a later snapshot.v1 phase.")}));
+  preflight[lit("missing_data")] = ToJsonStringArray(BuildGlobalMissingFieldPaths());
+  preflight[lit("degraded_conclusions")] = ToJsonStringArray(BuildPreflightConclusions());
   preflight[lit("capture_recommendations")] =
       ToJsonStringArray(QStringList({lit("Capture full pipeline state for pass/pipeline analysis."),
                                      lit("Keep GPU counters enabled for timing confidence.")}));
@@ -332,7 +431,7 @@ QJsonObject BuildTimings(const AnalyzerSnapshot &snapshot)
     timings[lit("availability")] = MakeAvailability(lit("full"), QStringList(), QStringList());
   else
     timings[lit("availability")] = MakeAvailability(
-        lit("unavailable"), QStringList({lit("timings.top_actions"), lit("timings.total_gpu_ms")}),
+        lit("unavailable"), QStringList({lit("top_actions"), lit("total_gpu_ms")}),
         QStringList({lit("No valid GPU timing values were exported for this capture.")}));
 
   return timings;
@@ -395,14 +494,11 @@ QJsonArray BuildActions(const AnalyzerSnapshot &snapshot)
 
   QHash<uint32_t, int> drawDispatchByEid;
   QHash<uint32_t, int> gpuCounterByEid;
-  QHash<uint32_t, int> pipelineByEid;
 
   for(int i = 0; i < snapshot.drawDispatch.count(); i++)
     drawDispatchByEid.insert(snapshot.drawDispatch[i].eid, i);
   for(int i = 0; i < snapshot.gpuCounters.count(); i++)
     gpuCounterByEid.insert(snapshot.gpuCounters[i].eid, i);
-  for(int i = 0; i < snapshot.pipelineBandwidth.count(); i++)
-    pipelineByEid.insert(snapshot.pipelineBandwidth[i].eid, i);
 
   for(const AnalyzerEventRow &event : snapshot.events)
   {
@@ -454,18 +550,8 @@ QJsonArray BuildActions(const AnalyzerSnapshot &snapshot)
     if(!resourceRefs.isEmpty())
       action[lit("resource_refs")] = resourceRefs;
 
-    if(pipelineByEid.contains(event.eid))
-      action[lit("pipeline_ref")] = QFormatStr("pipeline-%1").arg(eid);
-
-    QStringList missingFields;
-    missingFields << lit("marker_path") << lit("flags");
-    if(!action.contains(lit("timing_ms")))
-      missingFields << lit("timing_ms");
-
-    action[lit("availability")] = MakeAvailability(
-        lit("partial"), missingFields,
-        QStringList(
-            {lit("Marker hierarchy and draw flags are not sampled in analyzer snapshot.")}));
+    action[lit("availability")] = BuildActionAvailability(action.contains(lit("timing_ms")),
+                                                          action.contains(lit("pipeline_ref")));
 
     QJsonArray evidence;
     evidence.push_back(MakeEvidenceRef(lit("event"), eid, ToQStr(event.name),
@@ -528,9 +614,7 @@ QJsonObject BuildResources(const AnalyzerSnapshot &snapshot)
       texture[lit("usage_tags")] = ToJsonStringArray(usageTags);
       texture[lit("producer_event_refs")] = QJsonArray();
       texture[lit("consumer_event_refs")] = consumerRefs;
-      texture[lit("availability")] = MakeAvailability(
-          lit("partial"), QStringList({lit("producer_event_refs")}),
-          QStringList({lit("Producer-event detection is not available in current GUI export.")}));
+      texture[lit("availability")] = BuildTextureAvailability();
       textures.push_back(texture);
     }
     else
@@ -541,9 +625,7 @@ QJsonObject BuildResources(const AnalyzerSnapshot &snapshot)
       buffer[lit("byte_size")] = (double)resource.bytes;
       buffer[lit("usage_tags")] = ToJsonStringArray(usageTags);
       buffer[lit("bound_event_refs")] = consumerRefs;
-      buffer[lit("availability")] = MakeAvailability(
-          lit("partial"), QStringList({lit("usage_tags")}),
-          QStringList({lit("Binding-role classification is simplified for GUI snapshot export.")}));
+      buffer[lit("availability")] = BuildBufferAvailability();
       buffers.push_back(buffer);
     }
   }
@@ -607,11 +689,7 @@ QJsonArray BuildShaders(const AnalyzerSnapshot &snapshot)
     if(!ToQStr(shader.name).isEmpty())
       item[lit("entry_point")] = ToQStr(shader.name);
     item[lit("used_by_event_refs")] = BuildShaderEventRefs(snapshot, shader);
-    item[lit("availability")] = MakeAvailability(
-        lit("partial"),
-        QStringList({lit("source_asm"), lit("source_high_level"), lit("resource_bindings")}),
-        QStringList(
-            {lit("Shader source and binding reflection are not sampled in analyzer snapshot.")}));
+    item[lit("availability")] = BuildShaderAvailability();
 
     shaders.push_back(item);
   }
@@ -823,19 +901,7 @@ QJsonObject AnalyzerSnapshotAdapter::ToSnapshotV1(const AnalyzerSnapshot &snapsh
   QJsonArray recommendations = BuildRecommendations(snapshot);
   QJsonObject evidenceIndex = BuildEvidenceIndex(snapshot);
 
-  QJsonObject sectionStatus;
-  sectionStatus[lit("preflight")] = lit("partial");
-  sectionStatus[lit("overview")] = lit("full");
-  sectionStatus[lit("timings")] =
-      timings.value(lit("availability")).toObject().value(lit("status")).toString(lit("unavailable"));
-  sectionStatus[lit("actions")] = lit("partial");
-  sectionStatus[lit("resources")] = lit("partial");
-  sectionStatus[lit("shaders")] = lit("partial");
-  sectionStatus[lit("findings")] = lit("full");
-  sectionStatus[lit("recommendations")] = lit("full");
-  sectionStatus[lit("evidence_index")] = lit("full");
-  sectionStatus[lit("passes")] = lit("unavailable");
-  sectionStatus[lit("pipelines")] = lit("unavailable");
+  QJsonObject sectionStatus = BuildSectionStatus(timings);
 
   int fullCount = 0;
   int partialCount = 0;
@@ -856,15 +922,7 @@ QJsonObject AnalyzerSnapshotAdapter::ToSnapshotV1(const AnalyzerSnapshot &snapsh
   root[lit("findings")] = findings;
   root[lit("recommendations")] = recommendations;
   root[lit("evidence_index")] = evidenceIndex;
-
-  QJsonObject availability = MakeAvailability(
-      lit("partial"),
-      QStringList({lit("passes"), lit("pipelines"), lit("actions.marker_path"), lit("actions.flags"),
-                   lit("shaders.source_high_level"), lit("shaders.resource_bindings")}),
-      QStringList(
-          {lit("GUI snapshot.v1 export keeps the existing viewer display model unchanged.")}));
-  availability[lit("sections")] = sectionStatus;
-  root[lit("availability")] = availability;
+  root[lit("availability")] = BuildRootAvailability(sectionStatus);
 
   return root;
 }

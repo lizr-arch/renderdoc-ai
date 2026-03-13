@@ -12,11 +12,10 @@ if str(TOOLS_MCP) not in sys.path:
     sys.path.insert(0, str(TOOLS_MCP))
 
 from snapshot_consumer import (  # type: ignore
-    build_mcp_envelope,
+    build_error_payload,
     classify_mcp_error,
     create_default_bridge,
     normalize_mcp_success,
-    recovery_hint_for_error,
 )
 
 
@@ -39,13 +38,11 @@ def main() -> int:
         if not isinstance(params, dict):
             raise ValueError("params must be a JSON object")
     except Exception as exc:
-        payload = build_mcp_envelope(
-            ok=False,
-            data=None,
+        payload = build_error_payload(
+            code="invalid_argument",
+            message=f"Invalid --params: {exc}",
             method=args.method,
             params={},
-            error={"code": "invalid_argument", "message": f"Invalid --params: {exc}"},
-            recovery_hint=recovery_hint_for_error("invalid_argument"),
         )
         print(json.dumps(payload, ensure_ascii=False, indent=2))
         return 2
@@ -58,19 +55,12 @@ def main() -> int:
         return 0
     except Exception as exc:
         code = classify_mcp_error(str(exc))
-        payload = {
-            **build_mcp_envelope(
-                ok=False,
-                data=None,
-                method=args.method,
-                params=params,
-                error={
-                    "code": code,
-                    "message": str(exc),
-                },
-                recovery_hint=recovery_hint_for_error(code),
-            )
-        }
+        payload = build_error_payload(
+            code=code,
+            message=str(exc),
+            method=args.method,
+            params=params,
+        )
         print(json.dumps(payload, ensure_ascii=False, indent=2))
         return 1
 

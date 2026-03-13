@@ -48,6 +48,8 @@ bool AnalyzerExporter::WriteAll(const AnalyzerSnapshot &snapshot, const QString 
   const QString captureContextPath = dir.absoluteFilePath(lit("capture_context.json"));
   const QString snapshotV1Path = dir.absoluteFilePath(lit("snapshot.v1.json"));
 
+  // Keep the native analyzer JSON as a compatibility sidecar only. snapshot.v1 is built directly
+  // from the in-memory AnalyzerSnapshot plus capture context and must not round-trip through it.
   if(!WriteAnalysisJSON(snapshot, jsonPath, error))
     return false;
 
@@ -69,6 +71,8 @@ bool AnalyzerExporter::WriteAll(const AnalyzerSnapshot &snapshot, const QString 
 bool AnalyzerExporter::WriteAnalysisJSON(const AnalyzerSnapshot &snapshot, const QString &path,
                                          QString *error) const
 {
+  // This file is intentionally preserved for legacy consumers and debugging. It is not a source of
+  // truth for snapshot.v1 generation.
   return WriteBytes(path, AnalyzerContract::ToJsonBytes(snapshot), error);
 }
 
@@ -140,6 +144,8 @@ bool AnalyzerExporter::WriteSnapshotV1JSON(const AnalyzerSnapshot &snapshot,
                                            const QJsonObject &captureContext, const QString &path,
                                            QString *error) const
 {
+  // snapshot.v1 is emitted from the live analyzer snapshot contract, not by reading back legacy
+  // exporter output.
   QJsonObject root = AnalyzerSnapshotAdapter::ToSnapshotV1(snapshot, captureContext);
   return WriteBytes(path, QJsonDocument(root).toJson(QJsonDocument::Indented), error);
 }

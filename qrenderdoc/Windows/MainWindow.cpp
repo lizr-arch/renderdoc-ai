@@ -3412,9 +3412,17 @@ bool MainWindow::showAndroidLaunchFailure(const QString &target, ResultDetails r
 
   QString message;
   if(captureLaunch && !target.isEmpty())
+  {
     message = tr("Error launching %1 for capture.\n\n").arg(target);
-  else
+  }
+  else if(captureLaunch)
+  {
     message = tr("Error encountered while launching Android capture.\n\n");
+  }
+  else
+  {
+    message = tr("Error encountered while launching RenderDoc remote server on Android.\n\n");
+  }
 
   message += tr("Reason: %1\n\nSuggested fixes:\n").arg(reason);
   for(const QString &action : actions)
