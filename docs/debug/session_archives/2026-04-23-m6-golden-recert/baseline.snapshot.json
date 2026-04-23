@@ -1,0 +1,217 @@
+{
+  "schema_version": "snapshot.v1",
+  "meta": {
+    "capture_name": "baseline",
+    "graphics_api": "D3D12",
+    "generated_at": "2026-04-23T19:00:00"
+  },
+  "overview": {
+    "summary": {
+      "draw_call_count": 10,
+      "dispatch_count": 0,
+      "total_triangles": 12000,
+      "total_vertices": 36000,
+      "texture_count": 1,
+      "buffer_count": 1,
+      "shader_count": 2,
+      "pass_count": 1,
+      "pipeline_count": 1,
+      "finding_count": 0,
+      "recommendation_count": 0
+    }
+  },
+  "availability": {
+    "status": "partial",
+    "missing_fields": []
+  },
+  "actions": [
+    {
+      "event_id": 1,
+      "kind": "draw",
+      "name": "DrawIndexed",
+      "index_count": 300,
+      "instance_count": 1,
+      "marker_path": [
+        "Frame",
+        "Opaque"
+      ],
+      "pipeline_ref": "pipe-main"
+    },
+    {
+      "event_id": 2,
+      "kind": "draw",
+      "name": "DrawIndexed",
+      "index_count": 300,
+      "instance_count": 1,
+      "marker_path": [
+        "Frame",
+        "Opaque"
+      ],
+      "pipeline_ref": "pipe-main"
+    },
+    {
+      "event_id": 3,
+      "kind": "draw",
+      "name": "DrawIndexed",
+      "index_count": 300,
+      "instance_count": 1,
+      "marker_path": [
+        "Frame",
+        "Opaque"
+      ],
+      "pipeline_ref": "pipe-main"
+    },
+    {
+      "event_id": 4,
+      "kind": "draw",
+      "name": "DrawIndexed",
+      "index_count": 300,
+      "instance_count": 1,
+      "marker_path": [
+        "Frame",
+        "Opaque"
+      ],
+      "pipeline_ref": "pipe-main"
+    },
+    {
+      "event_id": 5,
+      "kind": "draw",
+      "name": "DrawIndexed",
+      "index_count": 300,
+      "instance_count": 1,
+      "marker_path": [
+        "Frame",
+        "Opaque"
+      ],
+      "pipeline_ref": "pipe-main"
+    },
+    {
+      "event_id": 6,
+      "kind": "draw",
+      "name": "DrawIndexed",
+      "index_count": 300,
+      "instance_count": 1,
+      "marker_path": [
+        "Frame",
+        "Opaque"
+      ],
+      "pipeline_ref": "pipe-main"
+    },
+    {
+      "event_id": 7,
+      "kind": "draw",
+      "name": "DrawIndexed",
+      "index_count": 300,
+      "instance_count": 1,
+      "marker_path": [
+        "Frame",
+        "Opaque"
+      ],
+      "pipeline_ref": "pipe-main"
+    },
+    {
+      "event_id": 8,
+      "kind": "draw",
+      "name": "DrawIndexed",
+      "index_count": 300,
+      "instance_count": 1,
+      "marker_path": [
+        "Frame",
+        "Opaque"
+      ],
+      "pipeline_ref": "pipe-main"
+    },
+    {
+      "event_id": 9,
+      "kind": "draw",
+      "name": "DrawIndexed",
+      "index_count": 300,
+      "instance_count": 1,
+      "marker_path": [
+        "Frame",
+        "Opaque"
+      ],
+      "pipeline_ref": "pipe-main"
+    },
+    {
+      "event_id": 10,
+      "kind": "draw",
+      "name": "DrawIndexed",
+      "index_count": 300,
+      "instance_count": 1,
+      "marker_path": [
+        "Frame",
+        "Opaque"
+      ],
+      "pipeline_ref": "pipe-main"
+    }
+  ],
+  "resources": {
+    "textures": [
+      {
+        "resource_id": "tex-main",
+        "name": "Color",
+        "width": 4096,
+        "height": 4096,
+        "format": "R8G8B8A8_UNORM",
+        "size_bytes": 67108864,
+        "usage_tags": [
+          "sampled"
+        ]
+      }
+    ],
+    "buffers": [
+      {
+        "resource_id": "buf-main",
+        "name": "VB",
+        "size_bytes": 8388608,
+        "usage": "vertex"
+      }
+    ]
+  },
+  "shaders": [
+    {
+      "shader_id": "vs-main",
+      "name": "MainVS",
+      "stage": "vertex",
+      "entry_point": "main",
+      "source_high_level": "void main(){}"
+    },
+    {
+      "shader_id": "ps-main",
+      "name": "MainPS",
+      "stage": "pixel",
+      "entry_point": "main",
+      "source_high_level": "float4 main():SV_Target{return 1;}"
+    }
+  ],
+  "passes": [
+    {
+      "pass_id": "opaque"
+    }
+  ],
+  "pipelines": [
+    {
+      "pipeline_id": "pipe-main",
+      "event_id": 1,
+      "vs_ref": {
+        "shader_id": "vs-main"
+      },
+      "ps_ref": {
+        "shader_id": "ps-main"
+      },
+      "blend": {
+        "attachments": [
+          {
+            "enabled": false
+          }
+        ]
+      },
+      "depth_stencil": {
+        "depthEnable": true
+      }
+    }
+  ],
+  "findings": [],
+  "recommendations": []
+}

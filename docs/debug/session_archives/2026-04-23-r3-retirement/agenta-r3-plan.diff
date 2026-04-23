@@ -1,0 +1,39 @@
+diff --git a/plans/2026-03-13-155741-AgentA-M5-Skill-MVP.md b/plans/2026-03-13-155741-AgentA-M5-Skill-MVP.md
+index bc4e90a52..d17ea4517 100644
+--- a/plans/2026-03-13-155741-AgentA-M5-Skill-MVP.md
++++ b/plans/2026-03-13-155741-AgentA-M5-Skill-MVP.md
+@@ -56,3 +56,34 @@
+ - live bridge 当前结论属于“配置/运行态限制”：
+   - 证据：`%TEMP%/renderdoc_mcp` 中有 `request.json`，但无 `response.json`
+   - 恢复路径：确认 RenderDoc GUI 运行、启用 MCP Bridge 扩展、检查 replay thread 是否阻塞，必要时重启扩展或 GUI 后重试 `get_capture_status`
++
++## 2026-03-14 R3 Re-Land Audit（AgentA-r3）
++
++- 基于本地检索（MCP unavailable）完成 r3 干净线复核；未使用 Context MCP。
++- 审计目标仓库：`D:\Code\git\renderdoc-agenta-r3`
++- Git 审计结果：
++  - `git rev-parse --abbrev-ref HEAD` → `codex/agenta/m5-skill-mvp-r3`
++  - `git rev-parse HEAD` → `87c5a0b7a176a6fae40775b0b43d1e21c7740409`
++  - `git status --porcelain=v1 -b` → 工作树干净
++  - `git diff --name-only renderdoc-ai/main...HEAD` → 空；当前候选与 `renderdoc-ai/main@87c5a0b7a176a6fae40775b0b43d1e21c7740409` 无代码差异
++- r3 结论：本轮为 no-op re-land；`tools/mcp/*` 与 `scripts/rdc_analyzer/mcp_examples/*` 无需补差，不引入新的 schema/template/report。
++- r3 验证命令：
++  - `py -3 -m pytest D:\Code\git\renderdoc-agenta-r3\tools\mcp\tests\test_snapshot_consumer.py -q` → `10 passed in 0.05s`
++  - `py -3 D:\Code\git\renderdoc-agenta-r3\scripts\rdc_analyzer\mcp_examples\run_query.py --method get_capture_status --params "{}"` → 合法 `mcp-query.v1` timeout envelope，`error.code=timeout`
++  - `py -3 D:\Code\git\renderdoc-agenta-r3\scripts\rdc_analyzer\mcp_examples\snapshot_consume.py --snapshot %TEMP%\m5_skill_contract_snapshot.json --execute --out-json %TEMP%\consumer.execute.json --out-md %TEMP%\consumer.execute.md --out-cmd %TEMP%\consumer.execute.cmds.txt`
++- `consumer.execute.json` / `consumer.execute.md` / `consumer.execute.cmds.txt` 摘要：
++  - `enrichment.status=blocked`
++  - `health_probe.error.code=timeout`
++  - `fanout.detail_query_count=5`
++  - `fanout.command_count=6`
++  - `commands[0] = get_capture_status`
++  - `recovery_hint` 指向 RenderDoc GUI / MCP Bridge / replay thread 检查
++- 状态口径：
++  - 保留当前实现字面量：`dry_run`、`executed`、`blocked`、`partial`、`failed`、`no_queries_needed`
++  - 用户文案中的“execute”按执行语义理解，不改为新的状态字符串
++- 分层判断：
++  - 当前 live 失败属于配置/运行态限制，不是理论限制，也不是实现缺失
++  - 证据链：`request_present=true`、`response_present=false`、`error.code=timeout`
++  - 恢复路径：启动 RenderDoc GUI，确认 MCP Bridge 扩展启用，并检查 replay thread 未阻塞后重试 `get_capture_status`
++- Candidate SHA：
++  - `87c5a0b7a176a6fae40775b0b43d1e21c7740409`
