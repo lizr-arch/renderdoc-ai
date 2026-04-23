@@ -1,0 +1,185 @@
+diff --git a/plans/2026-03-11-170659-AgentD-M0C-Android-Launch-Diagnose.md b/plans/2026-03-11-170659-AgentD-M0C-Android-Launch-Diagnose.md
+index a80750395..1dcb40720 100644
+--- a/plans/2026-03-11-170659-AgentD-M0C-Android-Launch-Diagnose.md
++++ b/plans/2026-03-11-170659-AgentD-M0C-Android-Launch-Diagnose.md
+@@ -347,3 +347,180 @@ AndroidLaunchDiagnosis MainWindow::BuildAndroidLaunchDiagnosis(const ExecuteResu
+   - 产生 merge 提交 `fded9b135`。
+   - 口径校验：`agentd_is_ancestor=True`。
+   - 已推送：`806f4b29b..fded9b135 -> codex/integration/renderdoc-ai-20260311`。
++
++## /do Execution Log (AgentD-r3, 2026-03-14 - Local Build + Android Artifact Gate)
++
++- 目标：
++  - 在当前工作区 `D:\\Code\\git\\renderdoc-agentd-r3` 重新完成 M0-C 回归前审计、桌面端构建和 Android APK 对齐，为真机回归准备可执行产物。
++- Git / 环境审计：
++  - `git rev-parse --abbrev-ref HEAD` -> `codex/agentd/m0c-android-regression-r3`
++  - `git rev-parse HEAD` -> `87c5a0b7a176a6fae40775b0b43d1e21c7740409`
++  - `git status --porcelain=v1 -b` -> 仅分支行，无 tracked/untracked 变更
++  - `git diff --name-only renderdoc-ai/main...HEAD` -> 无输出
++  - `where adb` -> `C:\\Users\\lizhirui01\\AppData\\Local\\Android\\Sdk\\platform-tools\\adb.exe`
++  - `adb devices -l` -> 无在线设备
++- 桌面端构建：
++  - 执行：
++    - `E:\\Program Files\\Microsoft Visual Studio\\2022\\Community\\MSBuild\\Current\\Bin\\MSBuild.exe renderdoc.sln /p:Configuration=Development /p:Platform=x64 /m /nologo /verbosity:minimal /p:CommitId=87c5a0b7a176a6fae40775b0b43d1e21c7740409`
++  - 结果：
++    - 成功生成：
++      - `x64\\Development\\qrenderdoc.exe`
++      - `x64\\Development\\renderdoc.dll`
++      - `x64\\Development\\renderdoccmd.exe`
++    - `x64\\Development\\renderdoccmd.exe --version` ->
++      - `renderdoccmd x64 v1.43 built from 87c5a0b7a176a6fae40775b0b43d1e21c7740409`
++- Android APK 对齐：
++  - 首次执行：
++    - `.\scripts\build_android_aligned.ps1 -CommitHash 87c5a0b7a176a6fae40775b0b43d1e21c7740409`
++  - 首次失败原因：
++    - 脚本通过 `where clang++` 选择到旧环境 `e:\\Program Files\\LLVM\\bin\\clang++.exe`（`clang version 14.0.6`），导致 `include-bin.exe` 宿主编译失败，MSVC STL 报 `Unexpected compiler version, expected Clang 19.0.0 or newer.`
++  - 修正后执行：
++    - `.\scripts\build_android_aligned.ps1 -CommitHash 87c5a0b7a176a6fae40775b0b43d1e21c7740409 -HostClang "E:\\Program Files\\Microsoft Visual Studio\\2022\\Community\\VC\\Tools\\Llvm\\x64\\bin\\clang++.exe"`
++    - 显式宿主编译器版本：
++      - `clang version 19.1.5`
++  - 修正后结果：
++    - arm32/arm64 构建成功
++    - `build-android-arm32\\bin\\org.renderdoc.renderdoccmd.arm32.apk` ->
++      - `versionCode='143'`
++      - `versionName='87c5a0b7a176a6fae40775b0b43d1e21c7740409'`
++    - `build-android-arm64\\bin\\org.renderdoc.renderdoccmd.arm64.apk` ->
++      - `versionCode='143'`
++      - `versionName='87c5a0b7a176a6fae40775b0b43d1e21c7740409'`
++    - 已复制到当前工作区运行目录：
++      - `x64\\Development\\plugins\\android\\org.renderdoc.renderdoccmd.arm32.apk`
++      - `x64\\Development\\plugins\\android\\org.renderdoc.renderdoccmd.arm64.apk`
++    - 复制后二次 `aapt dump badging` 校验仍为：
++      - `versionCode='143'`
++      - `versionName='87c5a0b7a176a6fae40775b0b43d1e21c7740409'`
++- 当前阻塞：
++  - `adb devices -l` 仍为空，当前会话没有在线 Android 设备，无法继续执行：
++    - `JDWPFailure`
++    - `AndroidLayerConfFailed`
++    - `AndroidAPKInstallFailed`
++    - `InjectionFailed(timeout / non-timeout)`
++    - 成功 `Launch + Capture`
++  - 当前工具集也没有现成的原生 Windows UI 自动化入口，因此即便设备接入，`qrenderdoc` 弹窗级证据仍需要后续真机手动触发或额外桌面自动化方案支持。
++- 本轮范围结论：
++  - 未修改 `qrenderdoc/Windows/MainWindow.cpp`
++  - 未修改 `qrenderdoc/Windows/MainWindow.h`
++  - 未引入任何 schema/template/report 系统变更
++  - 回合结束前再次检查：`git status --porcelain=v1 -b` 仅分支行；`git diff --name-only renderdoc-ai/main...HEAD` 仍为空
++
++## /do Execution Log (AgentD-r3, 2026-03-14 - Android Regression Evidence Collection, 基于本地检索（MCP unavailable）)
++
++- 会话启动审计与文档前置：
++  - 已重跑 4 条 Git 审计命令，分支/HEAD 保持：
++    - `codex/agentd/m0c-android-regression-r3`
++    - `87c5a0b7a176a6fae40775b0b43d1e21c7740409`
++  - 已读取：
++    - `docs/product/development_charter.md`
++    - `docs/product/snapshot_schema_v1.md`
++    - `docs/product/template_contract_v1.md`
++    - `docs/product/mcp_query_contract_v1.md`
++    - 本计划文件
++  - MCP 资源列表为空，按本地检索推进。
++
++- 真机与版本前置：
++  - `adb devices -l`：
++    - `2bbb5810 ... model:M2012K11C ... device`
++  - `x64\Development\renderdoccmd.exe --version`：
++    - `v1.43 built from 87c5a0b7a176a6fae40775b0b43d1e21c7740409`
++  - `aapt dump badging`（arm32/arm64）：
++    - `versionCode='143'`
++    - `versionName='87c5a0b7a176a6fae40775b0b43d1e21c7740409'`
++
++- 已收集到的回归证据（命令输出）：
++  - 成功路径 `Launch + Capture`（RemoteServer ExecuteAndInject）：
++    - 连接：`CreateRemoteServerConnection('adb://2bbb5810') -> ResultCode.Succeeded`
++    - 触发：`remote.ExecuteAndInject('com.netease.matchone/#DefaultActivity', ...)`
++    - 返回：`ResultCode.Succeeded`，`Message=Success`，`ident=38920`
++  - `InjectionFailed(non-timeout)`：
++    - 用例：
++      - `com.not.exist.app/#DefaultActivity`
++      - `com.netease.matchone/com.not.exist.Activity`
++      - `com.netease.matchone/.Nope`
++    - 返回统一为：
++      - `ResultCode.InjectionFailed`
++      - `Raw error: RenderDoc injection failed: Couldn't locate the launched activity, either it failed to launch or crashed.`
++      - `ident=0`
++  - `InjectionFailed(timeout)`：
++    - 扫描用例（示例）：
++      - `com.twitter.android/#DefaultActivity`
++      - `com.android.chrome/#DefaultActivity`
++      - `com.antutu.ABenchMark/#DefaultActivity`
++      - `com.autonavi.minimap/#DefaultActivity`
++    - 返回：
++      - `ResultCode.InjectionFailed`
++      - `Raw error: RenderDoc injection failed: Timeout was reached waiting for app to start.`
++  - `AndroidAPKInstallFailed`：
++    - 操作：
++      - 备份 `x64\Development\plugins\android\org.renderdoc.renderdoccmd.{arm32,arm64}.apk`
++      - 覆写为损坏 APK（ASCII 占位内容）
++      - `adb uninstall org.renderdoc.renderdoccmd.arm32/arm64`
++      - 调 `RemoteHost.Launch()`
++    - 返回：
++      - `ResultCode.AndroidAPKInstallFailed`
++      - `Failed to install Android remote server ... Couldn't install APK(s)`
++    - 已恢复 APK，并复核 arm32/arm64 badging 仍为 `143 + 87c5a0b...`。
++
++- 未闭环项与阻塞证据：
++  - `AndroidLayerConfFailed`：当前设备路径未稳定命中该返回码。
++  - `JDWPFailure`：当前设备路径未命中；结合源码路径（`renderdoc/android/android.cpp`）可见：
++    - Android 10+（`SupportsNativeLayers`, `android_utils.cpp`）默认优先 native layer。
++    - 仅在 `hookWithJDWP` 且 `InjectWithJDWP` 失败时才会给 `JDWPFailure`，并且当此前已置 `AndroidLayerConfFailed` 时会保留后者（`if(result.code != ResultCode::AndroidLayerConfFailed) result = JDWPFailure`）。
++  - 本轮新增环境阻塞（影响继续复现）：
++    - 在 APK 破坏/卸载后恢复过程中，`CreateRemoteServerConnection('adb://2bbb5810')` 持续 `ResultCode.NetworkIOFailed`。
++    - `adb logcat` 证据显示 `org.renderdoc.renderdoccmd.arm64/.Loader` 启动后前台停在 `com.android.settings/.Settings$ManageExternalStorageActivity`，导致 remote server 未进入稳定可连接状态。
++    - 需要设备侧完成该权限页面确认后，再继续 `AndroidLayerConfFailed` / `JDWPFailure` 真机闭环。
++
++- 代码边界与提交边界：
++  - 本轮未改 `qrenderdoc/Windows/MainWindow.cpp`
++  - 本轮未改 `qrenderdoc/Windows/MainWindow.h`
++  - 仅更新本计划文件以记录 `/do` 证据与阻塞。
++
++## /do Execution Log (AgentD-r3, 2026-04-07 - Manual Device Assist, 基于本地检索（MCP unavailable）)
++
++- 设备与 remote server 前置复核：
++  - `adb devices -l` ->
++    - `2MU0224C03028213       device product:HBP-AL00 model:HBP_AL00 device:HWHBP`
++  - `adb shell pm list packages | findstr /I renderdoc` ->
++    - `package:org.renderdoc.renderdoccmd.arm32`
++    - `package:org.renderdoc.renderdoccmd.arm64`
++  - `adb shell settings list global | findstr /I "enable_gpu_debug_layers gpu_debug_app gpu_debug_layer_app gpu_debug_layers"` ->
++    - 无输出（当前无残留 `gpu_debug_*` 配置）
++- 存储权限与卡页状态：
++  - 初查：
++    - `adb shell appops get org.renderdoc.renderdoccmd.arm64 MANAGE_EXTERNAL_STORAGE` ->
++      - `Uid mode: MANAGE_EXTERNAL_STORAGE: allow`
++      - `MANAGE_EXTERNAL_STORAGE: default; rejectTime=+24s608ms ago`
++    - `adb shell appops get org.renderdoc.renderdoccmd.arm32 MANAGE_EXTERNAL_STORAGE` ->
++      - `Uid mode: MANAGE_EXTERNAL_STORAGE: allow`
++    - `adb shell dumpsys activity activities | findstr /I "ManageExternalStorageActivity renderdoccmd"` ->
++      - `mResumedActivity: ActivityRecord{... com.android.settings/.Settings$ManageExternalStorageActivity ...}`
++      - `org.renderdoc.renderdoccmd.arm64/.Loader` 与权限页同处任务栈
++  - 用户在设备侧返回主页后复查：
++    - `adb shell dumpsys activity activities | findstr /I "ManageExternalStorageActivity renderdoccmd"` ->
++      - 无输出
++  - 结论：
++    - `ManageExternalStorageActivity` 卡页已解除，不再作为当前阻塞。
++- `JDWPFailure` 补证结果：
++  - 人工步骤：用户在当前设备上让目标 debuggable app 被调试器占用后，再次执行 `Launch + Capture`。
++  - 实际结果：未出现
++    - `Reason: Debugger connection (JDWP) could not be established.`
++    - 反而正常 `Launch + Capture` 成功。
++  - 源码对照（设备/配置层 blocker，不判定为 `MainWindow` 缺陷）：
++    - `renderdoc/android/android_utils.cpp`：`SupportsNativeLayers()` 在 Android SDK `>= 29` 返回 `true`
++    - `renderdoc/android/android.cpp`：
++      - `SupportsNativeLayers(m_deviceID)` 为真时，将 `hookWithJDWP = false`
++      - 只有 native layer 配置失败回退后，再遇到 `InjectWithJDWP()` 失败，才会返回 `JDWPFailure`
++  - 当前判断：
++    - 该设备实际走 native layer 成功路径，未回退到 JDWP 注入；
++    - 因此“调试器已占用但仍可成功截帧”与当前实现一致，属设备覆盖缺口，不是代码行为不一致。
++- `AndroidLayerConfFailed` 状态：
++  - 当前设备仍未稳定命中该失败码；
++  - 且当前 `settings list global` 无 `gpu_debug_*` 异常残留证据；
++  - 结合前述 `JDWPFailure` 结果，当前设备更接近“native layer 正常工作”的路径。
++- 本轮收口结论：
++  - 已完成真机闭环：成功 `Launch + Capture`、`AndroidAPKInstallFailed`、`InjectionFailed(timeout)`、`InjectionFailed(non-timeout)`。
++  - 未完成真机闭环：`JDWPFailure`、`AndroidLayerConfFailed`。
++  - 原因：当前仅有设备无法稳定覆盖这两条路径；本轮未观察到 `MainWindow.*` 行为与源码映射不一致，因此不做产品代码修复。

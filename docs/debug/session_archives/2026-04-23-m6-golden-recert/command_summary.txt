@@ -1,0 +1,2 @@
+standalone_exit_code=2
+package_exit_code=2

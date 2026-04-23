@@ -1,0 +1,271 @@
+{
+  "metadata": {
+    "generated_at": "2026-04-23T20:16:02.168489",
+    "baseline_file": "baseline.snapshot.json",
+    "target_file": "target.snapshot.json",
+    "tool_version": "1.1.0"
+  },
+  "input": {
+    "baseline_kind": "snapshot.v1",
+    "target_kind": "snapshot.v1",
+    "compat_mode": "snapshot_aliases"
+  },
+  "summary": {
+    "draw_calls": {
+      "baseline": 10,
+      "target": 12,
+      "delta": 2,
+      "delta_percent": 20.0
+    },
+    "triangles": {
+      "baseline": 12000,
+      "target": 15000,
+      "delta": 3000,
+      "delta_percent": 25.0
+    },
+    "vertices": {
+      "baseline": 36000,
+      "target": 45000,
+      "delta": 9000,
+      "delta_percent": 25.0
+    },
+    "texture_memory_bytes": {
+      "baseline": 67108864,
+      "target": 88080384,
+      "delta": 20971520,
+      "delta_percent": 31.25
+    },
+    "buffer_memory_bytes": {
+      "baseline": 8388608,
+      "target": 8388608,
+      "delta": 0,
+      "delta_percent": 0.0
+    }
+  },
+  "snapshot_summary": {
+    "counts": {
+      "actions": {
+        "baseline": 10,
+        "target": 12,
+        "delta": 2,
+        "delta_percent": 20.0
+      },
+      "draw_calls": {
+        "baseline": 10,
+        "target": 12,
+        "delta": 2,
+        "delta_percent": 20.0
+      },
+      "dispatch_calls": {
+        "baseline": 0,
+        "target": 0,
+        "delta": 0,
+        "delta_percent": 0.0
+      },
+      "triangles": {
+        "baseline": 12000,
+        "target": 15000,
+        "delta": 3000,
+        "delta_percent": 25.0
+      },
+      "vertices": {
+        "baseline": 36000,
+        "target": 45000,
+        "delta": 9000,
+        "delta_percent": 25.0
+      },
+      "textures": {
+        "baseline": 1,
+        "target": 1,
+        "delta": 0,
+        "delta_percent": 0.0
+      },
+      "buffers": {
+        "baseline": 1,
+        "target": 1,
+        "delta": 0,
+        "delta_percent": 0.0
+      },
+      "shaders": {
+        "baseline": 2,
+        "target": 2,
+        "delta": 0,
+        "delta_percent": 0.0
+      },
+      "passes": {
+        "baseline": 1,
+        "target": 1,
+        "delta": 0,
+        "delta_percent": 0.0
+      },
+      "pipelines": {
+        "baseline": 1,
+        "target": 1,
+        "delta": 0,
+        "delta_percent": 0.0
+      },
+      "findings": {
+        "baseline": 0,
+        "target": 0,
+        "delta": 0,
+        "delta_percent": 0.0
+      },
+      "recommendations": {
+        "baseline": 0,
+        "target": 0,
+        "delta": 0,
+        "delta_percent": 0.0
+      }
+    },
+    "availability": {
+      "baseline_status": "partial",
+      "target_status": "partial",
+      "new_missing_fields": [],
+      "resolved_missing_fields": []
+    }
+  },
+  "regressions": {
+    "has_critical": true,
+    "has_warning": true,
+    "issues": [
+      {
+        "rule_id": "REG001",
+        "severity": "warning",
+        "message": "Draw Call 数量增加了 20.0%",
+        "details": "从 10 增加到 12",
+        "baseline_value": 10,
+        "target_value": 12,
+        "delta_percent": 20.0,
+        "affected_resources": [],
+        "evidence": []
+      },
+      {
+        "rule_id": "REG005",
+        "severity": "critical",
+        "message": "三角形数量增加了 25.0%",
+        "details": "从 12,000 增加到 15,000",
+        "baseline_value": 12000,
+        "target_value": 15000,
+        "delta_percent": 25.0,
+        "affected_resources": [],
+        "evidence": []
+      },
+      {
+        "rule_id": "REG007",
+        "severity": "info",
+        "message": "新增 2 个 Draw Call",
+        "details": "可能表示新增了渲染 Pass 或功能",
+        "baseline_value": null,
+        "target_value": null,
+        "delta_percent": null,
+        "affected_resources": [],
+        "evidence": [
+          {
+            "event_id": 11,
+            "marker_path": "",
+            "description": "DrawIndexed (vertices=0)"
+          },
+          {
+            "event_id": 12,
+            "marker_path": "",
+            "description": "DrawIndexed (vertices=0)"
+          }
+        ]
+      }
+    ],
+    "results": [
+      {
+        "rule_id": "REG001",
+        "severity": "medium",
+        "category": "DrawCalls",
+        "metric_name": "draw_calls",
+        "baseline_value": 10.0,
+        "target_value": 12.0,
+        "delta_percent": 20.0,
+        "threshold_percent": 10.0,
+        "message": "Draw Call 数量增加了 20.0%",
+        "details": "从 10 增加到 12"
+      },
+      {
+        "rule_id": "REG005",
+        "severity": "critical",
+        "category": "Triangles",
+        "metric_name": "triangles",
+        "baseline_value": 12000.0,
+        "target_value": 15000.0,
+        "delta_percent": 25.0,
+        "threshold_percent": 20.0,
+        "message": "三角形数量增加了 25.0%",
+        "details": "从 12,000 增加到 15,000"
+      },
+      {
+        "rule_id": "REG007",
+        "severity": "info",
+        "category": "RenderPass",
+        "metric_name": "new_passes",
+        "baseline_value": 0.0,
+        "target_value": 0.0,
+        "delta_percent": 0.0,
+        "threshold_percent": 0.0,
+        "message": "新增 2 个 Draw Call",
+        "details": "可能表示新增了渲染 Pass 或功能"
+      },
+      {
+        "rule_id": "REG002",
+        "severity": "medium",
+        "category": "TextureMemory",
+        "metric_name": "texture_memory",
+        "baseline_value": 67108864.0,
+        "target_value": 88080384.0,
+        "delta_percent": 31.25,
+        "threshold_percent": 30.0,
+        "message": "纹理内存增加了 31.2%",
+        "details": "总纹理内存从 64.00 MB 增加到 84.00 MB"
+      }
+    ]
+  },
+  "ci": {
+    "status": "critical",
+    "exit_code": 2,
+    "thresholds": {
+      "draw_call_percent": 10.0,
+      "triangle_percent": 20.0,
+      "texture_memory_percent": 30.0,
+      "buffer_memory_percent": 30.0
+    },
+    "failing_checks": [
+      "draw_calls",
+      "triangles",
+      "texture_memory"
+    ],
+    "summary_lines": [
+      "status=critical exit_code=2",
+      "failing_checks=draw_calls,triangles,texture_memory",
+      "draw_calls: 10 -> 12 (+20.0% > 10.0%) [medium]",
+      "triangles: 12,000 -> 15,000 (+25.0% > 20.0%) [critical]",
+      "texture_memory: 64.00 MB -> 84.00 MB (+31.2% > 30.0%) [medium]"
+    ]
+  },
+  "resource_changes": {
+    "textures": {
+      "added": 0,
+      "removed": 0,
+      "modified": 0
+    },
+    "shaders": {
+      "added": 0,
+      "removed": 0,
+      "modified": 0
+    },
+    "buffers": {
+      "added": 0,
+      "removed": 0,
+      "modified": 0
+    },
+    "draw_calls": {
+      "added": 2,
+      "removed": 0,
+      "modified": 0
+    }
+  }
+}

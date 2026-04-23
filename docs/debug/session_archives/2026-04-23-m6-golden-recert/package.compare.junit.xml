@@ -1,0 +1,68 @@
+<?xml version="1.0" ?>
+<testsuite name="RDC Regression Tests" timestamp="2026-04-23T20:16:02.169498" tests="9" failures="5" errors="1" skipped="0" time="0.000">
+  <testcase classname="RDCRegression.Metrics" name="metric_draw_calls" time="0.001">
+    <failure message="Draw Call 数量增加了 20.0%" type="RegressionDetected">Metric: Draw Call 数量
+Baseline: 10
+Target: 12
+Delta: +2 (+20.00%)</failure>
+  </testcase>
+  <testcase classname="RDCRegression.Metrics" name="metric_triangles" time="0.001">
+    <failure message="三角形数量增加了 25.0%" type="RegressionDetected">Metric: 三角形数量
+Baseline: 12000
+Target: 15000
+Delta: +3000 (+25.00%)</failure>
+  </testcase>
+  <testcase classname="RDCRegression.Metrics" name="metric_vertices" time="0.001">
+    <system-out>顶点数量: 36000 → 45000 (+25.00%)</system-out>
+  </testcase>
+  <testcase classname="RDCRegression.Metrics" name="metric_texture_memory" time="0.001">
+    <failure message="纹理内存增加了 31.2%" type="RegressionDetected">Metric: 纹理内存
+Baseline: 67108864
+Target: 88080384
+Delta: +20971520 (+31.25%)</failure>
+  </testcase>
+  <testcase classname="RDCRegression.Metrics" name="metric_buffer_memory" time="0.001">
+    <system-out>Buffer 内存: 8388608 → 8388608 (+0.00%)</system-out>
+  </testcase>
+  <testcase classname="RDCRegression.DrawCalls" name="regression_REG001" time="0.001">
+    <failure message="Draw Call 数量增加了 20.0%" type="mediumRegression">Rule: REG001
+Category: DrawCalls
+Severity: medium
+Metric: draw_calls
+Baseline: 10.0
+Target: 12.0
+Delta: +20.00%
+Threshold: 10.0%
+Details: 从 10 增加到 12</failure>
+  </testcase>
+  <testcase classname="RDCRegression.Triangles" name="regression_REG005" time="0.001">
+    <error message="三角形数量增加了 25.0%" type="CriticalRegression">Rule: REG005
+Category: Triangles
+Severity: critical
+Metric: triangles
+Baseline: 12000.0
+Target: 15000.0
+Delta: +25.00%
+Threshold: 20.0%
+Details: 从 12,000 增加到 15,000</error>
+  </testcase>
+  <testcase classname="RDCRegression.RenderPass" name="regression_REG007" time="0.001"/>
+  <testcase classname="RDCRegression.TextureMemory" name="regression_REG002" time="0.001">
+    <failure message="纹理内存增加了 31.2%" type="mediumRegression">Rule: REG002
+Category: TextureMemory
+Severity: medium
+Metric: texture_memory
+Baseline: 67108864.0
+Target: 88080384.0
+Delta: +31.25%
+Threshold: 30.0%
+Details: 总纹理内存从 64.00 MB 增加到 84.00 MB</failure>
+  </testcase>
+  <properties>
+    <property name="baseline_file" value="baseline.snapshot.json"/>
+    <property name="target_file" value="target.snapshot.json"/>
+    <property name="api_type" value="D3D12"/>
+    <property name="has_changes" value="True"/>
+    <property name="regression_count" value="4"/>
+  </properties>
+</testsuite>
