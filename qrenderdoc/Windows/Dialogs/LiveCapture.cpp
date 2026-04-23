@@ -24,6 +24,8 @@
 
 #include "LiveCapture.h"
 #include <QDesktopServices>
+#include <QDir>
+#include <QFileInfo>
 #include <QHostInfo>
 #include <QMenu>
 #include <QMetaProperty>
@@ -124,11 +126,14 @@ LiveCapture::LiveCapture(ICaptureContext &ctx, const QString &hostname, const QS
   ui->triggerImmediateCapture->setEnabled(false);
   ui->queueCap->setEnabled(false);
   ui->cycleActiveWindow->setEnabled(false);
+  ui->getLatestCapture->setEnabled(false);
 
   ui->target->setText(QString());
 
   ui->progressLabel->setVisible(false);
   ui->progressBar->setVisible(false);
+  updateCaptureControls();
+  updateLatestCaptureUI();
 
   ui->captures->setItemDelegate(new NameEditOnlyDelegate(this));
 
@@ -279,15 +284,23 @@ void LiveCapture::on_childProcesses_itemActivated(QListWidgetItem *item)
 
 void LiveCapture::on_queueCap_clicked()
 {
+  m_CaptureRequested = true;
+  m_LatestCaptureCopyFailed = false;
+  m_LatestCaptureFailure = QString();
   m_CaptureNumFrames = (int)ui->numFrames->value();
   m_QueueCaptureFrameNum = (int)ui->captureFrame->value();
   m_QueueCapture.release();
+  updateLatestCaptureUI();
 }
 
 void LiveCapture::on_triggerImmediateCapture_clicked()
 {
+  m_CaptureRequested = true;
+  m_LatestCaptureCopyFailed = false;
+  m_LatestCaptureFailure = QString();
   m_CaptureNumFrames = (int)ui->numFrames->value();
   m_TriggerCapture.release();
+  updateLatestCaptureUI();
 }
 
 void LiveCapture::on_cycleActiveWindow_clicked()
@@ -303,10 +316,94 @@ void LiveCapture::on_triggerDelayedCapture_clicked()
   }
   else
   {
+    m_CaptureRequested = true;
+    m_LatestCaptureCopyFailed = false;
+    m_LatestCaptureFailure = QString();
     m_CaptureCounter = (int)ui->captureDelay->value();
     countdownTimer.start();
     ui->triggerDelayedCapture->setEnabled(false);
     ui->triggerDelayedCapture->setText(tr("Triggering in %1s").arg(m_CaptureCounter));
+    updateLatestCaptureUI();
+  }
+}
+
+void LiveCapture::on_getLatestCapture_clicked()
+{
+  QListWidgetItem *item = NULL;
+  Capture *cap = FindCapture(m_LatestCaptureID, &item);
+
+  if(!cap)
+  {
+    m_LatestCaptureFailure = tr("No capture has been reported by this target yet.");
+    RDDialog::information(this, tr("No capture available"),
+                          tr("No capture has been reported by this target yet."));
+    updateLatestCaptureUI();
+    return;
+  }
+
+  if(item)
+    ui->captures->setCurrentItem(item);
+
+  if(cap->local)
+  {
+    if(QFileInfo::exists(cap->path))
+    {
+      m_LatestCaptureFailure = QString();
+      RevealFilenameInExternalFileBrowser(cap->path);
+    }
+    else
+    {
+      m_LatestCaptureFailure =
+          tr("The latest capture file can't be found at:\n%1").arg(QDir::toNativeSeparators(cap->path));
+      RDDialog::critical(this, tr("Cannot reveal latest capture"),
+                         tr("The latest capture file can't be found at:\n%1")
+                             .arg(QDir::toNativeSeparators(cap->path)));
+    }
+
+    updateLatestCaptureUI();
+    return;
+  }
+
+  if(m_LatestCaptureCopying)
+  {
+    m_LatestCaptureFailure = QString();
+    RDDialog::information(this, tr("Copy in progress"),
+                          tr("The latest capture is already being copied locally."));
+    return;
+  }
+
+  const bool replayContextActive = m_Ctx.Replay().CurrentRemote().Hostname() == rdcstr(m_Hostname);
+  const QString hostName = !m_HostFriendlyname.isEmpty()
+                               ? m_HostFriendlyname
+                               : (!m_Hostname.isEmpty() ? m_Hostname : tr("this host"));
+
+  if(!m_LiveConnection && !replayContextActive)
+  {
+    m_LatestCaptureFailure =
+        tr("Reconnect to %1 or switch to a replay context on that host to copy the latest capture.")
+            .arg(hostName);
+    RDDialog::critical(
+        this, tr("Cannot copy latest capture"),
+        tr("The latest capture is only available on remote host %1.\nReconnect or switch to a "
+           "replay context on that host first.")
+            .arg(hostName));
+    updateLatestCaptureUI();
+    return;
+  }
+
+  if(saveCapture(cap, QString()))
+  {
+    m_LatestCaptureFailure = QString();
+    m_LatestCaptureCopying = !cap->local;
+    m_LatestCaptureCopyFailed = false;
+    updateLatestCaptureUI();
+  }
+  else
+  {
+    if(m_LatestCaptureFailure.isEmpty())
+      m_LatestCaptureFailure = tr("The latest capture copy couldn't be started.");
+
+    updateLatestCaptureUI();
   }
 }
 
@@ -434,6 +531,11 @@ void LiveCapture::deleteCapture_triggered()
 
     delete ui->captures->takeItem(ui->captures->row(item));
   }
+
+  if(m_LatestCaptureID != ~0U && FindCapture(m_LatestCaptureID, NULL) == NULL)
+    refreshLatestCaptureFromList();
+
+  updateLatestCaptureUI();
 }
 
 void LiveCapture::childUpdate()
@@ -547,7 +649,7 @@ void LiveCapture::captureCountdownTick()
   if(m_CaptureCounter == 0)
   {
     m_CaptureNumFrames = (int)ui->numFrames->value();
-    ui->triggerDelayedCapture->setEnabled(true);
+    updateCaptureControls();
     ui->triggerDelayedCapture->setText(tr("Trigger After Delay"));
     m_TriggerCapture.release();
   }
@@ -579,9 +681,274 @@ LiveCapture::Capture *LiveCapture::GetCapture(QListWidgetItem *item)
   return (Capture *)item->data(CapPtrRole).value<void *>();
 }
 
+LiveCapture::Capture *LiveCapture::FindCapture(uint32_t remoteID, QListWidgetItem **item)
+{
+  for(int i = 0; i < ui->captures->count(); i++)
+  {
+    QListWidgetItem *captureItem = ui->captures->item(i);
+    Capture *cap = GetCapture(captureItem);
+
+    if(cap && cap->remoteID == remoteID)
+    {
+      if(item)
+        *item = captureItem;
+
+      return cap;
+    }
+  }
+
+  return NULL;
+}
+
 void LiveCapture::AddCapture(QListWidgetItem *item, Capture *cap)
 {
   item->setData(CapPtrRole, QVariant::fromValue<void *>(cap));
+}
+
+void LiveCapture::updateCaptureItem(Capture *cap)
+{
+  for(int i = 0; i < ui->captures->count(); i++)
+  {
+    QListWidgetItem *item = ui->captures->item(i);
+
+    if(GetCapture(item) == cap)
+    {
+      QFont f = item->font();
+      f.setItalic(!cap->local);
+      item->setFont(f);
+      item->setText(MakeText(cap));
+      item->setIcon(QIcon(QPixmap::fromImage(MakeThumb(cap->thumb))));
+      break;
+    }
+  }
+}
+
+void LiveCapture::refreshLatestCaptureFromList()
+{
+  m_LatestCaptureID = ~0U;
+  m_CaptureRequested = false;
+  m_LatestCaptureCopying = false;
+  m_LatestCaptureCopyFailed = false;
+  m_LatestCaptureFailure = QString();
+
+  if(ui->captures->count() > 0)
+  {
+    Capture *cap = GetCapture(ui->captures->item(ui->captures->count() - 1));
+
+    if(cap)
+      m_LatestCaptureID = cap->remoteID;
+  }
+}
+
+QString LiveCapture::latestCaptureDescription(Capture *cap) const
+{
+  QString captureName = cap->title;
+
+  if(captureName.isEmpty())
+  {
+    if(cap->frameNumber == ~0U)
+      captureName = tr("User-defined capture");
+    else
+      captureName = tr("Frame #%1").arg(cap->frameNumber);
+  }
+
+  if(!cap->name.isEmpty())
+    captureName = tr("%1 from %2").arg(captureName).arg(cap->name);
+
+  return captureName;
+}
+
+void LiveCapture::updateCaptureControls()
+{
+  bool canCapture = false;
+  bool unsupportedAPI = false;
+  bool nonPresentingAPI = false;
+  QString tooltip;
+
+  if(!m_LiveConnection)
+  {
+    tooltip =
+        tr("Capture controls become available after a live target connection is established.");
+  }
+  else if(m_APIs.empty())
+  {
+    tooltip = tr("Waiting for the target to report a graphics API.");
+  }
+  else
+  {
+    for(const QString &api : m_APIs.keys())
+    {
+      const APIStatus &status = m_APIs[api];
+
+      if(status.supported && status.presenting)
+      {
+        canCapture = true;
+      }
+      else if(status.supported)
+      {
+        nonPresentingAPI = true;
+      }
+      else
+      {
+        unsupportedAPI = true;
+      }
+    }
+
+    if(canCapture)
+    {
+      tooltip = tr("Trigger a capture on the connected target.");
+    }
+    else if(nonPresentingAPI)
+    {
+      tooltip =
+          tr("The target is running, but no reported API is currently presenting to a "
+             "capturable window. Use Cycle Active Window or in-application API markers if "
+             "needed.");
+    }
+    else if(unsupportedAPI)
+    {
+      tooltip = tr("The connected target only reported unsupported APIs for live capture.");
+    }
+    else
+    {
+      tooltip = tr("The connected target hasn't reported a capturable API yet.");
+    }
+  }
+
+  ui->triggerImmediateCapture->setEnabled(canCapture);
+  ui->triggerImmediateCapture->setToolTip(tooltip);
+  ui->triggerDelayedCapture->setEnabled(canCapture && m_CaptureCounter == 0);
+  ui->triggerDelayedCapture->setToolTip(tooltip);
+  ui->queueCap->setEnabled(canCapture);
+  ui->queueCap->setToolTip(tooltip);
+}
+
+void LiveCapture::updateLatestCaptureUI()
+{
+  const QString hostName = !m_HostFriendlyname.isEmpty()
+                               ? m_HostFriendlyname
+                               : (!m_Hostname.isEmpty() ? m_Hostname : tr("this host"));
+  RemoteHost remoteHost = m_Ctx.Config().GetRemoteHost(m_Hostname);
+
+  ui->getLatestCapture->setText(tr("Get Latest Capture"));
+  ui->getLatestCapture->setEnabled(false);
+  ui->getLatestCapture->setToolTip(tr("No capture has been reported by this target yet."));
+  ui->latestCaptureStatus->setText(tr("No captures reported yet."));
+
+  Capture *cap = FindCapture(m_LatestCaptureID, NULL);
+
+  if(!cap)
+  {
+    if(m_CaptureRequested)
+      ui->latestCaptureStatus->setText(tr("Waiting for the target to report a new capture..."));
+    else if(!m_LatestCaptureFailure.isEmpty())
+      ui->latestCaptureStatus->setText(m_LatestCaptureFailure);
+
+    return;
+  }
+
+  const QString latestCapture = latestCaptureDescription(cap);
+  const bool replayContextActive = m_Ctx.Replay().CurrentRemote().Hostname() == rdcstr(m_Hostname);
+
+  if(cap->local)
+  {
+    ui->getLatestCapture->setText(tr("Reveal Latest Capture"));
+
+    if(QFileInfo::exists(cap->path))
+    {
+      ui->getLatestCapture->setEnabled(true);
+      ui->getLatestCapture->setToolTip(tr("Reveal the latest local capture in the file browser."));
+      ui->latestCaptureStatus->setText(
+          tr("%1 is local. Use Open to inspect it, or Reveal Latest Capture to show it in the "
+             "file browser.")
+              .arg(latestCapture));
+    }
+    else
+    {
+      ui->getLatestCapture->setToolTip(tr("The copied local file can't be found anymore."));
+      ui->latestCaptureStatus->setText(
+          tr("%1 was copied locally, but the file can't be found at:\n%2")
+              .arg(latestCapture)
+              .arg(QDir::toNativeSeparators(cap->path)));
+    }
+
+    return;
+  }
+
+  if(m_LatestCaptureCopying)
+  {
+    ui->getLatestCapture->setToolTip(tr("The latest capture is currently being copied locally."));
+    ui->latestCaptureStatus->setText(
+        tr("Copying %1 to:\n%2").arg(latestCapture).arg(QDir::toNativeSeparators(cap->path)));
+    return;
+  }
+
+  ui->getLatestCapture->setEnabled(m_LiveConnection || replayContextActive);
+  ui->getLatestCapture->setToolTip(tr("Copy the latest capture from %1 to this PC.").arg(hostName));
+
+  if(!m_LatestCaptureFailure.isEmpty())
+  {
+    ui->latestCaptureStatus->setText(m_LatestCaptureFailure);
+  }
+  else if(m_CaptureRequested)
+  {
+    ui->latestCaptureStatus->setText(
+        tr("Waiting for a newer capture from %1 before the latest-capture status is updated.")
+            .arg(hostName));
+  }
+  else if(m_LatestCaptureCopyFailed)
+  {
+    ui->latestCaptureStatus->setText(
+        tr("Copy of %1 didn't complete before the live connection closed. Try Get Latest Capture "
+           "again.")
+            .arg(latestCapture));
+  }
+  else if(m_LiveConnection)
+  {
+    ui->latestCaptureStatus->setText(
+        tr("%1 is available on %2. Click Get Latest Capture to copy it locally.")
+            .arg(latestCapture)
+            .arg(hostName));
+  }
+  else if(replayContextActive)
+  {
+    ui->latestCaptureStatus->setText(
+        tr("%1 is available on %2. Click Get Latest Capture to copy it through the active replay "
+           "context.")
+            .arg(latestCapture)
+            .arg(hostName));
+  }
+  else if(remoteHost.IsVersionMismatch())
+  {
+    ui->getLatestCapture->setToolTip(
+        tr("Update the device-side RenderDoc components, then reconnect before copying."));
+    ui->latestCaptureStatus->setText(
+        tr("%1 is on %2, but the remote server version doesn't match this RenderDoc build. "
+           "Update the device-side RenderDoc components, then reconnect.")
+            .arg(latestCapture)
+            .arg(hostName));
+  }
+  else if(remoteHost.IsBusy())
+  {
+    ui->getLatestCapture->setToolTip(
+        tr("The remote server on %1 is currently busy with another RenderDoc client.").arg(hostName));
+    ui->latestCaptureStatus->setText(
+        tr("%1 is on %2, but that remote server is busy with another RenderDoc client. Free that "
+           "connection, then retry the copy.")
+            .arg(latestCapture)
+            .arg(hostName));
+  }
+  else
+  {
+    ui->getLatestCapture->setToolTip(
+        tr("Reconnect to %1 or switch to a replay context on that host to copy the latest capture.")
+            .arg(hostName));
+    ui->latestCaptureStatus->setText(
+        tr("%1 is only available on %2. Reconnect or switch to a replay context on that host to "
+           "copy it.")
+            .arg(latestCapture)
+            .arg(hostName));
+  }
 }
 
 QImage LiveCapture::MakeThumb(const QImage &screenshot)
@@ -680,6 +1047,7 @@ void LiveCapture::updateAPIStatus()
   ui->apiStatus->setText(apiStatus);
 
   ui->apiIcon->setVisible(nonpresenting);
+  updateCaptureControls();
 }
 
 QString LiveCapture::MakeText(Capture *cap)
@@ -856,6 +1224,8 @@ void LiveCapture::openCapture(Capture *cap)
 
 bool LiveCapture::saveCapture(Capture *cap, QString path)
 {
+  bool copiedLocal = cap->local;
+
   // if this is the current capture, do the save through the main window
   if(QString(m_Ctx.GetCaptureFilename()) == cap->path)
   {
@@ -932,6 +1302,7 @@ bool LiveCapture::saveCapture(Capture *cap, QString path)
     }
 
     m_Ctx.Replay().CopyCaptureFromRemote(cap->path, path, this);
+    copiedLocal = true;
 
     if(!QFile::exists(path))
     {
@@ -950,8 +1321,10 @@ bool LiveCapture::saveCapture(Capture *cap, QString path)
   m_Main->RemoveRecentCapture(cap->path);
   cap->saved = true;
   cap->path = path;
+  cap->local = copiedLocal;
   AddRecentFile(m_Ctx.Config().RecentCaptureFiles, path);
   m_Main->PopulateRecentCaptureFiles();
+  updateCaptureItem(cap);
   return true;
 }
 
@@ -1003,6 +1376,10 @@ void LiveCapture::fileSaved(QString from, QString to)
       cap->path = to;
       cap->saved = true;
       cap->local = true;
+      updateCaptureItem(cap);
+
+      if(cap->remoteID == m_LatestCaptureID)
+        updateLatestCaptureUI();
     }
   }
 }
@@ -1118,6 +1495,8 @@ void LiveCapture::on_captures_itemSelectionChanged()
 
 void LiveCapture::captureCopied(uint32_t ID, const QString &localPath)
 {
+  QListWidgetItem *latestItem = NULL;
+
   for(int i = 0; i < ui->captures->count(); i++)
   {
     QListWidgetItem *item = ui->captures->item(i);
@@ -1127,11 +1506,24 @@ void LiveCapture::captureCopied(uint32_t ID, const QString &localPath)
     {
       cap->local = true;
       cap->path = localPath;
-      QFont f = item->font();
-      f.setItalic(false);
-      item->setFont(f);
-      item->setText(MakeText(cap));
+      updateCaptureItem(cap);
+
+      if(ID == m_LatestCaptureID)
+        latestItem = item;
     }
+  }
+
+  if(ID == m_LatestCaptureID)
+  {
+    m_CaptureRequested = false;
+    m_LatestCaptureCopying = false;
+    m_LatestCaptureCopyFailed = false;
+    m_LatestCaptureFailure = QString();
+
+    if(latestItem)
+      ui->captures->setCurrentItem(latestItem);
+
+    updateLatestCaptureUI();
   }
 }
 
@@ -1172,12 +1564,45 @@ void LiveCapture::captureAdded(const QString &name, const NewCaptureData &newCap
   AddCapture(item, cap);
 
   ui->captures->addItem(item);
+
+  m_LatestCaptureID = cap->remoteID;
+  m_CaptureRequested = false;
+  m_LatestCaptureCopying = false;
+  m_LatestCaptureCopyFailed = false;
+  m_LatestCaptureFailure = QString();
+  updateLatestCaptureUI();
 }
 
 void LiveCapture::connectionClosed()
 {
+  const QString hostName = !m_HostFriendlyname.isEmpty()
+                               ? m_HostFriendlyname
+                               : (!m_Hostname.isEmpty() ? m_Hostname : tr("this host"));
+
+  m_LiveConnection = false;
+  updateCaptureControls();
   ui->progressLabel->setVisible(false);
   ui->progressBar->setVisible(false);
+
+  if(m_CaptureRequested)
+  {
+    m_LatestCaptureFailure =
+        tr("The most recent capture request didn't report a new capture before the live "
+           "connection to %1 closed.")
+            .arg(hostName);
+    m_CaptureRequested = false;
+  }
+
+  if(m_LatestCaptureCopying)
+  {
+    m_LatestCaptureCopying = false;
+    m_LatestCaptureCopyFailed = true;
+    m_LatestCaptureFailure =
+        tr("Copy of the latest capture didn't complete because the live connection to %1 closed.")
+            .arg(hostName);
+  }
+
+  updateLatestCaptureUI();
 
   if(m_IgnoreThreadClosed)
     return;
@@ -1271,6 +1696,7 @@ void LiveCapture::connectionThreadEntry()
       setTitle(tr("Connection failed"));
       ui->connectionStatus->setText(tr("Failed"));
       ui->connectionIcon->setPixmap(Pixmaps::del(ui->connectionIcon));
+      updateCaptureControls();
 
       connectionClosed();
     });
@@ -1286,6 +1712,8 @@ void LiveCapture::connectionThreadEntry()
     if(!m_Connected.available())
       return;
 
+    m_LiveConnection = true;
+
     if(pid)
       setTitle(QFormatStr("%1 [PID %2]").arg(target).arg(pid));
     else
@@ -1294,6 +1722,8 @@ void LiveCapture::connectionThreadEntry()
     ui->target->setText(windowTitle());
     ui->connectionIcon->setPixmap(Pixmaps::connect(ui->connectionIcon));
     ui->connectionStatus->setText(tr("Established"));
+    updateCaptureControls();
+    updateLatestCaptureUI();
   });
 
   while(conn && conn->Connected())
@@ -1363,13 +1793,6 @@ void LiveCapture::connectionThreadEntry()
       GUIInvoke::call(this, [this, msg]() {
         m_APIs[msg.apiUse.name] =
             APIStatus(msg.apiUse.presenting, msg.apiUse.supported, msg.apiUse.supportMessage);
-
-        if(msg.apiUse.presenting && msg.apiUse.supported)
-        {
-          ui->triggerImmediateCapture->setEnabled(true);
-          ui->triggerDelayedCapture->setEnabled(true);
-          ui->queueCap->setEnabled(true);
-        }
 
         updateAPIStatus();
       });
@@ -1464,6 +1887,8 @@ void LiveCapture::connectionThreadEntry()
 
     ui->apiStatus->setText(tr("None"));
     ui->apiIcon->setVisible(false);
+    m_APIs.clear();
+    updateCaptureControls();
 
     connectionClosed();
   });

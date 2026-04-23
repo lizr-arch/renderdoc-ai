@@ -168,7 +168,27 @@
            </property>
           </widget>
          </item>
-         <item row="5" column="0" colspan="2">
+         <item row="5" column="0">
+          <widget class="QLabel" name="latestCaptureLabel">
+           <property name="text">
+            <string>Latest Capture:</string>
+           </property>
+           <property name="alignment">
+            <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignTop</set>
+           </property>
+          </widget>
+         </item>
+         <item row="5" column="2">
+          <widget class="QLabel" name="latestCaptureStatus">
+           <property name="text">
+            <string>No captures reported yet.</string>
+           </property>
+           <property name="wordWrap">
+            <bool>true</bool>
+           </property>
+          </widget>
+         </item>
+         <item row="6" column="0" colspan="2">
           <spacer name="verticalSpacer_2">
            <property name="orientation">
             <enum>Qt::Vertical</enum>
@@ -291,6 +311,13 @@
           <widget class="QPushButton" name="cycleActiveWindow">
            <property name="text">
             <string>Cycle Active Window</string>
+           </property>
+          </widget>
+         </item>
+         <item row="7" column="0" colspan="2">
+          <widget class="QPushButton" name="getLatestCapture">
+           <property name="text">
+            <string>Get Latest Capture</string>
            </property>
           </widget>
          </item>

@@ -23,13 +23,369 @@
  ******************************************************************************/
 
 #include "RemoteManager.h"
+#include <QCoreApplication>
+#include <QDialogButtonBox>
+#include <QDir>
+#include <QFileInfo>
+#include <QFormLayout>
+#include <QIntValidator>
 #include <QKeyEvent>
+#include <QLabel>
+#include <QLineEdit>
+#include <QPushButton>
+#include <QSet>
+#include <QThread>
+#include <QVBoxLayout>
 #include "Code/Interface/QRDInterface.h"
+#include "Code/QRDUtils.h"
 #include "Code/Resources.h"
 #include "Windows/Dialogs/LiveCapture.h"
 #include "Windows/MainWindow.h"
 #include "flowlayout/FlowLayout.h"
 #include "ui_RemoteManager.h"
+
+namespace
+{
+struct AdbCommandResult
+{
+  int exitCode = -1;
+  bool started = false;
+  bool finished = false;
+  QString stdOut;
+  QString stdErr;
+};
+
+struct WirelessAndroidConfig
+{
+  QString host;
+  uint16_t pairPort = 0;
+  QString pairCode;
+  uint16_t connectPort = 0;
+
+  bool HasPairing() const { return pairPort > 0 || !pairCode.trimmed().isEmpty(); }
+  QString PairEndpoint() const { return QFormatStr("%1:%2").arg(host).arg(pairPort); }
+  QString ConnectEndpoint() const { return QFormatStr("%1:%2").arg(host).arg(connectPort); }
+};
+
+struct WirelessAndroidResult
+{
+  bool success = false;
+  bool enumerated = false;
+  QString targetHost;
+  QString error;
+};
+
+static QString RemoteManagerTranslate(const char *context, const char *sourceText)
+{
+  return QCoreApplication::translate(context, sourceText);
+}
+
+static bool IsDigitString(const rdcstr &value)
+{
+  if(value.empty())
+    return false;
+
+  for(char c : value)
+  {
+    if(c < '0' || c > '9')
+      return false;
+  }
+
+  return true;
+}
+
+static bool IsWirelessAndroidHost(const RemoteHost &host)
+{
+  if(!host.Protocol() || host.Protocol()->GetProtocolName() != "adb")
+    return false;
+
+  rdcstr deviceID = host.Hostname();
+  int32_t scheme = deviceID.find("://");
+
+  if(scheme > 0)
+    deviceID.erase(0, scheme + 3);
+
+  if(deviceID.contains("._adb-tls-connect._tcp") || deviceID.contains("._adb-tls-pairing._tcp"))
+    return true;
+
+  int32_t colon = deviceID.find(':');
+  if(colon <= 0 || colon >= deviceID.count() - 1)
+    return false;
+
+  rdcstr adbHost = deviceID.substr(0, colon);
+  rdcstr adbPort = deviceID.substr(colon + 1);
+
+  return IsDigitString(adbPort) &&
+         (adbHost == "localhost" || adbHost.contains('.') || adbHost.contains('['));
+}
+
+static QString ConfigStringOrEmpty(const char *settingName)
+{
+  if(const SDObject *setting = RENDERDOC_GetConfigSetting(settingName))
+    return QString::fromUtf8(setting->AsString().c_str()).trimmed();
+
+  return QString();
+}
+
+static QString GetAdbExecutable()
+{
+  const QString sdkPath = ConfigStringOrEmpty("Android.SDKDirPath");
+
+  if(!sdkPath.isEmpty())
+  {
+#if defined(Q_OS_WIN)
+    const QString adbPath = QDir(sdkPath).filePath(lit("platform-tools/adb.exe"));
+#else
+    const QString adbPath = QDir(sdkPath).filePath(lit("platform-tools/adb"));
+#endif
+
+    if(QFileInfo(adbPath).exists())
+      return adbPath;
+  }
+
+#if defined(Q_OS_WIN)
+  return lit("adb.exe");
+#else
+  return lit("adb");
+#endif
+}
+
+static AdbCommandResult RunAdbCommand(const QStringList &arguments)
+{
+  AdbCommandResult result;
+
+  QProcess process;
+  process.setProgram(GetAdbExecutable());
+  process.setArguments(arguments);
+  process.start();
+
+  result.started = process.waitForStarted(5000);
+
+  if(result.started)
+  {
+    process.closeWriteChannel();
+    result.finished = process.waitForFinished(30000);
+
+    if(!result.finished)
+    {
+      result.stdErr = process.errorString();
+      process.kill();
+      process.waitForFinished();
+    }
+  }
+  else
+  {
+    result.stdErr = process.errorString();
+  }
+
+  result.stdOut = QString::fromUtf8(process.readAllStandardOutput());
+
+  if(result.stdErr.isEmpty())
+    result.stdErr = QString::fromUtf8(process.readAllStandardError());
+
+  result.exitCode = process.exitStatus() == QProcess::NormalExit ? process.exitCode() : -1;
+
+  return result;
+}
+
+static QString AdbCommandOutput(const AdbCommandResult &result)
+{
+  QStringList output;
+
+  QString stdOut = result.stdOut.trimmed();
+  QString stdErr = result.stdErr.trimmed();
+
+  if(!stdOut.isEmpty())
+    output << stdOut;
+  if(!stdErr.isEmpty())
+    output << stdErr;
+
+  return output.join(lit("\n")).trimmed();
+}
+
+static bool HasAdbFailureText(const AdbCommandResult &result)
+{
+  QString output = AdbCommandOutput(result).toLower();
+  return output.contains(lit("failed")) || output.contains(lit("unable")) ||
+         output.contains(lit("error:"));
+}
+
+static bool PairSucceeded(const AdbCommandResult &result)
+{
+  if(!result.started || !result.finished || result.exitCode != 0)
+    return false;
+
+  QString output = AdbCommandOutput(result).toLower();
+  if(output.contains(lit("successfully paired")) || output.contains(lit("already paired")))
+    return true;
+
+  return !HasAdbFailureText(result);
+}
+
+static bool ConnectSucceeded(const AdbCommandResult &result)
+{
+  if(!result.started || !result.finished || result.exitCode != 0)
+    return false;
+
+  QString output = AdbCommandOutput(result).toLower();
+  if(output.contains(lit("connected to")) || output.contains(lit("already connected to")))
+    return true;
+
+  return !HasAdbFailureText(result);
+}
+
+static QString FormatAdbFailure(const QString &step, const QString &command,
+                                const AdbCommandResult &result)
+{
+  QString message =
+      RemoteManagerTranslate("RemoteManager", "%1 failed while running `%2`.").arg(step).arg(command);
+
+  QString output = AdbCommandOutput(result);
+
+  if(!result.started)
+  {
+    message += RemoteManagerTranslate(
+        "RemoteManager",
+        "\n\nadb couldn't be started. Configure Settings > Android > SDK path or ensure adb is "
+        "available in PATH.");
+  }
+  else if(!result.finished)
+  {
+    message += RemoteManagerTranslate("RemoteManager",
+                                      "\n\nadb didn't finish before the timeout expired.");
+  }
+
+  if(!output.isEmpty())
+  {
+    message += RemoteManagerTranslate("RemoteManager", "\n\nadb output:\n%1").arg(output);
+  }
+  else if(result.started && result.finished)
+  {
+    message +=
+        RemoteManagerTranslate("RemoteManager",
+                               "\n\nadb didn't return any output. Configure Settings > Android > "
+                               "SDK path or ensure adb is available in PATH.");
+  }
+
+  return message;
+}
+
+class AndroidWirelessSetupDialog : public QDialog
+{
+public:
+  explicit AndroidWirelessSetupDialog(QWidget *parent) : QDialog(parent)
+  {
+    setWindowTitle(RemoteManagerTranslate("AndroidWirelessSetupDialog", "Android Wireless Setup"));
+    setWindowFlags(windowFlags() & ~Qt::WindowContextHelpButtonHint);
+
+    QLabel *intro = new QLabel(
+        RemoteManagerTranslate("AndroidWirelessSetupDialog",
+                               "Enter the values shown in Android Wireless debugging. "
+                               "Pairing is optional if this computer is already paired."),
+        this);
+    intro->setWordWrap(true);
+
+    m_Host = new QLineEdit(this);
+    m_Host->setPlaceholderText(
+        RemoteManagerTranslate("AndroidWirelessSetupDialog", "192.168.0.25"));
+
+    m_PairPort = new QLineEdit(this);
+    m_PairPort->setPlaceholderText(
+        RemoteManagerTranslate("AndroidWirelessSetupDialog", "e.g. 37163"));
+    m_PairPort->setValidator(new QIntValidator(1, 65535, m_PairPort));
+
+    m_PairCode = new QLineEdit(this);
+    m_PairCode->setPlaceholderText(
+        RemoteManagerTranslate("AndroidWirelessSetupDialog", "6-digit pairing code"));
+    m_PairCode->setEchoMode(QLineEdit::PasswordEchoOnEdit);
+
+    m_ConnectPort = new QLineEdit(this);
+    m_ConnectPort->setPlaceholderText(
+        RemoteManagerTranslate("AndroidWirelessSetupDialog", "e.g. 45591"));
+    m_ConnectPort->setValidator(new QIntValidator(1, 65535, m_ConnectPort));
+
+    QFormLayout *form = new QFormLayout;
+    form->addRow(RemoteManagerTranslate("AndroidWirelessSetupDialog", "Device Address:"), m_Host);
+    form->addRow(RemoteManagerTranslate("AndroidWirelessSetupDialog", "Pairing Port:"), m_PairPort);
+    form->addRow(RemoteManagerTranslate("AndroidWirelessSetupDialog", "Pairing Code:"), m_PairCode);
+    form->addRow(RemoteManagerTranslate("AndroidWirelessSetupDialog", "Connect Port:"),
+                 m_ConnectPort);
+
+    QLabel *hint = new QLabel(
+        RemoteManagerTranslate("AndroidWirelessSetupDialog",
+                               "Leave Pairing Port and Pairing Code empty to skip `adb pair` and "
+                               "only run `adb connect`."),
+        this);
+    hint->setWordWrap(true);
+
+    QDialogButtonBox *buttons =
+        new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, this);
+    buttons->button(QDialogButtonBox::Ok)
+        ->setText(RemoteManagerTranslate("AndroidWirelessSetupDialog", "Connect"));
+
+    QObject::connect(buttons, &QDialogButtonBox::accepted, [this]() { validateAndAccept(); });
+    QObject::connect(buttons, &QDialogButtonBox::rejected, this, &QDialog::reject);
+
+    QVBoxLayout *layout = new QVBoxLayout(this);
+    layout->addWidget(intro);
+    layout->addLayout(form);
+    layout->addWidget(hint);
+    layout->addWidget(buttons);
+    resize(420, sizeHint().height());
+  }
+
+  WirelessAndroidConfig Config() const
+  {
+    WirelessAndroidConfig config;
+    config.host = m_Host->text().trimmed();
+    config.pairPort = uint16_t(m_PairPort->text().toUShort());
+    config.pairCode = m_PairCode->text().trimmed();
+    config.connectPort = uint16_t(m_ConnectPort->text().toUShort());
+    return config;
+  }
+
+private:
+  void validateAndAccept()
+  {
+    WirelessAndroidConfig config = Config();
+
+    if(config.host.isEmpty())
+    {
+      RDDialog::critical(
+          this, RemoteManagerTranslate("AndroidWirelessSetupDialog", "Missing Device Address"),
+          RemoteManagerTranslate("AndroidWirelessSetupDialog",
+                                 "Enter the Android device IP address or hostname."));
+      return;
+    }
+
+    if(config.connectPort == 0)
+    {
+      RDDialog::critical(
+          this, RemoteManagerTranslate("AndroidWirelessSetupDialog", "Missing Connect Port"),
+          RemoteManagerTranslate("AndroidWirelessSetupDialog",
+                                 "Enter the wireless debugging port to use with `adb connect`."));
+      return;
+    }
+
+    if(config.HasPairing() && (config.pairPort == 0 || config.pairCode.isEmpty()))
+    {
+      RDDialog::critical(
+          this, RemoteManagerTranslate("AndroidWirelessSetupDialog", "Incomplete Pairing Details"),
+          RemoteManagerTranslate("AndroidWirelessSetupDialog",
+                                 "Fill in both Pairing Port and Pairing Code, or leave both blank "
+                                 "to skip pairing."));
+      return;
+    }
+
+    accept();
+  }
+
+  QLineEdit *m_Host = NULL;
+  QLineEdit *m_PairPort = NULL;
+  QLineEdit *m_PairCode = NULL;
+  QLineEdit *m_ConnectPort = NULL;
+};
+}    // namespace
 
 struct RemoteConnect
 {
@@ -126,6 +482,18 @@ RemoteHost RemoteManager::getRemoteHost(RDTreeWidgetItem *item)
   return m_Ctx.Config().GetRemoteHost(item->tag().toString());
 }
 
+RDTreeWidgetItem *RemoteManager::findHostItem(const QString &hostname) const
+{
+  for(int i = 0; i < ui->hosts->topLevelItemCount(); i++)
+  {
+    RDTreeWidgetItem *item = ui->hosts->topLevelItem(i);
+    if(item && item->tag().toString() == hostname)
+      return item;
+  }
+
+  return NULL;
+}
+
 void RemoteManager::closeWhenFinished()
 {
   m_ExternalRef.acquire(1);
@@ -147,6 +515,9 @@ void RemoteManager::setRemoteServerLive(RDTreeWidgetItem *node, bool live, bool 
   else
   {
     QString text = live ? tr("Remote server running") : tr("No remote server");
+
+    if(IsWirelessAndroidHost(host))
+      text += tr(" (Wireless)");
 
     if(host.IsConnected())
     {
@@ -184,6 +555,64 @@ void RemoteManager::addHost(RemoteHost host)
 
   refreshHost(node);
 
+  updateLookupsStatus();
+}
+
+void RemoteManager::syncHostList(const QString &preferredHost)
+{
+  QSet<QString> configuredHosts;
+  for(const RemoteHost &host : m_Ctx.Config().GetRemoteHosts())
+    configuredHosts.insert(QString::fromUtf8(host.Hostname().c_str()));
+
+  for(int i = ui->hosts->topLevelItemCount() - 1; i >= 0; i--)
+  {
+    RDTreeWidgetItem *item = ui->hosts->topLevelItem(i);
+    if(item == NULL)
+      continue;
+
+    QString hostname = item->tag().toString();
+    if(hostname.isEmpty() || configuredHosts.contains(hostname))
+      continue;
+
+    item->clear();
+    queueDelete(ui->hosts->takeTopLevelItem(i));
+  }
+
+  for(const RemoteHost &host : m_Ctx.Config().GetRemoteHosts())
+  {
+    QString hostname = QString::fromUtf8(host.Hostname().c_str());
+    if(findHostItem(hostname) == NULL)
+      addHost(host);
+  }
+
+  if(!preferredHost.isEmpty())
+  {
+    RDTreeWidgetItem *preferredItem = findHostItem(preferredHost);
+    if(preferredItem)
+    {
+      ui->hosts->setSelectedItem(preferredItem);
+
+      if(ui->refreshAll->isEnabled())
+        refreshHostItem(preferredItem);
+    }
+  }
+
+  on_hosts_itemSelectionChanged();
+}
+
+void RemoteManager::refreshHostItem(RDTreeWidgetItem *node)
+{
+  if(node == NULL || m_Lookups.available())
+    return;
+
+  ui->refreshOne->setEnabled(false);
+  ui->refreshAll->setEnabled(false);
+
+  node->clear();
+  node->setItalic(true);
+  node->setIcon(0, Icons::hourglass());
+
+  refreshHost(node);
   updateLookupsStatus();
 }
 
@@ -353,7 +782,7 @@ void RemoteManager::updateConnectButton()
       }
       else
       {
-        ui->connect->setText(tr("Run Server"));
+        ui->connect->setText(IsWirelessAndroidHost(host) ? tr("Start via ADB") : tr("Run Server"));
 
         if(host.RunCommand().isEmpty())
           ui->connect->setEnabled(false);
@@ -428,6 +857,12 @@ void RemoteManager::on_hosts_itemActivated(RDTreeWidgetItem *item, int column)
 
 void RemoteManager::on_hosts_itemSelectionChanged()
 {
+  ui->hostnameLabel->setText(tr("Hostname:"));
+  ui->hostnameLabel->setToolTip(QString());
+  ui->runCommandLabel->setText(
+      tr("Run Command: Configure a command to run that launches the remote server on this host."));
+  ui->runCommandLabel->setToolTip(QString());
+
   ui->addUpdateHost->setText(tr("Add"));
   ui->addUpdateHost->setEnabled(true);
   ui->deleteHost->setEnabled(false);
@@ -456,6 +891,17 @@ void RemoteManager::on_hosts_itemSelectionChanged()
       // localhost and protocol-configured hosts cannot be updated or have their run command changed
       ui->addUpdateHost->setEnabled(false);
       ui->runCommand->setEnabled(false);
+
+      if(IsWirelessAndroidHost(host))
+      {
+        ui->hostnameLabel->setText(tr("Android Endpoint:"));
+        ui->hostnameLabel->setToolTip(tr("adb serial used for this wireless Android connection."));
+        ui->hostname->setText(QString::fromUtf8(host.Hostname().c_str()));
+        ui->runCommandLabel->setText(
+            tr("Run Command: Launched automatically over adb for wireless Android hosts."));
+        ui->runCommandLabel->setToolTip(
+            tr("Wireless Android hosts are started through adb. No manual command is required."));
+      }
     }
     else
     {
@@ -568,6 +1014,89 @@ void RemoteManager::on_refreshOne_clicked()
   }
 
   updateLookupsStatus();
+}
+
+void RemoteManager::on_pairAndroid_clicked()
+{
+  AndroidWirelessSetupDialog setup(this);
+  if(RDDialog::show(&setup) != QDialog::Accepted)
+    return;
+
+  WirelessAndroidConfig config = setup.Config();
+  WirelessAndroidResult result;
+
+  ui->pairAndroid->setEnabled(false);
+
+  LambdaThread *th = new LambdaThread([this, config, &result]() {
+    result.targetHost = lit("adb://") + config.ConnectEndpoint();
+
+    if(config.HasPairing())
+    {
+      AdbCommandResult pairResult =
+          RunAdbCommand({lit("pair"), config.PairEndpoint(), config.pairCode});
+
+      if(!PairSucceeded(pairResult))
+      {
+        result.error = FormatAdbFailure(
+            tr("Wireless pairing"),
+            QFormatStr("adb pair %1 %2").arg(config.PairEndpoint()).arg(config.pairCode), pairResult);
+        return;
+      }
+    }
+
+    AdbCommandResult connectResult = RunAdbCommand({lit("connect"), config.ConnectEndpoint()});
+
+    if(!ConnectSucceeded(connectResult))
+    {
+      result.error = FormatAdbFailure(tr("Wireless connection"),
+                                      QFormatStr("adb connect %1").arg(config.ConnectEndpoint()),
+                                      connectResult);
+      return;
+    }
+
+    for(int attempt = 0; attempt < 8; attempt++)
+    {
+      m_Ctx.Config().UpdateEnumeratedProtocolDevices();
+
+      if(m_Ctx.Config().GetRemoteHost(result.targetHost).IsValid())
+      {
+        result.enumerated = true;
+        break;
+      }
+
+      QThread::msleep(250);
+    }
+
+    result.success = true;
+  });
+
+  th->setName(lit("Android wireless pairing"));
+  th->start();
+
+  ShowProgressDialog(this, tr("Running Android wireless pairing/connection, please wait..."),
+                     [th]() { return !th->isRunning(); });
+
+  th->wait();
+  th->deleteLater();
+
+  ui->pairAndroid->setEnabled(true);
+
+  if(!result.success)
+  {
+    RDDialog::critical(this, tr("Android wireless setup failed"), result.error);
+    return;
+  }
+
+  syncHostList(result.targetHost);
+
+  if(!result.enumerated)
+  {
+    RDDialog::information(
+        this, tr("Android connected"),
+        tr("adb connected to %1, but the device hasn't appeared in the remote host list yet.\n\n"
+           "Try Refresh All in a moment if it doesn't show up automatically.")
+            .arg(config.ConnectEndpoint()));
+  }
 }
 
 void RemoteManager::on_connect_clicked()

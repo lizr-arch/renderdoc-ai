@@ -336,6 +336,22 @@ Process::ProcessResult adbExecCommand(const rdcstr &device, const rdcstr &args,
     deviceArgs = StringFormat::Fmt("-s %s %s", device.c_str(), args.c_str());
   return execCommand(adb, deviceArgs, workDir, silent);
 }
+
+Process::ProcessResult adbPairCommand(const rdcstr &hostPort, const rdcstr &pairCode)
+{
+  return adbExecCommand("", "pair " + hostPort + " " + pairCode, ".", false);
+}
+
+Process::ProcessResult adbConnectCommand(const rdcstr &hostPort)
+{
+  return adbExecCommand("", "connect " + hostPort, ".", false);
+}
+
+Process::ProcessResult adbDisconnectCommand(const rdcstr &hostPort)
+{
+  return adbExecCommand("", "disconnect " + hostPort, ".", false);
+}
+
 void initAdb()
 {
   // we don't use adbExecCommand because we need to be sure we don't wait for it to exit

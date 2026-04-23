@@ -61,6 +61,7 @@ private slots:
   void on_refreshAll_clicked();
   void on_connect_clicked();
   void on_deleteHost_clicked();
+  void on_pairAndroid_clicked();
 
 private:
   Ui::RemoteManager *ui;
@@ -79,10 +80,13 @@ private:
 
   RemoteHost getRemoteHost(RDTreeWidgetItem *item);
   void queueDelete(RDTreeWidgetItem *item);
+  RDTreeWidgetItem *findHostItem(const QString &hostname) const;
 
   void setRemoteServerLive(RDTreeWidgetItem *node, bool live, bool busy);
 
   void addHost(RemoteHost host);
+  void syncHostList(const QString &preferredHost = QString());
+  void refreshHostItem(RDTreeWidgetItem *node);
   void updateLookupsStatus();
   void runRemoteServer(RDTreeWidgetItem *node);
 

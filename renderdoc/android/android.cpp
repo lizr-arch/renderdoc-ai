@@ -654,15 +654,55 @@ rdcarray<rdcstr> EnumerateDevices()
   split(adbStdout, lines, '\n');
   for(const rdcstr &line : lines)
   {
-    rdcarray<rdcstr> tokens;
-    split(line, tokens, '\t');
-    if(tokens.size() == 2 && tokens[1].trimmed() == "device")
-      ret.push_back(tokens[0]);
+    rdcstr trimmed = line.trimmed();
+    int32_t deviceEnd = trimmed.find_first_of(" \t");
+    if(deviceEnd < 0)
+      continue;
+
+    int32_t stateStart = trimmed.find_first_not_of(" \t", deviceEnd);
+    if(stateStart < 0)
+      continue;
+
+    int32_t stateEnd = trimmed.find_first_of(" \t", stateStart);
+    rdcstr state = stateEnd < 0 ? trimmed.substr(stateStart)
+                                : trimmed.substr(stateStart, stateEnd - stateStart);
+
+    if(state == "device")
+      ret.push_back(trimmed.substr(0, deviceEnd));
   }
 
   return ret;
 }
 };    // namespace Android
+
+namespace
+{
+bool IsWirelessADBDeviceID(const rdcstr &deviceID)
+{
+  int32_t colon = deviceID.find_last_of(":");
+  if(colon <= 0 || colon + 1 >= (int32_t)deviceID.size())
+    return false;
+
+  for(int32_t i = colon + 1; i < (int32_t)deviceID.size(); i++)
+    if(!isdigit((unsigned char)deviceID[i]))
+      return false;
+
+  return true;
+}
+
+rdcstr GetDeviceDisplayName(const rdcstr &deviceID)
+{
+  rdcstr friendly = Android::GetFriendlyName(deviceID).trimmed();
+
+  if(!IsWirelessADBDeviceID(deviceID))
+    return friendly;
+
+  if(friendly.empty())
+    return deviceID;
+
+  return StringFormat::Fmt("%s (%s)", friendly.c_str(), deviceID.c_str());
+}
+}
 
 struct AndroidRemoteServer : public RemoteServer
 {
@@ -1071,7 +1111,7 @@ struct AndroidController : public IDeviceProtocolHandler
         // not found - add a new device
         Device dev;
         dev.active = true;
-        dev.name = Android::GetFriendlyName(d);
+        dev.name = GetDeviceDisplayName(d);
         if(!Android::IsSupported(d))
           dev.name += " - (Android 5.x)";
         dev.portbase = uint16_t(RenderDoc_ForwardPortBase + RenderDoc::Inst().GetForwardedPortSlot() *
@@ -1104,6 +1144,9 @@ struct AndroidController : public IDeviceProtocolHandler
         ret = it->second.name;
     }
 
+    if(ret.empty())
+      ret = GetDeviceDisplayName(GetDeviceID(URL));
+
     return ret;
   }
 
@@ -1132,7 +1175,7 @@ struct AndroidController : public IDeviceProtocolHandler
       {
         SET_ERROR_RESULT(result, ResultCode::InternalError,
                          "Android device %s is not a valid device ID, can't launch server",
-                         Android::GetFriendlyName(deviceID).c_str());
+                         GetDeviceDisplayName(deviceID).c_str());
         return;
       }
 
@@ -1142,7 +1185,7 @@ struct AndroidController : public IDeviceProtocolHandler
       {
         SET_ERROR_RESULT(result, ResultCode::InternalError,
                          "Android device %s is not active, can't launch server",
-                         Android::GetFriendlyName(deviceID).c_str());
+                         GetDeviceDisplayName(deviceID).c_str());
         return;
       }
 
@@ -1162,7 +1205,7 @@ struct AndroidController : public IDeviceProtocolHandler
       {
         SET_ERROR_RESULT(result, ResultCode::AndroidABINotFound,
                          "Can't determine supported ABIs for device %s",
-                         Android::GetFriendlyName(deviceID).c_str());
+                         GetDeviceDisplayName(deviceID).c_str());
         return;
       }
 
