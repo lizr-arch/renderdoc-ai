@@ -2,8 +2,6 @@ from __future__ import annotations
 
 import json
 import os
-import re
-import subprocess
 import tempfile
 import time
 from dataclasses import dataclass
@@ -332,7 +330,7 @@ def inspect_bridge_state() -> Dict[str, Any]:
     request_file = os.path.join(ipc_dir, "request.json")
     response_file = os.path.join(ipc_dir, "response.json")
     lock_file = os.path.join(ipc_dir, "lock")
-    state = {
+    return {
         "ipc_dir": ipc_dir,
         "ipc_dir_exists": os.path.isdir(ipc_dir),
         "request_present": os.path.exists(request_file),
@@ -341,11 +339,6 @@ def inspect_bridge_state() -> Dict[str, Any]:
         "request_age_seconds": _file_age_seconds(request_file),
         "response_age_seconds": _file_age_seconds(response_file),
     }
-    renderdoc_gui_running = _renderdoc_gui_running()
-    if renderdoc_gui_running is not None:
-        state["renderdoc_gui_running"] = renderdoc_gui_running
-    state["state_hint"] = _bridge_state_hint(state)
-    return state
 
 
 def build_mcp_envelope(
@@ -390,13 +383,7 @@ def build_error_payload(
     bridge_state: Optional[Dict[str, Any]] = None,
     capture_loaded: Optional[bool] = None,
 ) -> Dict[str, Any]:
-    diagnostics = _parse_bridge_error_context(message)
-    notes = _build_error_notes(
-        code,
-        bridge_state=bridge_state,
-        capture_loaded=capture_loaded,
-        diagnostics=diagnostics,
-    )
+    notes = _build_error_notes(code, bridge_state=bridge_state, capture_loaded=capture_loaded)
     return build_mcp_envelope(
         ok=False,
         data=None,
@@ -409,7 +396,6 @@ def build_error_payload(
             method=method,
             bridge_state=bridge_state,
             capture_loaded=capture_loaded,
-            diagnostics=diagnostics,
         ),
     )
 
@@ -703,61 +689,12 @@ def classify_mcp_error(message: str) -> str:
     return "internal_error"
 
 
-def _parse_bridge_error_context(message: str) -> Dict[str, Any]:
-    context: Dict[str, Any] = {}
-    if not message:
-        return context
-    for key, value in re.findall(r"([A-Za-z_][A-Za-z0-9_]*)=([^;]+)", message):
-        cleaned = value.strip().strip(",")
-        lowered = cleaned.lower()
-        if lowered in ("true", "false"):
-            context[key] = lowered == "true"
-            continue
-        try:
-            if "." in lowered:
-                context[key] = float(lowered)
-            else:
-                context[key] = int(lowered)
-            continue
-        except Exception:
-            context[key] = cleaned
-    return context
-
-
-def _has_stale_ipc(diagnostics: Optional[Dict[str, Any]]) -> bool:
-    if not diagnostics:
-        return False
-    return any(
-        bool(diagnostics.get(key))
-        for key in (
-            "preexisting_request_present",
-            "preexisting_response_present",
-            "preexisting_lock_present",
-        )
-    )
-
-
-def _bridge_state_hint(state: Dict[str, Any]) -> str:
-    if state.get("renderdoc_gui_running") is False:
-        return "gui_not_running"
-    if not state.get("ipc_dir_exists"):
-        return "gui_not_running"
-    if state.get("lock_present") and not state.get("response_present"):
-        return "bridge_locked"
-    if state.get("request_present") and not state.get("response_present"):
-        return "awaiting_response"
-    if state.get("response_present"):
-        return "response_available"
-    return "idle"
-
-
 def recovery_hint_for_error(
     code: str,
     *,
     method: Optional[str] = None,
     bridge_state: Optional[Dict[str, Any]] = None,
     capture_loaded: Optional[bool] = None,
-    diagnostics: Optional[Dict[str, Any]] = None,
 ) -> str:
     if code == "bridge_unavailable":
         state = bridge_state or inspect_bridge_state()
@@ -774,20 +711,7 @@ def recovery_hint_for_error(
         return "Current API/driver does not expose this field. Keep the snapshot gap and continue with other evidence."
     if code == "timeout":
         state = bridge_state or inspect_bridge_state()
-        if _has_stale_ipc(diagnostics):
-            return (
-                "Stale RenderDoc MCP IPC files were already present before this request. "
-                "Restart RenderDoc or clear the temp bridge files, then retry get_capture_status."
-            )
-        state_hint = str(state.get("state_hint") or _bridge_state_hint(state))
-        if state_hint == "gui_not_running":
-            return "Start RenderDoc GUI, enable the MCP Bridge extension, then retry get_capture_status."
         if state.get("ipc_dir_exists") and state.get("request_present") and not state.get("response_present"):
-            if state.get("lock_present"):
-                return (
-                    "RenderDoc MCP IPC lock is still present. The bridge may be blocked while writing "
-                    "or the GUI thread may be hung. Restart RenderDoc and retry get_capture_status."
-                )
             return (
                 "RenderDoc MCP IPC is present but no response was written. Check RenderDoc GUI, confirm the MCP "
                 "Bridge extension is enabled, and verify the replay thread is not blocked, then retry get_capture_status."
@@ -826,68 +750,17 @@ def _build_error_notes(
     *,
     bridge_state: Optional[Dict[str, Any]] = None,
     capture_loaded: Optional[bool] = None,
-    diagnostics: Optional[Dict[str, Any]] = None,
 ) -> List[str]:
     notes: List[str] = []
     if code in ("bridge_unavailable", "timeout"):
         state = bridge_state or inspect_bridge_state()
-        notes.append(f"state_hint={state.get('state_hint') or _bridge_state_hint(state)}")
-        if "renderdoc_gui_running" in state:
-            notes.append(f"renderdoc_gui_running={_render_note_value(state.get('renderdoc_gui_running'))}")
         notes.append(f"ipc_dir_exists={str(bool(state.get('ipc_dir_exists'))).lower()}")
         notes.append(f"request_present={str(bool(state.get('request_present'))).lower()}")
         notes.append(f"response_present={str(bool(state.get('response_present'))).lower()}")
         notes.append(f"lock_present={str(bool(state.get('lock_present'))).lower()}")
-        if state.get("request_age_seconds") is not None:
-            notes.append(f"request_age_seconds={state.get('request_age_seconds')}")
-        if state.get("response_age_seconds") is not None:
-            notes.append(f"response_age_seconds={state.get('response_age_seconds')}")
-        if diagnostics:
-            if _has_stale_ipc(diagnostics):
-                notes.append("stale_ipc_detected=true")
-            for key in (
-                "preexisting_request_present",
-                "preexisting_response_present",
-                "preexisting_lock_present",
-                "preexisting_request_age_seconds",
-                "preexisting_response_age_seconds",
-            ):
-                if key in diagnostics:
-                    notes.append(f"{key}={_render_note_value(diagnostics.get(key))}")
     if code == "capture_not_loaded" or capture_loaded is False:
         notes.append("No active capture is loaded.")
     return notes
-
-
-def _render_note_value(value: Any) -> str:
-    if isinstance(value, bool):
-        return "true" if value else "false"
-    return str(value)
-
-
-def _renderdoc_gui_running() -> Optional[bool]:
-    if os.name == "nt":
-        command = ["tasklist", "/fo", "csv", "/nh", "/fi", "IMAGENAME eq qrenderdoc.exe"]
-        expected_name = "qrenderdoc.exe"
-    else:
-        command = ["ps", "-A", "-o", "comm="]
-        expected_name = "qrenderdoc"
-    try:
-        completed = subprocess.run(
-            command,
-            capture_output=True,
-            text=True,
-            encoding="utf-8",
-            errors="replace",
-            timeout=5,
-            check=False,
-        )
-    except Exception:
-        return None
-    if completed.returncode != 0:
-        return None
-    output = (completed.stdout or "").lower()
-    return expected_name in output
 
 
 def _build_fanout_summary(
