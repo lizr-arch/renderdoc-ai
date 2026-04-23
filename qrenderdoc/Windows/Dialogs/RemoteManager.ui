@@ -143,12 +143,19 @@
          <property name="text">
           <string>Refresh Selected</string>
          </property>
-        </widget>
+       </widget>
        </item>
        <item>
         <widget class="QPushButton" name="refreshAll">
          <property name="text">
           <string>Refresh All</string>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QPushButton" name="pairAndroid">
+         <property name="text">
+          <string>Pair Android over Wi-Fi...</string>
          </property>
         </widget>
        </item>

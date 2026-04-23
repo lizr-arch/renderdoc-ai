@@ -30,6 +30,40 @@
 #include "Code/QRDUtils.h"
 #include "QRDInterface.h"
 
+static rdcstr GetProtocolDeviceID(const rdcstr &hostname)
+{
+  int offs = hostname.find("://");
+  if(offs > 0)
+    return hostname.substr(offs + 3);
+
+  return hostname;
+}
+
+static bool IsWirelessAndroidHost(const rdcstr &hostname)
+{
+  if(!hostname.beginsWith("adb://"))
+    return false;
+
+  return GetProtocolDeviceID(hostname).find(':') >= 0;
+}
+
+static bool RefreshWirelessAndroidHost(IDeviceProtocolController *protocol, const rdcstr &hostname)
+{
+  if(protocol == NULL || !IsWirelessAndroidHost(hostname))
+    return true;
+
+  rdcstr deviceID = GetProtocolDeviceID(hostname);
+  rdcarray<rdcstr> devices = protocol->GetDevices();
+
+  for(const rdcstr &device : devices)
+  {
+    if(device == deviceID)
+      return true;
+  }
+
+  return false;
+}
+
 struct RemoteHostData
 {
   QAtomicInt refcount;
@@ -126,7 +160,15 @@ void RemoteHost::CheckStatus()
     return;
   }
 
-  UpdateStatus(RENDERDOC_CheckRemoteServerConnection(m_hostname));
+  ResultDetails status = RENDERDOC_CheckRemoteServerConnection(m_hostname);
+
+  if(status.code == ResultCode::NetworkIOFailed && m_protocol &&
+     RefreshWirelessAndroidHost(m_protocol, m_hostname))
+  {
+    status = RENDERDOC_CheckRemoteServerConnection(m_hostname);
+  }
+
+  UpdateStatus(status);
 }
 
 ResultDetails RemoteHost::Connect(IRemoteServer **server)
@@ -147,6 +189,8 @@ void RemoteHost::SetShutdown()
   m_data->m_connected = false;
   m_data->m_serverRunning = false;
   m_data->m_busy = false;
+  m_data->m_versionMismatch = false;
+  m_data->m_versionError.clear();
 }
 
 void RemoteHost::UpdateStatus(ResultDetails result)
@@ -194,8 +238,18 @@ void RemoteHost::UpdateStatus(ResultDetails result)
 ResultDetails RemoteHost::Launch()
 {
   if(m_protocol)
+  {
+    if(!RefreshWirelessAndroidHost(m_protocol, m_hostname))
+    {
+      ResultDetails unavailable;
+      unavailable.code = ResultCode::NetworkIOFailed;
+      unavailable.internal_msg = NULL;
+      return unavailable;
+    }
+
     // this is blocking
     return m_protocol->StartRemoteServer(m_hostname);
+  }
 
   rdcstr run = RunCommand();
 

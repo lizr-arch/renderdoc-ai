@@ -29,6 +29,67 @@
 #include "CaptureContext.h"
 #include "QRDUtils.h"
 
+namespace
+{
+rdcstr GetRemoteDeviceID(const RemoteHost &host)
+{
+  rdcstr deviceID = host.Hostname();
+
+  int32_t scheme = deviceID.find("://");
+  if(scheme > 0)
+    deviceID.erase(0, scheme + 3);
+
+  return deviceID;
+}
+
+bool IsDigitString(const rdcstr &value)
+{
+  if(value.empty())
+    return false;
+
+  for(char c : value)
+  {
+    if(c < '0' || c > '9')
+      return false;
+  }
+
+  return true;
+}
+
+bool IsWirelessAndroidHost(const RemoteHost &host)
+{
+  if(!host.Protocol() || host.Protocol()->GetProtocolName() != "adb")
+    return false;
+
+  rdcstr deviceID = GetRemoteDeviceID(host);
+
+  if(deviceID.contains("._adb-tls-connect._tcp") || deviceID.contains("._adb-tls-pairing._tcp"))
+    return true;
+
+  int32_t colon = deviceID.find(':');
+  if(colon <= 0 || colon >= deviceID.count() - 1)
+    return false;
+
+  rdcstr adbHost = deviceID.substr(0, colon);
+  rdcstr adbPort = deviceID.substr(colon + 1);
+
+  return IsDigitString(adbPort) &&
+         (adbHost == "localhost" || adbHost.contains('.') || adbHost.contains('['));
+}
+
+QString GetRemoteTransferProgressText(const RemoteHost &host, bool toRemote)
+{
+  if(IsWirelessAndroidHost(host))
+  {
+    return toRemote ? ReplayManager::tr("Uploading capture to wireless Android device...")
+                    : ReplayManager::tr("Downloading capture from wireless Android device...");
+  }
+
+  return toRemote ? ReplayManager::tr("Uploading capture to remote host...")
+                  : ReplayManager::tr("Downloading capture from remote host...");
+}
+}    // namespace
+
 ReplayManager::ReplayManager()
 {
   m_Running = false;
@@ -191,8 +252,8 @@ rdcstr ReplayManager::CopyCaptureToRemote(const rdcstr &localpath, QWidget *wind
   }
 
   ShowProgressDialog(
-      window, tr("Transferring..."), [&copied]() { return copied == 1; },
-      [&progress]() { return progress; });
+      window, GetRemoteTransferProgressText(m_RemoteHost, true),
+      [&copied]() { return copied == 1; }, [&progress]() { return progress; });
 
   return remotepath;
 }
@@ -226,8 +287,8 @@ void ReplayManager::CopyCaptureFromRemote(const rdcstr &remotepath, const rdcstr
   }
 
   ShowProgressDialog(
-      window, tr("Transferring..."), [&copied]() { return copied == 1; },
-      [&progress]() { return progress; });
+      window, GetRemoteTransferProgressText(m_RemoteHost, false),
+      [&copied]() { return copied == 1; }, [&progress]() { return progress; });
 }
 
 bool ReplayManager::IsRunning()

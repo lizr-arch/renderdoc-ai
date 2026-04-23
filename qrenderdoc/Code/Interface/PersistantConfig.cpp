@@ -325,6 +325,28 @@ void PersistantConfig::applyValues(const QVariantMap &values)
 
 static QMutex RemoteHostLock;
 
+static bool IsWirelessAndroidHost(const RemoteHost &host)
+{
+  if(!host.Protocol() || host.Protocol()->GetProtocolName() != "adb")
+    return false;
+
+  rdcstr deviceID = host.Hostname();
+  int offs = deviceID.find("://");
+  if(offs > 0)
+    deviceID.erase(0, offs + 3);
+
+  return deviceID.find(':') >= 0;
+}
+
+static void MergeRemoteHost(RemoteHost &dst, const RemoteHost &src)
+{
+  if(!src.RunCommand().empty())
+    dst.SetRunCommand(src.RunCommand());
+
+  if(!src.LastCapturePath().empty())
+    dst.SetLastCapturePath(src.LastCapturePath());
+}
+
 rdcarray<RemoteHost> PersistantConfig::GetRemoteHosts()
 {
   QMutexLocker autolock(&RemoteHostLock);
@@ -362,7 +384,10 @@ void PersistantConfig::AddRemoteHost(RemoteHost host)
   {
     if(RemoteHostList[i] == host)
     {
-      RemoteHostList[i] = host;
+      if(!host.FriendlyName().empty())
+        RemoteHostList[i].SetFriendlyName(host.FriendlyName());
+
+      MergeRemoteHost(RemoteHostList[i], host);
       return;
     }
   }
@@ -437,7 +462,15 @@ void PersistantConfig::UpdateEnumeratedProtocolDevices()
   while(i.hasNext())
   {
     i.next();
-    i.value().SetShutdown();
+
+    RemoteHost host = i.value();
+    host.SetShutdown();
+
+    if(IsWirelessAndroidHost(host))
+    {
+      host.SetRunCommand("Automatically handled");
+      RemoteHostList.push_back(host);
+    }
   }
 }
 

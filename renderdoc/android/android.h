@@ -36,6 +36,9 @@ void ResetCaptureSettings(const rdcstr &deviceID);
 void ExtractDeviceIDAndIndex(const rdcstr &hostname, int &index, rdcstr &deviceID);
 Process::ProcessResult adbExecCommand(const rdcstr &deviceID, const rdcstr &args,
                                       const rdcstr &workDir = ".", bool silent = false);
+Process::ProcessResult adbPairCommand(const rdcstr &hostPort, const rdcstr &pairCode);
+Process::ProcessResult adbConnectCommand(const rdcstr &hostPort);
+Process::ProcessResult adbDisconnectCommand(const rdcstr &hostPort);
 void initAdb();
 void shutdownAdb();
 bool InjectWithJDWP(const rdcstr &deviceID, uint16_t jdwpport);

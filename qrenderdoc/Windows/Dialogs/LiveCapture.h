@@ -76,6 +76,7 @@ private slots:
   void on_cycleActiveWindow_clicked();
   void on_triggerDelayedCapture_clicked();
   void on_queueCap_clicked();
+  void on_getLatestCapture_clicked();
   void on_previewSplit_splitterMoved(int pos, int index);
   void on_apiIcon_clicked(QMouseEvent *event);
 
@@ -135,7 +136,13 @@ private:
   };
 
   Capture *GetCapture(QListWidgetItem *item);
+  Capture *FindCapture(uint32_t remoteID, QListWidgetItem **item = NULL);
   void AddCapture(QListWidgetItem *item, Capture *cap);
+  void updateCaptureItem(Capture *cap);
+  void refreshLatestCaptureFromList();
+  void updateLatestCaptureUI();
+  void updateCaptureControls();
+  QString latestCaptureDescription(Capture *cap) const;
 
   QString MakeText(Capture *cap);
   QImage MakeThumb(const QImage &screenshot);
@@ -179,11 +186,17 @@ private:
 
   uint32_t m_CopyCaptureID = ~0U;
   QString m_CopyCaptureLocalPath;
+  uint32_t m_LatestCaptureID = ~0U;
   QMutex m_DeleteCapturesLock;
   QVector<uint32_t> m_DeleteCaptures;
 
   bool m_IgnoreThreadClosed = false;
   bool m_IgnorePreviewToggle = false;
+  bool m_CaptureRequested = false;
+  bool m_LatestCaptureCopying = false;
+  bool m_LatestCaptureCopyFailed = false;
+  bool m_LiveConnection = false;
+  QString m_LatestCaptureFailure;
 
   QMenu *m_ContextMenu = NULL;
 
