@@ -42,6 +42,7 @@ class RenderDocBridge:
                 "Make sure RenderDoc is running with the MCP Bridge extension loaded."
             )
 
+        initial_state = _inspect_ipc_state()
         request = {
             "id": str(uuid.uuid4()),
             "method": method,
@@ -86,7 +87,12 @@ class RenderDocBridge:
 
                 # Check timeout
                 if time.time() - start_time > self.timeout:
-                    raise RenderDocBridgeError("Request timed out")
+                    current_state = _inspect_ipc_state()
+                    raise RenderDocBridgeError(
+                        "Request timed out while waiting for RenderDoc MCP response. "
+                        f"{_format_ipc_state_summary(current_state, prefix='current')}; "
+                        f"{_format_ipc_state_summary(initial_state, prefix='preexisting')}"
+                    )
 
                 # Poll interval
                 time.sleep(0.05)
@@ -95,3 +101,47 @@ class RenderDocBridge:
             raise
         except Exception as e:
             raise RenderDocBridgeError(f"Communication error: {e}")
+
+
+def _inspect_ipc_state() -> dict[str, Any]:
+    state = {
+        "ipc_dir_exists": os.path.isdir(IPC_DIR),
+        "request_present": os.path.exists(REQUEST_FILE),
+        "response_present": os.path.exists(RESPONSE_FILE),
+        "lock_present": os.path.exists(LOCK_FILE),
+        "request_age_seconds": _file_age_seconds(REQUEST_FILE),
+        "response_age_seconds": _file_age_seconds(RESPONSE_FILE),
+    }
+    return state
+
+
+def _format_ipc_state_summary(state: dict[str, Any], *, prefix: str) -> str:
+    parts: list[str] = []
+    for key in (
+        "ipc_dir_exists",
+        "request_present",
+        "response_present",
+        "lock_present",
+        "request_age_seconds",
+        "response_age_seconds",
+    ):
+        value = state.get(key)
+        if value is None:
+            continue
+        if isinstance(value, bool):
+            rendered = "true" if value else "false"
+        elif isinstance(value, float):
+            rendered = f"{value:.3f}"
+        else:
+            rendered = str(value)
+        parts.append(f"{prefix}_{key}={rendered}")
+    return "; ".join(parts)
+
+
+def _file_age_seconds(path: str) -> float | None:
+    try:
+        if not os.path.exists(path):
+            return None
+        return max(0.0, time.time() - os.path.getmtime(path))
+    except Exception:
+        return None

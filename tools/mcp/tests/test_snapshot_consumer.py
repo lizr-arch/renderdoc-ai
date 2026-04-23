@@ -259,6 +259,31 @@ def test_capture_status_timeout_uses_bridge_diagnostic_hint(monkeypatch: pytest.
     assert "replay thread" in result["health_probe"]["recovery_hint"].lower()
 
 
+def test_capture_status_timeout_with_no_gui_process_uses_start_gui_hint(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setattr(
+        "snapshot_consumer.inspect_bridge_state",
+        lambda: {
+            "ipc_dir_exists": True,
+            "request_present": True,
+            "response_present": False,
+            "lock_present": False,
+            "renderdoc_gui_running": False,
+        },
+    )
+    snapshot = _missing_snapshot()
+    gaps = SnapshotGapDetector(max_events=5).detect(snapshot)
+    queries = MCPQueryPlanner(max_events=5).build(snapshot, gaps)
+    bridge = _MockBridge(responses={"get_capture_status": RuntimeError("Request timed out")})
+    result = MCPEnricher(bridge_factory=lambda: bridge).run(queries=queries, execute=True)
+
+    assert result["status"] == "blocked"
+    assert result["health_probe"]["error"]["code"] == "timeout"
+    assert "start renderdoc gui" in result["health_probe"]["recovery_hint"].lower()
+    notes = result["health_probe"]["availability"]["notes"]
+    assert "state_hint=gui_not_running" in notes
+    assert "renderdoc_gui_running=false" in notes
+
+
 def test_capture_loaded_returns_envelope_per_query():
     snapshot = _missing_snapshot()
     gaps = SnapshotGapDetector(max_events=5).detect(snapshot)
