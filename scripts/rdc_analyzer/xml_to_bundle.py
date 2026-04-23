@@ -1202,7 +1202,7 @@ def main():
     print(f"    - textures.html")
     print(f"    - shaders.html")
     if args.renderer_mode == "snapshot":
-        print(f"    - recommendations.html")
+        print(f"    - pipelines.html")
     if emit_snapshot:
         print(f"    - snapshot.v1.json")
     print()

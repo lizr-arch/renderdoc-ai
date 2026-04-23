@@ -10,11 +10,12 @@ from typing import Any, Dict, List
 class SnapshotTemplateRenderer:
     """Renders minimal offline HTML pages from snapshot.v1 payload only."""
 
-    PAGE_ORDER = ("index", "events", "textures", "shaders", "recommendations")
+    PAGE_ORDER = ("index", "events", "textures", "shaders", "pipelines")
 
     def __init__(self, output_dir: str | Path, capture_name: str = ""):
         self.output_dir = Path(output_dir)
         self.capture_name = capture_name
+        self._page_status: Dict[str, str] = {}
 
     def render(self, snapshot: Dict[str, Any]) -> Dict[str, str]:
         self.output_dir.mkdir(parents=True, exist_ok=True)
@@ -29,13 +30,14 @@ class SnapshotTemplateRenderer:
             or self.capture_name
             or "RenderDoc Capture"
         )
+        self._page_status = self._build_page_status(snapshot)
 
         pages = {
             "index": self._render_index(snapshot, capture_name),
             "events": self._render_events(snapshot, capture_name),
             "textures": self._render_textures(snapshot, capture_name),
             "shaders": self._render_shaders(snapshot, capture_name),
-            "recommendations": self._render_recommendations(snapshot, capture_name),
+            "pipelines": self._render_pipelines(snapshot, capture_name),
         }
 
         outputs: Dict[str, str] = {}
@@ -120,7 +122,7 @@ class SnapshotTemplateRenderer:
 <section>
   <h2>Recommendations</h2>
   <ul>{rec_html}</ul>
-  <p><a href="recommendations.html">Open recommendations page</a></p>
+  <p><a href="pipelines.html">Open pipelines page</a></p>
 </section>
 <section>
   <h2>Availability</h2>
@@ -217,9 +219,11 @@ class SnapshotTemplateRenderer:
 """
         return self._wrap_html("Shaders", body)
 
-    def _render_recommendations(self, snapshot: Dict[str, Any], capture_name: str) -> str:
+    def _render_pipelines(self, snapshot: Dict[str, Any], capture_name: str) -> str:
+        pipelines = snapshot.get("pipelines", []) or []
         recommendations = snapshot.get("recommendations", []) or []
-        findings = snapshot.get("findings", []) or []
+        availability = snapshot.get("availability", {}) or {}
+        preflight = snapshot.get("preflight", {}) or {}
         items: List[str] = []
         for rec in recommendations:
             title = rec.get("title", "Recommendation")
@@ -237,24 +241,51 @@ class SnapshotTemplateRenderer:
 """
             )
         recommendations_html = "".join(items) if items else "<p>No recommendations.</p>"
-        findings_html = (
-            "".join(
-                f"<li>{escape(f.get('title', f.get('description', 'finding')))}</li>"
-                for f in findings
+
+        if pipelines:
+            pipelines_html = "".join(self._render_pipeline_card(pipeline) for pipeline in pipelines)
+        else:
+            missing_fields = availability.get("missing_fields", []) or []
+            missing_fields_html = (
+                "".join(f"<li>{escape(str(field))}</li>" for field in missing_fields)
+                if missing_fields
+                else "<li>No missing pipeline fields reported.</li>"
             )
-            if findings
-            else "<li>No findings available.</li>"
-        )
+            mcp_hint = availability.get("mcp_hint", "")
+            mcp_hint_html = (
+                f"<p><strong>MCP Hint:</strong> {escape(str(mcp_hint))}</p>" if mcp_hint else ""
+            )
+            pipelines_html = f"""
+<article class="card">
+  <h2>Pipeline summary unavailable</h2>
+  <p>No pipeline summaries were captured in this snapshot. The page is still emitted to keep bundle navigation stable.</p>
+  {mcp_hint_html}
+  <h3>Missing fields</h3>
+  <ul>{missing_fields_html}</ul>
+</article>
+"""
+
         body = f"""
-<h1>{escape(capture_name)} - Recommendations</h1>
-{self._nav("recommendations")}
-<section>{recommendations_html}</section>
+<h1>{escape(capture_name)} - Pipelines</h1>
+{self._nav("pipelines")}
 <section>
-  <h2>Findings Summary</h2>
-  <ul>{findings_html}</ul>
+  <h2>Pipeline Summary</h2>
+  {pipelines_html}
+</section>
+<section>
+  <h2>Preflight</h2>
+  {self._json_block(preflight)}
+</section>
+<section>
+  <h2>Availability</h2>
+  {self._json_block(availability)}
+</section>
+<section>
+  <h2>Recommendations</h2>
+  {recommendations_html}
 </section>
 """
-        return self._wrap_html("Recommendations", body)
+        return self._wrap_html("Pipelines", body)
 
     def _write_common_css(self) -> None:
         css_path = self.output_dir / "common.css"
@@ -277,12 +308,130 @@ pre{background:#0e1116;color:#d6deeb;padding:12px;border-radius:6px;overflow:aut
     def _nav(self, active: str) -> str:
         links = []
         for page in self.PAGE_ORDER:
-            label = page.capitalize()
+            label = self._format_nav_label(page, self._page_status.get(page, "available"))
             if page == active:
                 links.append(f"<strong>{escape(label)}</strong>")
             else:
                 links.append(f'<a href="{page}.html">{escape(label)}</a>')
         return f"<nav>{' | '.join(links)}</nav>"
+
+    def _build_page_status(self, snapshot: Dict[str, Any]) -> Dict[str, str]:
+        availability = snapshot.get("availability", {}) or {}
+        fields = availability.get("fields", {}) or {}
+        textures = snapshot.get("resources", {}).get("textures", []) or []
+        actions = snapshot.get("actions", []) or []
+        shaders = snapshot.get("shaders", []) or []
+        pipelines = snapshot.get("pipelines", []) or []
+        return {
+            "index": self._normalize_page_status(availability.get("status"), "available"),
+            "events": self._normalize_page_status(
+                fields.get("actions"), "available" if actions else "unavailable"
+            ),
+            "textures": self._normalize_page_status(
+                fields.get("resources"), "available" if textures else "unavailable"
+            ),
+            "shaders": self._normalize_page_status(
+                fields.get("shaders"), "available" if shaders else "unavailable"
+            ),
+            "pipelines": self._normalize_page_status(
+                fields.get("pipelines"), "available" if pipelines else "unavailable"
+            ),
+        }
+
+    @staticmethod
+    def _normalize_page_status(status: Any, fallback: str) -> str:
+        normalized = str(status or "").strip().lower()
+        if normalized in ("available", "ok"):
+            return "available"
+        if normalized in ("partial", "warning"):
+            return "partial"
+        if normalized in ("missing", "unavailable", "error"):
+            return "unavailable"
+        return fallback
+
+    @staticmethod
+    def _format_nav_label(page: str, status: str) -> str:
+        label = "Pipelines" if page == "pipelines" else page.capitalize()
+        if status == "partial":
+            return f"{label} (Partial)"
+        if status == "unavailable":
+            return f"{label} (Unavailable)"
+        return label
+
+    def _render_pipeline_card(self, pipeline: Dict[str, Any]) -> str:
+        pipeline_id = str(pipeline.get("pipeline_id", "pipeline"))
+        event_id = str(pipeline.get("event_id", ""))
+        graphics_api = pipeline.get("graphics_api", "Unknown")
+        evidence_items: List[str] = []
+
+        vs_ref = pipeline.get("vs_ref") or {}
+        if vs_ref:
+            evidence_items.append(
+                f"<li><strong>VS:</strong> {self._render_ref_link(vs_ref, 'shaders', 'shader', 'shader')}</li>"
+            )
+
+        ps_ref = pipeline.get("ps_ref") or {}
+        if ps_ref:
+            evidence_items.append(
+                f"<li><strong>PS:</strong> {self._render_ref_link(ps_ref, 'shaders', 'shader', 'shader')}</li>"
+            )
+
+        render_targets = pipeline.get("render_target_refs", []) or []
+        if render_targets:
+            targets = ", ".join(
+                self._render_ref_link(target, "textures", "resource", "texture")
+                for target in render_targets
+            )
+            evidence_items.append(f"<li><strong>Render Targets:</strong> {targets}</li>")
+
+        depth_target = pipeline.get("depth_target_ref") or {}
+        if depth_target:
+            evidence_items.append(
+                f"<li><strong>Depth:</strong> {self._render_ref_link(depth_target, 'textures', 'resource', 'depth target')}</li>"
+            )
+
+        if not evidence_items:
+            evidence_items.append("<li>No linked shader or resource evidence.</li>")
+
+        details: List[str] = []
+        for label, key in (
+            ("Blend", "blend"),
+            ("Depth / Stencil", "depth_stencil"),
+            ("Rasterizer", "rasterizer"),
+            ("Vertex Layout", "vertex_layout"),
+        ):
+            payload = pipeline.get(key)
+            if payload:
+                details.append(f"<section><h3>{escape(label)}</h3>{self._json_block(payload)}</section>")
+
+        details_html = "".join(details) if details else "<p>No pipeline state details available.</p>"
+        event_html = (
+            f'<a href="events.html#event-{escape(event_id)}">Event {escape(event_id)}</a>'
+            if event_id
+            else "No event link"
+        )
+
+        return f"""
+<article id="pipeline-{escape(pipeline_id)}" class="card">
+  <h3>Pipeline {escape(pipeline_id)}</h3>
+  <p><strong>Event:</strong> {event_html}</p>
+  <p><strong>Graphics API:</strong> {escape(str(graphics_api))}</p>
+  <ul>{''.join(evidence_items)}</ul>
+  {details_html}
+  <section>
+    <h3>Availability</h3>
+    {self._json_block(pipeline.get("availability", {}))}
+  </section>
+</article>
+"""
+
+    @staticmethod
+    def _render_ref_link(ref: Dict[str, Any], page: str, anchor_prefix: str, fallback: str) -> str:
+        ref_id = str(ref.get("shader_id") or ref.get("resource_id") or ref.get("id") or "")
+        label = str(ref.get("label") or ref.get("name") or ref_id or fallback)
+        if ref_id:
+            return f'<a href="{page}.html#{anchor_prefix}-{escape(ref_id)}">{escape(label)}</a>'
+        return escape(label)
 
     def _json_block(self, payload: Dict[str, Any]) -> str:
         text = json.dumps(payload, indent=2, ensure_ascii=False)

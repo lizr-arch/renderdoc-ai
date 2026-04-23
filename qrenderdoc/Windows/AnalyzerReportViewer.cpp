@@ -208,6 +208,73 @@ void EmitAutoExportTrace(const QString &outDir, const QString &message)
   file.write(bytes);
 }
 
+QString AnalyzerScriptRootPath()
+{
+  return QDir(QCoreApplication::applicationDirPath()).absoluteFilePath(lit("../.."));
+}
+
+bool RenderSnapshotBundle(const QString &outputDir, QString *error)
+{
+  const QString rootPath = AnalyzerScriptRootPath();
+  const QString scriptPath =
+      QDir(rootPath).absoluteFilePath(lit("scripts/rdc_analyzer/render_snapshot_bundle.py"));
+  const QString snapshotPath = QDir(outputDir).absoluteFilePath(lit("snapshot.v1.json"));
+
+  if(!QFileInfo::exists(scriptPath))
+  {
+    if(error)
+      *error = QObject::tr("Snapshot bundle renderer script not found:\n%1").arg(scriptPath);
+    return false;
+  }
+
+  if(!QFileInfo::exists(snapshotPath))
+  {
+    if(error)
+      *error = QObject::tr("snapshot.v1.json not found for HTML bundle generation:\n%1")
+                   .arg(snapshotPath);
+    return false;
+  }
+
+  QProcess process;
+  process.setWorkingDirectory(rootPath);
+  QStringList args;
+  args << lit("-3") << scriptPath << snapshotPath << lit("-o") << outputDir;
+  process.start(lit("py"), args);
+
+  if(!process.waitForStarted())
+  {
+    if(error)
+      *error = QObject::tr("Failed to start snapshot bundle renderer.\n\n%1")
+                   .arg(process.errorString());
+    return false;
+  }
+
+  if(!process.waitForFinished(60000))
+  {
+    process.kill();
+    process.waitForFinished(2000);
+    if(error)
+      *error = QObject::tr("Snapshot bundle renderer timed out after 60 seconds.");
+    return false;
+  }
+
+  const QString stdErr = QString::fromUtf8(process.readAllStandardError()).trimmed();
+  if(process.exitStatus() != QProcess::NormalExit || process.exitCode() != 0)
+  {
+    if(error)
+    {
+      if(stdErr.isEmpty())
+        *error = QObject::tr("Snapshot bundle renderer failed with exit code %1.")
+                     .arg(process.exitCode());
+      else
+        *error = QObject::tr("Snapshot bundle renderer failed.\n\n%1").arg(stdErr);
+    }
+    return false;
+  }
+
+  return true;
+}
+
 uint32_t PickIssueEventId(const AnalyzerIssue &issue)
 {
   for(uint32_t eid : issue.eventIds)
@@ -1347,11 +1414,28 @@ void AnalyzerReportViewer::TryAutoExport()
   }
   else
   {
-    qInfo() << "Analyzer auto export wrote files to" << outDir.absolutePath();
     EmitAutoExportTrace(m_AutoExportDir,
                         QStringLiteral("[AnalyzerAutoExport] "
                                        "event=TryAutoExport.write_result success=1 out_dir=%1")
                             .arg(QDir::toNativeSeparators(outDir.absolutePath())));
+
+    QString bundleError;
+    if(!RenderSnapshotBundle(outDir.absolutePath(), &bundleError))
+    {
+      qWarning() << "Analyzer auto export bundle generation failed:" << bundleError;
+      EmitAutoExportTrace(m_AutoExportDir,
+                          QStringLiteral("[AnalyzerAutoExport] "
+                                         "event=TryAutoExport.bundle_result success=0 error=%1")
+                              .arg(bundleError));
+    }
+    else
+    {
+      qInfo() << "Analyzer auto export wrote files to" << outDir.absolutePath();
+      EmitAutoExportTrace(m_AutoExportDir,
+                          QStringLiteral("[AnalyzerAutoExport] "
+                                         "event=TryAutoExport.bundle_result success=1 out_dir=%1")
+                              .arg(QDir::toNativeSeparators(outDir.absolutePath())));
+    }
   }
 
   m_AutoExportDone = true;
@@ -1403,9 +1487,19 @@ void AnalyzerReportViewer::on_exportButton_clicked()
     return;
   }
 
+  if(!RenderSnapshotBundle(outDir, &error))
+  {
+    QMessageBox::critical(this, tr("Analyzer Export"),
+                          tr("Structured sidecars were written, but HTML bundle generation "
+                             "failed.\n\n%1")
+                              .arg(error));
+    return;
+  }
+
   QMessageBox::information(this, tr("Analyzer Export"),
-                           tr("Exported analysis.json, snapshot.v1.json, capture_context.json, and "
-                              "issues_export.{csv,md} to:\n%1")
+                           tr("Exported analysis.json, snapshot.v1.json, capture_context.json, "
+                              "issues_export.{csv,md}, and HTML bundle "
+                              "(index/events/textures/shaders/pipelines/manifest) to:\n%1")
                                .arg(QDir::toNativeSeparators(outDir)));
 }
 
