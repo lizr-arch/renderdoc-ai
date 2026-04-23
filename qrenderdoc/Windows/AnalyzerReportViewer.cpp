@@ -188,6 +188,26 @@ uint32_t ConfigUIntOrDefault(const char *settingName, uint32_t defaultValue)
   return defaultValue;
 }
 
+void EmitAutoExportTrace(const QString &outDir, const QString &message)
+{
+  if(outDir.isEmpty())
+    return;
+
+  qInfo().noquote() << message;
+
+  QDir dir(outDir);
+  if(!dir.exists() && !dir.mkpath(lit(".")))
+    return;
+
+  QFile file(dir.filePath(lit("analyzer_auto_export_trace.log")));
+  if(!file.open(QIODevice::WriteOnly | QIODevice::Append | QIODevice::Text))
+    return;
+
+  QByteArray bytes = message.toUtf8();
+  bytes.append('\n');
+  file.write(bytes);
+}
+
 uint32_t PickIssueEventId(const AnalyzerIssue &issue)
 {
   for(uint32_t eid : issue.eventIds)
@@ -647,15 +667,45 @@ void AnalyzerReportViewer::RefreshReport()
   ICaptureContext *ctx = &m_Ctx;
   QObject *invokeTarget = m_Ctx.GetMainWindow() ? m_Ctx.GetMainWindow()->Widget() : this;
   QPointer<AnalyzerReportViewer> self(this);
+  QPointer<QObject> invokeObj(invokeTarget);
+  QString autoExportDir = m_AutoExportDir;
 
   m_Ctx.Replay().AsyncInvoke(
-      [analyzer, issueEngine, ctx, invokeTarget, serial, self](IReplayController *r) mutable {
+      [analyzer, issueEngine, ctx, invokeTarget, invokeObj, serial, self,
+       autoExportDir](IReplayController *r) mutable {
         AnalyzerSnapshot snapshot = analyzer.Build(*ctx, r);
         snapshot.issues = issueEngine.Evaluate(snapshot);
 
-        GUIInvoke::call(invokeTarget, [self, serial, snapshot] {
-          if(!self || serial != self->m_BuildSerial)
+        EmitAutoExportTrace(autoExportDir,
+                            QStringLiteral("[AnalyzerAutoExport] "
+                                           "event=RefreshReport.replay_build_done serial=%1 "
+                                           "invoke_target_alive=%2 self_alive=%3 issues=%4 "
+                                           "events=%5 resources=%6 shaders=%7")
+                                .arg((qulonglong)serial)
+                                .arg((int)!invokeObj.isNull())
+                                .arg((int)!self.isNull())
+                                .arg((int)snapshot.issues.count())
+                                .arg((int)snapshot.events.count())
+                                .arg((int)snapshot.resources.count())
+                                .arg((int)snapshot.shaders.count()));
+
+        GUIInvoke::call(invokeTarget, [self, serial, snapshot, autoExportDir] {
+          if(!self)
             return;
+
+          if(serial != self->m_BuildSerial)
+          {
+            EmitAutoExportTrace(self->m_AutoExportDir,
+                                QStringLiteral("[AnalyzerAutoExport] "
+                                               "event=RefreshReport.serial_mismatch serial=%1 "
+                                               "current_serial=%2 capture_loaded=%3 "
+                                               "build_in_flight=%4")
+                                    .arg((qulonglong)serial)
+                                    .arg((qulonglong)self->m_BuildSerial)
+                                    .arg((int)self->m_Ctx.IsCaptureLoaded())
+                                    .arg((int)self->m_BuildInFlight));
+            return;
+          }
 
           self->m_BuildInFlight = false;
           self->m_Snapshot = snapshot;
@@ -1277,6 +1327,10 @@ void AnalyzerReportViewer::TryAutoExport()
   if(!outDir.exists() && !outDir.mkpath(lit(".")))
   {
     qWarning() << "Analyzer auto export failed to create directory:" << m_AutoExportDir;
+    EmitAutoExportTrace(m_AutoExportDir,
+                        QStringLiteral("[AnalyzerAutoExport] event=TryAutoExport.mkdir_failed "
+                                       "out_dir=%1")
+                            .arg(QDir::toNativeSeparators(m_AutoExportDir)));
     m_AutoExportDone = true;
     return;
   }
@@ -1284,9 +1338,21 @@ void AnalyzerReportViewer::TryAutoExport()
   QJsonObject captureContext = BuildCaptureContextExport();
   QString error;
   if(!m_Exporter.WriteAll(m_Snapshot, outDir.absolutePath(), captureContext, &error))
+  {
     qWarning() << "Analyzer auto export failed:" << error;
+    EmitAutoExportTrace(m_AutoExportDir,
+                        QStringLiteral("[AnalyzerAutoExport] "
+                                       "event=TryAutoExport.write_result success=0 error=%1")
+                            .arg(error));
+  }
   else
+  {
     qInfo() << "Analyzer auto export wrote files to" << outDir.absolutePath();
+    EmitAutoExportTrace(m_AutoExportDir,
+                        QStringLiteral("[AnalyzerAutoExport] "
+                                       "event=TryAutoExport.write_result success=1 out_dir=%1")
+                            .arg(QDir::toNativeSeparators(outDir.absolutePath())));
+  }
 
   m_AutoExportDone = true;
 
