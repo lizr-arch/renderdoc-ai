@@ -99,15 +99,44 @@ def _record_exports():
         STATE["replay_processing_seconds"] = 0.0
 
 
+def _tools_dir():
+    file_name = globals().get("__file__", "")
+    if file_name:
+        return os.path.dirname(os.path.abspath(file_name))
+
+    override = os.environ.get("RENDERDOC_MCP_BRIDGE_TOOLS_DIR", "").strip()
+    if override:
+        return override
+
+    return os.path.join(os.getcwd(), "scripts", "rdc_analyzer", "tools")
+
+
+def _load_mcp_bridge_module(tools_dir):
+    bridge_path = os.path.join(tools_dir, "renderdoc_mcp_bridge.py")
+    module_name = "_renderdoc_repo_local_mcp_bridge"
+
+    try:
+        import importlib.util
+
+        spec = importlib.util.spec_from_file_location(module_name, bridge_path)
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        return module
+    except Exception:
+        import imp
+
+        return imp.load_source(module_name, bridge_path)
+
+
 def _maybe_start_mcp_bridge():
     if not os.environ.get("RENDERDOC_MCP_BRIDGE_ENABLE", "").strip():
         return None
 
-    tools_dir = os.path.dirname(os.path.abspath(__file__))
+    tools_dir = _tools_dir()
     if tools_dir not in sys.path:
         sys.path.insert(0, tools_dir)
 
-    import renderdoc_mcp_bridge
+    renderdoc_mcp_bridge = _load_mcp_bridge_module(tools_dir)
 
     bridge = renderdoc_mcp_bridge.start_bridge(pyrenderdoc)
     STATE["mcp_bridge_enabled"] = True

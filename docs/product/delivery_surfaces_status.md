@@ -50,11 +50,16 @@
 > - `mcp__codex_apps__github._merge_pull_request(repository_full_name=lizr-arch/renderdoc-ai, pr_number=2, expected_head_sha=25fd5be9dc844a59a4b10897c7b4105141dcf127, merge_method=merge, ...)`
 > - `mcp__codex_apps__github._update_ref(repository_full_name=lizr-arch/renderdoc-ai, branch_name=main, sha=25fd5be9dc844a59a4b10897c7b4105141dcf127, force=false)`
 > - `mcp__codex_apps__github._compare_commits(repo_full_name=lizr-arch/renderdoc-ai, base=e781fa0d84b4fe032e1d03bf0a11ba916a10d965, head=main)`
+> - `uv --cache-dir D:\Code\git\renderdoc\.uv-cache-codex run --python 3.11 --with pytest python -m pytest D:\Code\git\renderdoc\.codex_repos\renderdoc-a-contract-followup\tools\mcp\tests\test_snapshot_consumer.py D:\Code\git\renderdoc\.codex_repos\renderdoc-a-contract-followup\scripts\rdc_analyzer\tests\test_renderdoc_mcp_bridge.py -q` -> `17 passed`
+> - `C:\Users\lizhirui01\AppData\Local\Temp\renderdoc_a_contract_followup_smoke_20260424_final\real_rdc_gui_snapshot_smoke.summary.json`
+> - `C:\Users\lizhirui01\AppData\Local\Temp\renderdoc_a_contract_followup_smoke_20260424_final\gui_state.json`
+> - `C:\Users\lizhirui01\AppData\Local\Temp\renderdoc_a_contract_followup_smoke_20260424_final\consumer.execute.json`
+> - `C:\Users\lizhirui01\AppData\Local\Temp\renderdoc_a_contract_followup_smoke_20260424_final\manifest.json`
 > conflict_points:
-> - A 线原 `runtime-surface candidate` 之上的 `A-contract-followup` 已补 repo-local handler/source，本轮状态为 `PASS / local-unit`；真实 RDC GUI smoke 仍待运行
+> - A 线原 `runtime-surface candidate` 之上的 `A-contract-followup` 已补 repo-local handler/source，本轮状态为 `PASS / pytest-real-rdc-smoke`；正式 pytest 与真实 RDC GUI smoke 均已通过
 > - A/B 已在 merge gate worktree 合并、推送到 `renderdoc-ai/codex/lead/merge-a-b-20260424`，并通过非强制 fast-forward 更新进入 `renderdoc-ai/main`
 > - PR #2 已由 GitHub 标记为 `closed` / `merged=true`，`merge_commit_sha=25fd5be9dc844a59a4b10897c7b4105141dcf127`
-> - 本机 `gh` CLI 当前无法读取 `C:\Users\lizhirui01\AppData\Roaming\GitHub CLI\config.yml`，但 GitHub connector 已完成 PR 创建与最终 main 合流
+> - 用户目录 `gh` 配置权限未修改；本轮使用隔离 `GH_CONFIG_DIR=%TEMP%\renderdoc-gh-config-20260424` 完成认证与非强推直推
 > - D 线真机 Android 回归当前暂停
 > - 根仓 `D:\Code\git\renderdoc` 仍是控制脏树，旧 worktree 与禁入旧 A 线分支仍在本地可见
 > exceptions:
@@ -136,7 +141,7 @@
 | --- | --- | --- | --- |
 | GUI 报告 | `AnalyzerExporter::WriteAll()` 先落 `snapshot.v1.json` sidecar，再由 shared snapshot renderer 生成 HTML bundle | B candidate 已并入 merge gate 分支；merged `msbuild` 与 merged 真实 RDC GUI smoke 已通过；PR #2 已合并到 `renderdoc-ai/main@25fd5be9dc844a59a4b10897c7b4105141dcf127` | 当前 PR/main 合流 Gate 已完成；后续仅剩新一轮维护/回归 |
 | Offline 报告 | `xml_to_bundle.py --renderer-mode snapshot` -> `SnapshotTemplateRenderer` | 页集已收口到 `pipelines.html`；partial/unavailable 页面壳已存在 | 仍保留 legacy fallback，尚未完全替换旧 bundle |
-| MCP 查询 | `run_query.py` / bridge client / `snapshot_consumer.py` 消费 `mcp-query.v1` envelope | A runtime-surface 已并入 main；A-contract-followup 已补 repo-local handler/source，并通过本地 fake-context 单元验证 | 正式 pytest 环境缺失；真实 RDC GUI smoke 仍待运行 |
+| MCP 查询 | `run_query.py` / bridge client / `snapshot_consumer.py` 消费 `mcp-query.v1` envelope | A runtime-surface 已并入 main；A-contract-followup 已补 repo-local handler/source，并通过正式 pytest 与真实 RDC GUI smoke | 资源二进制 payload 的非空覆盖仍按具体 capture 数据逐项判断 |
 | Skill / AI | 消费 `snapshot.v1` 与 MCP 局部查询，不生成第二套报告 | 架构边界稳定，未在本轮新增独立实现 | 依赖 A/B 收口与后续 live probe |
 
 ## 4. 当前可信结论
@@ -232,16 +237,20 @@ MCP 需要拆成两个层次理解：
 
 本轮 `A-contract-followup` 已补 repo-local GUI handler/source，并用 fake qrenderdoc context 覆盖完整方法面。
 
+本轮可以新增宣称的，是：
+
+- 正式 pytest 已通过：`17 passed`
+- 真实 RDC GUI smoke 已通过，且 helper 成功在 qrenderdoc `--ui-python` 环境中启动 repo-local bridge
+- `snapshot_consume.py --execute` 在真实 RDC smoke 中执行补数查询，`enrichment.status=executed`，`bridge_call_count=6`
+
 当前仍不能诚实宣称的，是：
 
-- 正式 `pytest` 环境验证已完成
-- 真实 RDC GUI smoke 已覆盖完整方法面
 - `get_texture_data` / `get_buffer_contents` 在真实 capture 上已取得非空二进制 payload
 
 因此 A 线当前拆分为：
 
 - `A-runtime-surface`：已并入 main 的真实 smoke 面
-- `A-contract-followup`：本轮完成 repo-local handler/source 与本地单元验证，等待真实 RDC smoke
+- `A-contract-followup`：本轮完成 repo-local handler/source、正式 pytest 与真实 RDC smoke
 
 本期范围决策（基于本地检索，MCP unavailable）：
 
@@ -249,8 +258,10 @@ MCP 需要拆成两个层次理解：
   - candidate SHA：`8e1a159ce7c9e58839e9db21d5ba09ae84a03956`
   - live gate 证据目录：`C:\Users\lizhirui01\AppData\Local\Temp\renderdoc_a_live_gate_20260423_235000`
 - `A-contract-followup` 本轮状态：
-  - repo-local handler/source 已闭口到本地单元验证
-  - 真实 RDC GUI smoke 仍待运行
+  - repo-local handler/source 已闭口到正式 pytest
+  - 真实 RDC GUI smoke 已通过：`C:\Users\lizhirui01\AppData\Local\Temp\renderdoc_a_contract_followup_smoke_20260424_final`
+  - `real_rdc_gui_snapshot_smoke.summary.json`：`success=true`，`mcp_bridge_enabled=true`
+  - `consumer.execute.json`：`enrichment.status=executed`，`bridge_call_count=6`
 
 合流 Gate（2026-04-24，基于本地检索，MCP unavailable）：
 
@@ -369,7 +380,7 @@ PR / main Gate 刷新（2026-04-24，基于本地检索，MCP unavailable）：
 
 - B 线 GUI HTML 接线已完成 build/smoke，已并入 merge gate 分支并通过 merged smoke
 - A 线 runtime-surface 已通过 focused pytest + bounded live gate，已并入 merge gate 分支并通过 merged smoke
-- A 线更大方法集已在 `A-contract-followup` 补 repo-local handler/source，本轮达到本地单元验证
+- A 线更大方法集已在 `A-contract-followup` 补 repo-local handler/source，本轮达到正式 pytest 与真实 RDC GUI smoke 验证
 
 被掩盖的问题：
 
@@ -378,7 +389,7 @@ PR / main Gate 刷新（2026-04-24，基于本地检索，MCP unavailable）：
 退出条件：
 
 - B：已满足，且已进入 merge gate 分支并推送到远端
-- A：`runtime-surface candidate` 已进 main；`A-contract-followup` 已完成本地单元闭口，后续只剩真实 RDC GUI smoke
+- A：`runtime-surface candidate` 已进 main；`A-contract-followup` 已完成正式 pytest 与真实 RDC GUI smoke 闭口
 
 ## 6. 当前剩余工作
 
@@ -394,7 +405,8 @@ PR / main Gate 刷新（2026-04-24，基于本地检索，MCP unavailable）：
 - 本轮新增：`A-contract-followup`
   - repo-local handler/source 已补齐
   - fake-context 单元验证已覆盖完整方法面
-  - 剩余工作是真实 RDC GUI smoke 与正式 pytest 环境验证
+  - 正式 pytest 已通过
+  - 真实 RDC GUI smoke 已通过
 
 ### 6.3 B 线
 
@@ -425,7 +437,7 @@ PR / main Gate 刷新（2026-04-24，基于本地检索，MCP unavailable）：
 
 ### 7.1 P1：A-contract-followup 缺口收敛
 
-状态：`PASS / local-unit`，真实 RDC GUI smoke 仍待运行。
+状态：`PASS / pytest-real-rdc-smoke`。
 
 已确认事实（基于本地检索，MCP unavailable）：
 
@@ -453,15 +465,26 @@ PR / main Gate 刷新（2026-04-24，基于本地检索，MCP unavailable）：
 - 红灯：`py -3 .codex_repos\renderdoc-a-contract-followup\scripts\rdc_analyzer\tests\test_renderdoc_mcp_bridge.py` 初始失败于 `ModuleNotFoundError: No module named 'renderdoc_mcp_bridge'`
 - 绿灯：`py -3 .codex_repos\renderdoc-a-contract-followup\scripts\_tmp_run_mcp_bridge_tests.py`
   - `SUMMARY total=7 failures=0`
+- 正式 pytest：
+  - `$env:UV_PYTHON_INSTALL_DIR='D:\Code\git\renderdoc\.uv-python'; uv --cache-dir D:\Code\git\renderdoc\.uv-cache-codex run --python 3.11 --with pytest python -m pytest D:\Code\git\renderdoc\.codex_repos\renderdoc-a-contract-followup\tools\mcp\tests\test_snapshot_consumer.py D:\Code\git\renderdoc\.codex_repos\renderdoc-a-contract-followup\scripts\rdc_analyzer\tests\test_renderdoc_mcp_bridge.py -q`
+  - `17 passed`
 - 语法检查：`py -3 -m py_compile` 覆盖：
   - `scripts/rdc_analyzer/tools/renderdoc_mcp_bridge.py`
   - `scripts/rdc_analyzer/tools/renderdoc_gui_refresh_export.py`
   - `scripts/rdc_analyzer/tests/test_renderdoc_mcp_bridge.py`
+- 真实 RDC GUI smoke：
+  - capture：`D:\backup\EndfieldTBeta2_2025.12.18_14.36_frame42231.rdc`
+  - qrenderdoc：`D:\Code\git\renderdoc-merge-gate-20260424\x64\Development\qrenderdoc.exe`
+  - 输出目录：`C:\Users\lizhirui01\AppData\Local\Temp\renderdoc_a_contract_followup_smoke_20260424_final`
+  - `real_rdc_gui_snapshot_smoke.summary.json`：`success=true`
+  - `gui_state.json`：`phase=done`，`mcp_bridge_enabled=true`
+  - `consumer.execute.json`：`enrichment.status=executed`，`bridge_call_count=6`
+  - bundle 输出包含 `index.html`、`events.html`、`textures.html`、`shaders.html`、`pipelines.html`、`manifest.json`
 
-剩余限制：
+剩余边界：
 
-- 当前机器 `py -3 -m pytest` 解析到 Python 3.6 且未安装 pytest，未能执行正式 pytest。
-- 真实 RDC GUI smoke 未在本轮执行，不能宣称真机/真实 capture 端到端完成。
+- D 线真机 Android 回归不在本轮范围内，仍不能宣称 Android 真机端到端完成。
+- `get_texture_data` / `get_buffer_contents` 的非空二进制 payload 仍依赖具体 capture 资源与查询参数，本轮只声明契约路径、截断策略与 partial 表达通过测试覆盖。
 
 ### 7.2 P2：控制文档同步
 
@@ -502,10 +525,10 @@ PR / main Gate 刷新（2026-04-24，基于本地检索，MCP unavailable）：
 - 推送后远端确认：
   - `renderdoc-ai/main@e62e0a84f448cf4ce64ba39e7ba2cc82360e5ed0`
 
-剩余限制：
+剩余边界：
 
-- 真实 RDC GUI smoke 仍未在本轮执行。
-- 当前 `py -3` 解析到 Python 3.6 且没有 pytest；正式 pytest 仍待合适 Python/pytest 环境。
+- D 线真机 Android 回归仍未执行，不纳入本轮 P1-P3 完工宣称。
+- 本轮最终收尾提交的 SHA 以 post-push `ls-remote` 与 `git rev-parse HEAD` 为准。
 
 ## 8. 关联文档
 

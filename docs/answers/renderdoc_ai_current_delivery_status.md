@@ -25,11 +25,16 @@
 > - `mcp__codex_apps__github._merge_pull_request(repository_full_name=lizr-arch/renderdoc-ai, pr_number=2, expected_head_sha=25fd5be9dc844a59a4b10897c7b4105141dcf127, merge_method=merge, ...)`
 > - `mcp__codex_apps__github._update_ref(repository_full_name=lizr-arch/renderdoc-ai, branch_name=main, sha=25fd5be9dc844a59a4b10897c7b4105141dcf127, force=false)`
 > - `mcp__codex_apps__github._compare_commits(repo_full_name=lizr-arch/renderdoc-ai, base=e781fa0d84b4fe032e1d03bf0a11ba916a10d965, head=main)`
+> - `uv --cache-dir D:\Code\git\renderdoc\.uv-cache-codex run --python 3.11 --with pytest python -m pytest D:\Code\git\renderdoc\.codex_repos\renderdoc-a-contract-followup\tools\mcp\tests\test_snapshot_consumer.py D:\Code\git\renderdoc\.codex_repos\renderdoc-a-contract-followup\scripts\rdc_analyzer\tests\test_renderdoc_mcp_bridge.py -q` -> `17 passed`
+> - `C:\Users\lizhirui01\AppData\Local\Temp\renderdoc_a_contract_followup_smoke_20260424_final\real_rdc_gui_snapshot_smoke.summary.json`
+> - `C:\Users\lizhirui01\AppData\Local\Temp\renderdoc_a_contract_followup_smoke_20260424_final\gui_state.json`
+> - `C:\Users\lizhirui01\AppData\Local\Temp\renderdoc_a_contract_followup_smoke_20260424_final\consumer.execute.json`
+> - `C:\Users\lizhirui01\AppData\Local\Temp\renderdoc_a_contract_followup_smoke_20260424_final\manifest.json`
 > conflict_points:
-> - A 线原 `runtime-surface candidate` 已进 main；本轮 `A-contract-followup` 已补 repo-local handler/source，并达到本地单元验证
+> - A 线原 `runtime-surface candidate` 已进 main；本轮 `A-contract-followup` 已补 repo-local handler/source，并达到正式 pytest 与真实 RDC GUI smoke 验证
 > - A/B 已合流到 `codex/lead/merge-a-b-20260424`、推送到 `renderdoc-ai`，并进入 `renderdoc-ai/main@25fd5be9dc844a59a4b10897c7b4105141dcf127`
 > - PR #2 已 `closed` / `merged=true`，`merge_commit_sha=25fd5be9dc844a59a4b10897c7b4105141dcf127`
-> - 本机 `gh` CLI 当前因 `C:\Users\lizhirui01\AppData\Roaming\GitHub CLI\config.yml` 权限失败；PR/GitHub/main 合流已改用 GitHub connector 完成
+> - 用户目录 `gh` 配置权限未修改；本轮使用隔离 `GH_CONFIG_DIR=%TEMP%\renderdoc-gh-config-20260424` 完成认证与非强推直推
 > - ready-for-review connector 曾因 GraphQL `htmlUrl` 字段错误失败；最终采用 `force=false` fast-forward 更新 `main`
 > - 根仓 `D:\Code\git\renderdoc` 仍是控制脏树，旧 worktree 仍在本地
 > lineage_status: manual-promotion
@@ -50,6 +55,8 @@
   - A 线 bounded live gate 已通过：`get_capture_status.ok=true`、`get_frame_summary.ok=true`、`snapshot_consume --execute` 为 `executed`
   - A 线 `A-contract-followup` 已补 repo-local `mcp-query.v1` bridge handler/source
   - A 线 fake-context 单元验证已覆盖 Capture / Actions / Timings / Search / Pipeline / Resources 方法面
+  - A 线正式 pytest 已通过：`17 passed`
+  - A 线真实 RDC GUI smoke 已通过：`success=true`、`mcp_bridge_enabled=true`、`enrichment.status=executed`
   - B 线 shared snapshot renderer 页集收口到 `pipelines.html`
   - B 线 GUI exporter 已接上 `snapshot.v1.json -> render_snapshot_bundle.py -> SnapshotTemplateRenderer`
   - B 线 `qrenderdoc_local.vcxproj` focused `msbuild` 已通过
@@ -65,9 +72,8 @@
   - `renderdoc-ai/main` 已通过 `force=false` fast-forward 进入 `25fd5be9dc844a59a4b10897c7b4105141dcf127`
   - GitHub compare 显示新 `main` 相对旧基线 `e781fa0d84b4fe032e1d03bf0a11ba916a10d965` 为 `ahead_by=4`、`behind_by=0`、`changed_files=7`
 - 未完成：
-  - A 线 `A-contract-followup` 真实 RDC GUI smoke 仍未执行
-  - 本机正式 pytest 环境仍不可用
   - D 线真机 Android 回归当前暂停
+  - `get_texture_data` / `get_buffer_contents` 的真实非空二进制 payload 仍依赖具体 capture 数据与查询参数，本轮只声明契约路径、截断策略与 partial 表达完成
 - 控制面现状：
   - 当前只应继续在 `D:\Code\git\renderdoc-a-gap-closure` 与 `D:\Code\git\renderdoc-b-gap-closure` 上推进实现
   - 当前候选 SHA：
@@ -144,7 +150,7 @@
 
 当前结论：
 
-- P1：`A-contract-followup` 已完成 repo-local handler/source 的本地单元闭口，状态为 `PASS / local-unit`。新增 `scripts/rdc_analyzer/tools/renderdoc_mcp_bridge.py`，并由 `renderdoc_gui_refresh_export.py` 在 `RENDERDOC_MCP_BRIDGE_ENABLE=1` 时启动 file-IPC bridge。完整 `mcp-query.v1` 方法面已覆盖 Capture / Actions / Timings / Search / Pipeline / Resources；不可用字段返回 `partial`，不伪造完整数据。
+- P1：`A-contract-followup` 已完成 repo-local handler/source、正式 pytest 与真实 RDC GUI smoke 闭口，状态为 `PASS / pytest-real-rdc-smoke`。新增 `scripts/rdc_analyzer/tools/renderdoc_mcp_bridge.py`，并由 `renderdoc_gui_refresh_export.py` 在 `RENDERDOC_MCP_BRIDGE_ENABLE=1` 时启动 file-IPC bridge。完整 `mcp-query.v1` 方法面已覆盖 Capture / Actions / Timings / Search / Pipeline / Resources；不可用字段返回 `partial`，不伪造完整数据。
 - P2：控制文档同步为 `PASS / isolated-worktree`。根仓 `D:\Code\git\renderdoc` 仍是控制/文档脏树，不作为业务实现面；本轮实现落在 `D:\Code\git\renderdoc\.codex_repos\renderdoc-a-contract-followup`，只纳入 `docs/product/delivery_surfaces_status.md` 与本文件。
 - P3：GitHub / gh 工具链为 `PASS / pushed-main`。本轮不修改用户目录 `gh` 配置权限；隔离 `GH_CONFIG_DIR=%TEMP%\renderdoc-gh-config-20260424` 下 `gh` 已登录，远端只读检查通过，候选以非强推方式推送到 `renderdoc-ai/main@e62e0a84f448cf4ce64ba39e7ba2cc82360e5ed0`。
 
@@ -152,7 +158,12 @@
 
 - P1 红灯：`py -3 .codex_repos\renderdoc-a-contract-followup\scripts\rdc_analyzer\tests\test_renderdoc_mcp_bridge.py` 初始失败于 `ModuleNotFoundError: No module named 'renderdoc_mcp_bridge'`
 - P1 绿灯：`py -3 .codex_repos\renderdoc-a-contract-followup\scripts\_tmp_run_mcp_bridge_tests.py` -> `SUMMARY total=7 failures=0`
+- P1 正式 pytest：`$env:UV_PYTHON_INSTALL_DIR='D:\Code\git\renderdoc\.uv-python'; uv --cache-dir D:\Code\git\renderdoc\.uv-cache-codex run --python 3.11 --with pytest python -m pytest D:\Code\git\renderdoc\.codex_repos\renderdoc-a-contract-followup\tools\mcp\tests\test_snapshot_consumer.py D:\Code\git\renderdoc\.codex_repos\renderdoc-a-contract-followup\scripts\rdc_analyzer\tests\test_renderdoc_mcp_bridge.py -q` -> `17 passed`
 - P1 语法：`py -3 -m py_compile ...renderdoc_mcp_bridge.py ...renderdoc_gui_refresh_export.py ...test_renderdoc_mcp_bridge.py`
+- P1 真实 RDC GUI smoke：`C:\Users\lizhirui01\AppData\Local\Temp\renderdoc_a_contract_followup_smoke_20260424_final\real_rdc_gui_snapshot_smoke.summary.json` -> `success=true`
+- P1 bridge 状态：`gui_state.json` -> `phase=done`、`mcp_bridge_enabled=true`
+- P1 MCP 消费：`consumer.execute.json` -> `enrichment.status=executed`、`bridge_call_count=6`
+- P1 bundle 输出：`manifest.json` 与输出目录包含 `index.html`、`events.html`、`textures.html`、`shaders.html`、`pipelines.html`
 - P2 基线：`git -C .codex_repos\renderdoc-a-contract-followup rev-parse HEAD`
 - P2 禁入检查：`git -C .codex_repos\renderdoc-a-contract-followup merge-base --is-ancestor d66d0f73b68596c7bc6e656b072ac93ff172f80c HEAD`，期望等价于 `banned ancestor: no`
 - P3 gh：`$env:GH_CONFIG_DIR="$env:TEMP\renderdoc-gh-config-20260424"; gh --version; gh auth status --hostname github.com`
@@ -162,6 +173,6 @@
 
 下一步：
 
-- 运行正式 `pytest` 需要可用的 pytest 环境；当前 `py -3` 解析到 Python 3.6 且未安装 pytest。
-- 真实 RDC GUI smoke 仍需在可用 qrenderdoc/捕获环境中执行，完成前不能宣称真实 capture 端到端验收。
-- `renderdoc-ai/main` 已更新到 `e62e0a84f448cf4ce64ba39e7ba2cc82360e5ed0`；真实 RDC GUI smoke 与正式 pytest 仍是后续验证项。
+- 提交并推送本次 qrenderdoc `--ui-python` bridge 加载兼容修复与本文档状态刷新。
+- push 后用 `ls-remote` 确认 `renderdoc-ai/main` 等于新的 HEAD。
+- D 线真机 Android 回归仍是独立后续项，不纳入本轮 P1-P3 完工宣称。
