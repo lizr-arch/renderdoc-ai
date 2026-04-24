@@ -680,10 +680,12 @@ def classify_mcp_error(message: str) -> str:
         return "capture_not_loaded"
     if "invalid argument" in text or ("invalid" in text and "param" in text):
         return "invalid_argument"
+    if "method_not_found" in text or "unknown mcp method" in text or "unknown method" in text:
+        return "method_not_found"
     if "not found" in text:
         return "not_found"
-    if "unsupported" in text:
-        return "unsupported_api"
+    if "api_not_supported" in text or "unsupported" in text:
+        return "api_not_supported"
     if "timeout" in text or "timed out" in text:
         return "timeout"
     return "internal_error"
@@ -705,9 +707,11 @@ def recovery_hint_for_error(
         return "Open a capture in qrenderdoc, then retry the detail query."
     if code == "invalid_argument":
         return "Check query params and retry."
+    if code == "method_not_found":
+        return "Verify the MCP method name and retry."
     if code == "not_found":
         return "Verify event/resource identifiers and retry."
-    if code == "unsupported_api":
+    if code in ("unsupported_api", "api_not_supported"):
         return "Current API/driver does not expose this field. Keep the snapshot gap and continue with other evidence."
     if code == "timeout":
         state = bridge_state or inspect_bridge_state()

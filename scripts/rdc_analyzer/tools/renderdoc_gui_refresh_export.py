@@ -17,6 +17,7 @@ workflow synchronously:
 
 import json
 import os
+import sys
 import time
 
 
@@ -45,6 +46,8 @@ STATE = {
     "capture_filename": "",
     "viewer_present": False,
     "refresh_called": False,
+    "mcp_bridge_enabled": False,
+    "mcp_bridge_ipc_dir": "",
     "replay_processing_seconds": 0.0,
     "export_files": {},
     "error": "",
@@ -94,6 +97,23 @@ def _record_exports():
         STATE["replay_processing_seconds"] = float(pyrenderdoc.Replay().GetCurrentProcessingTime())
     except Exception:
         STATE["replay_processing_seconds"] = 0.0
+
+
+def _maybe_start_mcp_bridge():
+    if not os.environ.get("RENDERDOC_MCP_BRIDGE_ENABLE", "").strip():
+        return None
+
+    tools_dir = os.path.dirname(os.path.abspath(__file__))
+    if tools_dir not in sys.path:
+        sys.path.insert(0, tools_dir)
+
+    import renderdoc_mcp_bridge
+
+    bridge = renderdoc_mcp_bridge.start_bridge(pyrenderdoc)
+    STATE["mcp_bridge_enabled"] = True
+    STATE["mcp_bridge_ipc_dir"] = bridge.ipc_dir
+    _note("repo-local MCP bridge enabled at %s" % bridge.ipc_dir)
+    return bridge
 
 
 def _wait_for_capture_loaded(timeout_seconds):
@@ -161,6 +181,7 @@ def _run():
     viewer_wait = float(os.environ.get("RDC_REAL_SMOKE_VIEWER_WAIT_SECONDS", "120"))
     export_wait = float(os.environ.get("RDC_REAL_SMOKE_EXPORT_WAIT_SECONDS", "600"))
 
+    _maybe_start_mcp_bridge()
     _wait_for_capture_loaded(capture_wait)
     viewer = _wait_for_viewer(viewer_wait)
     if viewer is None:
