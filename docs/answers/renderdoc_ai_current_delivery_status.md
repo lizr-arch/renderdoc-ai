@@ -146,7 +146,7 @@
 
 - P1：`A-contract-followup` 已完成 repo-local handler/source 的本地单元闭口，状态为 `PASS / local-unit`。新增 `scripts/rdc_analyzer/tools/renderdoc_mcp_bridge.py`，并由 `renderdoc_gui_refresh_export.py` 在 `RENDERDOC_MCP_BRIDGE_ENABLE=1` 时启动 file-IPC bridge。完整 `mcp-query.v1` 方法面已覆盖 Capture / Actions / Timings / Search / Pipeline / Resources；不可用字段返回 `partial`，不伪造完整数据。
 - P2：控制文档同步为 `PASS / isolated-worktree`。根仓 `D:\Code\git\renderdoc` 仍是控制/文档脏树，不作为业务实现面；本轮实现落在 `D:\Code\git\renderdoc\.codex_repos\renderdoc-a-contract-followup`，只纳入 `docs/product/delivery_surfaces_status.md` 与本文件。
-- P3：GitHub / gh 工具链为 `BLOCKED / network-auth`。本轮不修改用户目录 `gh` 配置权限；隔离 `GH_CONFIG_DIR=%TEMP%\renderdoc-gh-config-20260424` 下 `gh` 可启动但未登录，且 `git ls-remote renderdoc-ai` 仍失败于 `Failed to connect to github.com port 443`，所以未 push。
+- P3：GitHub / gh 工具链为 `PASS / pushed-main`。本轮不修改用户目录 `gh` 配置权限；隔离 `GH_CONFIG_DIR=%TEMP%\renderdoc-gh-config-20260424` 下 `gh` 已登录，远端只读检查通过，候选以非强推方式推送到 `renderdoc-ai/main@e62e0a84f448cf4ce64ba39e7ba2cc82360e5ed0`。
 
 命令证据（基于本地检索，MCP unavailable）：
 
@@ -157,9 +157,11 @@
 - P2 禁入检查：`git -C .codex_repos\renderdoc-a-contract-followup merge-base --is-ancestor d66d0f73b68596c7bc6e656b072ac93ff172f80c HEAD`，期望等价于 `banned ancestor: no`
 - P3 gh：`$env:GH_CONFIG_DIR="$env:TEMP\renderdoc-gh-config-20260424"; gh --version; gh auth status --hostname github.com`
 - P3 remote：`git -C .codex_repos\renderdoc-a-contract-followup ls-remote renderdoc-ai refs/heads/main refs/heads/codex/integration/renderdoc-ai-20260311`
+- P3 push：`$env:GH_CONFIG_DIR = Join-Path $env:TEMP 'renderdoc-gh-config-20260424'; git -C .codex_repos\renderdoc-a-contract-followup -c credential.helper='!gh auth git-credential' push renderdoc-ai HEAD:main`
+- P3 post-push：`git -C .codex_repos\renderdoc-a-contract-followup ls-remote renderdoc-ai refs/heads/main refs/heads/codex/integration/renderdoc-ai-20260311`
 
 下一步：
 
 - 运行正式 `pytest` 需要可用的 pytest 环境；当前 `py -3` 解析到 Python 3.6 且未安装 pytest。
 - 真实 RDC GUI smoke 仍需在可用 qrenderdoc/捕获环境中执行，完成前不能宣称真实 capture 端到端验收。
-- 推送 main 前必须重新验证远端可达、fast-forward、禁入提交未进入候选历史；本轮已因网络不可达停在 push 前。
+- `renderdoc-ai/main` 已更新到 `e62e0a84f448cf4ce64ba39e7ba2cc82360e5ed0`；真实 RDC GUI smoke 与正式 pytest 仍是后续验证项。
