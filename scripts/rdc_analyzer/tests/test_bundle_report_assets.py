@@ -9,6 +9,7 @@ Bundle 报告资源验证
 """
 
 import re
+import json
 import sys
 from pathlib import Path
 
@@ -32,6 +33,18 @@ def test_texture_thumbnail_path(tmp_path):
     outputs = gen.generate_all()
     html = Path(outputs["textures"]).read_text(encoding="utf-8")
     assert "textures/tex_1_1x1.png" in html
+
+
+def test_generate_all_emits_events_page(tmp_path):
+    gen = ReportBundleGenerator(output_dir=tmp_path, capture_name="t.rdc")
+    outputs = gen.generate_all()
+
+    assert "events" in outputs
+    assert Path(outputs["events"]).name == "events.html"
+    assert (tmp_path / "events.html").exists()
+
+    manifest = json.loads((tmp_path / "manifest.json").read_text(encoding="utf-8"))
+    assert manifest["pages"]["events"] == "events.html"
 
 
 def test_map_exported_textures_sets_thumbnail(tmp_path):

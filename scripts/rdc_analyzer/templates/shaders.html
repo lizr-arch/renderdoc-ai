@@ -1259,6 +1259,7 @@
                     
                     <div class="toolbar-group primary-actions">
                         <button class="toolbar-btn primary" id="hlslBtn" title="查看 HLSL 代码">查看 HLSL 代码</button>
+                        <button class="toolbar-btn secondary" id="aiOptimizeBtn" title="AI Shader 优化">AI Shader 优化</button>
                         <span class="mode-badge" id="codeModeBadge" data-state="idle">HLSL OFF</span>
                     </div>
                     
@@ -1418,6 +1419,7 @@
         let currentShader = null;
         let currentFilter = 'all';
         let hlslViewEnabled = false;
+        let aiOptimizeEnabled = false;
         let currentGpu = 'Mali-G78';
         let selectedShaderId = null;
         let currentPage = 1;
@@ -1896,6 +1898,7 @@
             updateShaderInfo(shader);
             updateUsageList(shader);
             updateSuggestions(shader);
+            updateAiModeUI();
             updateShaderPanelSummary();
         }
 
@@ -1970,6 +1973,28 @@
             if (!currentShader) return;
             hlslViewEnabled = true;
             updateCodeViewer(currentShader);
+        }
+
+        function updateAiModeUI() {
+            const banner = document.getElementById('analysisModeBanner');
+            const aiBtn = document.getElementById('aiOptimizeBtn');
+            if (aiBtn) {
+                aiBtn.classList.toggle('active', aiOptimizeEnabled);
+                aiBtn.textContent = aiOptimizeEnabled ? 'AI 模式 ON' : 'AI Shader 优化';
+            }
+            if (!banner) return;
+            if (aiOptimizeEnabled) {
+                banner.dataset.state = 'active';
+                banner.textContent = 'AI 模式：优先显示 Shader 优化建议、Mali 瓶颈与使用证据。';
+            } else {
+                banner.dataset.state = 'idle';
+                banner.textContent = '标准模式：完整性能面板（可查看 Mali + 建议 + 使用情况）';
+            }
+        }
+
+        function toggleAiOptimize() {
+            aiOptimizeEnabled = !aiOptimizeEnabled;
+            updateAiModeUI();
         }
 
         function highlightCode(code) {
@@ -2403,6 +2428,12 @@
             if (hlslBtn) {
                 hlslBtn.addEventListener('click', showHlsl);
             }
+
+            const aiBtn = document.getElementById('aiOptimizeBtn');
+            if (aiBtn) {
+                aiBtn.addEventListener('click', toggleAiOptimize);
+            }
+            updateAiModeUI();
 
         });
     </script>

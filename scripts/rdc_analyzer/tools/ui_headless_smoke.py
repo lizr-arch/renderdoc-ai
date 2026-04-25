@@ -88,6 +88,12 @@ def _pick_search_key(*candidates: str) -> str:
     return ''
 
 
+def _large_filter_check_passes(large_candidate_count: int, visible_large_filter_count: int) -> bool:
+    if large_candidate_count <= 0:
+        return visible_large_filter_count == 0
+    return visible_large_filter_count > 0
+
+
 def run_smoke(
     report_dir: Path,
     out_dir: Path,
@@ -143,6 +149,14 @@ def run_smoke(
             page.click(".filter-chip[data-filter='large']")
             page.wait_for_timeout(120)
             textures_visible_large_filter = _visible_count(page, ".texture-item")
+            textures_large_candidate_count = page.locator(".texture-item").evaluate_all(
+                """
+                items => items.filter(item => {
+                    const width = parseInt(item.dataset.width || '0', 10) || 0;
+                    return width >= 2048;
+                }).length
+                """
+            )
 
             page.click(".filter-chip[data-filter='all']")
             page.wait_for_timeout(80)
@@ -262,7 +276,10 @@ def run_smoke(
             checks = {
                 "textures_has_items": textures_total > 0,
                 "textures_search_effective": 0 < textures_visible_after_search <= textures_visible_before,
-                "textures_large_filter_effective": textures_visible_large_filter > 0,
+                "textures_large_filter_effective": _large_filter_check_passes(
+                    textures_large_candidate_count,
+                    textures_visible_large_filter,
+                ),
                 "textures_list_scrollable": list_scroll["scrollHeight"] > list_scroll["clientHeight"],
                 "textures_selection_updates_property": textures_selected_prop_id not in ("", "-"),
                 "shaders_has_items": has_shader_data or shaders_empty_ok,

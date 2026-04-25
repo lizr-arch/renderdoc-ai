@@ -466,3 +466,39 @@ class TestCLI:
         payload = json.loads((tmp_path / "canonical.diff.json").read_text(encoding="utf-8"))
         assert payload["input"]["baseline_kind"] == "canonical.v1"
         assert payload["ci"]["status"] == "pass"
+
+    def test_package_cli_compare_writes_json_and_junit(self, snapshot_baseline_file, snapshot_target_file, tmp_path):
+        from rdc_analyzer.__main__ import main as package_main
+
+        output_json = tmp_path / "pkg.diff.json"
+        output_junit = tmp_path / "pkg.junit.xml"
+        old_argv = sys.argv
+
+        try:
+            sys.argv = [
+                "rdc_analyzer",
+                "compare",
+                snapshot_baseline_file,
+                snapshot_target_file,
+                "--json",
+                str(output_json),
+                "--junit-xml",
+                str(output_junit),
+                "-q",
+            ]
+            result = package_main()
+        finally:
+            sys.argv = old_argv
+
+        assert result == 2
+        assert output_json.exists()
+        assert output_junit.exists()
+
+        payload = json.loads(output_json.read_text(encoding="utf-8"))
+        assert payload["input"]["compat_mode"] == "snapshot_aliases"
+        assert payload["ci"]["status"] == "critical"
+        assert payload["ci"]["exit_code"] == 2
+
+        junit_text = output_junit.read_text(encoding="utf-8")
+        assert "<testsuite" in junit_text
+        assert "<failure" in junit_text

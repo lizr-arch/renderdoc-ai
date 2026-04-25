@@ -1542,6 +1542,7 @@ class ReportBundleGenerator:
             },
             "pages": {
                 "index": "index.html",
+                "events": "events.html",
                 "textures": "textures.html",
                 "shaders": "shaders.html",
                 "recommendations": "recommendations.html"
@@ -1579,29 +1580,36 @@ class ReportBundleGenerator:
         textures_path.write_text(textures_html, encoding="utf-8")
         output_files["textures"] = str(textures_path)
         print(f"  [OK] Generated: {textures_path.name}")
-        
-        # 3. 生成 shaders.html
+
+        # 3. 生成 events.html
+        events_html = self.generate_events()
+        events_path = self.output_dir / "events.html"
+        events_path.write_text(events_html, encoding="utf-8")
+        output_files["events"] = str(events_path)
+        print(f"  [OK] Generated: {events_path.name}")
+
+        # 4. 生成 shaders.html
         shaders_html = self.generate_shaders()
         shaders_path = self.output_dir / "shaders.html"
         shaders_path.write_text(shaders_html, encoding="utf-8")
         output_files["shaders"] = str(shaders_path)
         print(f"  [OK] Generated: {shaders_path.name}")
-        
-        # 4. 生成 recommendations.html (优化建议专页)
+
+        # 5. 生成 recommendations.html (优化建议专页)
         recommendations_html = self.generate_recommendations()
         recommendations_path = self.output_dir / "recommendations.html"
         recommendations_path.write_text(recommendations_html, encoding="utf-8")
         output_files["recommendations"] = str(recommendations_path)
         print(f"  [OK] Generated: {recommendations_path.name}")
-        
-        # 5. 生成 manifest.json
+
+        # 6. 生成 manifest.json
         manifest = self.generate_manifest()
         manifest_path = self.output_dir / "manifest.json"
         manifest_path.write_text(json.dumps(manifest, indent=2, ensure_ascii=False), encoding="utf-8")
         output_files["manifest"] = str(manifest_path)
         print(f"  [OK] Generated: {manifest_path.name}")
-        
-        # 5.5 生成 resource_usage.json（资源使用索引，证据链数据基础）
+
+        # 6.5 生成 resource_usage.json（资源使用索引，证据链数据基础）
         if self.resource_usage_index:
             usage_path = self.output_dir / "resource_usage.json"
             usage_path.write_text(json.dumps(self.resource_usage_index, indent=2, ensure_ascii=False), encoding="utf-8")

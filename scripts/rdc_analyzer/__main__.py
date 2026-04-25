@@ -770,13 +770,18 @@ def cmd_compare(args):
     # 导入对比模块
     try:
         from .compare_rdc import (
-            load_json_data,
             run_comparison,
+            build_ci_verdict,
             export_html_report,
             export_json_diff,
+            export_junit_report,
             print_summary,
+            DEFAULT_RULES,
+            RegressionRuleId,
+            DiffHTMLConfig,
+            JUnitXMLExporter,
+            RegressionSeverity,
         )
-        from .diff import RegressionRuleId, DiffHTMLConfig
     except ImportError as e:
         print(f"[!] 错误: 无法导入对比模块: {e}")
         return 1
@@ -807,6 +812,8 @@ def cmd_compare(args):
             RegressionRuleId.REG004: args.buffer_mem_threshold * 100,
             RegressionRuleId.REG005: args.triangle_threshold * 100,
         }
+        rule_thresholds = {rule_id: rule.threshold for rule_id, rule in DEFAULT_RULES.items()}
+        rule_thresholds.update(custom_thresholds)
         
         # 执行对比
         if not args.quiet:
@@ -819,6 +826,16 @@ def cmd_compare(args):
             target_name=target_path.name,
             custom_thresholds=custom_thresholds,
             align_strategy=args.align_strategy
+        )
+
+        ci_verdict = build_ci_verdict(
+            diff_result=diff_result,
+            regression_report=regression_report,
+            baseline_data=baseline_data,
+            target_data=target_data,
+            rule_thresholds=rule_thresholds,
+            texture_mem_threshold=args.texture_mem_threshold,
+            buffer_mem_threshold=args.buffer_mem_threshold,
         )
         
         # 确定输出路径
@@ -846,33 +863,31 @@ def cmd_compare(args):
                 print(f"[+] HTML 报告: {html_path}")
         
         if json_output:
-            json_path = export_json_diff(diff_result, regression_report, json_output)
+            json_path = export_json_diff(
+                diff_result,
+                regression_report,
+                json_output,
+                baseline_data,
+                target_data,
+                ci_verdict,
+            )
             output_files.append(json_path)
             if not args.quiet:
                 print(f"[+] JSON 差异: {json_path}")
         
         # JUnit XML 输出 (CI 集成)
         if args.junit_xml:
-            from .diff import JUnitXMLExporter, export_junit_xml
-            
-            junit_path = export_junit_xml(
-                diff_result,
-                regression_report,
-                args.junit_xml,
-                suite_name="RDC Regression Tests"
-            )
+            junit_path = export_junit_report(diff_result, regression_report, args.junit_xml)
             output_files.append(junit_path)
             if not args.quiet:
                 print(f"[+] JUnit XML: {junit_path}")
-        
+
         # 打印摘要
         if not args.quiet:
-            print_summary(diff_result, regression_report)
-        
+            print_summary(diff_result, regression_report, ci_verdict)
+
         # 返回值（CI 模式）
         if args.fail_on_regression:
-            from .diff import JUnitXMLExporter, RegressionSeverity
-            
             # 根据 --fail-threshold 确定失败条件
             threshold_map = {
                 "low": [RegressionSeverity.LOW, RegressionSeverity.MEDIUM, 
@@ -898,13 +913,7 @@ def cmd_compare(args):
             else:
                 return JUnitXMLExporter.EXIT_SUCCESS
         else:
-            # 传统模式：根据回归情况返回
-            if regression_report.has_critical:
-                return 2
-            elif regression_report.has_warning:
-                return 1
-            else:
-                return 0
+            return ci_verdict.exit_code
             
     except FileNotFoundError as e:
         print(f"[!] 错误: {e}")
