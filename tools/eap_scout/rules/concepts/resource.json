@@ -1,0 +1,52 @@
+{
+  "concepts": {
+    "texture": {
+      "keywords": [
+        "Texture",
+        "Texture2D",
+        "CreateTexture",
+        "RenderTarget",
+        "DepthStencil",
+        "SRV",
+        "UAV"
+      ],
+      "patterns": [
+        {
+          "name": "texture creation",
+          "regex": "\\b(CreateTexture|Texture2D|RenderTarget|DepthStencil)\\b"
+        }
+      ],
+      "path_hints": [
+        "Texture",
+        "RenderTarget",
+        "Resource"
+      ],
+      "reason": "Texture/render-target resource code was found.",
+      "risk": "Transient render graph textures may alias physical resources.",
+      "recommended_eap_usage": "Candidate for object annotations and `eap.resource.*` texture fields."
+    },
+    "buffer": {
+      "keywords": [
+        "Buffer",
+        "CreateBuffer",
+        "VertexBuffer",
+        "IndexBuffer",
+        "UniformBuffer",
+        "StructuredBuffer"
+      ],
+      "patterns": [
+        {
+          "name": "buffer creation",
+          "regex": "\\b(CreateBuffer|VertexBuffer|IndexBuffer|UniformBuffer|StructuredBuffer)\\b"
+        }
+      ],
+      "path_hints": [
+        "Buffer",
+        "Resource"
+      ],
+      "reason": "Buffer resource code was found.",
+      "risk": "Buffer subranges may need separate sidecar mapping.",
+      "recommended_eap_usage": "Candidate for object annotations and buffer ownership metadata."
+    }
+  }
+}

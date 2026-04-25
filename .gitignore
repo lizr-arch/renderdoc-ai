@@ -108,3 +108,15 @@ tests/conftest_local.py
 /scripts/rdc_analyzer/test_output_orchestrator_m1/
 /scripts/rdc_analyzer/ui_extension/*.log
 /demo_report_for_review/
+
+# Local review/export artifacts (root workspace hygiene)
+/scripts/rdc_analyzer/test_output*/
+/attachments
+/attachments/
+/mali_analysis_report.html
+/rdc_manifest.json
+/report_links.json
+/plans/_tmp*
+/vk*
+/Image
+/0

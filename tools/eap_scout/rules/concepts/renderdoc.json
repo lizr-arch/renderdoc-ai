@@ -1,0 +1,33 @@
+{
+  "concept": "renderdoc_integration",
+  "keywords": [
+    "renderdoc_app.h",
+    "RENDERDOC_GetAPI",
+    "renderdoc.dll",
+    "librenderdoc.so",
+    "libVkLayer_GLES_RenderDoc.so",
+    "StartFrameCapture",
+    "EndFrameCapture",
+    "IsFrameCapturing",
+    "SetObjectAnnotation",
+    "SetCommandAnnotation"
+  ],
+  "patterns": [
+    {
+      "name": "renderdoc api lookup",
+      "regex": "\\b(RENDERDOC_GetAPI|pRENDERDOC_GetAPI|renderdoc_app\\.h)\\b"
+    },
+    {
+      "name": "renderdoc library",
+      "regex": "renderdoc\\.(dll|so|dylib)|libVkLayer_GLES_RenderDoc\\.so"
+    }
+  ],
+  "path_hints": [
+    "renderdoc_app.h",
+    "RenderDoc",
+    "renderdoc"
+  ],
+  "reason": "Existing RenderDoc app API integration or bridge-like code was found.",
+  "risk": "Existing RenderDoc code might be tooling-side, not engine-side; verify owner before modifying.",
+  "recommended_eap_usage": "Potential source or insertion point for RenderDocBridge MVP."
+}

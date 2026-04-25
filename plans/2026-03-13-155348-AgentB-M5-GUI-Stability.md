@@ -27,6 +27,9 @@
 - `snapshot.v1` 契约仍在与离线路径对齐阶段，GUI 线不能自行扩展 `pipelines[]` 字段面。
 - 当前轮未获构建授权，验证将以代码级静态检查为主。
 - 已定位 `git.exe`：`D:\Program Files\Git\cmd\git.exe`。
+- 默认输出路径 `D:\Code\git\renderdoc-agentb-r3\x64\Development\qrenderdoc.exe` 不存在可复用二进制；在未获构建授权前无法执行 GUI export smoke。
+- 基线仓库已跟踪 `test_output/demo_bundle/*` 资产；本轮未新增或修改该类文件，且该目录不在本任务允许写入边界内。
+- `scripts/rdc_analyzer/test_captures/test_game.rdc` 当前仅 3 字节，无法作为有效回放输入；若无额外有效 `.rdc` 样本，GUI export smoke 无法完成。
 
 ## Verification / Acceptance
 
@@ -44,3 +47,10 @@
 - 2026-03-13 16:00:10：在 `AnalyzerExporter.cpp` 添加注释，固定 `analysis.json` 为兼容 sidecar，不参与 `snapshot.v1` 事实生成。
 - 2026-03-13 16:01:05：执行 `clang-format -i` 格式化 `AnalyzerSnapshotAdapter.cpp` 与 `AnalyzerExporter.cpp`。
 - 2026-03-13 16:02:51：完成代码级验证；本轮未执行构建，仅静态验证导出链与字段口径。
+- 2026-03-14 18:11:44：执行 `git status`、`git diff renderdoc-ai/main...HEAD` 与 `rg` 静态回归检查，确认 `availability.missing_fields` 与 `preflight.missing_data` 继续共享 `BuildGlobalMissingFieldPaths()`，`snapshot.v1` 仍由 `AnalyzerSnapshotAdapter::ToSnapshotV1(...)` 直接生成。
+- 2026-03-14 18:11:44：确认 `AnalyzerSnapshotAdapter.cpp` 中不存在 `action[lit("pipeline_ref")]` 写出，且 `root[lit("pipelines")] = QJsonArray();` 仍保持空 `pipelines[]` 导出，不会生成悬空 `actions[].pipeline_ref`。
+- 2026-03-14 18:11:44：检查 `D:\Code\git\renderdoc-agentb-r3\x64\Development\qrenderdoc.exe` 与仓库内 `qrenderdoc.exe` 产物，结果均不存在；在未获构建授权前将 GUI export smoke 记录为 blocker。
+- 2026-03-14 18:11:44：执行 `git ls-files | rg -n "test_output|test-output|testoutput"`，发现基线已跟踪 `test_output/demo_bundle/*`；本轮未新增或修改任何 `test_output` 文件。
+- 2026-03-14 20:01:03：使用 `E:\Program Files\Microsoft Visual Studio\2022\Community\MSBuild\Current\Bin\MSBuild.exe` 执行 `msbuild renderdoc.sln /p:Configuration=Development /p:Platform=x64`，结果成功（0 warning / 0 error），产出 `D:\Code\git\renderdoc-agentb-r3\x64\Development\qrenderdoc.exe`。
+- 2026-03-14 20:01:03：基于 `RENDERDOC_ANALYZER_AUTO_EXPORT_DIR` + `RENDERDOC_ANALYZER_AUTO_EXPORT_EXIT=1` + `--ui-python` 触发自动导出 smoke；导出目录仅生成 `ui_smoke.py`，未生成 `snapshot.v1.json`。
+- 2026-03-14 20:01:03：定位阻塞原因为 `D:\Code\git\renderdoc-agentb-r3\scripts\rdc_analyzer\test_captures\test_game.rdc` 文件长度仅 3 字节，非有效 capture；在 `D:\Code\git` 范围内检索到的 `.rdc` 样本均为同名占位文件。

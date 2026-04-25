@@ -1,0 +1,30 @@
+{
+  "concept": "gpu_marker",
+  "keywords": [
+    "BeginGpuMarker",
+    "EndGpuMarker",
+    "PushGpuMarker",
+    "PopGpuMarker",
+    "BeginEvent",
+    "EndEvent",
+    "SetMarker",
+    "PIXBeginEvent",
+    "vkCmdBeginDebugUtilsLabelEXT",
+    "glPushDebugGroup"
+  ],
+  "patterns": [
+    {
+      "name": "gpu marker wrapper",
+      "regex": "\\b(Begin|End|Push|Pop|Set).*(Gpu|GPU|Debug|Marker|Event|Label)\\b"
+    }
+  ],
+  "path_hints": [
+    "Marker",
+    "Profiler",
+    "Debug",
+    "Annotation"
+  ],
+  "reason": "GPU marker/profiler annotation code was found.",
+  "risk": "Marker wrappers may be compiled out or string-only; EAP needs typed annotation support.",
+  "recommended_eap_usage": "Best first hook owner for pass and draw command annotations."
+}

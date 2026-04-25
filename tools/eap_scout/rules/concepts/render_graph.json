@@ -1,0 +1,26 @@
+{
+  "concept": "render_graph",
+  "keywords": [
+    "RenderGraph",
+    "FrameGraph",
+    "AddPass",
+    "ExecutePass",
+    "RenderPass",
+    "PassBuilder",
+    "GraphBuilder"
+  ],
+  "patterns": [
+    {
+      "name": "render graph pass",
+      "regex": "\\b(RenderGraph|FrameGraph|AddPass|ExecutePass|PassBuilder|GraphBuilder)\\b"
+    }
+  ],
+  "path_hints": [
+    "RenderGraph",
+    "FrameGraph",
+    "RenderPass"
+  ],
+  "reason": "Render graph or pass-oriented code was found.",
+  "risk": "Pass creation and pass execution can be separate; choose execution for command annotations.",
+  "recommended_eap_usage": "Candidate for `eap.rg.node_id`, `eap.pass.name`, and pass scope emission."
+}

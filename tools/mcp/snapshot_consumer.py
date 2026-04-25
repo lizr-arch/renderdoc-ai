@@ -7,6 +7,21 @@ import time
 from dataclasses import dataclass
 from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple
 
+from providers import (
+    DATA_AVAILABILITY_VERSION,
+    PROVIDER_EAP_SIDECAR,
+    PROVIDER_LIVE_RENDERDOC,
+    PROVIDER_ORDER,
+    PROVIDER_RENDERDOC_NATIVE,
+    PROVIDER_RULES,
+    PROVIDER_SCOUT_REPORT,
+    PROVIDER_SNAPSHOT,
+    DataAvailability,
+    ProviderCapability,
+    ProviderContext,
+    build_default_registry,
+)
+
 
 CONTRACT_VERSION = "mcp-query.v1"
 
@@ -426,6 +441,55 @@ def normalize_mcp_success(result: Any, *, method: str, params: Dict[str, Any]) -
         availability=availability,
     )
     return _annotate_success_payload(payload, method=method)
+
+
+def get_data_availability(
+    *,
+    capture_id: Optional[str] = None,
+    snapshot: Optional[Dict[str, Any]] = None,
+    eap_sidecar: Optional[Dict[str, Any]] = None,
+    rules_payload: Optional[Dict[str, Any]] = None,
+    live_renderdoc_status: Optional[Dict[str, Any]] = None,
+    bridge_state: Optional[Dict[str, Any]] = None,
+    scout_report: Optional[Dict[str, Any]] = None,
+    renderdoc_native_available: bool = True,
+) -> Dict[str, Any]:
+    """Return provider-level availability without reading files or calling RenderDoc."""
+
+    return build_data_availability(
+        capture_id=capture_id,
+        snapshot=snapshot,
+        eap_sidecar=eap_sidecar,
+        rules_payload=rules_payload,
+        live_renderdoc_status=live_renderdoc_status,
+        bridge_state=bridge_state,
+        scout_report=scout_report,
+        renderdoc_native_available=renderdoc_native_available,
+    ).as_dict()
+
+
+def build_data_availability(
+    *,
+    capture_id: Optional[str] = None,
+    snapshot: Optional[Dict[str, Any]] = None,
+    eap_sidecar: Optional[Dict[str, Any]] = None,
+    rules_payload: Optional[Dict[str, Any]] = None,
+    live_renderdoc_status: Optional[Dict[str, Any]] = None,
+    bridge_state: Optional[Dict[str, Any]] = None,
+    scout_report: Optional[Dict[str, Any]] = None,
+    renderdoc_native_available: bool = True,
+) -> DataAvailability:
+    context = ProviderContext(
+        capture_id=capture_id,
+        snapshot=snapshot,
+        eap_sidecar=eap_sidecar,
+        rules_payload=rules_payload,
+        live_renderdoc_status=live_renderdoc_status,
+        bridge_state=bridge_state,
+        scout_report=scout_report,
+        renderdoc_native_available=renderdoc_native_available,
+    )
+    return build_default_registry().data_availability(context)
 
 
 class MCPEnricher:

@@ -19,6 +19,7 @@ from snapshot_consumer import (  # type: ignore
     SnapshotGapDetector,
     analyze_snapshot,
     build_command_list,
+    get_data_availability,
     normalize_mcp_success,
 )
 
@@ -311,3 +312,45 @@ def test_markdown_contains_required_sections_and_command_health_probe():
         enrichment=analysis["enrichment"],
     )
     assert "Snapshot Facts" in rendered
+
+
+def test_data_availability_without_eap_sidecar_keeps_native_provider():
+    payload = get_data_availability(capture_id="cap:no-sidecar")
+
+    assert payload["schema_version"] == "mcp-data-availability.v1"
+    assert payload["capture_id"] == "cap:no-sidecar"
+    assert set(payload["providers"]) == {
+        "renderdoc_native",
+        "snapshot",
+        "eap_sidecar",
+        "rules",
+        "live_renderdoc",
+        "scout_report",
+    }
+    assert payload["providers"]["renderdoc_native"]["available"] is True
+    assert payload["providers"]["eap_sidecar"]["available"] is False
+    assert payload["providers"]["eap_sidecar"]["missing"] == "capture.rmeta.json not found"
+    assert any("eap_sidecar: capture.rmeta.json not found" == row for row in payload["limitations"])
+
+
+def test_data_availability_reports_snapshot_and_eap_sidecar_capabilities():
+    sidecar = {
+        "schema": {"name": "EngineAnnotationProtocol", "version": 1},
+        "capture": {"id": "cap:eap"},
+        "render_graph": {"nodes": [{"id": "pass:main"}]},
+        "commands": [{"id": "draw:1"}],
+        "resources": [{"id": "res:color"}],
+        "rules": {"results": [{"id": "rule:demo"}]},
+        "diagnostics": {"missing_fields": []},
+    }
+
+    payload = get_data_availability(snapshot=_contract_snapshot(), eap_sidecar=sidecar)
+
+    assert payload["capture_id"] == "cap:eap"
+    assert payload["providers"]["snapshot"]["available"] is True
+    assert payload["providers"]["eap_sidecar"]["available"] is True
+    assert payload["providers"]["rules"]["available"] is True
+    eap_capabilities = {
+        item["name"] for item in payload["providers"]["eap_sidecar"]["capabilities"]
+    }
+    assert {"eap_schema", "render_graph", "commands", "resources", "rules", "diagnostics"} <= eap_capabilities

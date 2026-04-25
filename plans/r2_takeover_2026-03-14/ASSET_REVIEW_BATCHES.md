@@ -1,0 +1,126 @@
+# Candidate Asset Review Batches (from 27c51cae)
+
+- Total candidate items: `113`
+- Split policy: 3-batch review (`scripts/codemap`, `scripts/rdc_analyzer`, `docs/plans`)
+
+## Batch: scripts/codemap (22)
+
+- `scripts/codemap/README.md`
+- `scripts/codemap/build_filtered_mirror.py`
+- `scripts/codemap/codemap_query.ps1`
+- `scripts/codemap/codemap_web_all.ps1`
+- `scripts/codemap/index-config.json`
+- `scripts/codemap/index_all.ps1`
+- `scripts/codemap/index_opengrok.ps1`
+- `scripts/codemap/index_zoekt.ps1`
+- `scripts/codemap/opengrok_headless/OpenGrokHeadlessDaemon.java`
+- `scripts/codemap/opengrok_headless/OpenGrokHeadlessQuery.java`
+- `scripts/codemap/opengrok_headless_build.ps1`
+- `scripts/codemap/opengrok_headless_query.ps1`
+- `scripts/codemap/opengrok_web.ps1`
+- `scripts/codemap/opengrok_web_all.ps1`
+- `scripts/codemap/query_gateway.py`
+- `scripts/codemap/query_gateway_config.json`
+- `scripts/codemap/query_gateway_web.ps1`
+- `scripts/codemap/update_opengrok_config.py`
+- `scripts/codemap/zoekt_local_query.ps1`
+- `scripts/codemap/zoekt_netrpc_query.ps1`
+- `scripts/codemap/zoekt_web.ps1`
+- `scripts/codemap/zoekt_web_all.ps1`
+
+## Batch: scripts/rdc_analyzer (24)
+
+- `scripts/rdc_analyzer/_vendor/_downloads/dataclasses-0.8-py3-none-any.whl`
+- `scripts/rdc_analyzer/_vendor/dataclasses/dataclasses-0.8.dist-info/LICENSE.txt`
+- `scripts/rdc_analyzer/_vendor/dataclasses/dataclasses-0.8.dist-info/METADATA`
+- `scripts/rdc_analyzer/_vendor/dataclasses/dataclasses-0.8.dist-info/RECORD`
+- `scripts/rdc_analyzer/_vendor/dataclasses/dataclasses-0.8.dist-info/WHEEL`
+- `scripts/rdc_analyzer/_vendor/dataclasses/dataclasses-0.8.dist-info/top_level.txt`
+- `scripts/rdc_analyzer/_vendor/dataclasses/dataclasses.py`
+- `scripts/rdc_analyzer/core/contracts.py`
+- `scripts/rdc_analyzer/docs/THUMBNAIL_SENTINEL_STANDARD.md`
+- `scripts/rdc_analyzer/mcp_examples/subtree_by_marker.py`
+- `scripts/rdc_analyzer/mcp_examples/timings_debug.py`
+- `scripts/rdc_analyzer/mcp_examples/timings_summary.mdgen.py`
+- `scripts/rdc_analyzer/mcp_examples/timings_top.py`
+- `scripts/rdc_analyzer/providers/base.py`
+- `scripts/rdc_analyzer/providers/extractors.py`
+- `scripts/rdc_analyzer/providers/headless_provider.py`
+- `scripts/rdc_analyzer/providers/offline_provider.py`
+- `scripts/rdc_analyzer/providers/qrenderdoc_provider.py`
+- `scripts/rdc_analyzer/query_layer.py`
+- `scripts/rdc_analyzer/thumbnail_audit.py`
+- `scripts/rdc_analyzer/webui/__init__.py`
+- `scripts/rdc_analyzer/webui/app.js`
+- `scripts/rdc_analyzer/webui/index.html`
+- `scripts/rdc_analyzer/webui/styles.css`
+
+## Batch: docs/plans (67)
+
+- `.agents/skills/codemap-index-first/SKILL.md`
+- `.agents/skills/promote-knowledge-assets/SKILL.md`
+- `.agents/skills/task-normalize-and-evidence/SKILL.md`
+- `docs/analysis/PERF_GAPS.md`
+- `docs/analysis/Timing_Principles_Vulkan_Capture.md`
+- `docs/analysis/codex_rdc_analyzer/AI_DEEP_ANALYSIS_METHODOLOGY.md`
+- `docs/analysis/context_mcp_efficiency_review.md`
+- `docs/analysis/cross_gpu_replay_capability_matrix.md`
+- `docs/learn/CHANGELOG.md`
+- `docs/learn/FACTS.md`
+- `docs/learn/GAPS.md`
+- `docs/learn/LEARNER_MODEL.md`
+- `docs/learn/MAP.md`
+- `docs/learn/README.md`
+- `docs/learn/analysis/mcp_vs_rdc.md`
+- `docs/learn/analysis/query_layer.md`
+- `docs/learn/architecture/renderdoc_ai_stack.md`
+- `docs/learn/evidence/E-001-ipc-bridge.md`
+- `docs/learn/evidence/E-002-offline-filter.md`
+- `docs/learn/evidence/E-003-mcp-mermaid.md`
+- `docs/learn/evidence/E-004-mcp-scripts.md`
+- `docs/learn/evidence/E-005-skill-perf-research.md`
+- `docs/learn/evidence/mcp_examples.zip`
+- `docs/learn/mechanisms/M-001-ipc-bridge.md`
+- `docs/learn/skills/renderdoc_mcp_skill_design.md`
+- `docs/plans/2026-02-20-ui-analyzer-phaseE-design.md`
+- `docs/screenshots/m1_cross_page_jump.png`
+- `docs/screenshots/m41_heatmap_expanded.png`
+- `docs/screenshots/m42_pass_group_expanded.png`
+- `docs/screenshots/m4_heatmap_pass_buttons.png`
+- `docs/screenshots/p7c_external_data_fetch.png`
+- `plans/2026-02-13-223725-Agent01-Thumbnail-BeforeAfter-Compare.md`
+- `plans/2026-02-17-141452-Agent02-Verify-P0P1P2-Status.md`
+- `plans/2026-02-19-165453-Agent02-ShaderList-Missing.md`
+- `plans/2026-02-19-182934-Agent02-Headless-Shader-Export.md`
+- `plans/2026-02-19-235439-Agent02-UI-Analyzer-DualMode.md`
+- `plans/2026-02-20-114657-Agent02-PhaseE-UI-Framework.md`
+- `plans/2026-02-20-115933-Agent02-Docs-WebUI-UIExtension.md`
+- `plans/2026-02-20-210754-Agent02-PhaseE-WebUI-GUI-Completion.md`
+- `plans/2026-02-21-202148-Agent02-WebUI-DataParam-RenderDocShell.md`
+- `plans/2026-02-23-231800-Agent01-UI-Extension-Load-Fix-Perf-UI.md`
+- `plans/2026-02-23-235200-Agent01-UI-Extension-No-Capture-Loaded-Fix.md`
+- `plans/2026-02-24-000300-Agent01-UI-Extension-Rename-Package.md`
+- `plans/2026-02-24-204747-Agent01-Report-UI-Optimization.md`
+- `plans/2026-02-26-173117-AgentPR-PerfReportDock.md`
+- `plans/2026-02-27-104500-Agent07-AnalyzerReport-LighthouseUI.md`
+- `plans/2026-03-01-164500-Agent08-AnalyzerReport-RemoveSubscoreBars.md`
+- `plans/2026-03-01-171200-Agent08-AnalyzerReport-ReadabilitySimplify.md`
+- `plans/2026-03-03-111953-Agent01-SelfQuestioningProtocol.md`
+- `plans/2026-03-03-162722-Agent09-AnalyzerReport-Issues-UX.md`
+- `plans/2026-03-03-175223-Agent11-AnalyzerReport-Chinese-Text.md`
+- `plans/2026-03-04-002929-Agent11-AnalyzerReport-Evidence-Explainability.md`
+- `plans/2026-03-04-010600-Agent01-RenderDoc-AI-Roadmap.md`
+- `plans/2026-03-04-010700-Agent01-M1-MCP-Analyzer.md`
+- `plans/2026-03-04-010800-Agent01-M2-AI-UX.md`
+- `plans/2026-03-04-010900-Agent01-M3-Perf-Release.md`
+- `plans/2026-03-04-120000-AgentA-MCP-Skill.md`
+- `plans/2026-03-04-130000-AgentA-Skill-Perf-Research.md`
+- `plans/2026-03-04-155346-Agent11-AnalyzerReport-ManualRefresh.md`
+- `plans/2026-03-04-170500-Agent13-Timing-Notes.md`
+- `plans/2026-03-04-192500-Agent13-AnalyzerReport-Timing-StrongHint.md`
+- `plans/2026-03-08-231415-AgentA-RenderDoc-AI-Charter.md`
+- `plans/2026-03-09-104214-AgentA-M1M2-Execution.md`
+- `plans/2026-03-09-165703-AgentB-GUI-Snapshot-Adapter.md`
+- `plans/2026-03-09-165704-AgentC-Offline-Snapshot-Bridge.md`
+- `plans/2026-03-09-165705-AgentA-MCP-Skill-Snapshot-Consumer.md`
+- `plans/2026-03-10-211515-AgentA-Android-Capture-Access.md`

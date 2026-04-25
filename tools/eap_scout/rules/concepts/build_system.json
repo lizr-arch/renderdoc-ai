@@ -1,0 +1,34 @@
+{
+  "concept": "build_system",
+  "keywords": [
+    "cmake_minimum_required",
+    "add_library",
+    "add_executable",
+    "PublicDependencyModuleNames",
+    "PrivateDependencyModuleNames",
+    "premake",
+    "SConstruct",
+    "BUILD.bazel"
+  ],
+  "patterns": [
+    {
+      "name": "cmake target",
+      "regex": "\\b(add_library|add_executable|target_link_libraries|cmake_minimum_required)\\b"
+    },
+    {
+      "name": "unreal build module",
+      "regex": "\\b(PublicDependencyModuleNames|PrivateDependencyModuleNames|ModuleRules)\\b"
+    }
+  ],
+  "path_hints": [
+    "CMakeLists.txt",
+    ".Build.cs",
+    ".Target.cs",
+    "premake5.lua",
+    "SConstruct",
+    "BUILD.bazel"
+  ],
+  "reason": "Build-system file or module descriptor was found.",
+  "risk": "Build files are implementation-sensitive; only modify after module ownership is confirmed.",
+  "recommended_eap_usage": "Candidate file for adding a future EAP module or include path."
+}

@@ -632,6 +632,27 @@ def _id_variants(value: Any) -> List[str]:
     return list(variants)
 
 
+def _safe_int(value: Any, default: int = 0) -> int:
+    if value in (None, ""):
+        return default
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return default
+
+
+def _exported_texture_thumbnail_url(texture_dir: Path, output_dir: Path, fname: str) -> str:
+    try:
+        rel_prefix = texture_dir.resolve().relative_to(output_dir.resolve()).as_posix()
+    except Exception:
+        # Not under report dir; fallback to absolute file URI.
+        rel_prefix = texture_dir.resolve().as_uri()
+
+    if rel_prefix in ('', '.'):
+        return _quote_url_path(Path(fname).as_posix())
+    return rel_prefix.rstrip('/') + '/' + _quote_url_path(Path(fname).as_posix())
+
+
 def apply_exported_texture_thumbnails(
     textures: List[Dict],
     texture_dir: Path,
@@ -658,12 +679,6 @@ def apply_exported_texture_thumbnails(
         if verbose:
             print(f"      [WARN] Failed to read textures.json: {e}")
         return 0
-
-    try:
-        rel_prefix = texture_dir.resolve().relative_to(output_dir.resolve()).as_posix()
-    except Exception:
-        # Not under report dir; fallback to absolute file URI.
-        rel_prefix = texture_dir.resolve().as_uri()
 
     id_to_file: Dict[str, str] = {}
     for e in entries:
@@ -692,18 +707,89 @@ def apply_exported_texture_thumbnails(
             continue
 
         # Use browser-friendly, portable URL.
-        rel_prefix_norm = rel_prefix
-        if rel_prefix_norm in ('', '.'):
-            thumb = _quote_url_path(Path(fname).as_posix())
-        else:
-            thumb = rel_prefix_norm.rstrip('/') + '/' + _quote_url_path(Path(fname).as_posix())
-
-        tex['thumbnail'] = thumb
+        tex['thumbnail'] = _exported_texture_thumbnail_url(texture_dir, output_dir, fname)
         updated += 1
 
     if verbose:
         print(f"      [INFO] Mapped {updated} thumbnails from renderdoccmd export")
     return updated
+
+
+def load_exported_textures_as_bundle_textures(
+    texture_dir: Path,
+    output_dir: Path,
+    verbose: bool = False,
+) -> List[Dict]:
+    """Build bundle texture records from renderdoccmd export metadata.
+
+    This is the fallback for XML exports that contain draw calls but no parsed
+    texture resources. renderdoccmd export writes authoritative texture metadata
+    to <texture_dir>/textures.json, so use it to keep the textures page useful.
+    """
+    textures_json = texture_dir / 'textures.json'
+    if not textures_json.exists():
+        if verbose:
+            print(f"      [INFO] export textures.json not found: {textures_json}")
+        return []
+
+    try:
+        payload = json.loads(textures_json.read_text(encoding='utf-8'))
+        entries = payload.get('textures', []) if isinstance(payload, dict) else []
+    except Exception as e:
+        if verbose:
+            print(f"      [WARN] Failed to read textures.json: {e}")
+        return []
+
+    textures: List[Dict] = []
+    for idx, entry in enumerate(entries):
+        if not isinstance(entry, dict):
+            continue
+
+        width = _safe_int(entry.get('width'), 0)
+        height = _safe_int(entry.get('height'), 0)
+        if width <= 0 or height <= 0:
+            continue
+
+        texture_id = entry.get('id', entry.get('resource_id', entry.get('resourceId', idx)))
+        texture_id = str(texture_id)
+        depth = _safe_int(entry.get('depth'), 1)
+        mips = _safe_int(entry.get('mips', entry.get('mip_levels', 1)), 1)
+        array_size = _safe_int(entry.get('array_size', entry.get('arraySize', 1)), 1)
+        sample_count = _safe_int(entry.get('sample_count', entry.get('sampleCount', 1)), 1)
+        fmt = entry.get('format') or 'Unknown'
+
+        size_bytes = _safe_int(
+            entry.get('size_bytes', entry.get('byteSize', entry.get('vram'))),
+            0,
+        )
+        if size_bytes <= 0:
+            size_bytes = int(width * height * depth * array_size * estimate_bpp(fmt))
+
+        fname = entry.get('file') or entry.get('filename') or entry.get('path')
+        thumbnail = ''
+        if fname and (texture_dir / fname).exists():
+            thumbnail = _exported_texture_thumbnail_url(texture_dir, output_dir, fname)
+
+        textures.append({
+            'id': texture_id,
+            'resource_id': texture_id,
+            'name': entry.get('name') or f"Texture_{idx}",
+            'width': width,
+            'height': height,
+            'depth': depth,
+            'format': fmt,
+            'mips': mips,
+            'array_size': array_size,
+            'sample_count': sample_count,
+            'size_bytes': size_bytes,
+            'vram': size_bytes,
+            'thumbnail': thumbnail,
+            'usage': [],
+        })
+
+    if verbose:
+        print(f"      [INFO] Loaded {len(textures)} textures from renderdoccmd export metadata")
+    return textures
 
 
 def generate_thumbnails_from_zip(
@@ -1044,6 +1130,14 @@ def main():
     
     events = xml_to_bundle_events_dict(draw_calls)
     textures = xml_to_bundle_textures_dict(textures_raw)
+    if not textures and args.texture_dir:
+        textures = load_exported_textures_as_bundle_textures(
+            texture_dir=Path(args.texture_dir),
+            output_dir=output_dir,
+            verbose=args.verbose,
+        )
+        if textures:
+            print(f"      [INFO] Textures loaded from export metadata: {len(textures)}")
     
     # 统计
     dispatch_count = sum(1 for e in events if e["type"] == "Dispatch")

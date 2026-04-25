@@ -1,0 +1,25 @@
+{
+  "concept": "pso",
+  "keywords": [
+    "PSO",
+    "PipelineState",
+    "PipelineStateObject",
+    "GraphicsPipeline",
+    "ComputePipeline",
+    "PipelineHash",
+    "RootSignature"
+  ],
+  "patterns": [
+    {
+      "name": "pipeline state",
+      "regex": "\\b(PSO|PipelineState(Object)?|GraphicsPipeline|ComputePipeline|PipelineHash|RootSignature)\\b"
+    }
+  ],
+  "path_hints": [
+    "Pipeline",
+    "PSO"
+  ],
+  "reason": "Pipeline-state code was found.",
+  "risk": "Pipeline hashes must be stable and not derived from transient pointers.",
+  "recommended_eap_usage": "Candidate for `eap.pso.hash` and shader binding metadata."
+}

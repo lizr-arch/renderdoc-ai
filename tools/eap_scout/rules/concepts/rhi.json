@@ -1,0 +1,27 @@
+{
+  "concept": "rhi",
+  "keywords": [
+    "RHI",
+    "RHIDevice",
+    "RHICommandList",
+    "RHIResource",
+    "GraphicsDevice",
+    "RenderDevice",
+    "CommandQueue",
+    "SwapChain"
+  ],
+  "patterns": [
+    {
+      "name": "rhi abstraction",
+      "regex": "\\b(RHI\\w*|GraphicsDevice|RenderDevice|CommandQueue|SwapChain)\\b"
+    }
+  ],
+  "path_hints": [
+    "RHI",
+    "Renderer",
+    "Graphics"
+  ],
+  "reason": "Renderer hardware interface or graphics abstraction evidence was found.",
+  "risk": "RHI layers often have multiple backend implementations; bridge should live above duplicated backend code where possible.",
+  "recommended_eap_usage": "Candidate owner for RenderDocBridge device/command handle adaptation."
+}

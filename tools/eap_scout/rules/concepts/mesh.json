@@ -1,0 +1,25 @@
+{
+  "concept": "mesh",
+  "keywords": [
+    "Mesh",
+    "StaticMesh",
+    "SkinnedMesh",
+    "MeshBatch",
+    "MeshDraw",
+    "LOD",
+    "VertexFactory"
+  ],
+  "patterns": [
+    {
+      "name": "mesh draw data",
+      "regex": "\\b(StaticMesh|SkinnedMesh|MeshBatch|MeshDraw|VertexFactory|LOD)\\b"
+    }
+  ],
+  "path_hints": [
+    "Mesh",
+    "Geometry"
+  ],
+  "reason": "Mesh or geometry semantic code was found.",
+  "risk": "Instancing and LOD selection can change per draw.",
+  "recommended_eap_usage": "Candidate for `eap.mesh.*` draw annotations."
+}

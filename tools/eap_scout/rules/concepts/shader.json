@@ -1,0 +1,27 @@
+{
+  "concept": "shader",
+  "keywords": [
+    "Shader",
+    "ShaderCompiler",
+    "ShaderHash",
+    "Permutation",
+    "VertexShader",
+    "PixelShader",
+    "ComputeShader",
+    "SPIRV",
+    "DXIL"
+  ],
+  "patterns": [
+    {
+      "name": "shader identity",
+      "regex": "\\b(Shader(Hash|Compiler)?|Permutation|VertexShader|PixelShader|ComputeShader)\\b"
+    }
+  ],
+  "path_hints": [
+    "Shader",
+    "Shaders"
+  ],
+  "reason": "Shader or shader permutation code was found.",
+  "risk": "Shader object IDs are not always stable engine semantic hashes.",
+  "recommended_eap_usage": "Candidate for `eap.shader.*.hash` and permutation metadata."
+}
