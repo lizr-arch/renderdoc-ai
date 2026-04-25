@@ -40,8 +40,8 @@ Status counts:
 
 | Status | Count |
 |---|---:|
-| `done` | 5 |
-| `partial` | 3 |
+| `done` | 6 |
+| `partial` | 2 |
 | `missing` | 0 |
 | `not_applicable` | 10 |
 | Total | 18 |
@@ -66,7 +66,7 @@ Current task-state matrix:
 | T13 | `not_applicable` | Resource lifetime annotation in engine. | Requires engine resource creation/lifetime ownership. |
 | T14 | `not_applicable` | Runtime performance/budget integration. | Hot-path budget enforcement belongs in engine runtime. |
 | T15 | `done` | EAP Validator CLI. | `tools/eap_validator/eap_validator.py` validates one explicit `.rmeta.json` using the existing sidecar loader. |
-| T16 | `partial` | Validator fixtures/golden validation package. | Focused unit/CLI tests exist under `tools/eap_validator/tests`; no external golden fixture package yet. |
+| T16 | `done` | Validator fixtures/golden validation package. | Synthetic fixtures and normalized golden validator outputs exist under `tools/eap_validator/fixtures`. |
 | T17 | `done` | Read-only provider and sidecar loader tests. | Focused pytest passes: `44 passed in 0.30s`. |
 
 Interpretation: current EAP Level remains `2 / 6` for the full product because engine-side runtime,
@@ -216,25 +216,31 @@ as a runtime sidecar writer that produces `.rmeta.json` during capture.
 
 ## 8. Recommended Next Minimal Task
 
-Recommended next task: T16/T07 follow-up, validator golden fixtures plus rule CLI planning.
+Recommended next task: T07 follow-up, read-only rule CLI planning/MVP.
 
 Why this is the right next step:
 
 1. It is inside this repo's safe ownership: tooling, validation, and read-only consumer behavior.
-2. It builds on existing sidecar schema, loader, provider, and validator tests.
+2. It builds on existing sidecar schema, loader, provider, validator tests, and golden fixtures.
 3. It avoids forbidden runtime/hook work in the RenderDoc fork.
 4. It gives future engine-side work a stronger acceptance gate for generated `.rmeta.json` files.
-5. T15 now provides the user-facing CLI; the next useful increment is durable fixtures and rule
-   validation planning without changing RenderDoc core.
+5. T15 provides the user-facing CLI and T16 provides durable fixtures; the next useful increment is
+   rule validation planning without changing RenderDoc core.
 
-Current T15 shape:
+Current T15/T16 shape:
 
 ```text
 tools/eap_validator/
   eap_validator.py
   README.md
+  fixtures/
+    valid_minimal.rmeta.json
+    valid_fullish.rmeta.json
+    invalid_wrong_schema.rmeta.json
+    golden/
   tests/
     test_eap_validator.py
+    test_eap_validator_fixtures.py
 ```
 
 Current commands are read-only validation only, for example:
@@ -245,7 +251,7 @@ py -3 -m pytest tools\eap_validator\tests -q
 ```
 
 Do not implement capture, upload, deletion, remote execution, arbitrary file reads, or RenderDoc core
-patches as part of T16/T07 follow-up.
+patches as part of the T07 follow-up.
 
 ---
 
@@ -257,12 +263,14 @@ Commands run for this checklist:
 |---|---|
 | `git status --short` | Dirty/untracked working tree exists before this doc; this task only adds `docs/EAP/EAP_PROGRESS_CHECKLIST.md`. |
 | `git rev-parse --show-toplevel` | `D:/Code/git/renderdoc`. |
-| `git branch --show-current` | `codex/local-clean-main`. |
+| `git branch --show-current` | `codex/root-submit-20260425`. |
 | `py -3 tools\eap_scout\eap_scout.py --help` | Succeeded; printed `scan`, `prompt`, `summarize` commands. |
 | `py -3 -m py_compile tools\eap_scout\eap_scout.py tools\mcp\providers\sidecar_loader.py tools\mcp\providers\eap_sidecar_provider.py tools\mcp\mcp_server\provider_tools.py tools\mcp\mcp_server\provider_readonly_server.py` | Succeeded with no output. |
 | `py -3 -m pytest tools\eap_scout\tests\test_eap_scout.py tools\mcp\tests\test_sidecar_loader.py tools\mcp\tests\test_provider_registry.py tools\mcp\tests\test_provider_routing.py tools\mcp\tests\test_provider_mcp_tools.py tools\mcp\tests\test_provider_readonly_server.py -q` | `44 passed in 0.30s`. |
-| `py -3 -m py_compile tools\eap_validator\eap_validator.py tools\eap_validator\tests\test_eap_validator.py` | Succeeded with no output. |
-| `py -3 -m pytest tools\eap_validator\tests -q` | `9 passed in 1.35s`. |
+| `py -3 -m py_compile tools\eap_validator\eap_validator.py tools\eap_validator\tests\test_eap_validator.py tools\eap_validator\tests\test_eap_validator_fixtures.py` | Succeeded with no output. |
+| `py -3 -m pytest tools\eap_validator\tests -q` | Pending final rerun after T16 fixtures. |
+| `py -3 -m pytest tools\eap_validator\tests\test_eap_validator_fixtures.py -q` before fixtures | Expected red: missing `fixtures/golden/*.validator.json`. |
+| `py -3 -m pytest tools\eap_validator\tests\test_eap_validator_fixtures.py -q` after fixtures | `3 passed in 0.05s`. |
 
 Build status: not run. This task is Python tooling plus documentation only and does not touch C++
 build inputs or RenderDoc runtime behavior.
@@ -279,6 +287,7 @@ Meaning:
 - Scout/analyzer planning support exists.
 - Read-only MCP provider/sidecar loader tooling exists and has focused tests.
 - EAP Validator CLI exists and has focused unit/CLI tests.
+- Synthetic validator fixtures and normalized golden outputs exist.
 - Engine runtime, bridge, sidecar writer, render hooks, and semantic emission are not implemented in
   this repository.
 - This round changed no RenderDoc core code and no rendering behavior.
@@ -291,15 +300,15 @@ surface is the real engine repository.
 
 ## 11. Next-Round Codex Prompt
 
-Use this prompt for the next Codex session if continuing after T15:
+Use this prompt for the next Codex session if continuing after T16:
 
 ```text
 You are working in D:\Code\git\renderdoc on branch codex/local-clean-main.
 
 Goal:
-Implement a T16/T07 follow-up for validator golden fixtures and rule CLI planning as tooling only.
-Do not implement engine runtime, RenderDoc core changes, render graph hooks, sidecar writer
-emission, capture, upload, delete, or remote execution.
+Implement a T07 follow-up for read-only EAP rule CLI planning/MVP as tooling only. Do not implement
+engine runtime, RenderDoc core changes, render graph hooks, sidecar writer emission, capture, upload,
+delete, or remote execution.
 
 Read first:
 - docs/EAP/EAP_PROGRESS_CHECKLIST.md
@@ -310,13 +319,15 @@ Read first:
 - tools/mcp/providers/eap_sidecar_provider.py
 - tools/mcp/tests/test_sidecar_loader.py
 - tools/eap_validator/eap_validator.py
+- tools/eap_validator/fixtures/README.md
 - tools/eap_validator/tests/test_eap_validator.py
+- tools/eap_validator/tests/test_eap_validator_fixtures.py
 
 Allowed files:
 - docs/EAP/EAP_PROGRESS_CHECKLIST.md
 - tools/eap_validator/**
 - tools/eap_validator/tests/**
-- narrow docs/tests updates directly required for validator fixtures or read-only rule planning
+- narrow docs/tests updates directly required for read-only rule planning/MVP
 
 Forbidden files and behaviors:
 - Do not modify renderdoc/**
@@ -329,10 +340,11 @@ Forbidden files and behaviors:
 - Do not parse .rdc binary in the validator
 
 Implementation target:
-- Add durable golden sidecar fixtures or fixture generators for the existing validator.
-- Keep validator reads explicit and allowlisted; do not add directory scanning by default.
-- Preserve deterministic machine-readable JSON and stable SidecarLoadError codes.
-- If planning a rule CLI, document scope first; do not implement write/upload/capture behavior.
+- Document the first deterministic rule scope before implementation.
+- Reuse existing fixtures and sidecar loader.
+- Keep rule evaluation read-only and explicit-path only.
+- Preserve deterministic machine-readable JSON and stable error codes.
+- Do not implement write/upload/capture behavior.
 - Run py_compile and focused pytest.
 
 Completion report:

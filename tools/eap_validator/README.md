@@ -55,3 +55,17 @@ Validation failure preserves `SidecarLoadError` fields:
 - `error.code`
 - `error.message`
 - `error.path`
+
+## Fixtures
+
+Reusable synthetic fixtures live under `tools/eap_validator/fixtures/`.
+
+| File | Purpose |
+|---|---|
+| `valid_minimal.rmeta.json` | Smallest useful EAP sidecar shape for loader/validator smoke tests. |
+| `valid_fullish.rmeta.json` | Broader synthetic sidecar with render graph, commands, resources, assets, materials, shaders, pipeline, rules, diagnostics, and security sections. |
+| `invalid_wrong_schema.rmeta.json` | Non-EAP JSON object used to preserve `invalid_sidecar` behavior. |
+| `golden/*.validator.json` | Normalized expected JSON validator output. Tests replace local paths with `<FIXTURE_PATH>` before comparison. |
+
+The fixtures are synthetic and intentionally do not include real captures, private asset paths, shader
+source, screenshots, or `.rdc` binary data.
