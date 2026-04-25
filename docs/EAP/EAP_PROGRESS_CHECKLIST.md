@@ -40,9 +40,9 @@ Status counts:
 
 | Status | Count |
 |---|---:|
-| `done` | 4 |
-| `partial` | 2 |
-| `missing` | 2 |
+| `done` | 5 |
+| `partial` | 3 |
+| `missing` | 0 |
 | `not_applicable` | 10 |
 | Total | 18 |
 
@@ -57,7 +57,7 @@ Current task-state matrix:
 | T04 | `not_applicable` | Engine-side RenderDoc app bridge implementation. | Should live in an engine diagnostics/runtime module, not RenderDoc core/tooling. |
 | T05 | `not_applicable` | Engine EAP core runtime types. | Requires engine build/runtime integration surface. |
 | T06 | `not_applicable` | Engine render graph/pass/draw/resource hooks. | No render graph/material/resource ownership in this checkout. |
-| T07 | `partial` | Tooling-side rule/provider groundwork. | Provider/rules availability exists, but no full validator/rule CLI. |
+| T07 | `partial` | Tooling-side rule/provider groundwork. | Provider/rules availability and validator CLI exist, but no full rule CLI. |
 | T08 | `not_applicable` | Engine sidecar writer. | Current repo can load/consume sidecar; it should not emit engine sidecars. |
 | T09 | `not_applicable` | Engine capture lifecycle hook. | Capture-side engine lifecycle is outside this repo. |
 | T10 | `partial` | Read-only MCP/provider sidecar surface. | `get_data_availability` and `load_eap_sidecar` exist, but this is provider/tooling support, not full EAP runtime. |
@@ -65,13 +65,13 @@ Current task-state matrix:
 | T12 | `not_applicable` | Material/shader/asset hook emission. | Requires material/shader/asset systems not owned here. |
 | T13 | `not_applicable` | Resource lifetime annotation in engine. | Requires engine resource creation/lifetime ownership. |
 | T14 | `not_applicable` | Runtime performance/budget integration. | Hot-path budget enforcement belongs in engine runtime. |
-| T15 | `missing` | EAP Validator CLI. | Safe next tooling task for this repo; not implemented yet as a dedicated validator CLI. |
-| T16 | `missing` | Validator fixtures/golden validation package. | Should accompany T15; not present as a dedicated package yet. |
+| T15 | `done` | EAP Validator CLI. | `tools/eap_validator/eap_validator.py` validates one explicit `.rmeta.json` using the existing sidecar loader. |
+| T16 | `partial` | Validator fixtures/golden validation package. | Focused unit/CLI tests exist under `tools/eap_validator/tests`; no external golden fixture package yet. |
 | T17 | `done` | Read-only provider and sidecar loader tests. | Focused pytest passes: `44 passed in 0.30s`. |
 
-Interpretation: current EAP Level is `2 / 6`. Protocol, scout, and MCP sidecar/provider tooling are
-formed enough for controlled consumer work. Engine-side runtime/emission/hook work is not implemented
-here and should not be implemented here.
+Interpretation: current EAP Level remains `2 / 6` for the full product because engine-side runtime,
+emission, and hook work is still outside this repo. Tooling readiness improved: protocol, scout, MCP
+sidecar/provider support, and the first validator CLI are now present for controlled consumer work.
 
 ---
 
@@ -207,7 +207,7 @@ Tooling currently available or partially available:
 | Provider availability model | `partial/done for availability` | `tools/mcp/providers/base.py:42`, `tools/mcp/providers/registry.py:37-49`. |
 | EAP sidecar loader | `done as loader` | `tools/mcp/providers/sidecar_loader.py:23-71`. |
 | Read-only provider MCP wrapper | `partial` | `tools/mcp/mcp_server/provider_readonly_server.py:20-50`. |
-| Dedicated EAP Validator CLI | `missing` | No dedicated `tools/eap_validator/**` package yet. |
+| Dedicated EAP Validator CLI | `done` | `tools/eap_validator/README.md`; `py -3 -m pytest tools\eap_validator\tests -q` succeeds. |
 
 Important distinction: a loader/provider that reads an existing `.rmeta.json` is not the same thing
 as a runtime sidecar writer that produces `.rmeta.json` during capture.
@@ -216,18 +216,18 @@ as a runtime sidecar writer that produces `.rmeta.json` during capture.
 
 ## 8. Recommended Next Minimal Task
 
-Recommended next task: T15, EAP Validator CLI.
+Recommended next task: T16/T07 follow-up, validator golden fixtures plus rule CLI planning.
 
 Why this is the right next step:
 
 1. It is inside this repo's safe ownership: tooling, validation, and read-only consumer behavior.
-2. It builds on existing sidecar schema, loader, provider, and tests.
+2. It builds on existing sidecar schema, loader, provider, and validator tests.
 3. It avoids forbidden runtime/hook work in the RenderDoc fork.
-4. It gives future engine-side work a concrete acceptance gate for generated `.rmeta.json` files.
-5. T17 already proves read-only provider/loader tests can pass; T15 turns that into a user-facing
-   CLI without changing RenderDoc core.
+4. It gives future engine-side work a stronger acceptance gate for generated `.rmeta.json` files.
+5. T15 now provides the user-facing CLI; the next useful increment is durable fixtures and rule
+   validation planning without changing RenderDoc core.
 
-Minimal T15 shape:
+Current T15 shape:
 
 ```text
 tools/eap_validator/
@@ -237,7 +237,7 @@ tools/eap_validator/
     test_eap_validator.py
 ```
 
-Initial commands should be read-only validation only, for example:
+Current commands are read-only validation only, for example:
 
 ```powershell
 py -3 tools\eap_validator\eap_validator.py validate path\to\capture.rmeta.json
@@ -245,7 +245,7 @@ py -3 -m pytest tools\eap_validator\tests -q
 ```
 
 Do not implement capture, upload, deletion, remote execution, arbitrary file reads, or RenderDoc core
-patches as part of T15.
+patches as part of T16/T07 follow-up.
 
 ---
 
@@ -261,9 +261,11 @@ Commands run for this checklist:
 | `py -3 tools\eap_scout\eap_scout.py --help` | Succeeded; printed `scan`, `prompt`, `summarize` commands. |
 | `py -3 -m py_compile tools\eap_scout\eap_scout.py tools\mcp\providers\sidecar_loader.py tools\mcp\providers\eap_sidecar_provider.py tools\mcp\mcp_server\provider_tools.py tools\mcp\mcp_server\provider_readonly_server.py` | Succeeded with no output. |
 | `py -3 -m pytest tools\eap_scout\tests\test_eap_scout.py tools\mcp\tests\test_sidecar_loader.py tools\mcp\tests\test_provider_registry.py tools\mcp\tests\test_provider_routing.py tools\mcp\tests\test_provider_mcp_tools.py tools\mcp\tests\test_provider_readonly_server.py -q` | `44 passed in 0.30s`. |
+| `py -3 -m py_compile tools\eap_validator\eap_validator.py tools\eap_validator\tests\test_eap_validator.py` | Succeeded with no output. |
+| `py -3 -m pytest tools\eap_validator\tests -q` | `9 passed in 1.35s`. |
 
-Build status: not run. This task is documentation/checklist only and does not touch C++ build inputs
-or RenderDoc runtime behavior.
+Build status: not run. This task is Python tooling plus documentation only and does not touch C++
+build inputs or RenderDoc runtime behavior.
 
 ---
 
@@ -276,6 +278,7 @@ Meaning:
 - Protocol docs exist.
 - Scout/analyzer planning support exists.
 - Read-only MCP provider/sidecar loader tooling exists and has focused tests.
+- EAP Validator CLI exists and has focused unit/CLI tests.
 - Engine runtime, bridge, sidecar writer, render hooks, and semantic emission are not implemented in
   this repository.
 - This round changed no RenderDoc core code and no rendering behavior.
@@ -288,14 +291,15 @@ surface is the real engine repository.
 
 ## 11. Next-Round Codex Prompt
 
-Use this prompt for the next Codex session if continuing with T15:
+Use this prompt for the next Codex session if continuing after T15:
 
 ```text
 You are working in D:\Code\git\renderdoc on branch codex/local-clean-main.
 
 Goal:
-Implement T15: EAP Validator CLI as tooling only. Do not implement engine runtime, RenderDoc core
-changes, render graph hooks, sidecar writer emission, capture, upload, delete, or remote execution.
+Implement a T16/T07 follow-up for validator golden fixtures and rule CLI planning as tooling only.
+Do not implement engine runtime, RenderDoc core changes, render graph hooks, sidecar writer
+emission, capture, upload, delete, or remote execution.
 
 Read first:
 - docs/EAP/EAP_PROGRESS_CHECKLIST.md
@@ -305,12 +309,14 @@ Read first:
 - tools/mcp/providers/sidecar_loader.py
 - tools/mcp/providers/eap_sidecar_provider.py
 - tools/mcp/tests/test_sidecar_loader.py
+- tools/eap_validator/eap_validator.py
+- tools/eap_validator/tests/test_eap_validator.py
 
-Allowed files for T15:
+Allowed files:
 - docs/EAP/EAP_PROGRESS_CHECKLIST.md
 - tools/eap_validator/**
 - tools/eap_validator/tests/**
-- narrow docs/tests updates directly required for the validator CLI
+- narrow docs/tests updates directly required for validator fixtures or read-only rule planning
 
 Forbidden files and behaviors:
 - Do not modify renderdoc/**
@@ -323,11 +329,10 @@ Forbidden files and behaviors:
 - Do not parse .rdc binary in the validator
 
 Implementation target:
-- Add a CLI that validates one explicit .rmeta.json sidecar using the existing loader/schema shape.
-- Return deterministic machine-readable JSON and a concise human-readable summary.
-- Preserve stable error codes from SidecarLoadError.
-- Add focused tests for valid sidecar, invalid extension, invalid JSON, invalid EAP shape, allowlist
-  behavior, and summary output.
+- Add durable golden sidecar fixtures or fixture generators for the existing validator.
+- Keep validator reads explicit and allowlisted; do not add directory scanning by default.
+- Preserve deterministic machine-readable JSON and stable SidecarLoadError codes.
+- If planning a rule CLI, document scope first; do not implement write/upload/capture behavior.
 - Run py_compile and focused pytest.
 
 Completion report:
