@@ -1,0 +1,10 @@
+{
+  "schema_version": "eap-validator.v1",
+  "ok": false,
+  "sidecar": null,
+  "error": {
+    "code": "invalid_sidecar",
+    "message": "JSON object is not an EAP sidecar",
+    "path": "<FIXTURE_PATH>"
+  }
+}

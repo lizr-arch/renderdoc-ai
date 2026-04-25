@@ -1,0 +1,10 @@
+{
+  "schema": {
+    "name": "EngineAnnotationProtocol",
+    "version": 1,
+    "created_utc": "2026-04-25T00:00:00Z"
+  },
+  "capture": {
+    "id": "cap:fixture:minimal"
+  }
+}

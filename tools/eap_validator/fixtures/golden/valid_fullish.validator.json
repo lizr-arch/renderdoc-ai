@@ -1,0 +1,34 @@
+{
+  "schema_version": "eap-validator.v1",
+  "ok": true,
+  "sidecar": {
+    "path": "<FIXTURE_PATH>",
+    "schema_name": "EngineAnnotationProtocol",
+    "schema_version": 1,
+    "capture_id": "cap:fixture:fullish",
+    "counts": {
+      "render_graph_nodes": 2,
+      "commands": 2,
+      "resources": 1,
+      "assets": 1,
+      "materials": 1,
+      "shaders": 2,
+      "pipelines": 1,
+      "rule_results": 2
+    },
+    "capabilities": [
+      "eap_schema",
+      "render_graph",
+      "commands",
+      "resources",
+      "assets",
+      "materials",
+      "shaders",
+      "pipelines",
+      "rules",
+      "diagnostics",
+      "security"
+    ]
+  },
+  "error": null
+}

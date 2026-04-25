@@ -1,0 +1,24 @@
+{
+  "schema_version": "eap-validator.v1",
+  "ok": true,
+  "sidecar": {
+    "path": "<FIXTURE_PATH>",
+    "schema_name": "EngineAnnotationProtocol",
+    "schema_version": 1,
+    "capture_id": "cap:fixture:minimal",
+    "counts": {
+      "render_graph_nodes": 0,
+      "commands": 0,
+      "resources": 0,
+      "assets": 0,
+      "materials": 0,
+      "shaders": 0,
+      "pipelines": 0,
+      "rule_results": 0
+    },
+    "capabilities": [
+      "eap_schema"
+    ]
+  },
+  "error": null
+}

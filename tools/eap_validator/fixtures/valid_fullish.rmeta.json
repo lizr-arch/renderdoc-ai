@@ -1,0 +1,94 @@
+{
+  "schema": {
+    "name": "EngineAnnotationProtocol",
+    "version": 1,
+    "created_utc": "2026-04-25T00:00:00Z"
+  },
+  "capture": {
+    "id": "cap:fixture:fullish",
+    "frame_index": 42,
+    "source": "synthetic_fixture"
+  },
+  "render_graph": {
+    "nodes": [
+      {
+        "id": "pass:base_opaque",
+        "name": "BasePass/Opaque"
+      },
+      {
+        "id": "pass:post",
+        "name": "PostProcess"
+      }
+    ]
+  },
+  "commands": [
+    {
+      "id": "cmd:1",
+      "kind": "draw_indexed",
+      "pass_id": "pass:base_opaque",
+      "resource_ids": ["res:color"]
+    },
+    {
+      "id": "cmd:2",
+      "kind": "dispatch",
+      "pass_id": "pass:post"
+    }
+  ],
+  "resources": [
+    {
+      "id": "res:color",
+      "kind": "texture2d",
+      "format": "RGBA8_UNORM",
+      "width": 128,
+      "height": 128
+    }
+  ],
+  "assets": [
+    {
+      "id": "asset:fixture_material",
+      "path_hash": "hash:fixture-material"
+    }
+  ],
+  "materials": [
+    {
+      "id": "mat:fixture",
+      "name": "M_Fixture"
+    }
+  ],
+  "shaders": [
+    {
+      "id": "shader:vs:fixture",
+      "stage": "vs",
+      "hash": "0x1111"
+    },
+    {
+      "id": "shader:ps:fixture",
+      "stage": "ps",
+      "hash": "0x2222"
+    }
+  ],
+  "pipelines": [
+    {
+      "id": "pso:fixture",
+      "hash": "0x3333"
+    }
+  ],
+  "rules": {
+    "results": [
+      {
+        "id": "rule:fixture:ok",
+        "severity": "info"
+      },
+      {
+        "id": "rule:fixture:warning",
+        "severity": "warning"
+      }
+    ]
+  },
+  "diagnostics": {
+    "annotation_budget_exceeded": false
+  },
+  "security": {
+    "redaction_policy": "project_internal"
+  }
+}

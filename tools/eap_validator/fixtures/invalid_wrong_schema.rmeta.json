@@ -1,0 +1,7 @@
+{
+  "schema": {
+    "name": "OtherProtocol",
+    "version": 1
+  },
+  "note": "Synthetic non-EAP payload used to verify invalid_sidecar behavior."
+}
