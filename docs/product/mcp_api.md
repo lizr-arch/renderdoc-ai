@@ -1,11 +1,42 @@
 # MCP 实时接口设计案
 
+> 2026-04-23 delta：本文件描述的是 MCP 设计目标，不等同于“当前全部方法都已运行验证”。
+> 当前已验证运行面以 `get_capture_status` 和 `bridge_unavailable / recovery_hint` 诊断增强为主；更大方法集仍以 `docs/product/mcp_query_contract_v1.md` 作为契约目标。
+> 当前状态总入口：`docs/product/delivery_surfaces_status.md`
+
 ## 角色与场景
 - 脚本/自动化、AI 助手、局部数据补拉、性能/渲染问题定位。
 
 ## 目标
 - 提供可靠的实时数据 API，不生成整份报告；强调按需、小颗粒、低延迟。
 - 为 Skill/脚本提供标准调用与示例。
+
+## 当前实现状态（2026-04-23）
+
+- 当前最可信的运行面是：
+  - `run_query.py --method get_capture_status`
+  - `tools/mcp/snapshot_consumer.py`
+  - `tools/mcp/tests/test_snapshot_consumer.py`
+- 当前已经有代码/测试证据的点：
+  - 统一 `mcp-query.v1` envelope
+  - `bridge_unavailable`
+  - `capture_not_loaded`
+  - `timeout`
+  - GUI 未启动、IPC 锁冲突、bridge 不可用时的 `recovery_hint`
+- 当前不能诚实宣称已经 repo-local 验证完毕的，是更大方法集的 GUI handler/source：
+  - `list_captures`
+  - `open_capture`
+  - `get_draw_calls`
+  - `get_draw_call_details`
+  - `find_draws_by_*`
+  - `get_texture_info`
+  - `get_buffer_contents`
+
+使用建议：
+
+- 把本文件当作设计案和产品目标
+- 把 `mcp_query_contract_v1.md` 当作正式契约
+- 把 `delivery_surfaces_status.md` 当作当前真实落地状态
 
 ## 核心工具
 - `renderdoc-mcp`（FastMCP 服务器）

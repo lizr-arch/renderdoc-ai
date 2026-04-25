@@ -1,5 +1,12 @@
 # 离线路径 `snapshot.v1` 桥接审计
 
+> 2026-04-23 delta：本文主体记录的是 2026-03-09 的旧审计基线。
+> 其中“共享 renderer 还未落地”“snapshot HTML 仍是未来阶段”的判断已部分过时：
+> - `SnapshotTemplateRenderer` 已存在
+> - `xml_to_bundle.py` 的 snapshot 路由当前候选页集已对齐 `pipelines.html`
+> - legacy `ReportBundleGenerator` 现在应被视作 fallback/兼容路径，而不是新 canonical 主路径
+> 最新当前状态请优先读：`docs/product/delivery_surfaces_status.md`
+
 时间：2026-03-09 16:57:03  
 负责人：AgentA
 
@@ -196,7 +203,7 @@ recommendations 页面会从 `performance_data` 读取：
 建议动作：
 
 1. 新增 `SnapshotTemplateRenderer`，输入只有 `snapshot.v1`。
-2. 页面产物按 `template_contract_v1` 统一：`index.html`、`events.html`、`textures.html`、`shaders.html`、`recommendations.html`、`manifest.json`。
+2. 页面产物按 `template_contract_v1` 统一：`index.html`、`events.html`、`textures.html`、`shaders.html`、`pipelines.html`、`manifest.json`。
 3. `events.html`、`evidence_index`、`availability`、`preflight` 由 renderer 统一落地。
 
 ### 6.3 第三阶段：下沉 legacy generator 的职责

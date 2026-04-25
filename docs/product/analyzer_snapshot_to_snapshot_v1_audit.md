@@ -1,5 +1,10 @@
 # Native Qt `AnalyzerSnapshot` → `snapshot.v1` 对齐审计
 
+> 2026-04-23 delta：本文下面的大部分内容仍然保留“审计时的旧基线”，但其中两条判断已部分过时：
+> 1. `AnalyzerExporter` 现在已经可以输出 `snapshot.v1.json` 与 `capture_context.json`，不再只是 legacy 三件套。
+> 2. 当前 B 线候选实现已把 GUI HTML 主路径接到 shared snapshot renderer：`AnalyzerReportViewer` -> `render_snapshot_bundle.py` -> `SnapshotTemplateRenderer`。
+> 最新当前状态请优先读：`docs/product/delivery_surfaces_status.md`
+
 > 状态：M2 审计文档。  
 > 目标：明确当前 Native Qt Analyzer Report 的事实结构，找出它与 `docs/product/snapshot_schema_v1.md` 的差异，并给出最小改造切入点。  
 > 适用范围：`qrenderdoc/Code/Analyzer/*`、`qrenderdoc/Windows/AnalyzerReportViewer.cpp`。

@@ -1,5 +1,10 @@
 # GUI 报告（主路径）设计案
 
+> 2026-04-23 delta：当前“设计案”已部分落入候选实现。
+> 当前最可信的 GUI HTML 主路径是：`AnalyzerExporter::WriteAll()` 落 `snapshot.v1.json` sidecar，再由 `AnalyzerReportViewer` 调 `scripts/rdc_analyzer/render_snapshot_bundle.py` 驱动 shared `SnapshotTemplateRenderer`。
+> 当前剩余缺口：B 线 `msbuild` 与 GUI export smoke 仍未完成。
+> 当前状态总入口：`docs/product/delivery_surfaces_status.md`
+
 ## 角色与场景
 - 角色：渲染程序员、游戏程序员、TA、技术美术。
 - 场景：交互调试、问题复盘、分享/评审、培训。
@@ -7,6 +12,28 @@
 ## 目标
 - 在 RenderDoc 内一键生成官方 HTML 报告：可信、可视化、可跳转。
 - 统一模板（与离线共享），减少学习和维护成本。
+
+## 当前实现状态（2026-04-23）
+
+- sidecar 导出已不是纯设计目标，当前候选实现已明确包含：
+  - `analysis.json`
+  - `issues_export.csv`
+  - `issues_export.md`
+  - `capture_context.json`
+  - `snapshot.v1.json`
+- HTML bundle 的当前候选输出目标是：
+  - `index.html`
+  - `events.html`
+  - `textures.html`
+  - `shaders.html`
+  - `pipelines.html`
+  - `manifest.json`
+- 关键工程决策已经明确：
+  - GUI 不应回退到 `analysis.json -> legacy ReportBundleGenerator` 作为 canonical HTML 主路径
+  - GUI 应复用 shared snapshot renderer，而不是在 Qt 内再写第二套模板
+- 仍未完成：
+  - `qrenderdoc_local.vcxproj` 编译验证
+  - 真实 GUI export smoke
 
 ## 数据来源
 - ReplayController + CaptureContext（全字段、含截图/缩略、管线状态、计时）。
