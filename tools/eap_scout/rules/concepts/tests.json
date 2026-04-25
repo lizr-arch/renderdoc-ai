@@ -1,0 +1,27 @@
+{
+  "concept": "tests",
+  "keywords": [
+    "TEST",
+    "TEST_F",
+    "unittest",
+    "pytest",
+    "TestFixture",
+    "AutomationTest",
+    "Spec"
+  ],
+  "patterns": [
+    {
+      "name": "test declaration",
+      "regex": "\\b(TEST(_F)?|unittest|pytest|AutomationTest|TestFixture)\\b"
+    }
+  ],
+  "path_hints": [
+    "test",
+    "tests",
+    "Testing",
+    "Spec"
+  ],
+  "reason": "Test file or test framework evidence was found.",
+  "risk": "Tests may be tooling-only and not cover engine runtime.",
+  "recommended_eap_usage": "Candidate location for bridge/core/scout tests."
+}

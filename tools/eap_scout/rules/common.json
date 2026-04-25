@@ -1,0 +1,291 @@
+{
+  "settings": {
+    "ignored_dirs": [
+      ".git",
+      ".tmp",
+      ".codex_repos",
+      ".codex_worktrees",
+      ".codex",
+      ".codemaker",
+      ".pytest_cache",
+      ".sdd",
+      ".serena",
+      ".tmp-gh-config",
+      ".uv-cache",
+      ".uv-cache-codex",
+      "__pycache__",
+      "build",
+      "bin",
+      "obj",
+      "docs",
+      "Documentation",
+      "plans",
+      "dist",
+      "out",
+      "output",
+      "logs",
+      "node_modules",
+      "ThirdParty",
+      "third_party",
+      "3rdparty",
+      "External",
+      "extern",
+      "Intermediate",
+      "Saved",
+      "DerivedDataCache",
+      "Library",
+      "Temp",
+      "stress_test_output",
+      "test_bundle_cli",
+      "test_output",
+      "x64"
+    ],
+    "source_extensions": [
+      ".h",
+      ".hpp",
+      ".hh",
+      ".cpp",
+      ".cc",
+      ".c",
+      ".cs",
+      ".mm",
+      ".m",
+      ".py",
+      ".lua",
+      ".json",
+      ".xml",
+      ".uproject",
+      ".uplugin",
+      ".cmake"
+    ],
+    "source_names": [
+      "CMakeLists.txt",
+      "premake5.lua",
+      "SConstruct",
+      "SConscript",
+      "Makefile",
+      "WORKSPACE",
+      "BUILD.bazel"
+    ],
+    "max_file_size": 2097152
+  },
+  "concepts": {
+    "repo_type": {
+      "keywords": [
+        "Renderer",
+        "RenderGraph",
+        "RHI",
+        "qrenderdoc",
+        "renderdoccmd",
+        ".uproject",
+        ".uplugin",
+        "ProjectSettings"
+      ],
+      "patterns": [
+        {
+          "name": "repo markers",
+          "regex": "\\b(Renderer|RenderGraph|RHI|qrenderdoc|renderdoccmd)\\b"
+        }
+      ],
+      "path_hints": [
+        "renderdoc/api/app/renderdoc_app.h",
+        "renderdoc/replay/app_api.cpp",
+        "qrenderdoc",
+        "renderdoccmd",
+        "Engine",
+        "Renderer",
+        "Assets",
+        "Packages",
+        "ProjectSettings"
+      ],
+      "reason": "Repository type is inferred from top-level structure and known engine/tool markers.",
+      "risk": "Repository type can be ambiguous in monorepos; confirm before writing runtime code.",
+      "recommended_eap_usage": "Use only to select the next task, not as a code edit target."
+    },
+    "command_list": {
+      "keywords": [
+        "CommandList",
+        "RHICommandList",
+        "ID3D12GraphicsCommandList",
+        "GraphicsCommandList",
+        "CommandContext"
+      ],
+      "patterns": [
+        {
+          "name": "command list type",
+          "regex": "\\b\\w*CommandList\\w*\\b"
+        }
+      ],
+      "path_hints": [
+        "CommandList",
+        "RHI",
+        "Renderer"
+      ],
+      "reason": "Command-list evidence can identify where command annotations may be emitted.",
+      "risk": "Command-list ownership is often thread-specific; validate before emitting annotations.",
+      "recommended_eap_usage": "Candidate owner for per-command EAP annotation target."
+    },
+    "command_buffer": {
+      "keywords": [
+        "CommandBuffer",
+        "VkCommandBuffer",
+        "MTLCommandBuffer",
+        "GraphicsCommandBuffer"
+      ],
+      "patterns": [
+        {
+          "name": "command buffer type",
+          "regex": "\\b\\w*CommandBuffer\\w*\\b"
+        }
+      ],
+      "path_hints": [
+        "CommandBuffer",
+        "Vulkan",
+        "Metal",
+        "Renderer"
+      ],
+      "reason": "Command-buffer evidence can identify Vulkan/Metal style annotation targets.",
+      "risk": "Command buffers can be recycled or recorded on worker threads.",
+      "recommended_eap_usage": "Candidate owner for backend-specific command annotation target."
+    },
+    "draw": {
+      "keywords": [
+        "DrawIndexed",
+        "DrawInstanced",
+        "DrawPrimitive",
+        "DrawMesh",
+        "SubmitDraw",
+        "MeshBatch"
+      ],
+      "patterns": [
+        {
+          "name": "draw call",
+          "regex": "\\b(DrawIndexed|DrawInstanced|DrawPrimitive|DrawMesh|SubmitDraw)\\b"
+        }
+      ],
+      "path_hints": [
+        "Draw",
+        "Mesh",
+        "Renderer"
+      ],
+      "reason": "Draw call evidence identifies where material/mesh/PSO context may still be available.",
+      "risk": "Low-level backend draws may lack engine semantic data.",
+      "recommended_eap_usage": "Prefer higher-level draw packet/render item hook over backend wrappers."
+    },
+    "dispatch": {
+      "keywords": [
+        "Dispatch",
+        "DispatchCompute",
+        "DispatchRays",
+        "TraceRays",
+        "ComputePass"
+      ],
+      "patterns": [
+        {
+          "name": "dispatch call",
+          "regex": "\\b(Dispatch|DispatchCompute|DispatchRays|TraceRays)\\b"
+        }
+      ],
+      "path_hints": [
+        "Compute",
+        "Dispatch",
+        "Renderer"
+      ],
+      "reason": "Dispatch evidence identifies compute/ray dispatch annotation sites.",
+      "risk": "Indirect or ray dispatch can hide per-command details from CPU-side code.",
+      "recommended_eap_usage": "Use for `eap.cmd.kind` and compute shader metadata candidates."
+    },
+    "asset": {
+      "keywords": [
+        "Asset",
+        "AssetPath",
+        "AssetGuid",
+        "GUID",
+        "ResourcePath"
+      ],
+      "patterns": [
+        {
+          "name": "asset path",
+          "regex": "\\b(Asset(Path|Guid|Id)?|ResourcePath|GUID)\\b"
+        }
+      ],
+      "path_hints": [
+        "Asset",
+        "Content",
+        "Resources"
+      ],
+      "reason": "Asset evidence can connect GPU objects to stable project metadata.",
+      "risk": "Asset paths can leak private project structure.",
+      "recommended_eap_usage": "Use for sidecar metadata and redacted object annotations."
+    },
+    "streaming": {
+      "keywords": [
+        "Streaming",
+        "ResidentMip",
+        "WantedMip",
+        "MipBias",
+        "TextureStreaming"
+      ],
+      "patterns": [
+        {
+          "name": "streaming mip",
+          "regex": "\\b(ResidentMip|WantedMip|TextureStreaming|Streaming)\\b"
+        }
+      ],
+      "path_hints": [
+        "Streaming",
+        "Texture"
+      ],
+      "reason": "Streaming evidence can support texture residency annotations.",
+      "risk": "Streaming state is frame-sensitive and may not be stable outside capture.",
+      "recommended_eap_usage": "Use for `eap.streaming.*` sidecar fields."
+    },
+    "config": {
+      "keywords": [
+        "Config",
+        "Settings",
+        "ENABLE_EAP",
+        "WITH_RENDERDOC",
+        "EnableRenderDoc"
+      ],
+      "patterns": [
+        {
+          "name": "config flag",
+          "regex": "\\b(ENABLE_|WITH_|Config|Settings|Enable\\w+)\\b"
+        }
+      ],
+      "path_hints": [
+        "Config",
+        "Settings",
+        ".ini",
+        ".json"
+      ],
+      "reason": "Config evidence can identify compile-time/runtime feature flags.",
+      "risk": "Do not enable EAP by default in shipping builds.",
+      "recommended_eap_usage": "Candidate place for `ENABLE_EAP` and runtime toggles."
+    },
+    "console_variable": {
+      "keywords": [
+        "CVar",
+        "ConsoleVariable",
+        "ConsoleCommand",
+        "cvar",
+        "eap.enabled"
+      ],
+      "patterns": [
+        {
+          "name": "console variable",
+          "regex": "\\b(CVar|ConsoleVariable|ConsoleCommand|TAutoConsoleVariable)\\b"
+        }
+      ],
+      "path_hints": [
+        "Console",
+        "Config",
+        "CVar"
+      ],
+      "reason": "Console variable evidence can identify runtime EAP toggles.",
+      "risk": "Runtime toggles must not bypass shipping/privacy policy.",
+      "recommended_eap_usage": "Candidate owner for `eap.enabled` and capture-only toggles."
+    }
+  }
+}

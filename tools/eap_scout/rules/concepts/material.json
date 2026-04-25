@@ -1,0 +1,24 @@
+{
+  "concept": "material",
+  "keywords": [
+    "Material",
+    "MaterialInstance",
+    "MaterialId",
+    "MaterialPath",
+    "ShaderPermutation",
+    "RenderMaterial"
+  ],
+  "patterns": [
+    {
+      "name": "material identity",
+      "regex": "\\b(Material(Instance|Id|Path)?|RenderMaterial)\\b"
+    }
+  ],
+  "path_hints": [
+    "Material",
+    "Materials"
+  ],
+  "reason": "Material semantic code was found.",
+  "risk": "Material paths may need redaction before sidecar sharing.",
+  "recommended_eap_usage": "Candidate for draw-level material annotations and sidecar material table."
+}
