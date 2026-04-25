@@ -367,6 +367,57 @@ The current router is route-only:
 - It does not load `capture.rmeta.json` paths; callers must pass already-loaded dicts, optionally
   from `load_sidecar()`.
 
+## Read-Only MCP Tool Output
+
+The Phase 4 read-only server registers provider tools under
+`tools/mcp/mcp_server/provider_readonly_server.py`. It is separate from the legacy
+`scripts/rdc_mcp/rdc_mcp.py` server.
+
+Registered tools:
+
+| Tool | Output contract | Notes |
+| --- | --- | --- |
+| `get_data_availability` | `mcp-data-availability.v1` JSON | Stateless default availability; does not read files. |
+| `load_eap_sidecar` | `mcp-query.v1` envelope | Requires `RENDERDOC_EAP_SIDECAR_ALLOWLIST`; returns sidecar summary plus Data Availability. |
+
+`load_eap_sidecar` success shape:
+
+```json
+{
+  "ok": true,
+  "contract_version": "mcp-query.v1",
+  "data": {
+    "sidecar": {
+      "path": "D:/captures/capture.rmeta.json",
+      "schema_name": "EngineAnnotationProtocol",
+      "schema_version": 1,
+      "capture_id": "cap:eap",
+      "capabilities": []
+    },
+    "data_availability": {
+      "schema_version": "mcp-data-availability.v1",
+      "capture_id": "cap:eap",
+      "providers": {},
+      "limitations": []
+    }
+  },
+  "availability": {"status": "full", "missing_fields": [], "notes": []},
+  "evidence": [{"kind": "file", "path": "D:/captures/capture.rmeta.json"}],
+  "warnings": [],
+  "recovery_hint": null,
+  "error": null,
+  "method": "load_eap_sidecar",
+  "params": {"path": "D:/captures/capture.rmeta.json", "max_bytes": 268435456},
+  "source": "provider_readonly"
+}
+```
+
+Rules:
+
+- The full sidecar payload is not returned by default.
+- Loader-specific errors are preserved in `error.details.sidecar_code`.
+- Empty or missing `RENDERDOC_EAP_SIDECAR_ALLOWLIST` returns `sidecar_code=not_allowed`.
+
 ## Validation
 
 Current focused tests:
@@ -379,17 +430,21 @@ Current focused tests:
   failures.
 - `tools/mcp/tests/test_sidecar_loader.py` verifies controlled `.rmeta.json` loading, stable
   `SidecarLoadError` codes, resolved allowlist enforcement, and ProviderRegistry compatibility.
+- `tools/mcp/tests/test_provider_mcp_tools.py` verifies MCP envelope conversion, sidecar summaries,
+  allowlist parsing, and loader error mapping.
+- `tools/mcp/tests/test_provider_readonly_server.py` verifies read-only FastMCP registration without
+  importing a real MCP runtime.
 - `tools/mcp/tests/test_snapshot_consumer.py` keeps compatibility coverage for
   `get_data_availability()` beside the existing snapshot gap/planner/enricher tests.
 
 Validated command:
 
 ```powershell
-py -3 -m pytest tools\mcp\tests\test_snapshot_consumer.py tools\mcp\tests\test_provider_registry.py tools\mcp\tests\test_provider_routing.py tools\mcp\tests\test_sidecar_loader.py -q
+py -3 -m pytest tools\mcp\tests\test_snapshot_consumer.py tools\mcp\tests\test_provider_registry.py tools\mcp\tests\test_provider_routing.py tools\mcp\tests\test_sidecar_loader.py tools\mcp\tests\test_provider_mcp_tools.py tools\mcp\tests\test_provider_readonly_server.py -q
 ```
 
-Current Phase 3 result:
+Current Phase 4 result:
 
 ```text
-43 passed
+49 passed
 ```

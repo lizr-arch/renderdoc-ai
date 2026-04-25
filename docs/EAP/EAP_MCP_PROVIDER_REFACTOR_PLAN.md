@@ -303,24 +303,36 @@ Rules:
 
 Acceptance mirrors `docs/EAP/10_TASK_MCP_READONLY_SERVER.md:105-107` and `:170-178`.
 
-### Phase 4: MCP Tool/Resource Registration
+### Phase 4: MCP Tool Registration (done, read-only server)
 
-Do this after registry and loader are stable and server ownership is decided. Phase 4 is explicitly
-separate from Phase 3: converting loader exceptions into `mcp-query.v1` or
-`mcp-data-availability.v1` responses, exposing any tool/resource name, and deciding where it is
-registered all belong here, not in the loader.
+This phase keeps MCP registration separate from Phase 3 loader internals. Loader exceptions are
+converted into `mcp-query.v1` envelopes by a pure adapter, then exposed through a new read-only MCP
+server that is separate from the legacy RDC open/analyze server.
 
-Recommended new read-only tool/resource names:
+Implemented Phase 4 tool names:
 
-| Kind | Name | Input | Output |
+| Kind | Name | Registration | Notes |
 | --- | --- | --- | --- |
-| Tool | `get_data_availability` | none or already-loaded context ID | `mcp-data-availability.v1` JSON |
-| Resource | `capture://current/data-availability` | none | same JSON |
-| Tool | `load_sidecar` | allowlisted `.rmeta.json` path | sidecar summary plus Data Availability update |
+| Tool | `get_data_availability` | `tools/mcp/mcp_server/provider_readonly_server.py` | Stateless default availability. Does not read files. |
+| Tool | `load_eap_sidecar` | `tools/mcp/mcp_server/provider_readonly_server.py` | Requires `RENDERDOC_EAP_SIDECAR_ALLOWLIST`; returns sidecar summary plus Data Availability. |
 
-Do not add these to `scripts/rdc_mcp/rdc_mcp.py` until the old path/report tools are either isolated
-or clearly marked legacy. The current server already has `rdc_analyze`, which conflicts with the
-readonly/no-report goal for this task.
+Implementation anchors:
+
+- `tools/mcp/mcp_server/provider_tools.py` maps `load_sidecar()` success/failure into
+  `mcp-query.v1` envelopes.
+- `tools/mcp/mcp_server/provider_readonly_server.py` registers read-only provider tools through
+  FastMCP.
+- `tools/mcp/tests/test_provider_mcp_tools.py` covers adapter envelope behavior and allowlist
+  parsing.
+- `tools/mcp/tests/test_provider_readonly_server.py` covers registration without importing real
+  FastMCP.
+
+Boundary:
+
+- This server is separate from `scripts/rdc_mcp/rdc_mcp.py`.
+- `load_eap_sidecar` returns a summary and Data Availability, not raw full sidecar JSON.
+- Loader errors are mapped to `mcp-query.v1` while preserving `error.details.sidecar_code`.
+- Empty MCP allowlist is rejected with `sidecar_code=not_allowed`.
 
 ## Test Matrix
 
@@ -339,6 +351,8 @@ readonly/no-report goal for this task.
 | Explicit valid `.rmeta.json` path | `load_sidecar()` returns a dict that makes `eap_sidecar.available=true` when passed into `ProviderContext`. |
 | Non-sidecar path or payload | `load_sidecar()` raises `SidecarLoadError` with stable codes such as `invalid_extension`, `invalid_json`, `invalid_payload`, or `invalid_sidecar`. |
 | Path outside allowlist | `load_sidecar()` raises `not_allowed` after resolving the path. |
+| MCP `load_eap_sidecar` without configured allowlist | `ok=false`, `error.code=invalid_argument`, `error.details.sidecar_code=not_allowed`. |
+| MCP `load_eap_sidecar` with valid allowlisted sidecar | `ok=true`, `source=provider_readonly`, sidecar summary and Data Availability are returned, raw sidecar payload is omitted. |
 
 ## Risks And Mitigations
 
@@ -346,13 +360,13 @@ readonly/no-report goal for this task.
 | --- | --- |
 | Provider abstraction becomes a second report system | Keep registry as routing/availability only; full reports remain `snapshot.v1` + report pipeline. |
 | EAP hard dependency breaks existing MCP | Make `eap_sidecar` optional and report missing explicitly. |
-| Old `rdc_mcp` side-effect tools contaminate read-only path | Do not register new provider tools there until separated or wrapped. |
-| Arbitrary path reads leak local files | `load_sidecar()` is explicit-path only, `.rmeta.json` only, allowlist-aware, size-bounded, and not registered as an MCP tool yet. |
+| Old `rdc_mcp` side-effect tools contaminate read-only path | Provider tools are registered in `tools/mcp/mcp_server/provider_readonly_server.py`, not in `scripts/rdc_mcp/rdc_mcp.py`. |
+| Arbitrary path reads leak local files | MCP `load_eap_sidecar` requires `RENDERDOC_EAP_SIDECAR_ALLOWLIST`; the lower-level loader still enforces `.rmeta.json`, size, resolved path, JSON, and EAP shape. |
 | Live RenderDoc bridge blocks availability | Availability must be computed from status payload or bridge-state metadata only; no blocking live call. |
 | Missing data looks like empty data | Every unavailable provider and field gap must appear in `limitations` or per-query `availability`. |
 
 ## Next Recommended Step
 
-Keep Phase 4 gated on server ownership. If a future MCP registration is approved, wrap
-`SidecarLoadError` into the standard MCP error envelope, keep the input allowlisted, and continue to
-avoid legacy path/report side effects in `scripts/rdc_mcp/rdc_mcp.py`.
+Future work should decide whether the read-only server needs persistent context IDs, richer
+ProviderContext inputs, or a config file for allowlist roots. Do not add full report generation or
+legacy `.rdc` open/analyze behavior to this provider server.
