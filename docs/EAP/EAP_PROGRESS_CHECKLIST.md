@@ -60,18 +60,19 @@ Current task-state matrix:
 | T07 | `partial` | Tooling-side rule/provider groundwork. | Provider/rules availability and validator CLI exist, but no full rule CLI. |
 | T08 | `not_applicable` | Engine sidecar writer. | Current repo can load/consume sidecar; it should not emit engine sidecars. |
 | T09 | `not_applicable` | Engine capture lifecycle hook. | Capture-side engine lifecycle is outside this repo. |
-| T10 | `partial` | Read-only MCP/provider sidecar surface. | `get_data_availability` and `load_eap_sidecar` exist, but this is provider/tooling support, not full EAP runtime. |
+| T10 | `partial` | Read-only MCP/provider sidecar consumption. | `get_data_availability`, `load_eap_sidecar`, synthetic fixture summary/search, and synthetic fixture rule-result consumption exist; this is provider/tooling support, not full EAP runtime. |
 | T11 | `not_applicable` | Render graph semantic extraction inside engine. | Requires pass graph and renderer code. |
 | T12 | `not_applicable` | Material/shader/asset hook emission. | Requires material/shader/asset systems not owned here. |
 | T13 | `not_applicable` | Resource lifetime annotation in engine. | Requires engine resource creation/lifetime ownership. |
 | T14 | `not_applicable` | Runtime performance/budget integration. | Hot-path budget enforcement belongs in engine runtime. |
 | T15 | `done` | EAP Validator CLI. | `tools/eap_validator/eap_validator.py` validates one explicit `.rmeta.json` using the existing sidecar loader. |
 | T16 | `done` | Validator fixtures/golden validation package. | Synthetic fixtures and normalized golden validator outputs exist under `tools/eap_validator/fixtures`. |
-| T17 | `done` | Read-only provider and sidecar loader tests. | Focused pytest passes: `44 passed in 0.30s`. |
+| T17 | `done` | Read-only provider, sidecar loader, and synthetic consumption tests. | Focused MCP/validator pytest passes: `65 passed in 0.83s`. |
 
 Interpretation: current EAP Level remains `2 / 6` for the full product because engine-side runtime,
 emission, and hook work is still outside this repo. Tooling readiness improved: protocol, scout, MCP
-sidecar/provider support, and the first validator CLI are now present for controlled consumer work.
+sidecar/provider support, synthetic fixture read-only consumption, and the first validator CLI are now
+present for controlled consumer work.
 
 ---
 
@@ -149,8 +150,8 @@ Preferred naming if implemented in the real engine: `EAPRenderDocAppBridge` or
 
 Status in this repository: consumer/provider `partial`; engine writer `not_applicable`.
 
-This repo has controlled read-only sidecar loading and provider availability support. It does not
-have and should not add an engine-side sidecar writer here.
+This repo has controlled read-only sidecar loading, provider availability support, and synthetic
+fixture read-only consumption. It does not have and should not add an engine-side sidecar writer here.
 
 Existing consumer/tooling evidence:
 
@@ -159,7 +160,9 @@ Existing consumer/tooling evidence:
 | `docs/EAP/02_EAP_PROTOCOL_SPEC.md:229-310` | EAP sidecar naming and top-level structure are specified. |
 | `tools/mcp/providers/sidecar_loader.py:23-71` | Controlled `.rmeta.json` loader validates extension, allowlist, existence, size, JSON, root object, and EAP shape. |
 | `tools/mcp/providers/eap_sidecar_provider.py:15-58` | `eap_sidecar` provider reports sidecar availability and capabilities from a preloaded dict. |
+| `tools/mcp/mcp_server/eap_sidecar_consumption.py` | Pure summary/search/rule-result projection helpers for read-only synthetic fixture consumption. |
 | `tools/mcp/tests/test_sidecar_loader.py:45-150` | Loader tests cover valid sidecar, invalid suffix, missing path, directory, oversize, invalid JSON, bad payload, allowlist, and registry compatibility. |
+| `tools/eap_validator/fixtures/valid_fullish.rmeta.json` | Synthetic fixture used for current MCP summary/search/rule-result consumption tests. |
 
 Missing engine-side writer:
 
@@ -171,6 +174,10 @@ Missing engine-side writer:
 
 Safe next consumer path in this repo: validate sidecar files and provider output. Unsafe path here:
 inventing engine writer code without engine hooks.
+
+Current T10 acceptance is deliberately limited to synthetic fixtures. Do not claim a real
+engine-produced EAP capture is connected until a future gate provides a bound `<capture>.rdc` plus
+`<capture>.rmeta.json` pair and validator/rules/MCP summary/search all pass against that pair.
 
 ---
 
@@ -271,6 +278,9 @@ Commands run for this checklist:
 | `py -3 -m pytest tools\eap_validator\tests -q` | Pending final rerun after T16 fixtures. |
 | `py -3 -m pytest tools\eap_validator\tests\test_eap_validator_fixtures.py -q` before fixtures | Expected red: missing `fixtures/golden/*.validator.json`. |
 | `py -3 -m pytest tools\eap_validator\tests\test_eap_validator_fixtures.py -q` after fixtures | `3 passed in 0.05s`. |
+| `py -3 -m py_compile tools\mcp\mcp_server\eap_sidecar_consumption.py tools\mcp\mcp_server\provider_tools.py tools\mcp\mcp_server\provider_readonly_server.py tools\mcp\tests\test_provider_mcp_tools.py tools\mcp\tests\test_provider_readonly_server.py` | Succeeded with no output after T10 synthetic consumption tools. |
+| `py -3 -m pytest tools\mcp\tests\test_provider_mcp_tools.py tools\mcp\tests\test_provider_readonly_server.py -q` | `10 passed in 0.09s`. |
+| `py -3 -m pytest tools\mcp\tests\test_snapshot_consumer.py tools\mcp\tests\test_provider_registry.py tools\mcp\tests\test_provider_routing.py tools\mcp\tests\test_sidecar_loader.py tools\mcp\tests\test_provider_mcp_tools.py tools\mcp\tests\test_provider_readonly_server.py tools\eap_validator\tests -q` | `65 passed in 0.83s`. |
 
 Build status: not run. This task is Python tooling plus documentation only and does not touch C++
 build inputs or RenderDoc runtime behavior.
@@ -286,6 +296,7 @@ Meaning:
 - Protocol docs exist.
 - Scout/analyzer planning support exists.
 - Read-only MCP provider/sidecar loader tooling exists and has focused tests.
+- Read-only MCP summary/search/rule-result consumption exists for synthetic fixtures.
 - EAP Validator CLI exists and has focused unit/CLI tests.
 - Synthetic validator fixtures and normalized golden outputs exist.
 - Engine runtime, bridge, sidecar writer, render hooks, and semantic emission are not implemented in

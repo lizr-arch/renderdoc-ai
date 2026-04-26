@@ -11,11 +11,18 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from mcp_server.provider_tools import (  # type: ignore
+    get_eap_rule_results_envelope,
     load_eap_sidecar_envelope,
     parse_allowlist_env,
+    search_eap_commands_envelope,
     sidecar_load_error_to_envelope,
+    summarize_eap_sidecar_envelope,
 )
 from providers import SidecarLoadError  # type: ignore
+
+
+REPO_ROOT = ROOT.parents[1]
+FULLISH_FIXTURE = REPO_ROOT / "tools" / "eap_validator" / "fixtures" / "valid_fullish.rmeta.json"
 
 
 def _sidecar(**extra: Any) -> Dict[str, Any]:
@@ -63,6 +70,64 @@ def test_load_eap_sidecar_envelope_requires_allowlist(tmp_path: Path):
     assert envelope["error"]["code"] == "invalid_argument"
     assert envelope["error"]["details"]["sidecar_code"] == "not_allowed"
     assert "allowlist" in envelope["recovery_hint"].lower()
+
+
+def test_summarize_eap_sidecar_envelope_consumes_synthetic_fixture():
+    envelope = summarize_eap_sidecar_envelope(
+        str(FULLISH_FIXTURE),
+        allowlist_dirs=[str(FULLISH_FIXTURE.parent)],
+    )
+
+    assert envelope["ok"] is True
+    assert envelope["method"] == "summarize_eap_sidecar"
+    assert envelope["source"] == "provider_readonly"
+    assert envelope["data"]["summary"]["capture_id"] == "cap:fixture:fullish"
+    assert envelope["data"]["counts"] == {
+        "render_graph_nodes": 2,
+        "commands": 2,
+        "resources": 1,
+        "assets": 1,
+        "materials": 1,
+        "shaders": 2,
+        "pipelines": 1,
+        "rule_results": 2,
+    }
+    assert envelope["data"]["validation_scope"] == "synthetic_fixture_or_explicit_sidecar_only"
+    assert "payload" not in envelope["data"]["summary"]
+
+
+def test_search_eap_commands_envelope_filters_synthetic_fixture_by_pass_and_resource():
+    by_pass = search_eap_commands_envelope(
+        str(FULLISH_FIXTURE),
+        pass_id="pass:base_opaque",
+        allowlist_dirs=[str(FULLISH_FIXTURE.parent)],
+    )
+    by_resource = search_eap_commands_envelope(
+        str(FULLISH_FIXTURE),
+        resource_id="res:color",
+        allowlist_dirs=[str(FULLISH_FIXTURE.parent)],
+    )
+
+    assert by_pass["ok"] is True
+    assert by_pass["method"] == "search_eap_commands"
+    assert by_pass["data"]["match_count"] == 1
+    assert by_pass["data"]["items"][0]["id"] == "cmd:1"
+    assert by_pass["data"]["items"][0]["matched_by"] == ["pass_id"]
+    assert by_resource["data"]["match_count"] == 1
+    assert by_resource["data"]["items"][0]["resource_ids"] == ["res:color"]
+
+
+def test_get_eap_rule_results_envelope_filters_synthetic_fixture_by_severity():
+    envelope = get_eap_rule_results_envelope(
+        str(FULLISH_FIXTURE),
+        severity="warning",
+        allowlist_dirs=[str(FULLISH_FIXTURE.parent)],
+    )
+
+    assert envelope["ok"] is True
+    assert envelope["method"] == "get_eap_rule_results"
+    assert envelope["data"]["result_count"] == 1
+    assert envelope["data"]["items"] == [{"id": "rule:fixture:warning", "severity": "warning"}]
 
 
 def test_sidecar_load_error_to_envelope_preserves_sidecar_error_code():

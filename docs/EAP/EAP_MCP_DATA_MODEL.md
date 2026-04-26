@@ -379,6 +379,9 @@ Registered tools:
 | --- | --- | --- |
 | `get_data_availability` | `mcp-data-availability.v1` JSON | Stateless default availability; does not read files. |
 | `load_eap_sidecar` | `mcp-query.v1` envelope | Requires `RENDERDOC_EAP_SIDECAR_ALLOWLIST`; returns sidecar summary plus Data Availability. |
+| `summarize_eap_sidecar` | `mcp-query.v1` envelope | Requires `RENDERDOC_EAP_SIDECAR_ALLOWLIST`; returns bounded sidecar summary/counts plus Data Availability. |
+| `search_eap_commands` | `mcp-query.v1` envelope | Requires `RENDERDOC_EAP_SIDECAR_ALLOWLIST`; returns bounded command summaries for query/pass/resource/material/shader/pipeline filters. |
+| `get_eap_rule_results` | `mcp-query.v1` envelope | Requires `RENDERDOC_EAP_SIDECAR_ALLOWLIST`; returns bounded summaries from existing `rules.results`. |
 
 `load_eap_sidecar` success shape:
 
@@ -417,6 +420,9 @@ Rules:
 - The full sidecar payload is not returned by default.
 - Loader-specific errors are preserved in `error.details.sidecar_code`.
 - Empty or missing `RENDERDOC_EAP_SIDECAR_ALLOWLIST` returns `sidecar_code=not_allowed`.
+- Current acceptance is limited to synthetic fixtures under `tools/eap_validator/fixtures/`.
+- A real EAP capture is not considered connected until a future bound `<capture>.rdc` plus
+  `<capture>.rmeta.json` pair passes validator/rules/MCP summary/search gates.
 
 ## Validation
 
