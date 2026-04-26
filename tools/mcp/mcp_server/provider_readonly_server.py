@@ -6,8 +6,12 @@ from providers import ProviderContext, build_default_registry  # type: ignore
 
 from .provider_tools import (
     DEFAULT_MAX_BYTES,
+    DEFAULT_SEARCH_LIMIT,
+    get_eap_rule_results_envelope,
     load_eap_sidecar_envelope,
     parse_allowlist_env,
+    search_eap_commands_envelope,
+    summarize_eap_sidecar_envelope,
 )
 
 
@@ -39,6 +43,54 @@ def create_mcp_server(
     def load_eap_sidecar(path: str, max_bytes: int = DEFAULT_MAX_BYTES) -> dict:
         return load_eap_sidecar_envelope(
             path,
+            allowlist_dirs=parse_allowlist_env(env),
+            max_bytes=max_bytes,
+        )
+
+    @mcp.tool()
+    def summarize_eap_sidecar(path: str, max_bytes: int = DEFAULT_MAX_BYTES) -> dict:
+        return summarize_eap_sidecar_envelope(
+            path,
+            allowlist_dirs=parse_allowlist_env(env),
+            max_bytes=max_bytes,
+        )
+
+    @mcp.tool()
+    def search_eap_commands(
+        path: str,
+        query: str = "",
+        pass_id: str = "",
+        resource_id: str = "",
+        material_id: str = "",
+        shader_id: str = "",
+        pipeline_id: str = "",
+        limit: int = DEFAULT_SEARCH_LIMIT,
+        max_bytes: int = DEFAULT_MAX_BYTES,
+    ) -> dict:
+        return search_eap_commands_envelope(
+            path,
+            query=query,
+            pass_id=pass_id,
+            resource_id=resource_id,
+            material_id=material_id,
+            shader_id=shader_id,
+            pipeline_id=pipeline_id,
+            limit=limit,
+            allowlist_dirs=parse_allowlist_env(env),
+            max_bytes=max_bytes,
+        )
+
+    @mcp.tool()
+    def get_eap_rule_results(
+        path: str,
+        severity: str = "",
+        limit: int = DEFAULT_SEARCH_LIMIT,
+        max_bytes: int = DEFAULT_MAX_BYTES,
+    ) -> dict:
+        return get_eap_rule_results_envelope(
+            path,
+            severity=severity,
+            limit=limit,
             allowlist_dirs=parse_allowlist_env(env),
             max_bytes=max_bytes,
         )

@@ -315,24 +315,33 @@ Implemented Phase 4 tool names:
 | --- | --- | --- | --- |
 | Tool | `get_data_availability` | `tools/mcp/mcp_server/provider_readonly_server.py` | Stateless default availability. Does not read files. |
 | Tool | `load_eap_sidecar` | `tools/mcp/mcp_server/provider_readonly_server.py` | Requires `RENDERDOC_EAP_SIDECAR_ALLOWLIST`; returns sidecar summary plus Data Availability. |
+| Tool | `summarize_eap_sidecar` | `tools/mcp/mcp_server/provider_readonly_server.py` | Requires `RENDERDOC_EAP_SIDECAR_ALLOWLIST`; returns synthetic-fixture-compatible sidecar counts, summary, and Data Availability. |
+| Tool | `search_eap_commands` | `tools/mcp/mcp_server/provider_readonly_server.py` | Requires `RENDERDOC_EAP_SIDECAR_ALLOWLIST`; searches command summaries by query/pass/resource/material/shader/pipeline filters. |
+| Tool | `get_eap_rule_results` | `tools/mcp/mcp_server/provider_readonly_server.py` | Requires `RENDERDOC_EAP_SIDECAR_ALLOWLIST`; returns existing `rules.results` summaries and optional severity filtering. |
 
 Implementation anchors:
 
 - `tools/mcp/mcp_server/provider_tools.py` maps `load_sidecar()` success/failure into
-  `mcp-query.v1` envelopes.
+  `mcp-query.v1` envelopes for load/summary/search/rule-result consumption.
+- `tools/mcp/mcp_server/eap_sidecar_consumption.py` keeps synthetic-fixture-compatible summary,
+  command search, and rule-result projection as pure JSON helpers.
 - `tools/mcp/mcp_server/provider_readonly_server.py` registers read-only provider tools through
   FastMCP.
 - `tools/mcp/tests/test_provider_mcp_tools.py` covers adapter envelope behavior and allowlist
-  parsing.
+  parsing, including synthetic fixture summary/search/rule-result consumption.
 - `tools/mcp/tests/test_provider_readonly_server.py` covers registration without importing real
-  FastMCP.
+  FastMCP and synthetic fixture consumption through registered tools.
 
 Boundary:
 
 - This server is separate from `scripts/rdc_mcp/rdc_mcp.py`.
 - `load_eap_sidecar` returns a summary and Data Availability, not raw full sidecar JSON.
+- `summarize_eap_sidecar`, `search_eap_commands`, and `get_eap_rule_results` consume one explicit
+  sidecar path and return bounded summaries; they do not expose the raw full sidecar payload.
 - Loader errors are mapped to `mcp-query.v1` while preserving `error.details.sidecar_code`.
 - Empty MCP allowlist is rejected with `sidecar_code=not_allowed`.
+- Current acceptance is synthetic-fixture-only. No real engine-produced EAP capture is connected in
+  this repository.
 
 ## Test Matrix
 
@@ -353,6 +362,10 @@ Boundary:
 | Path outside allowlist | `load_sidecar()` raises `not_allowed` after resolving the path. |
 | MCP `load_eap_sidecar` without configured allowlist | `ok=false`, `error.code=invalid_argument`, `error.details.sidecar_code=not_allowed`. |
 | MCP `load_eap_sidecar` with valid allowlisted sidecar | `ok=true`, `source=provider_readonly`, sidecar summary and Data Availability are returned, raw sidecar payload is omitted. |
+| MCP `summarize_eap_sidecar` with `tools/eap_validator/fixtures/valid_fullish.rmeta.json` | `ok=true`, counts summarize the synthetic render graph, commands, resources, shaders, pipeline, rules, diagnostics, and security sections. |
+| MCP `search_eap_commands` with `valid_fullish.rmeta.json` | `ok=true`, pass/resource filters return bounded command summaries. |
+| MCP `get_eap_rule_results` with `valid_fullish.rmeta.json` | `ok=true`, severity filters return bounded `rules.results` summaries. |
+| Future real EAP capture gate | Requires a bound `<capture>.rdc` plus `<capture>.rmeta.json` pair, then validator/rules/MCP summary/search must all pass before claiming real EAP capture connectivity. |
 
 ## Risks And Mitigations
 
@@ -369,4 +382,6 @@ Boundary:
 
 Future work should decide whether the read-only server needs persistent context IDs, richer
 ProviderContext inputs, or a config file for allowlist roots. Do not add full report generation or
-legacy `.rdc` open/analyze behavior to this provider server.
+legacy `.rdc` open/analyze behavior to this provider server. Do not claim real EAP capture support
+until an engine-produced, bound `.rdc` plus `.rmeta.json` sample passes validator/rules/MCP
+summary/search gates.

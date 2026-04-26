@@ -17,6 +17,13 @@
 
 没有这些前置，不要做 MCP。否则大模型只能猜。
 
+当前 RenderDoc repo 的实现只推进 read-only MCP consumption 的 tooling 子集：它只读取用户显式传入且
+allowlist 允许的 `.rmeta.json`，并用 synthetic fixtures 验收 summary/search/rule-result 行为。
+本 repo 没有真实 engine-produced `capture.rmeta.json`，也不要声明真实 EAP capture 已接通。
+
+真实验收 gate 是未来拿到同名或明确绑定的 `<capture>.rdc` + `<capture>.rmeta.json` 后，validator、
+rules、MCP summary、MCP search 全部通过。
+
 ---
 
 ## 2. 安全原则
@@ -67,6 +74,18 @@ material://{material_id}/summary
 | `run_rules` | config optional | rule results |
 | `export_context` | redaction, limits | compressed LLM context |
 | `explain_rule_evidence` | rule_id | evidence summary |
+
+Current RenderDoc tooling names are intentionally explicit and stateless:
+
+| Tool | 输入 | 当前验收 |
+|---|---|---|
+| `load_eap_sidecar` | path, max_bytes | Synthetic fixture load + Data Availability |
+| `summarize_eap_sidecar` | path, max_bytes | Synthetic fixture counts/summary |
+| `search_eap_commands` | path, query/pass/resource/material/shader/pipeline, limit | Synthetic fixture command search |
+| `get_eap_rule_results` | path, severity, limit | Synthetic fixture `rules.results` filter |
+
+These tools do not persist capture state, do not parse `.rdc`, and do not expose the raw full sidecar
+payload.
 
 禁止首版实现：
 
